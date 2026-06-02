@@ -3,7 +3,6 @@ package net.sourceforge.kolmafia.adventure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +30,7 @@ class AdventureManager(
     private var currentJob: Job? = null
 
     fun runAdventures(location: AdventureLocation, turns: Int, scope: CoroutineScope): Job =
-        scope.launch(SupervisorJob()) {
+        scope.launch {
             _isRunning.value = true
             try {
                 repeat(turns) {
@@ -76,11 +75,11 @@ class AdventureManager(
         }
     }
 
-    private suspend fun resolveCombat(location: AdventureLocation): AdventureResult.Combat {
+    private suspend fun resolveCombat(location: AdventureLocation): AdventureResult.Combat? {
         val macro = MacroStrategy.forLocation(location.id, preferences)
         val fightHtml = fightRequest.fight(macro).getOrElse {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(it)))
-            return AdventureResult.Combat("Unknown", won = false)
+            return null
         }
         val result = AdventureParser.parseFightResult(fightHtml)
         eventBus.emit(GameEvent.CombatFinished(result.won, result.monster))
