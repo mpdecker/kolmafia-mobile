@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -24,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import net.sourceforge.kolmafia.adventure.AdventureLocation
@@ -44,6 +46,7 @@ fun AdventureScreen() {
     var zoneName by remember { mutableStateOf("") }
     var turnsText by remember { mutableStateOf("10") }
     var stopMessage by remember { mutableStateOf<String?>(null) }
+    var showZoneBrowser by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         eventBus.events.collect { event ->
@@ -58,13 +61,21 @@ fun AdventureScreen() {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Adventure", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = zoneId,
-            onValueChange = { zoneId = it },
-            label = { Text("Zone ID (snarfblat)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = zoneId,
+                onValueChange = { zoneId = it },
+                label = { Text("Zone ID (snarfblat)") },
+                modifier = Modifier.weight(1f),
+                singleLine = true
+            )
+            Spacer(Modifier.width(8.dp))
+            TextButton(
+                onClick = { showZoneBrowser = true },
+                modifier = Modifier.align(Alignment.CenterVertically)
+            ) { Text("Browse") }
+        }
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = zoneName,
@@ -82,6 +93,7 @@ fun AdventureScreen() {
             singleLine = true
         )
         Spacer(Modifier.height(12.dp))
+
         Row {
             Button(
                 onClick = {
@@ -98,10 +110,12 @@ fun AdventureScreen() {
                 enabled = isRunning
             ) { Text("Stop") }
         }
+
         stopMessage?.let {
             Spacer(Modifier.height(8.dp))
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
+
         Spacer(Modifier.height(12.dp))
         Text("Results (${results.size} turns)", style = MaterialTheme.typography.labelLarge)
         LazyColumn {
@@ -109,5 +123,15 @@ fun AdventureScreen() {
                 CombatResultCard(result, modifier = Modifier.fillMaxWidth())
             }
         }
+    }
+
+    if (showZoneBrowser) {
+        ZoneBrowserSheet(
+            onLocationSelected = { location ->
+                zoneId = location.snarfblat
+                zoneName = location.name
+            },
+            onDismiss = { showZoneBrowser = false }
+        )
     }
 }
