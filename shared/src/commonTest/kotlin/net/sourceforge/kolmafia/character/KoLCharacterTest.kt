@@ -83,7 +83,7 @@ class KoLCharacterTest {
                 moxexp = "9012",
                 sign = "Mongoose",
                 path = "Standard",
-                roninleft = "0",
+                roninleft = "17",
                 hardcore = "1"
             )
         )
@@ -96,7 +96,7 @@ class KoLCharacterTest {
         assertEquals(9012, state.moxieSubpoints)
         assertEquals("Mongoose", state.zodiacSign)
         assertEquals("Standard", state.challengePath)
-        assertEquals(0, state.roninLeft)
+        assertEquals(17, state.roninLeft)
         assertTrue(state.isHardcore)
     }
 }

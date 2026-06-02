@@ -20,7 +20,7 @@ data class CharacterApiResponse(
     val fullness: String = "0",
     val drunk: String = "0",
     val spleen: String = "0",
-    // Combat stats (base adjusted values, all returned as strings)
+    // Combat stats (buffed/modified values as returned by the KoL API, all strings)
     val mus: String = "0",
     val musexp: String = "0",
     val mys: String = "0",
