@@ -104,8 +104,8 @@ fun CharacterScreen(character: KoLCharacter) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showEffects = true }
-                .padding(vertical = 4.dp),
+                .clickable(onClickLabel = "Open active effects") { showEffects = true }
+                .padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text("Active Effects", style = MaterialTheme.typography.labelLarge,
