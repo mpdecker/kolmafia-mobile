@@ -126,4 +126,21 @@ class ChatParserTest {
         assertEquals("Bob", result.messages[0].recipient)
         assertEquals("Alice", result.messages[0].sender)
     }
+
+    @Test
+    fun parse_malformedMessageElement_skipsItKeepsOthers() {
+        // The middle element is a JSON array (not an object), which causes .jsonObject to throw.
+        // The parser should skip it via runCatching and keep the two valid messages.
+        val json = """
+            {"msgs":[
+              {"type":"public","who":{"id":"1","name":"A"},"channel":"clan","msg":"good","time":"1000"},
+              [1,2,3],
+              {"type":"public","who":{"id":"2","name":"B"},"channel":"clan","msg":"also good","time":"2000"}
+            ],"last":"2000","delay":3000}
+        """.trimIndent()
+        val result = ChatParser.parse(json)
+        assertEquals(2, result.messages.size)
+        assertEquals("A", result.messages[0].sender)
+        assertEquals("B", result.messages[1].sender)
+    }
 }
