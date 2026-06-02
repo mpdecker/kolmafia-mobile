@@ -19,5 +19,17 @@ data class CharacterApiResponse(
     val adventures: String = "0",
     val fullness: String = "0",
     val drunk: String = "0",
-    val spleen: String = "0"
+    val spleen: String = "0",
+    // Combat stats (base adjusted values, all returned as strings)
+    val mus: String = "0",
+    val musexp: String = "0",
+    val mys: String = "0",
+    val mysexp: String = "0",
+    val mox: String = "0",
+    val moxexp: String = "0",
+    // Character identity
+    val sign: String = "",
+    val path: String = "",
+    val roninleft: String = "0",
+    val hardcore: String = "0"
 )

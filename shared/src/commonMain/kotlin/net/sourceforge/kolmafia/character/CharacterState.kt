@@ -14,5 +14,17 @@ data class CharacterState(
     val fullness: Int = 0,
     val inebriety: Int = 0,
     val spleenUsed: Int = 0,
+    // Combat stats
+    val baseMusc: Int = 0,
+    val muscSubpoints: Int = 0,
+    val baseMyst: Int = 0,
+    val mystSubpoints: Int = 0,
+    val baseMoxie: Int = 0,
+    val moxieSubpoints: Int = 0,
+    // Identity
+    val zodiacSign: String = "",
+    val challengePath: String = "",
+    val roninLeft: Int = 0,
+    val isHardcore: Boolean = false,
     val isLoggedIn: Boolean = false
 )

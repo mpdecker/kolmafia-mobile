@@ -68,4 +68,35 @@ class KoLCharacterTest {
         assertEquals("", state.name)
         assertFalse(state.isLoggedIn)
     }
+
+    @Test
+    fun updateFromApiResponse_populatesStatFields() {
+        val character = KoLCharacter()
+        character.updateFromApiResponse(
+            CharacterApiResponse(
+                name = "StatPlayer",
+                mus = "80",
+                musexp = "1234",
+                mys = "120",
+                mysexp = "5678",
+                mox = "100",
+                moxexp = "9012",
+                sign = "Mongoose",
+                path = "Standard",
+                roninleft = "0",
+                hardcore = "1"
+            )
+        )
+        val state = character.state.value
+        assertEquals(80, state.baseMusc)
+        assertEquals(1234, state.muscSubpoints)
+        assertEquals(120, state.baseMyst)
+        assertEquals(5678, state.mystSubpoints)
+        assertEquals(100, state.baseMoxie)
+        assertEquals(9012, state.moxieSubpoints)
+        assertEquals("Mongoose", state.zodiacSign)
+        assertEquals("Standard", state.challengePath)
+        assertEquals(0, state.roninLeft)
+        assertTrue(state.isHardcore)
+    }
 }

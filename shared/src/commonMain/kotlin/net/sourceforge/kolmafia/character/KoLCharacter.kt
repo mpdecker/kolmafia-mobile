@@ -23,6 +23,16 @@ class KoLCharacter {
             fullness = response.fullness.toIntOrNull() ?: 0,
             inebriety = response.drunk.toIntOrNull() ?: 0,
             spleenUsed = response.spleen.toIntOrNull() ?: 0,
+            baseMusc = response.mus.toIntOrNull() ?: 0,
+            muscSubpoints = response.musexp.toIntOrNull() ?: 0,
+            baseMyst = response.mys.toIntOrNull() ?: 0,
+            mystSubpoints = response.mysexp.toIntOrNull() ?: 0,
+            baseMoxie = response.mox.toIntOrNull() ?: 0,
+            moxieSubpoints = response.moxexp.toIntOrNull() ?: 0,
+            zodiacSign = response.sign,
+            challengePath = response.path,
+            roninLeft = response.roninleft.toIntOrNull() ?: 0,
+            isHardcore = response.hardcore == "1",
             isLoggedIn = true
         )
     }
