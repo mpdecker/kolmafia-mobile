@@ -3,9 +3,8 @@ package net.sourceforge.kolmafia.adventure
 object AdventureParser {
     private val ITEM_GAINED = Regex("""You acquire an item:\s*<b>(.*?)</b>""")
     private val MEAT_GAINED = Regex("""You gain ([\d,]+) Meat""")
-    private val STAT_GAINED = Regex("""You gain ([\d,]+) \w+ \(\d+ exp\)""")
+    private val STAT_GAINED = Regex("""You gain ([\d,]+) (\w+) \(\d+ exp\)""")
     private val WIN_PATTERN = Regex("""You win the fight""")
-    private val LOSS_PATTERN = Regex("""You lose the fight|You are beaten unconscious""")
     private val CHOICE_ID = Regex("""name="whichchoice"\s*value="(\d+)"""")
     private val CHOICE_OPTION = Regex("""option=(\d+)">(.*?)</a>""")
     private val MONSTER_NAME = Regex("""<span id='monname'>(.*?)</span>""")
@@ -50,6 +49,6 @@ object AdventureParser {
     private fun parseStats(html: String): Map<String, Int> =
         STAT_GAINED.findAll(html).associate { m ->
             val value = m.groupValues[1].replace(",", "").toIntOrNull() ?: 0
-            "stat" to value
+            m.groupValues[2] to value
         }
 }

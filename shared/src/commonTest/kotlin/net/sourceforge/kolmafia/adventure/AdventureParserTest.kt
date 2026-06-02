@@ -69,6 +69,7 @@ class AdventureParserTest {
         assertEquals("fluffy bunny", result.monster)
         assertEquals(15, result.meatGained)
         assertTrue(result.itemsGained.contains("bunny liver"))
+        assertEquals(mapOf("Beefiness" to 12), result.statsGained)
     }
 
     @Test
