@@ -1,6 +1,11 @@
 package net.sourceforge.kolmafia.session
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
@@ -16,8 +21,12 @@ class SessionManager(
     private val loginRequest: LoginRequest,
     private val characterRequest: CharacterRequest,
     private val character: KoLCharacter,
-    private val preferences: Preferences
+    private val preferences: Preferences,
+    private val inventoryManager: InventoryManager,
+    private val familiarManager: FamiliarManager
 ) {
+    private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
     suspend fun login(username: String, password: String): SessionState {
         return when (val loginResult = loginRequest.login(username, password)) {
             is LoginResult.Success -> {
@@ -25,6 +34,8 @@ class SessionManager(
                 characterRequest.fetchCharacterState().fold(
                     onSuccess = { apiResponse ->
                         character.updateFromApiResponse(apiResponse)
+                        inventoryManager.initialize(appScope)
+                        familiarManager.initialize(appScope)
                         SessionState.LoggedIn
                     },
                     onFailure = { error ->

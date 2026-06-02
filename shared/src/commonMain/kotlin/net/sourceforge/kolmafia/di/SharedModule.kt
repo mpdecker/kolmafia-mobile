@@ -1,8 +1,15 @@
 package net.sourceforge.kolmafia.di
 
 import io.ktor.client.*
+import net.sourceforge.kolmafia.adventure.AdventureManager
+import net.sourceforge.kolmafia.adventure.AdventureRequest
+import net.sourceforge.kolmafia.adventure.ChoiceRequest
+import net.sourceforge.kolmafia.adventure.FightRequest
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.http.createKoLHttpClient
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
@@ -13,8 +20,15 @@ import org.koin.dsl.module
 val sharedModule = module {
     single<HttpClient> { createKoLHttpClient() }
     single { KoLCharacter() }
-    single { Preferences(get()) }   // Settings provided by platformModule
+    single { Preferences(get()) }
+    single { GameEventBus() }
     singleOf(::LoginRequest)
     singleOf(::CharacterRequest)
+    singleOf(::AdventureRequest)
+    singleOf(::FightRequest)
+    singleOf(::ChoiceRequest)
+    singleOf(::AdventureManager)
+    singleOf(::InventoryManager)
+    singleOf(::FamiliarManager)
     singleOf(::SessionManager)
 }
