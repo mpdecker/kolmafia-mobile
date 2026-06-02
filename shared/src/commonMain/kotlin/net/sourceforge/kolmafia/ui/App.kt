@@ -1,9 +1,10 @@
 package net.sourceforge.kolmafia.ui
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +26,7 @@ import net.sourceforge.kolmafia.ui.familiar.FamiliarScreen
 import net.sourceforge.kolmafia.ui.inventory.InventoryScreen
 import net.sourceforge.kolmafia.ui.login.LoginScreen
 import net.sourceforge.kolmafia.ui.login.LoginViewModel
+import net.sourceforge.kolmafia.ui.skills.SkillsScreen
 import org.koin.compose.koinInject
 
 @Composable
@@ -66,6 +68,12 @@ fun App() {
                     NavigationBarItem(
                         selected = selectedTab == 3,
                         onClick = { selectedTab = 3 },
+                        icon = { Icon(Icons.Default.AutoFixHigh, "Skills") },
+                        label = { Text("Skills") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 },
                         icon = { Icon(Icons.Default.Favorite, "Familiars") },
                         label = { Text("Familiars") }
                     )
@@ -76,7 +84,8 @@ fun App() {
                 0 -> CharacterScreen(character = character)
                 1 -> AdventureScreen()
                 2 -> InventoryScreen()
-                3 -> FamiliarScreen()
+                3 -> SkillsScreen()
+                4 -> FamiliarScreen()
             }
         }
     }
