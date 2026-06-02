@@ -132,6 +132,16 @@ Combat macros are stored in `Preferences` and sent verbatim to `fight.php` — t
 - KoL server rejects the macro (parse error in fight response)
 - Unexpected HTTP response (non-2xx, unexpected redirect)
 
+`StopReason` is a sealed class: `UserCancelled`, `NoAdventuresLeft`, `CharacterDeath`, `MacroError(message: String)`, `NetworkError(cause: Throwable)`.
+
+### Choice Resolution Strategy
+
+For choice adventures, the option is selected by lookup order:
+1. Per-choice override: `Preferences.getString("choiceAdventure<id>")` — value is the option number as a string
+2. Default: option `1`
+
+This mirrors KoLmafia's `choiceAdventureX` preference system. The macro editor UI includes a "Choice defaults" section where players can configure per-choice overrides.
+
 ---
 
 ## Inventory Management
@@ -161,6 +171,8 @@ Both are merged into `InventoryState`.
 
 After each mutating operation, `InventoryManager` re-fetches `api.php?what=inventory` to sync state, then emits the relevant `GameEvent` (`ItemConsumed`, `ItemEquipped`, `ItemDiscarded`, `ItemCrafted`, `MallPurchase`).
 
+After each turn's adventure result is parsed, `AdventureManager` emits `ItemObtained` events for each item dropped. `InventoryManager` subscribes to `ItemObtained` and `ItemConsumed` to know when to re-fetch inventory without polling.
+
 **Item types** are inferred from the API response category field: `food`, `drink`, `spleen`, `weapon`, `offhand`, `hat`, `shirt`, `pants`, `accessory`, `familiar`, `usable`, `multiusable`, `reusable`, `other`. Item type determines which action buttons appear in `ItemDetailSheet`.
 
 ---
@@ -172,6 +184,8 @@ After each mutating operation, `InventoryManager` re-fetches `api.php?what=inven
 `FamiliarManager` fetches the full terrarium on login via `GET api.php?what=familiars`, which returns a JSON array of all owned familiars. The active familiar is identified by the `active` field.
 
 ### FamiliarData
+
+`FamiliarData.equipment` uses `InventoryItem` from the `inventory` package — this is an intentional cross-domain dependency since familiar equipment is a subset of inventory items.
 
 ```kotlin
 data class FamiliarData(
