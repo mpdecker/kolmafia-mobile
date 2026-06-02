@@ -4,12 +4,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.LoginResult
+import net.sourceforge.kolmafia.skill.SkillManager
 
 sealed class SessionState {
     object LoggedOut : SessionState()
@@ -23,7 +25,9 @@ class SessionManager(
     private val character: KoLCharacter,
     private val preferences: Preferences,
     private val inventoryManager: InventoryManager,
-    private val familiarManager: FamiliarManager
+    private val familiarManager: FamiliarManager,
+    private val skillManager: SkillManager,
+    private val effectManager: EffectManager
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -36,6 +40,8 @@ class SessionManager(
                         character.updateFromApiResponse(apiResponse)
                         inventoryManager.initialize(appScope)
                         familiarManager.initialize(appScope)
+                        skillManager.initialize(appScope)
+                        effectManager.initialize(appScope)
                         SessionState.LoggedIn
                     },
                     onFailure = { error ->

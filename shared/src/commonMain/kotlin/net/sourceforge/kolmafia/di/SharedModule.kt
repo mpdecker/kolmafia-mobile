@@ -6,6 +6,7 @@ import net.sourceforge.kolmafia.adventure.AdventureRequest
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.adventure.FightRequest
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.http.createKoLHttpClient
@@ -14,6 +15,8 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.session.SessionManager
+import net.sourceforge.kolmafia.skill.SkillCastRequest
+import net.sourceforge.kolmafia.skill.SkillManager
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
@@ -30,5 +33,8 @@ val sharedModule = module {
     singleOf(::AdventureManager)
     singleOf(::InventoryManager)
     singleOf(::FamiliarManager)
+    singleOf(::SkillCastRequest)
+    singleOf(::SkillManager)
+    singleOf(::EffectManager)
     singleOf(::SessionManager)
 }
