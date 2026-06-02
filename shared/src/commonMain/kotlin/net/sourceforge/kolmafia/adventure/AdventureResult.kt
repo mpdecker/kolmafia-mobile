@@ -15,6 +15,6 @@ sealed class AdventureResult {
     data class Choice(
         val choiceId: Int, val encounterName: String,
         val options: List<String> = emptyList(),
-        val chosenOption: Int = 0
+        val chosenOption: Int? = null
     ) : AdventureResult()
 }
