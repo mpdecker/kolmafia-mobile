@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.chat
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -13,6 +14,7 @@ class ChatParserTest {
             { "type": "public", "who": {"id":"123","name":"Tester"},
               "channel": "clan", "msg": "hello", "time": "1717300000" },
             { "type": "private", "who": {"id":"456","name":"Other"},
+              "for": {"id":"789","name":"Me"},
               "channel": "", "msg": "hey", "time": "1717300001" }
           ],
           "last": "1717300001",
@@ -52,6 +54,12 @@ class ChatParserTest {
     }
 
     @Test
+    fun parse_setsEpochSeconds() {
+        val result = ChatParser.parse(sampleJson)
+        assertEquals(1717300000L, result.messages[0].epochSeconds)
+    }
+
+    @Test
     fun parse_emptyMsgs_returnsEmpty() {
         val json = """{"msgs":[],"last":"0","delay":3000}"""
         val result = ChatParser.parse(json)
@@ -60,13 +68,23 @@ class ChatParserTest {
     }
 
     @Test
-    fun parse_slashMeMsg_isAction() {
+    fun parse_formatField1_isAction() {
         val json = """
             {"msgs":[{"type":"public","who":{"id":"1","name":"A"},
-            "channel":"clan","msg":"/me waves","time":"1"}],"last":"1","delay":3000}
+            "channel":"clan","msg":"waves","format":"1","time":"1"}],"last":"1","delay":3000}
         """.trimIndent()
         val result = ChatParser.parse(json)
         assertTrue(result.messages[0].isAction)
+    }
+
+    @Test
+    fun parse_noFormatField_notAction() {
+        val json = """
+            {"msgs":[{"type":"public","who":{"id":"1","name":"A"},
+            "channel":"clan","msg":"hello","time":"1"}],"last":"1","delay":3000}
+        """.trimIndent()
+        val result = ChatParser.parse(json)
+        assertFalse(result.messages[0].isAction)
     }
 
     @Test
@@ -77,5 +95,35 @@ class ChatParserTest {
         """.trimIndent()
         val result = ChatParser.parse(json)
         assertTrue(result.messages.isEmpty())
+    }
+
+    @Test
+    fun parse_eventMsg_skipped() {
+        val json = """
+            {"msgs":[{"type":"event","msg":"something happened","time":"1"}],
+             "last":"1","delay":3000}
+        """.trimIndent()
+        val result = ChatParser.parse(json)
+        assertTrue(result.messages.isEmpty())
+    }
+
+    @Test
+    fun parse_malformedJson_returnsEmpty() {
+        val result = ChatParser.parse("not valid json{{")
+        assertTrue(result.messages.isEmpty())
+        assertEquals("0", result.lastTime)
+        assertEquals(3000L, result.delayMillis)
+    }
+
+    @Test
+    fun parse_privateMessage_setsRecipientFromForField() {
+        val json = """
+            {"msgs":[{"type":"private","who":{"id":"1","name":"Alice"},
+            "for":{"id":"2","name":"Bob"},"channel":"","msg":"hey","time":"1"}],
+            "last":"1","delay":3000}
+        """.trimIndent()
+        val result = ChatParser.parse(json)
+        assertEquals("Bob", result.messages[0].recipient)
+        assertEquals("Alice", result.messages[0].sender)
     }
 }
