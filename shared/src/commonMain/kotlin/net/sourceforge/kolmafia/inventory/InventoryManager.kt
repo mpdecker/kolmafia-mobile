@@ -3,6 +3,8 @@ package net.sourceforge.kolmafia.inventory
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,10 +61,13 @@ class InventoryManager(
     }
 
     suspend fun useItem(item: InventoryItem): Result<Unit> = try {
-        client.get("$KOL_BASE_URL/inv_use.php") {
-            parameter("which", "3")
-            parameter("whichitem", item.itemId.toString())
-        }
+        client.submitForm(
+            url = "$KOL_BASE_URL/inv_use.php",
+            formParameters = parameters {
+                append("which", "3")
+                append("whichitem", item.itemId.toString())
+            }
+        )
         eventBus.emit(GameEvent.ItemConsumed(item.itemId, 1))
         Result.success(Unit)
     } catch (e: Exception) {
@@ -70,11 +75,14 @@ class InventoryManager(
     }
 
     suspend fun equipItem(item: InventoryItem, slot: String): Result<Unit> = try {
-        client.get("$KOL_BASE_URL/inv_equip.php") {
-            parameter("which", "2")
-            parameter("whichitem", item.itemId.toString())
-            parameter("slot", slot)
-        }
+        client.submitForm(
+            url = "$KOL_BASE_URL/inv_equip.php",
+            formParameters = parameters {
+                append("which", "2")
+                append("whichitem", item.itemId.toString())
+                append("slot", slot)
+            }
+        )
         eventBus.emit(GameEvent.ItemEquipped(item, slot))
         Result.success(Unit)
     } catch (e: Exception) {
@@ -82,10 +90,13 @@ class InventoryManager(
     }
 
     suspend fun unequipSlot(slot: String): Result<Unit> = try {
-        client.get("$KOL_BASE_URL/inv_equip.php") {
-            parameter("action", "unequip")
-            parameter("type", slot)
-        }
+        client.submitForm(
+            url = "$KOL_BASE_URL/inv_equip.php",
+            formParameters = parameters {
+                append("action", "unequip")
+                append("type", slot)
+            }
+        )
         fetchInventory()
         Result.success(Unit)
     } catch (e: Exception) {
@@ -93,11 +104,14 @@ class InventoryManager(
     }
 
     suspend fun discardItem(item: InventoryItem, quantity: Int): Result<Unit> = try {
-        client.get("$KOL_BASE_URL/multiuse.php") {
-            parameter("action", "trash")
-            parameter("whichitem", item.itemId.toString())
-            parameter("quantity", quantity.toString())
-        }
+        client.submitForm(
+            url = "$KOL_BASE_URL/multiuse.php",
+            formParameters = parameters {
+                append("action", "trash")
+                append("whichitem", item.itemId.toString())
+                append("quantity", quantity.toString())
+            }
+        )
         eventBus.emit(GameEvent.ItemDiscarded(item.itemId, quantity))
         Result.success(Unit)
     } catch (e: Exception) {
@@ -105,12 +119,15 @@ class InventoryManager(
     }
 
     suspend fun craft(mode: CraftMode, item1Id: Int, item2Id: Int): Result<InventoryItem> = try {
-        client.get("$KOL_BASE_URL/craft.php") {
-            parameter("action", mode.apiAction)
-            if (mode == CraftMode.COMBINE) parameter("mode", "combine")
-            parameter("item1", item1Id.toString())
-            parameter("item2", item2Id.toString())
-        }
+        client.submitForm(
+            url = "$KOL_BASE_URL/craft.php",
+            formParameters = parameters {
+                append("action", mode.apiAction)
+                if (mode == CraftMode.COMBINE) append("mode", "combine")
+                append("item1", item1Id.toString())
+                append("item2", item2Id.toString())
+            }
+        )
         val placeholder = InventoryItem(-1, "Crafted item", 1, ItemType.OTHER)
         eventBus.emit(GameEvent.ItemCrafted(placeholder))
         fetchInventory()
@@ -119,25 +136,22 @@ class InventoryManager(
         Result.failure(e)
     }
 
-    suspend fun mallSearch(query: String): Result<List<MallListing>> = try {
-        // Returns HTML; parse for listings. Returns empty list until HTML parser is added.
-        client.get("$KOL_BASE_URL/mallsearch.php") {
-            parameter("searching", "Yep")
-            parameter("phrasetype", "exact")
-            parameter("pudnuggler", query)
-        }
-        Result.success(emptyList())
-    } catch (e: Exception) {
-        Result.failure(e)
+    suspend fun mallSearch(query: String): Result<List<MallListing>> {
+        // Mall search response is HTML — HTML parser not yet implemented.
+        // Returns empty list until HTML parsing is added in a future task.
+        return Result.success(emptyList())
     }
 
     suspend fun mallBuy(storeId: Int, itemId: Int, quantity: Int): Result<Unit> = try {
-        val response = client.get("$KOL_BASE_URL/mallstore.php") {
-            parameter("whichstore", storeId.toString())
-            parameter("buying", itemId.toString())
-            parameter("quantity", quantity.toString())
-        }
-        val body = response.toString()
+        val response = client.submitForm(
+            url = "$KOL_BASE_URL/mallstore.php",
+            formParameters = parameters {
+                append("whichstore", storeId.toString())
+                append("buying", itemId.toString())
+                append("quantity", quantity.toString())
+            }
+        )
+        val body = response.bodyAsText()
         when {
             body.contains("That item is not available") -> Result.failure(MallError.SoldOut)
             body.contains("You can't afford") -> Result.failure(MallError.InsufficientMeat)
