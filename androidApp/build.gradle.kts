@@ -33,4 +33,5 @@ dependencies {
     implementation(project(":shared"))
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
+    implementation(libs.androidx.activity.compose)
 }
