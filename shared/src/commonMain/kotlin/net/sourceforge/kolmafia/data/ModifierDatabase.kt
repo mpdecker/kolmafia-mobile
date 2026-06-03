@@ -32,13 +32,20 @@ object ModifierDatabase {
         loaded = true
     }
 
-    fun getItem(name: String): ModifierEntry? = get("Item", name)
-
-    fun getEffect(name: String): ModifierEntry? = get("Effect", name)
-
-    fun getSkill(name: String): ModifierEntry? = get("Skill", name)
+    fun getItem(name: String): ModifierEntry?     = get("Item",    name)
+    fun getEffect(name: String): ModifierEntry?   = get("Effect",  name)
+    fun getSkill(name: String): ModifierEntry?    = get("Skill",   name)
+    fun getSign(name: String): ModifierEntry?     = get("Sign",    name)
+    fun getPath(name: String): ModifierEntry?     = get("Path",    name)
+    fun getFamiliar(name: String): ModifierEntry? = get("Familiar",name)
+    fun getOutfit(name: String): ModifierEntry?   = get("Outfit",  name)
+    fun getZone(name: String): ModifierEntry?     = get("Zone",    name)
+    fun getLocation(name: String): ModifierEntry? = get("Loc",     name)
 
     fun get(type: String, name: String): ModifierEntry? = _byTypeAndName[type]?.get(name)
+
+    /** All known entity types present in modifiers.txt (e.g. "Item", "Effect", "Sign", "Path"). */
+    fun types(): Set<String> = _byTypeAndName.keys
 
     fun all(): List<ModifierEntry> = _allByName.values.flatten()
 }

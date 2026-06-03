@@ -53,17 +53,26 @@ class ModifierParserTest {
     // ── Expression handling ───────────────────────────────────────────────────
 
     @Test
-    fun `returns zero for bracket expressions`() {
+    fun `evaluates bracket expressions with empty context`() {
+        // effect(X) with no active effects → 0 turns → 3 + 3*min(1,0) = 3.0
         val v = ModifierParser.parse("Experience (Mysticality): [3+3*min(1,effect(X))]")
-        assertEquals(0.0, v.get(DoubleModifier.MYS_EXPERIENCE))
+        assertEquals(3.0, v.get(DoubleModifier.MYS_EXPERIENCE))
+    }
+
+    @Test
+    fun `evaluates bracket expressions with live context`() {
+        // With effect active (10 turns), min(1,10)=1 → 3+3*1 = 6.0
+        val ctx = ExpressionContext(activeEffects = mapOf("x" to 10))
+        val v = ModifierParser.parse("Experience (Mysticality): [3+3*min(1,effect(X))]", ctx)
+        assertEquals(6.0, v.get(DoubleModifier.MYS_EXPERIENCE))
     }
 
     @Test
     fun `parses mixed expression and literal`() {
-        // One real value, one expression
+        // effect(X) with empty context → 0 → 20 + 20*min(1,0) = 20.0
         val v = ModifierParser.parse("Meat Drop: [20+20*min(1,effect(X))], Muscle: +3")
-        assertEquals(0.0, v.get(DoubleModifier.MEATDROP))  // expression → 0
-        assertEquals(3.0, v.get(DoubleModifier.MUS))
+        assertEquals(20.0, v.get(DoubleModifier.MEATDROP))
+        assertEquals(3.0,  v.get(DoubleModifier.MUS))
     }
 
     // ── Boolean modifiers ─────────────────────────────────────────────────────
