@@ -52,9 +52,12 @@ fun ChatScreen(
 
     // Start polling when this screen is active; stop when removed
     DisposableEffect(Unit) {
-        chatPoller.onMessages { chatManager.dispatch(it) }
+        chatPoller.setListener { chatManager.dispatch(it) }
         chatPoller.start()
-        onDispose { chatPoller.stop() }
+        onDispose {
+            chatPoller.clearListener()
+            chatPoller.stop()
+        }
     }
 
     // Auto-scroll to newest message

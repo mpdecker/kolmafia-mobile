@@ -24,7 +24,7 @@ class ChatPollerTest {
         ],"last":"1000","delay":3000}"""
         val poller = ChatPoller(httpClient = mockClient(json))
         val received = mutableListOf<ChatMessage>()
-        poller.onMessages { received.addAll(it) }
+        poller.setListener { received.addAll(it) }
 
         poller.pollOnce()
 
@@ -38,7 +38,7 @@ class ChatPollerTest {
         val json = """{"msgs":[],"last":"500","delay":3000}"""
         val poller = ChatPoller(httpClient = mockClient(json))
         val received = mutableListOf<ChatMessage>()
-        poller.onMessages { received.addAll(it) }
+        poller.setListener { received.addAll(it) }
 
         poller.pollOnce()
 

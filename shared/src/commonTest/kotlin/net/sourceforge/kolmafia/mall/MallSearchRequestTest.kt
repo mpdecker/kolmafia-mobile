@@ -12,9 +12,11 @@ class MallSearchRequestTest {
     private val searchHtml = """
         <html><body>
         <a href="mallstore.php?whichstore=12345">Bob's Shop</a>
+        <input type="hidden" name="whichitem" value="799">
         <b>500</b> Meat<br>
         Quantity: 3<br>
         <a href="mallstore.php?whichstore=67890">Alice's Shop</a>
+        <input type="hidden" name="whichitem" value="799">
         <b>450</b> Meat<br>
         Quantity: 10<br>
         </body></html>
@@ -63,5 +65,12 @@ class MallSearchRequestTest {
         val listings = request.search(itemName = "fuzzy dice", limit = 1)
 
         assertEquals(1, listings.size)
+    }
+
+    @Test
+    fun search_parsesItemId() = runTest {
+        val engine = MockEngine { respond(searchHtml, HttpStatusCode.OK) }
+        val listings = MallSearchRequest(HttpClient(engine)).search("fuzzy dice", limit = 5)
+        assertEquals(799, listings[0].itemId)
     }
 }

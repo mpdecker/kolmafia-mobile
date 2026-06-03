@@ -30,10 +30,12 @@ class MallSearchRequest(private val client: HttpClient) {
 
     private fun parseMallHtml(html: String, limit: Int): List<MallListing> {
         val storePattern = Regex("""mallstore\.php\?whichstore=(\d+)""")
+        val itemPattern = Regex("""name="whichitem"\s+value="(\d+)"""")
         val pricePattern = Regex("""<b>(\d+)</b>\s*Meat""")
         val qtyPattern = Regex("""Quantity:\s*(\d+)""")
 
         val storeIds = storePattern.findAll(html).map { it.groupValues[1].toInt() }.toList()
+        val itemIds = itemPattern.findAll(html).map { it.groupValues[1].toInt() }.toList()
         val prices = pricePattern.findAll(html).map { it.groupValues[1].toLong() }.toList()
         val quantities = qtyPattern.findAll(html).map { it.groupValues[1].toInt() }.toList()
 
@@ -41,7 +43,9 @@ class MallSearchRequest(private val client: HttpClient) {
             val shopId = storeIds.getOrNull(i) ?: return@mapNotNull null
             val price = prices.getOrNull(i) ?: return@mapNotNull null
             val qty = quantities.getOrNull(i) ?: 0
-            MallListing(shopId = shopId, shopName = "", itemId = 0, price = price, quantity = qty)
+            val itemId = itemIds.getOrNull(i) ?: 0
+            MallListing(shopId = shopId, shopName = "", itemId = itemId,
+                price = price, quantity = qty)
         }
     }
 }

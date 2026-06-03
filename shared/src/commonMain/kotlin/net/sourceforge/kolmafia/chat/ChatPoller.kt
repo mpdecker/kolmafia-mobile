@@ -12,13 +12,17 @@ class ChatPoller(private val httpClient: HttpClient) {
         private set
 
     @Volatile
-    private var listeners: List<(List<ChatMessage>) -> Unit> = emptyList()
+    private var listener: ((List<ChatMessage>) -> Unit)? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var pollingJob: Job? = null
 
-    fun onMessages(listener: (List<ChatMessage>) -> Unit) {
-        listeners = listeners + listener
+    fun setListener(l: (List<ChatMessage>) -> Unit) {
+        listener = l
+    }
+
+    fun clearListener() {
+        listener = null
     }
 
     suspend fun pollOnce() {
@@ -47,11 +51,12 @@ class ChatPoller(private val httpClient: HttpClient) {
                 .bodyAsText()
             val response = ChatParser.parse(body)
             lastTime = response.lastTime
-            val snapshot = listeners
             if (response.messages.isNotEmpty()) {
-                snapshot.forEach { it(response.messages) }
+                listener?.invoke(response.messages)
             }
             response.delayMillis
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             RETRY_DELAY_MS
         }
