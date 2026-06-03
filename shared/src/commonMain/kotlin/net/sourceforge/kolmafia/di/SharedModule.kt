@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.di
 
 import io.ktor.client.*
 import net.sourceforge.kolmafia.adventure.AdventureManager
+import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.adventure.AdventureRequest
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
@@ -35,6 +36,7 @@ import org.koin.dsl.module
 
 val sharedModule = module {
     single { GameDatabase() }
+    single { DailyResourceTracker() }
     single<HttpClient> { createKoLHttpClient() }
     single { KoLCharacter() }
     single { Preferences(get()) }

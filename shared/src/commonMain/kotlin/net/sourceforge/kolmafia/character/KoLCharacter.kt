@@ -17,6 +17,7 @@ class KoLCharacter {
             characterClass = response.classId.toIntOrNull() ?: 0,
             zodiacSign = response.sign,
             challengePath = response.path,
+            ascensionNumber = response.ascensions.toIntOrNull() ?: 0,
 
             // HP / MP
             currentHp = response.hp.toIntOrNull() ?: 0,
@@ -32,7 +33,7 @@ class KoLCharacter {
             baseMoxie = response.mox.toIntOrNull() ?: 0,
             moxieSubpoints = response.moxexp.toIntOrNull() ?: 0,
 
-            // Buffed stats — fall back to base if API doesn't send buffed values
+            // Buffed stats — fall back to base if buffed values absent
             buffedMusc = response.buffedmus.toIntOrNull()
                 ?: response.mus.toIntOrNull() ?: 0,
             buffedMyst = response.buffedmys.toIntOrNull()
@@ -60,8 +61,18 @@ class KoLCharacter {
             // Ascension / mode
             roninLeft = response.roninleft.toIntOrNull() ?: 0,
             isHardcore = response.hardcore == "1",
-            ascensionNumber = response.ascensions.toIntOrNull() ?: 0,
             limitMode = response.limitmode,
+
+            // Familiar
+            familiarId = response.familiar.toIntOrNull() ?: 0,
+            familiarName = response.familiarname,
+            familiarWeight = response.familiarweight.toIntOrNull() ?: 0,
+            familiarExp = response.familiarexp.toIntOrNull() ?: 0,
+
+            // Moon
+            moonPhase = response.moonphase.toIntOrNull() ?: 0,
+            moonSign = response.moonsign.toIntOrNull() ?: 0,
+            moonDay = response.moonday.toIntOrNull() ?: 0,
 
             // Equipment
             equipment = buildEquipmentMap(response),
@@ -70,22 +81,62 @@ class KoLCharacter {
         )
     }
 
+    // Merge partial updates without overwriting fields not present in the payload.
+    // Useful when only HP/MP changes (e.g. after combat) rather than a full refresh.
+    fun updateHpMp(currentHp: Int, maxHp: Int, currentMp: Int, maxMp: Int) {
+        _state.value = _state.value.copy(
+            currentHp = currentHp, maxHp = maxHp,
+            currentMp = currentMp, maxMp = maxMp
+        )
+    }
+
+    fun updateMeat(meat: Int) {
+        _state.value = _state.value.copy(meat = meat)
+    }
+
+    fun updateAdventuresLeft(adventures: Int) {
+        _state.value = _state.value.copy(adventuresLeft = adventures)
+    }
+
+    fun updateConsumables(fullness: Int, inebriety: Int, spleenUsed: Int) {
+        _state.value = _state.value.copy(
+            fullness = fullness, inebriety = inebriety, spleenUsed = spleenUsed
+        )
+    }
+
+    fun updateFamiliar(id: Int, name: String, weight: Int, exp: Int) {
+        _state.value = _state.value.copy(
+            familiarId = id, familiarName = name,
+            familiarWeight = weight, familiarExp = exp
+        )
+    }
+
+    fun updateEquipment(slot: EquipmentSlot, itemName: String) {
+        val updated = _state.value.equipment.toMutableMap()
+        if (itemName.isBlank()) updated.remove(slot) else updated[slot] = itemName
+        _state.value = _state.value.copy(equipment = updated)
+    }
+
+    fun setIntrinsics(names: List<String>) {
+        _state.value = _state.value.copy(intrinsics = names)
+    }
+
     fun reset() {
         _state.value = CharacterState()
     }
 
     private fun buildEquipmentMap(r: CharacterApiResponse): Map<EquipmentSlot, String> {
         val map = mutableMapOf<EquipmentSlot, String>()
-        if (r.hat.isNotBlank())         map[EquipmentSlot.HAT]       = r.hat
-        if (r.weapon.isNotBlank())      map[EquipmentSlot.WEAPON]    = r.weapon
-        if (r.offhand.isNotBlank())     map[EquipmentSlot.OFFHAND]   = r.offhand
-        if (r.shirt.isNotBlank())       map[EquipmentSlot.SHIRT]     = r.shirt
-        if (r.pants.isNotBlank())       map[EquipmentSlot.PANTS]     = r.pants
-        if (r.acc1.isNotBlank())        map[EquipmentSlot.ACC1]      = r.acc1
-        if (r.acc2.isNotBlank())        map[EquipmentSlot.ACC2]      = r.acc2
-        if (r.acc3.isNotBlank())        map[EquipmentSlot.ACC3]      = r.acc3
-        if (r.familiarequip.isNotBlank()) map[EquipmentSlot.FAMILIAR] = r.familiarequip
-        if (r.container.isNotBlank())   map[EquipmentSlot.CONTAINER] = r.container
+        if (r.hat.isNotBlank())           map[EquipmentSlot.HAT]       = r.hat
+        if (r.weapon.isNotBlank())        map[EquipmentSlot.WEAPON]    = r.weapon
+        if (r.offhand.isNotBlank())       map[EquipmentSlot.OFFHAND]   = r.offhand
+        if (r.shirt.isNotBlank())         map[EquipmentSlot.SHIRT]     = r.shirt
+        if (r.pants.isNotBlank())         map[EquipmentSlot.PANTS]     = r.pants
+        if (r.acc1.isNotBlank())          map[EquipmentSlot.ACC1]      = r.acc1
+        if (r.acc2.isNotBlank())          map[EquipmentSlot.ACC2]      = r.acc2
+        if (r.acc3.isNotBlank())          map[EquipmentSlot.ACC3]      = r.acc3
+        if (r.familiarequip.isNotBlank()) map[EquipmentSlot.FAMILIAR]  = r.familiarequip
+        if (r.container.isNotBlank())     map[EquipmentSlot.CONTAINER] = r.container
         return map
     }
 }

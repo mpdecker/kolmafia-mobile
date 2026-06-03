@@ -8,6 +8,8 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.character.DailyResourceTracker
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
@@ -29,7 +31,9 @@ class SessionManager(
     private val familiarManager: FamiliarManager,
     private val skillManager: SkillManager,
     private val effectManager: EffectManager,
-    private val scriptManager: ScriptManager
+    private val scriptManager: ScriptManager,
+    private val gameDatabase: GameDatabase,
+    private val dailyResourceTracker: DailyResourceTracker
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -37,9 +41,11 @@ class SessionManager(
         return when (val loginResult = loginRequest.login(username, password)) {
             is LoginResult.Success -> {
                 preferences.setString(Preferences.LAST_USERNAME, username)
+                gameDatabase.load()
                 characterRequest.fetchCharacterState().fold(
                     onSuccess = { apiResponse ->
                         character.updateFromApiResponse(apiResponse)
+                        dailyResourceTracker.syncDay(character.state.value.dayCount)
                         inventoryManager.initialize(appScope)
                         familiarManager.initialize(appScope)
                         skillManager.initialize(appScope)
