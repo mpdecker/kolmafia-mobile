@@ -50,9 +50,8 @@ class ChoiceUtilitiesTest {
             Leave it
         """.trimIndent()
         val choices = ChoiceUtilities.parseChoices(html)
-        // With the [^<]* pattern, text after the submit tag before the next < is captured.
-        // Note: in this HTML, the text is on the next line after the input, so [^<]* captures
-        // "\n        Pick up the sapling\n        " which trims to "Pick up the sapling".
+        // The regex captures text after the <input> tag until the next <input or end of string.
+        // This text is trimmed and HTML tags are stripped, so newlines and whitespace are handled correctly.
         assertEquals("Pick up the sapling", choices[1])
         assertEquals("Leave it", choices[2])
     }
