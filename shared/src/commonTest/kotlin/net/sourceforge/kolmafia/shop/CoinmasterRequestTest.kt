@@ -8,9 +8,45 @@ import kotlin.test.*
 
 class CoinmasterRequestTest {
 
+    private fun captureClient(): Pair<HttpClient, MutableList<String>> {
+        val bodies = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            bodies += request.body.toByteArray().decodeToString()
+            respond("<html>success</html>", HttpStatusCode.OK)
+        }
+        return HttpClient(engine) to bodies
+    }
+
     private fun mockClient(): HttpClient {
         val engine = MockEngine { respond("<html>success</html>", HttpStatusCode.OK) }
         return HttpClient(engine)
+    }
+
+    @Test
+    fun buy_sendsCorrectFormFields() = runTest {
+        val (client, bodies) = captureClient()
+        val dmt = CoinmasterRegistry.findByNickname("dmt")!!
+
+        CoinmasterRequest(client).buy(dmt, rowId = 1, quantity = 2)
+
+        val body = bodies[0]
+        assertTrue(body.contains("whichshop=dmt"), "body: $body")
+        assertTrue(body.contains("action=buyitem"), "body: $body")
+        assertTrue(body.contains("whichrow=1"), "body: $body")
+        assertTrue(body.contains("quantity=2"), "body: $body")
+        assertTrue(body.contains("ajax=1"), "body: $body")
+    }
+
+    @Test
+    fun sell_sendsCorrectAction() = runTest {
+        val (client, bodies) = captureClient()
+        val dmt = CoinmasterRegistry.findByNickname("dmt")!!
+
+        CoinmasterRequest(client).sell(dmt, rowId = 1, quantity = 1)
+
+        val body = bodies[0]
+        assertTrue(body.contains("action=sellitem"), "body: $body")
+        assertFalse(body.contains("action=buyitem"), "sell should not use buyitem: $body")
     }
 
     @Test
