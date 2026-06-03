@@ -73,4 +73,9 @@ class RecoveryManagerTest {
         val p = prefs(Preferences.AUTO_RECOVER_MP to true, Preferences.MP_RECOVERY_TARGET_PCT to 30)
         assertTrue(RecoveryManager.needsMpRecovery(state(0, 0, 20, 100), p))
     }
+
+    @Test fun mpRecovery_zeroMaxMp_doesNotCrash() {
+        val p = prefs(Preferences.AUTO_RECOVER_MP to true, Preferences.MP_RECOVERY_TARGET_PCT to 50)
+        assertFalse(RecoveryManager.needsMpRecovery(state(0, 0, 0, 0), p))
+    }
 }
