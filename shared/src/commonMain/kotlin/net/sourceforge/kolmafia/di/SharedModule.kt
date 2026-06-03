@@ -15,6 +15,11 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.session.SessionManager
+import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
+import net.sourceforge.kolmafia.buffbot.BuffBotManager
+import net.sourceforge.kolmafia.chat.ChatManager
+import net.sourceforge.kolmafia.chat.ChatPoller
+import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.mall.MallPriceManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
@@ -47,4 +52,9 @@ val sharedModule = module {
     singleOf(::MallSearchRequest)
     singleOf(::MallPurchaseRequest)
     single { MallPriceManager() }
+    singleOf(::ChatManager)
+    singleOf(::ChatSender)
+    singleOf(::ChatPoller)
+    single { BuffBotDatabase.default }
+    singleOf(::BuffBotManager)
 }
