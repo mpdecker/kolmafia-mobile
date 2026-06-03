@@ -1,5 +1,5 @@
 package net.sourceforge.kolmafia.ash
 
-class ScriptException(message: String, val line: Int = -1) : Exception(
+class ScriptException(message: String, val line: Int = -1) : RuntimeException(
     if (line > 0) "Script error at line $line: $message" else "Script error: $message"
 )
