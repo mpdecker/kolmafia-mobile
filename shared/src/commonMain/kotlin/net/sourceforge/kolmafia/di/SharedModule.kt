@@ -15,6 +15,11 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.session.SessionManager
+import net.sourceforge.kolmafia.mall.MallPriceManager
+import net.sourceforge.kolmafia.mall.MallPurchaseRequest
+import net.sourceforge.kolmafia.mall.MallSearchRequest
+import net.sourceforge.kolmafia.shop.CoinmasterRequest
+import net.sourceforge.kolmafia.shop.ShopRequest
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillManager
 import org.koin.core.module.dsl.singleOf
@@ -37,4 +42,9 @@ val sharedModule = module {
     singleOf(::SkillManager)
     singleOf(::EffectManager)
     singleOf(::SessionManager)
+    singleOf(::ShopRequest)
+    singleOf(::CoinmasterRequest)
+    singleOf(::MallSearchRequest)
+    singleOf(::MallPurchaseRequest)
+    single { MallPriceManager() }
 }

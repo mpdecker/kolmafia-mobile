@@ -58,8 +58,11 @@ fun MallScreen(
                 scope.launch {
                     isLoading = true
                     statusMessage = ""
-                    listings = searchRequest.search(query.trim(), limit = 20)
-                    isLoading = false
+                    try {
+                        listings = searchRequest.search(query.trim(), limit = 20)
+                    } finally {
+                        isLoading = false
+                    }
                 }
             }) { Text("Search") }
         }
