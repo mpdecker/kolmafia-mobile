@@ -51,6 +51,11 @@ kotlin {
     }
 }
 
+compose.resources {
+    packageOfResClass = "net.sourceforge.kolmafia.shared.generated.resources"
+    generateResClass = always
+}
+
 android {
     namespace = "net.sourceforge.kolmafia.shared"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
