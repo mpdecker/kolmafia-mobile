@@ -142,10 +142,14 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
         return AshValue.VOID
     }
 
-    private fun executeTry(node: TryNode, scope: AshScope): AshValue = try {
-        executeBlock(node.body, scope)
-    } catch (e: ScriptException) {
-        node.catchBlock?.let { executeBlock(it, scope) } ?: AshValue.VOID
+    private fun executeTry(node: TryNode, scope: AshScope): AshValue {
+        val savedCF = controlFlow
+        return try {
+            executeBlock(node.body, scope)
+        } catch (e: ScriptException) {
+            controlFlow = savedCF
+            node.catchBlock?.let { executeBlock(it, scope) } ?: AshValue.VOID
+        }
     }
 
     fun evalExpr(expr: ExprNode, scope: AshScope): AshValue = when (expr) {
@@ -157,7 +161,17 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
             applyAssign(expr.target, v, scope)
             v
         }
-        is BinOpNode -> expr.op.apply(evalExpr(expr.left, scope), evalExpr(expr.right, scope))
+        is BinOpNode -> when (expr.op) {
+            AshOperator.AND -> {
+                val l = evalExpr(expr.left, scope)
+                if (!l.toBoolean()) AshValue.FALSE else AshOperator.AND.apply(l, evalExpr(expr.right, scope))
+            }
+            AshOperator.OR -> {
+                val l = evalExpr(expr.left, scope)
+                if (l.toBoolean()) AshValue.TRUE else AshOperator.OR.apply(l, evalExpr(expr.right, scope))
+            }
+            else -> expr.op.apply(evalExpr(expr.left, scope), evalExpr(expr.right, scope))
+        }
         is UnaryOpNode -> evalUnary(expr, scope)
         is TernaryNode -> if (evalExpr(expr.condition, scope).toBoolean())
             evalExpr(expr.thenExpr, scope) else evalExpr(expr.elseExpr, scope)
@@ -199,6 +213,7 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
         val target: LvalueNode? = when (expr.operand) {
             is VarRefNode -> VarLvalue(expr.operand.name)
             is IndexNode -> IndexLvalue(expr.operand.aggregate, expr.operand.index)
+            is FieldAccessNode -> FieldLvalue(expr.operand.record, expr.operand.fieldName)
             else -> null
         }
         if (target != null && (expr.op == AshOperator.PRE_INC || expr.op == AshOperator.PRE_DEC ||

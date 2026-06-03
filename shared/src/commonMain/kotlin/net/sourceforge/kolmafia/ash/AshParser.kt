@@ -65,6 +65,7 @@ class AshParser {
                     if (source[i] == '\n') line++
                     i++
                 }
+                if (i + 1 >= source.length) throw ScriptException("Unterminated block comment", line)
                 i += 2
                 continue
             }

@@ -33,13 +33,33 @@ enum class AshOperator(val symbol: String) {
                 if (right.toLong() == 0L) throw ScriptException("Division by zero")
                 AshValue.of(left.toLong() / right.toLong())
             }
-            REM -> {
+            REM -> if (useFloat) {
+                AshValue.of(left.toDouble() % right.toDouble())
+            } else {
                 if (right.toLong() == 0L) throw ScriptException("Modulo by zero")
                 AshValue.of(left.toLong() % right.toLong())
             }
             POW -> AshValue.of(left.toDouble().pow(right.toDouble()))
-            EQ -> AshValue.of(left.toString() == right.toString())
-            NEQ -> AshValue.of(left.toString() != right.toString())
+            EQ -> {
+                val bothNumericTypes = (left.type == AshType.INT || left.type == AshType.FLOAT) &&
+                                       (right.type == AshType.INT || right.type == AshType.FLOAT)
+                val bothBool = left.type == AshType.BOOLEAN && right.type == AshType.BOOLEAN
+                when {
+                    bothNumericTypes -> AshValue.of(left.toDouble() == right.toDouble())
+                    bothBool -> AshValue.of(left.toBoolean() == right.toBoolean())
+                    else -> AshValue.of(left.toString() == right.toString())
+                }
+            }
+            NEQ -> {
+                val bothNumericTypes = (left.type == AshType.INT || left.type == AshType.FLOAT) &&
+                                       (right.type == AshType.INT || right.type == AshType.FLOAT)
+                val bothBool = left.type == AshType.BOOLEAN && right.type == AshType.BOOLEAN
+                when {
+                    bothNumericTypes -> AshValue.of(left.toDouble() != right.toDouble())
+                    bothBool -> AshValue.of(left.toBoolean() != right.toBoolean())
+                    else -> AshValue.of(left.toString() != right.toString())
+                }
+            }
             LT -> numericCompare(left, right) { a, b -> a < b }
             LE -> numericCompare(left, right) { a, b -> a <= b }
             GT -> numericCompare(left, right) { a, b -> a > b }
