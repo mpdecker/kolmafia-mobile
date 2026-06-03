@@ -43,13 +43,13 @@ object ItemPool {
     const val CRYSTAL_CRIMBO_PLATTER    = 9202
 
     // Chintzy items from Mistress of the Hallowed Halls
-    const val CHINTZY_SEAL_PENDANT      = 1912
-    const val CHINTZY_TURTLE_BROOCH     = 1913
-    const val CHINTZY_NOODLE_RING       = 1914
-    const val CHINTZY_SAUCEPAN_EARRING  = 1915
-    const val CHINTZY_DISCO_BALL_PENDANT = 1916
-    const val CHINTZY_ACCORDION_PIN     = 1917
-    const val ANTIQUE_HAND_MIRROR       = 2063
+    const val CHINTZY_SEAL_PENDANT      = 1941
+    const val CHINTZY_TURTLE_BROOCH     = 1942
+    const val CHINTZY_NOODLE_RING       = 1943
+    const val CHINTZY_SAUCEPAN_EARRING  = 1944
+    const val CHINTZY_DISCO_BALL_PENDANT = 1945
+    const val CHINTZY_ACCORDION_PIN     = 1946
+    const val ANTIQUE_HAND_MIRROR       = 2092
 
     val MISTRESS_ITEM_IDS: IntArray get() = intArrayOf(
         CHINTZY_SEAL_PENDANT, CHINTZY_TURTLE_BROOCH, CHINTZY_NOODLE_RING,
