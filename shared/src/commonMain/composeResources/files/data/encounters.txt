@@ -1,0 +1,313 @@
+1
+# Adventure Area Name	Type	Encounter Title
+#
+# Adventure Area Name must match that in adventures.txt or be "*"
+#
+# Type can be one of the following: STOP, LUCKY, GLYPH, TURTLE, SEAL, FIST, BORIS, BADMOON, BUGBEAR, CLEAVER,
+#   HALLOWIENER, VIOLET_FOG, BAT_WINGS
+#
+
+### Autostop Adventures
+The Haunted Library	STOP	History is Fun!
+Whitey's Grove	STOP	It's A Sign!
+The Haunted Pantry	STOP	The Manor in Which You're Accustomed
+The Sleazy Back Alley	STOP	Under the Knife
+The Enormous Greater-Than Sign	STOP	The Oracle Will See You Now
+The Unquiet Garves	STOP	A Grave Situation
+The VERY Unquiet Garves	STOP	A Grave Situation
+Tower Ruins	STOP	Take a Dusty Look!
+Inside the Palindome	STOP	Drawn Onward
+# The following is unnecessary, since you can use "1 choice" as a goal
+Cobb's Knob Laboratory	STOP	Mr. Alarm, I Presarm
+The Haunted Ballroom	STOP	We'll All Be Flat
+Barrrney's Barrr	STOP	You and the Cap'm Make it Hap'm
+# The following is unnecessary, since you can use "blueprints" as a goal
+Barrrney's Barrr	STOP	This Adventure Bites
+The Poop Deck	STOP	It's Always Swordfish
+# The Sea
+The Mer-Kin Outpost	STOP	Granny, Does Your Dogfish Bite?
+Anemone Mine	STOP	Not a Micro Fish
+The Marinara Trench	STOP	You've Hit Bottom
+The Dive Bar	STOP	Ode to the Sea
+The Dive Bar	STOP	Boxing the Juke
+# Adventures that start the Around the World Quest
+The Orcish Frat House	STOP	I Just Wanna Fly
+The Orcish Frat House (Bombed Back to the Stone Age)	STOP	Me Just Want Fly
+# Giant's castle end
+The Castle in the Clouds in the Sky (Top Floor)	STOP	Keep On Turnin' the Wheel in the Sky
+# Adventure in the Arid, Extra-Dry desert until you find the Oasis
+The Arid, Extra-Dry Desert	STOP	Let's Make a Deal!
+# Get Ultra-hydrated and adventure in the Arid, Extra-Dry desert until you are given the task to find a stone rose.
+The Arid, Extra-Dry Desert	STOP	A Sietch in Time
+# Adventure in Oasis until you have a stone rose and a drum machine. Buy black paint.
+# Come back to the Arid, Extra-Dry Desert and adventure until you are tasked to find the missing pages from the worm-riding manual.
+The Arid, Extra-Dry Desert	STOP	Walk Without Rhythm
+# Adventure in Oasis until you have worm-riding manual pages 3-15.
+# Adventure in Arid, Extra-Dry Desert until you have worm-riding hooks.
+# The following is unnecessary, since you can use "worm-riding hooks" as a goal
+The Arid, Extra-Dry Desert	STOP	The Sleeper Has Awakened
+# Adventure that finishes filling the Extreme Meter
+The eXtreme Slope	STOP	3 eXXXtreme 4ever 6pack
+An Overgrown Shrine (Northwest)	STOP	Earthbound and Down
+An Overgrown Shrine (Southwest)	STOP	Water You Dune
+An Overgrown Shrine (Northeast)	STOP	Air Apparent
+An Overgrown Shrine (Southeast)	STOP	Fire when Ready
+A Massive Ziggurat	STOP	Legend of the Temple in the Hidden City
+A Massive Ziggurat	STOP	Temple of the Legend in the Hidden City
+A Mob of Zeppelin Protesters	STOP	Not So Much With The Humanity
+The Daily Dungeon	STOP	The Final Reward
+Barf Mountain	STOP	The Back Door
+Pirates of the Garbage Barges	STOP	Behind the Scenes
+The Toxic Teacups	STOP	Toxic Teacup Tunnel Time
+Uncle Gator's Country Fun-Time Liquid Waste Sluice	STOP	Swamp Control
+The Neverending Party	STOP	Party's Over
+
+### Lucky Adventures
+A Maze of Sewer Tunnels	LUCKY	C. H. U. M. chieftain
+A Mob of Zeppelin Protesters	LUCKY	Methinks the Protesters Doth Protest Too Little
+A-Boo Peak	LUCKY	The "Journalist"
+An Octopus's Garden	LUCKY	moister oyster
+Art Class	LUCKY	Fran&ccedil;ois Verte, Art Teacher
+Burnbarrel Blvd.	LUCKY	A Tight Squeeze
+Camp Logging Camp	LUCKY	Oot to Lunch
+Chemistry Class	LUCKY	Mrs. K, the Chemistry Teacher
+Cobb's Knob Barracks	LUCKY	Knob Goblin Elite Guard Captain
+Cobb's Knob Harem	LUCKY	Hands On
+Cobb's Knob Kitchens	LUCKY	Luck in the Kitchens
+Cobb's Knob Laboratory	LUCKY	You Can Top Our Desserts, But You Can't Beat Our Meats
+Cobb's Knob Menagerie, Level 2	LUCKY	Rokay, Raggy!
+Cobb's Knob Treasury	LUCKY	Knob Goblin Embezzler
+Cola Wars Battlefield (Cloaca Uniform)	LUCKY	Prior to Always
+Cola Wars Battlefield (Dyspepsi Uniform)	LUCKY	Prior to Always
+Elf Alley	LUCKY	What a Tosser
+Exposure Esplanade	LUCKY	Cold Comfort
+Guano Junction	LUCKY	Le Chauve-Souris du Parfum
+Itznotyerzitz Mine	LUCKY	Either Ore
+Lair of the Ninja Snowmen	LUCKY	Not Quite as Cold as Ice
+Lemon Party	LUCKY	Lemon Party Slot
+Madness Reef	LUCKY	Dragon the Line
+Oil Peak	LUCKY	Up From the Ground...
+Outskirts of Camp Logging Camp	LUCKY	Best Served Cold
+Pandamonium Slums	LUCKY	It's The Only Way To Be Sure
+Shop Class	LUCKY	X-fingered Shop Teacher
+South of the Border	LUCKY	Filth, Filth, and More Filth
+The "Fun" House	LUCKY	The Boxer
+The Ancient Hobo Burial Ground	LUCKY	Flowers for You
+The Batrat and Ratbat Burrow	LUCKY	How Does He Smell?
+The Black Forest	LUCKY	What the Cluck?
+The Brinier Deepers	LUCKY	The Haggling
+The Briny Deeps	LUCKY	Deeps Impact
+The Bugbear Pen	LUCKY	Faux Fur Pas
+The Caliginous Abyss	LUCKY	A University of Fish
+The Castle in the Clouds in the Sky (Basement)	LUCKY	You Never Know What You're Gonna Find
+The Castle in the Clouds in the Sky (Ground Floor)	LUCKY	Ahead of the Game
+The Castle in the Clouds in the Sky (Top Floor)	LUCKY	All The Rave
+The Cheerless Spire (Level 1)	LUCKY	Take Stuff From Work
+The Cheerless Spire (Level 2)	LUCKY	Lucky Breaktime
+The Cheerless Spire (Level 3)	LUCKY	Can't Serum
+The Cheerless Spire (Level 4)	LUCKY	Mime On, Mime In, Mime Out
+The Cheerless Spire (Level 5)	LUCKY	Always Be Miming
+The Cola Wars Battlefield	LUCKY	Prior to Always
+The Copperhead Club	LUCKY	Where There's Smoke...
+The Dark Elbow of the Woods	LUCKY	It's The Only Way To Be Sure
+The Dark Heart of the Woods	LUCKY	It's The Only Way To Be Sure
+The Dark Neck of the Woods	LUCKY	It's The Only Way To Be Sure
+The Dive Bar	LUCKY	Razor, Scooter
+The Fungus Plains	LUCKY	Some Bricks Do, In Fact, Hang in the Air
+The Goatlet	LUCKY	Natural Selection
+The Hallowed Halls	LUCKY	Through the Locking Glass
+The Haunted Ballroom	LUCKY	Forward to the Past
+The Haunted Billiards Room	LUCKY	A Shark's Chum
+The Haunted Boiler Room	LUCKY	Bram the Stoker
+The Haunted Conservatory	LUCKY	Sweeping Up the Skeleton Bones
+The Haunted Gallery	LUCKY	With a Clatter
+The Haunted Kitchen	LUCKY	Play Misty For Me
+The Haunted Library	LUCKY	Like the Sunglasses, But Less Comfortable
+The Haunted Pantry	LUCKY	The Pilsbury Doughjerk
+The Haunted Storage Room	LUCKY	full-length mirror
+The Heap	LUCKY	Juicy!
+The Hidden Park	LUCKY	Two Sizes Too Small
+The Hidden Temple	LUCKY	Baa'baa'bu'ran
+The Hippy Camp	LUCKY	The Latest Sorcerous Developments
+The Hippy Camp (In Disguise)	LUCKY	A Case of the Baskets
+The Icy Peak	LUCKY	Encino Penguin
+The Knob Shaft	LUCKY	Junction in the Trunction
+The Limerick Dungeon	LUCKY	The Bleary-Eyed Cyclops
+The Mer-Kin Outpost	LUCKY	A Drawer of Chests
+The Oasis	LUCKY	Some Things Never Change
+The Obligatory Pirate's Cove	LUCKY	Yo Ho Ho and a Bottle of Whatever This Is
+The Orcish Frat House	LUCKY	Sand in the Vaseline
+The Orcish Frat House (In Disguise)	LUCKY	Lambda Upsilon Chi Kappa
+The Outskirts of Cobb's Knob	LUCKY	Lunchboxing
+The Poker Room	LUCKY	A Motor in your Head
+The Primordial Soup	LUCKY	Beginner's Luck
+The Purple Light District	LUCKY	Maybe It's a Sexy Snake!
+The Red Zeppelin	LUCKY	Red Fox
+The Roulette Tables	LUCKY	The Luckiest Gambler
+The Sleazy Back Alley	LUCKY	In the Still of the Alley
+The Smut Orc Logging Camp	LUCKY	S&M 4-EVER
+The Spectral Pickle Factory	LUCKY	Wouldn't You Like to be a Pickle Too?
+The Spooky Forest	LUCKY	Lucky, Lucky!
+The Spooky Gravy Burrow	LUCKY	Stage Fright
+The Unquiet Garves	LUCKY	A Menacing Phantom
+The VERY Unquiet Garves	LUCKY	Rolling the Bones
+The Valley of Rof L'm Fao	LUCKY	Bad ASCII Art
+The Wreck of the Edgar Fitzsimmons	LUCKY	Camera On, James
+Thugnderdome	LUCKY	Gno More Mr. Gnice Guy
+Tower Ruins	LUCKY	I've Gotta Crow
+Twin Peak	LUCKY	What Kind of Party Is This?
+Vanya's Castle	LUCKY	Crossfire
+Vanya's Castle Chapel	LUCKY	The Time This Fire
+Whitey's Grove	LUCKY	Monty of County Crisco
+Ye Olde Medievale Villagee	LUCKY	Clay Is Great, But Leather Is Bether
+
+### Axecore Clancy Adventures
+A Barroom Brawl	BORIS	Jackin' the Jukebox
+The Knob Shaft	BORIS	A Miner Variation
+The Icy Peak	BORIS	Mercury Rising
+The Middle Chamber	BORIS	Don't You Know Who I Am?
+
+### Hobo code binder glyph Adventures
+Belowdecks	GLYPH	My Little Stowaway
+Camp Logging Camp	GLYPH	Stumped
+Cobb's Knob Menagerie, Level 3	GLYPH	He's a Melancholy Drunk
+The Arid, Extra-Dry Desert	GLYPH	How Dry I Am
+Lair of the Ninja Snowmen	GLYPH	Not So Much With the Corncob Pipes, Either.
+Noob Cave	GLYPH	How Do I Shot Web?
+The Battlefield (Frat Uniform)	GLYPH	God Bless, Bra
+The Bugbear Pen	GLYPH	Bacon Bacon Bacon
+The Cola Wars Battlefield	GLYPH	A Funny Thing Happened On the Way
+The Defiled Nook	GLYPH	They Gave at the Morgue
+The Enormous Greater-Than Sign	GLYPH	Elbereth? Who's Elbereth?
+The "Fun" House	GLYPH	They Hate Mimes, Too
+The Limerick Dungeon	GLYPH	Thud
+The Penultimate Fantasy Airship	GLYPH	Number 163
+The Poker Room	GLYPH	It's In the Cards
+The Road to the White Citadel	GLYPH	Breakfast of Champions
+The Sleazy Back Alley	GLYPH	For Sale By Squatter
+The Unquiet Garves	GLYPH	They Hate That
+The eXtreme Slope	GLYPH	Not a Standard-Issue Windowsill, Obviously
+Thugnderdome	GLYPH	Now You're a Hero
+
+### Bugbear mothership Adventures
+Medbay	BUGBEAR	Staph from the Staff
+Waste Processing	BUGBEAR	You're a Compactor Impacter!
+Waste Processing	BUGBEAR	Smell Bad!
+Sonar	BUGBEAR	Sayonara, Sonar!
+Science Lab	BUGBEAR	The Silence of the Scientists
+Science Lab	BUGBEAR	Room Fulla Spiders
+Morgue	BUGBEAR	Operation Successful, Patient Still Deceased
+Morgue	BUGBEAR	The Ghost in You
+Special Ops	BUGBEAR	Turn Off The Dark
+Special Ops	BUGBEAR	Fade to Black
+Engineering	BUGBEAR	An Engineered Success
+Engineering	BUGBEAR	No More Murderbots For You
+Navigation	BUGBEAR	Out of N-Space
+Navigation	BUGBEAR	The Water Cooler of Madness
+Galley	BUGBEAR	Darwin's Revenge
+Galley	BUGBEAR	Haute Dish
+
+### Turtle Taming Adventures
+The Limerick Dungeon	TURTLE	Nantucket Snapper
+Hero's Field	TURTLE	Blue Monday
+Megalo-City	TURTLE	Blue Monday
+The Fungus Plains	TURTLE	Blue Monday
+Vanya's Castle	TURTLE	Blue Monday
+The Cola Wars Battlefield	TURTLE	Capital!
+Cola Wars Battlefield (Cloaca Uniform)	TURTLE	Capital!
+Cola Wars Battlefield (Dyspepsi Uniform)	TURTLE	Capital!
+A Maze of Sewer Tunnels	TURTLE	Training Day
+Hobopolis Town Square	TURTLE	Training Day
+Burnbarrel Blvd.	TURTLE	Training Day
+Exposure Esplanade	TURTLE	Training Day
+The Heap	TURTLE	Training Day
+The Purple Light District	TURTLE	Training Day
+The Ancient Hobo Burial Ground	TURTLE	Training Day
+The "Fun" House	TURTLE	Boxed In
+Whitey's Grove	TURTLE	Duel Nature
+The Castle in the Clouds in the Sky (Ground Floor)	TURTLE	Slow Food
+The Degrassi Knoll Restroom	TURTLE	A Rolling Turtle Gathers No Moss
+The Degrassi Knoll Bakery	TURTLE	A Rolling Turtle Gathers No Moss
+The Degrassi Knoll Gym	TURTLE	A Rolling Turtle Gathers No Moss
+The Degrassi Knoll Garage	TURTLE	A Rolling Turtle Gathers No Moss
+The Orcish Frat House	TURTLE	The Horror...
+The Orcish Frat House (In Disguise)	TURTLE	The Horror...
+The Haunted Boiler Room	TURTLE	Slow Road to Hell
+The Outskirts of Cobb's Knob	TURTLE	C'mere, Little Fella
+Oil Peak	TURTLE	The Real Victims
+Barrrney's Barrr	TURTLE	Like That Time in Tortuga
+The Haunted Gallery	TURTLE	Cleansing your Palette
+Cobb's Knob Harem	TURTLE	Harem Scarum
+The Haiku Dungeon	TURTLE	Turtle in peril
+The Sleazy Back Alley	TURTLE	No Man, No Hole
+A Barroom Brawl	TURTLE	Slow and Steady Wins the Brawl
+The Castle in the Clouds in the Sky (Top Floor)	TURTLE	Stormy Weather
+The Haunted Conservatory	TURTLE	Turtles of the Universe
+The Spooky Forest	TURTLE	O Turtle Were Art Thou
+The Outer Compound	TURTLE	Allow 6-8 Weeks For Delivery
+The Haunted Pantry	TURTLE	Kick the Can
+The Hippy Camp	TURTLE	Turtles All The Way Around
+The Hippy Camp (In Disguise)	TURTLE	Turtles All The Way Around
+The eXtreme Slope	TURTLE	More eXtreme Than Usual
+South of the Border	TURTLE	Jewel in the Rough
+Guano Junction	TURTLE	The worst kind of drowning
+*	TURTLE	Even Tamer Than Usual
+*	TURTLE	Never Break the Chain
+*	TURTLE	Close, but Yes Cigar
+*	TURTLE	Armchair Quarterback
+*	TURTLE	This Turtle Rocks!
+*	TURTLE	Really Sticking Her Neck Out
+*	TURTLE	It Came from Beneath the Sewer? Great!
+*	TURTLE	Don't Be Alarmed, Now
+*	TURTLE	Puttin' it on Wax
+*	TURTLE	More Like... Hurtle
+*	TURTLE	Musk! Musk! Musk!
+*	TURTLE	Silent Strolling
+
+### Mayo
+*	MAYO	Mmmmmmayonnaise
+
+### Hallowiener
+*	HALLOWIENER	Wooof! Wooooooof!
+*	HALLOWIENER	Playing Fetch*
+*	HALLOWIENER	Your Dog Found Something Again
+Sloppy Seconds Diner	HALLOWIENER	Dog Diner Afternoon
+The Secret Government Laboratory	HALLOWIENER	Labrador Conspirator
+Barf Mountain	HALLOWIENER	Doggy Heaven
+The Bubblin' Caldera	HALLOWIENER	Lava Dogs
+The Skeleton Store	HALLOWIENER	Fruuuuuuuit
+The Overgrown Lot	HALLOWIENER	Boooooze Hound
+Madness Bakery	HALLOWIENER	Baker's Dogzen
+8-Bit Realm	HALLOWIENER	Dog Needs Food Badly
+The Middle Chamber	HALLOWIENER	Ratchet-catcher
+The Dark Elbow of the Woods	HALLOWIENER	Something About Hot Wings
+The Dark Heart of the Woods	HALLOWIENER	Something About Hot Wings
+The Dark Neck of the Woods	HALLOWIENER	Something About Hot Wings
+The Defiled Nook	HALLOWIENER	Seeing-Eyes Dog
+The Smut Orc Logging Camp	HALLOWIENER	Carpenter Dog
+Guano Junction	HALLOWIENER	Are They Made of Real Dogs?
+Sonofa Beach	HALLOWIENER	Gunbowwowder
+The Degrassi Knoll Gym	HALLOWIENER	It Isn't a Poodle
+
+### June Cleaver Adventures
+*	CLEAVER	Aunts not Ants
+*	CLEAVER	Bath Time
+*	CLEAVER	Beware of Aligator
+*	CLEAVER	Delicious Sprouts
+*	CLEAVER	Hypnotic Master
+*	CLEAVER	Lost and Found
+*	CLEAVER	Poetic Justice
+*	CLEAVER	Summer Days
+*	CLEAVER	Teacher's Pet
+
+### Violet Fog Adventures
+*	VIOLET_FOG	She's So Unusual
+*	VIOLET_FOG	The Big Scary Place
+*	VIOLET_FOG	The Prince of Wishful Thinking
+*	VIOLET_FOG	Violet Fog
+
+### Bat Wings Adventures
+The Bat Hole Entrance	BAT_WINGS	You can never have enough
+Guano Junction	BAT_WINGS	Bats of a feather
+The Batrat and Ratbat Burrow	BAT_WINGS	One of us
+The Beanbat Chamber	BAT_WINGS	Magical fruit
