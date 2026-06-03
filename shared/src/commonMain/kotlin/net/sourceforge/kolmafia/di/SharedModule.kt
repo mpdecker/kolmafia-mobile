@@ -46,6 +46,8 @@ import net.sourceforge.kolmafia.shop.CoinmasterRequest
 import net.sourceforge.kolmafia.shop.ShopRequest
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.mood.MoodManager
+import net.sourceforge.kolmafia.recovery.RecoveryManager
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
@@ -92,6 +94,8 @@ val sharedModule = module {
     singleOf(::FamiliarManager)
     singleOf(::SkillCastRequest)
     singleOf(::SkillManager)
+    singleOf(::RecoveryManager)
+    singleOf(::MoodManager)
     singleOf(::EffectManager)
     single {
         AdventureManager(
@@ -109,6 +113,8 @@ val sharedModule = module {
             inventory        = get(),
             effects          = get(),
             skills           = get(),
+            recoveryManager  = get(),
+            moodManager      = get(),
         )
     }
     single {

@@ -24,5 +24,18 @@ class Preferences(private val settings: Settings) {
 
     companion object Keys {
         const val LAST_USERNAME = "lastUsername"
+
+        // HP recovery
+        const val AUTO_RECOVER_HP          = "autoRecoverHp"
+        const val HP_RECOVERY_TARGET_PCT   = "hpRecoveryTargetPct"   // below → start recovering
+        const val HP_RECOVERY_STOP_PCT     = "hpRecoveryStopPct"     // above → stop recovering (TODO: used when multi-use loop is implemented)
+
+        // MP recovery
+        const val AUTO_RECOVER_MP          = "autoRecoverMp"
+        const val MP_RECOVERY_TARGET_PCT   = "mpRecoveryTargetPct"
+        const val MP_RECOVERY_STOP_PCT     = "mpRecoveryStopPct"     // above → stop recovering (TODO: used when multi-use loop is implemented)
+
+        // Mood
+        const val AUTO_BUFF                = "autoBuff"
     }
 }

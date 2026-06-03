@@ -25,6 +25,8 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.mood.MoodManager
+import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
 
@@ -43,6 +45,8 @@ class AdventureManager(
     private val inventory: InventoryManager? = null,
     private val effects: EffectManager? = null,
     private val skills: SkillManager? = null,
+    private val recoveryManager: RecoveryManager? = null,
+    private val moodManager: MoodManager? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -58,9 +62,24 @@ class AdventureManager(
             try {
                 repeat(turns) {
                     if (!isActive) return@launch
+                    // Re-buff before this adventure turn
+                    moodManager?.executeActiveMood(
+                        effectState = effects?.state?.value ?: EffectState(),
+                        skillState  = skills?.state?.value ?: SkillState(),
+                        charState   = character.state.value,
+                    )
                     val result = doOneTurn(location) ?: return@launch
 
                     characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+                    // Recover HP/MP between turns; re-fetch state if recovery occurred
+                    val healed = recoveryManager?.recoverIfNeeded(
+                        charState  = character.state.value,
+                        invState   = inventory?.state?.value ?: InventoryState(),
+                        skillState = skills?.state?.value ?: SkillState(),
+                    )
+                    if (healed == true) {
+                        characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+                    }
                     eventBus.emit(GameEvent.TurnConsumed(location, result))
 
                     when {
