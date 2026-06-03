@@ -16,6 +16,7 @@ class MallPurchaseRequest(private val client: HttpClient) {
                 append("whichstore", shopId.toString())
                 append("itemid", itemId.toString())
                 append("quantity", quantity.toString())
+                append("price", price.toString())
                 append("ajax", "1")
             }
         )

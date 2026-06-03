@@ -22,6 +22,7 @@ class MallPurchaseRequestTest {
         assertTrue(body.contains("whichstore=12345"), "body: $body")
         assertTrue(body.contains("itemid=799"), "body: $body")
         assertTrue(body.contains("quantity=1"), "body: $body")
+        assertTrue(body.contains("price=500"), "body: $body")
         assertTrue(body.contains("ajax=1"), "body: $body")
     }
 
