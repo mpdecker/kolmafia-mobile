@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -28,6 +30,8 @@ import net.sourceforge.kolmafia.ui.inventory.InventoryScreen
 import net.sourceforge.kolmafia.ui.login.LoginScreen
 import net.sourceforge.kolmafia.ui.login.LoginViewModel
 import net.sourceforge.kolmafia.ui.chat.ChatScreen
+import net.sourceforge.kolmafia.ui.mall.MallScreen
+import net.sourceforge.kolmafia.ui.shop.ShopScreen
 import net.sourceforge.kolmafia.ui.skills.SkillsScreen
 import org.koin.compose.koinInject
 
@@ -85,6 +89,18 @@ fun App() {
                         icon = { Icon(Icons.Default.Forum, "Chat") },
                         label = { Text("Chat") }
                     )
+                    NavigationBarItem(
+                        selected = selectedTab == 6,
+                        onClick = { selectedTab = 6 },
+                        icon = { Icon(Icons.Default.Store, "Shop") },
+                        label = { Text("Shop") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 7,
+                        onClick = { selectedTab = 7 },
+                        icon = { Icon(Icons.Default.ShoppingCart, "Mall") },
+                        label = { Text("Mall") }
+                    )
                 }
             }
         ) { _ ->
@@ -95,6 +111,8 @@ fun App() {
                 3 -> SkillsScreen()
                 4 -> FamiliarScreen()
                 5 -> ChatScreen()
+                6 -> ShopScreen()
+                7 -> MallScreen()
             }
         }
     }
