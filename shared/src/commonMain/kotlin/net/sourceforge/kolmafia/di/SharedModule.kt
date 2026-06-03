@@ -7,6 +7,17 @@ import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.adventure.FightRequest
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
 import net.sourceforge.kolmafia.adventure.choice.ChoiceSolvers
+import net.sourceforge.kolmafia.adventure.choice.handlers.ComplexHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.DreadsylvaniaHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.GoalHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.HiddenCityHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.InventoryHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.MiscHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.QuestHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.ResponseTextHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.SkillUsesHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.SolverHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.StatHandlers
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.quest.QuestDatabase
@@ -63,8 +74,19 @@ val sharedModule = module {
         )
     }
     single {
-        // Handler groups will be registered in Task 21
-        ChoiceHandlerRegistry()
+        ChoiceHandlerRegistry().also { r ->
+            InventoryHandlers.registerAll(r)
+            ResponseTextHandlers.registerAll(r)
+            StatHandlers.registerAll(r)
+            ComplexHandlers.registerAll(r)
+            DreadsylvaniaHandlers.registerAll(r)
+            HiddenCityHandlers.registerAll(r)
+            MiscHandlers.registerAll(r)
+            GoalHandlers.registerAll(r)
+            QuestHandlers.registerAll(r)
+            SkillUsesHandlers.registerAll(r)
+            SolverHandlers.registerAll(r)
+        }
     }
     singleOf(::InventoryManager)
     singleOf(::FamiliarManager)
