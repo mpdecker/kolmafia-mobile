@@ -5,6 +5,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +27,7 @@ import net.sourceforge.kolmafia.ui.familiar.FamiliarScreen
 import net.sourceforge.kolmafia.ui.inventory.InventoryScreen
 import net.sourceforge.kolmafia.ui.login.LoginScreen
 import net.sourceforge.kolmafia.ui.login.LoginViewModel
+import net.sourceforge.kolmafia.ui.chat.ChatScreen
 import net.sourceforge.kolmafia.ui.skills.SkillsScreen
 import org.koin.compose.koinInject
 
@@ -77,6 +79,12 @@ fun App() {
                         icon = { Icon(Icons.Default.Favorite, "Familiars") },
                         label = { Text("Familiars") }
                     )
+                    NavigationBarItem(
+                        selected = selectedTab == 5,
+                        onClick = { selectedTab = 5 },
+                        icon = { Icon(Icons.Default.Forum, "Chat") },
+                        label = { Text("Chat") }
+                    )
                 }
             }
         ) { _ ->
@@ -86,6 +94,7 @@ fun App() {
                 2 -> InventoryScreen()
                 3 -> SkillsScreen()
                 4 -> FamiliarScreen()
+                5 -> ChatScreen()
             }
         }
     }
