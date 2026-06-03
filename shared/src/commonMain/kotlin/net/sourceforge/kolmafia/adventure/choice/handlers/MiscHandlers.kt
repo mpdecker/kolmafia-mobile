@@ -8,6 +8,12 @@ object MiscHandlers {
     val handlers: Map<Int, ChoiceHandler> = buildMap {
 
         // Case 182 — Random Lack of an Encounter (Model Airship)
+        // Preferences 1–3 are a straightforward option index. Preferences ≥ 4 use a
+        // bit-flag encoding where bit 2 (value 4) means "prefer option 4 if available":
+        //   pref 4 (binary 100) → option 4 when available, else option 4-3=1
+        //   pref 5 (binary 101) → option 4 when available, else option 5-3=2
+        //   pref 6 (binary 110) → option 4 when available, else option 6-3=3
+        // option4Mask collapses to 0 when option 4 is absent, making the AND always false.
         put(182) { ctx ->
             val option4Available = ctx.responseText.contains("Gallivant down to the head")
             val option4Mask = if (option4Available) 4 else 0

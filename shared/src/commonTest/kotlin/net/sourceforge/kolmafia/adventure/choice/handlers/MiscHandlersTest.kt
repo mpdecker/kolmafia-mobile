@@ -104,6 +104,16 @@ class MiscHandlersTest {
         prefs.setString("EVEDirections", "LRLRL9")
         assertNull(decide(988, 0))
     }
+    // Progress == 5 means all steps done; containment[5] is the digit '5' itself, not L/R
+    // so the handler falls through to preference. Preference 0 → null.
+    @Test fun case988_progressDone_returnsPreference() {
+        prefs.setString("EVEDirections", "LRLRL5")
+        assertNull(decide(988, 0))
+    }
+    @Test fun case988_progressDone_nonZeroPref_returnsPreference() {
+        prefs.setString("EVEDirections", "LRLRL5")
+        assertEquals(2, decide(988, 2))
+    }
 
     // Case 989
     @Test fun case989_constellation_returns1() =

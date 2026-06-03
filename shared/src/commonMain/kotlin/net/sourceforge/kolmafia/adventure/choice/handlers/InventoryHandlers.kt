@@ -61,6 +61,9 @@ object InventoryHandlers {
         }
 
         // Case 504 — Tree's Last Stand
+        // User preference is intentionally ignored: if you don't yet have the sapling
+        // and can afford it, always buy it (option 3); otherwise always leave (option 4).
+        // There is no sensible manual fallback for this gating choice.
         put(504) { ctx ->
             if (!ctx.hasItem(ItemPool.SPOOKY_SAPLING)
                 && !ctx.prefBool("spookyTempleUnlocked")

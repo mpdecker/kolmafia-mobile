@@ -91,6 +91,10 @@ class StatHandlersTest {
     }
     @Test fun case162_default_returns2() =
         assertEquals(2, StatHandlers.handlers[162]?.decide(ctx(162)))
+    // pref 0 (manual) still returns 2: mining always has a safe auto-pick (pick up ore by hand).
+    // This is intentional — see the comment in StatHandlers case 162.
+    @Test fun case162_pref0_returns2() =
+        assertEquals(2, StatHandlers.handlers[162]?.decide(ctx(162, 0)))
 
     // Case 184
     @Test fun case184_muscle_pref4_returns3() {

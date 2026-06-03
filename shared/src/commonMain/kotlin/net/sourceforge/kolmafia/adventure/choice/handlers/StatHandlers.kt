@@ -25,6 +25,10 @@ object StatHandlers {
         }
 
         // Case 162 — Between a Rock and Some Other Rocks (mining)
+        // The desktop always auto-selects this choice: option 1 (drill for ore) requires
+        // a mining outfit/path boost, option 3 requires Axecore, else pick up ore manually (2).
+        // Preference 0 (manual) is intentionally not distinguished; falling through to option 2
+        // is always safe because picking up ore by hand never costs a turn.
         put(162) { ctx ->
             when {
                 ctx.preference == 2                                              -> 2
@@ -36,6 +40,13 @@ object StatHandlers {
         }
 
         // Case 184 — That Explains All The Eyepatches
+        // The "best" stat-gain option rotates based on prime stat. Preferences 4/5/6 encode
+        // the player's priority order (4=first choice, 5=second, 6=third). The when-key
+        // encodes (primeIndex * 10 + preference):
+        //   primeIndex: Muscle=0, Mysticality=1, Moxie=2
+        //   Muscle:     pref 4→opt 3 (Mus), 5→opt 2 (Mys), 6→opt 1 (Mox)
+        //   Myst:       pref 4→opt 1 (Mox), 5→opt 2 (Mys), 6→opt 3 (Mus)
+        //   Moxie:      pref 4→opt 2 (Mys), 5→opt 3 (Mus), 6→opt 1 (Mox)
         put(184) { ctx ->
             val prime = when (ctx.mainStat) {
                 MainStat.MUSCLE      -> 0

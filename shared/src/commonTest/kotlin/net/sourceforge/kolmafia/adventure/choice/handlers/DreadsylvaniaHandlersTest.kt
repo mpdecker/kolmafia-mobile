@@ -18,16 +18,21 @@ import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.skill.SkillState
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class DreadsylvaniaHandlersTest {
 
-    private val prefs = Preferences(MapSettings())
     private val noOpSolvers = ChoiceSolvers(
         SafetyShelterSolver.NoOp, VampOutSolver.NoOp, ArcadeGameSolver.NoOp,
         LostKeySolver.NoOp, GameproSolver.NoOp, LightsOutSolver.NoOp,
     )
 
-    private fun ctx(choiceId: Int, preference: Int = 0, response: String = "") = ChoiceContext(
+    /** Fresh isolated preferences per call — no cross-test state leakage. */
+    private fun prefs(configure: Preferences.() -> Unit = {}) =
+        Preferences(MapSettings()).also(configure)
+
+    private fun ctx(choiceId: Int, preference: Int = 0, response: String = "",
+                    prefs: Preferences = prefs()) = ChoiceContext(
         choiceId = choiceId, options = (1..6).associateWith { "O$it" },
         responseText = response, characterState = CharacterState(),
         inventoryState = InventoryState(), effectState = EffectState(),
@@ -36,48 +41,47 @@ class DreadsylvaniaHandlersTest {
         solvers = noOpSolvers, preference = preference,
     )
 
-    private fun decide(choiceId: Int, preference: Int = 0, response: String = "") =
-        DreadsylvaniaHandlers.handlers[choiceId]?.decide(ctx(choiceId, preference, response))
-
-    // All 9 cases share the same ghostPencil logic; test representative cases
+    private fun decide(choiceId: Int, preference: Int = 0, response: String = "",
+                       prefs: Preferences = prefs()) =
+        DreadsylvaniaHandlers.handlers[choiceId]?.decide(ctx(choiceId, preference, response, prefs))
 
     // Case 721 — pref 5, pencil option absent → returns 6
     @Test fun case721_pref5_pencilAbsent_returns6() = assertEquals(6, decide(721, 5, "nothing"))
 
-    // Case 721 — pref 5, pencil option present, prefBool false → returns 5 (pref)
-    @Test fun case721_pref5_pencilPresent_notUsed_returnsPref() {
-        prefs.setBoolean("ghostPencil1", false)
-        assertEquals(5, decide(721, 5, "Use a ghost pencil"))
-    }
+    // Case 721 — pref 5, pencil option present, not yet used → returns 5 (pref)
+    @Test fun case721_pref5_pencilPresent_notUsed_returnsPref() =
+        assertEquals(5, decide(721, 5, "Use a ghost pencil",
+            prefs = prefs { setBoolean("ghostPencil1", false) }))
 
-    // Case 721 — pref 5, pencil option present, but prefBool true → returns 6
-    @Test fun case721_pref5_pencilPresent_alreadyUsed_returns6() {
-        prefs.setBoolean("ghostPencil1", true)
-        assertEquals(6, decide(721, 5, "Use a ghost pencil"))
-    }
+    // Case 721 — pref 5, pencil option present, but already used → returns 6
+    @Test fun case721_pref5_pencilPresent_alreadyUsed_returns6() =
+        assertEquals(6, decide(721, 5, "Use a ghost pencil",
+            prefs = prefs { setBoolean("ghostPencil1", true) }))
 
-    // Case 721 — pref 3 (not 5) → returns preference
+    // Case 721 — pref 3 (not 5) → pass through preference
     @Test fun case721_pref3_returnsPreference() = assertEquals(3, decide(721, 3))
 
-    // Case 721 — pref 0 → returns null
-    @Test fun case721_pref0_returnsNull() {
-        val result = decide(721, 0)
-        assertEquals(null, result)
-    }
+    // Case 721 — pref 0 → null
+    @Test fun case721_pref0_returnsNull() = assertNull(decide(721, 0))
 
-    // Case 753 — last zone, verify prefKey is wired correctly
+    // Case 753 — last zone, verify each zone uses its own prefKey (ghostPencil9 not ghostPencil1)
     @Test fun case753_pref5_pencilAbsent_returns6() = assertEquals(6, decide(753, 5, "nothing"))
-    @Test fun case753_pref5_pencilPresent_notUsed_returnsPref() {
-        prefs.setBoolean("ghostPencil9", false)
-        assertEquals(5, decide(753, 5, "Use a ghost pencil"))
-    }
 
-    // All 9 choices are registered
+    @Test fun case753_pref5_pencilPresent_notUsed_returnsPref() =
+        assertEquals(5, decide(753, 5, "Use a ghost pencil",
+            prefs = prefs { setBoolean("ghostPencil9", false) }))
+
+    // Verify prefKey isolation: ghostPencil1=true should not affect case 753 (ghostPencil9)
+    @Test fun case753_pencilNotAffectedByCase721PrefKey() =
+        assertEquals(5, decide(753, 5, "Use a ghost pencil",
+            prefs = prefs { setBoolean("ghostPencil1", true) /* ghostPencil9 not set */ }))
+
+    // All 9 choices registered with correct "no pencil" behaviour
     @Test fun allNineChoicesRegistered() {
         val ids = listOf(721, 725, 729, 733, 737, 741, 745, 749, 753)
         for (id in ids) {
-            val result = decide(id, 5, "nothing")
-            assertEquals(6, result, "Expected 6 for choice $id with pref 5 and no pencil option")
+            assertEquals(6, decide(id, 5, "nothing"),
+                "Expected 6 for choice $id pref=5 pencil absent")
         }
     }
 }

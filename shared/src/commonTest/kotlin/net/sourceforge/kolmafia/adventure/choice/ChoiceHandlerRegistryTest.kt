@@ -51,9 +51,19 @@ class ChoiceHandlerRegistryTest {
         assertNull(registry().dispatch(ctx(9999)))
     }
 
-    @Test fun handlerReturnsNull_fallsToPreference() {
+    @Test fun handlerReturnsNull_returnsManuralControlNotPreference() {
+        // A registered handler returning null signals "go manual" — the preference
+        // must NOT be applied, because the handler is explicitly overriding it
+        // (e.g., the desired option is not on the page this step).
         val r = registry()
         r.register(42) { _ -> null }
+        assertNull(r.dispatch(ctx(42, preference = 2)))
+    }
+
+    @Test fun handlerThatRespectsPreference_returnsPreference() {
+        // Handlers that want to fall through to preference do so explicitly:
+        val r = registry()
+        r.register(42) { c -> c.preference.takeIf { it > 0 } }
         assertEquals(2, r.dispatch(ctx(42, preference = 2)))
     }
 

@@ -40,7 +40,7 @@ object HiddenCityHandlers {
             }
         }
 
-        // Case 785 — Working Holiday (decision tree only; inventory branch handled in InventoryHandlers 786)
+        // Case 785 — Elves' Hideout progress gating (distinct screen from case 786 which is the office interior)
         put(785) { ctx ->
             if (ctx.preference != 1) return@put ctx.preference.takeIf { it > 0 }
             when (ctx.prefInt("hiddenOfficeProgress")) {

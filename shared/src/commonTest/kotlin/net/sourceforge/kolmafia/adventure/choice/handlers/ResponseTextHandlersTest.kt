@@ -91,6 +91,10 @@ class ResponseTextHandlersTest {
     // Case 975
     @Test fun case975_onionsAbsent_returns2() = assertEquals(2, decide(975, 1, "nothing"))
     @Test fun case975_onionsPresent_returnsPref() = assertEquals(1, decide(975, 1, "Stick in the onions"))
+    // pref 0: onions present — handler returns ctx.preference.takeIf { it > 0 } = null
+    @Test fun case975_pref0_onionsPresent_returnsNull() = assertNull(decide(975, 0, "Stick in the onions"))
+    // pref 0: onions absent — override is 2 regardless of preference
+    @Test fun case975_pref0_onionsAbsent_returns2() = assertEquals(2, decide(975, 0, "nothing"))
 
     // Case 1026
     @Test fun case1026_pref2_drawerAbsent_returns3() = assertEquals(3, decide(1026, 2, "nothing"))
