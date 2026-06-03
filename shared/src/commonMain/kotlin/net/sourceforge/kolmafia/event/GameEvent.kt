@@ -26,4 +26,8 @@ sealed class GameEvent {
     // Skills + Effects (Phase 3)
     data class SkillCast(val skillId: Int, val skillName: String, val quantity: Int) : GameEvent()
     object EffectsRefreshed : GameEvent()
+    // Scripts (Phase 5b)
+    data class ScriptStarted(val scriptName: String) : GameEvent()
+    data class ScriptOutput(val line: String) : GameEvent()
+    data class ScriptFinished(val scriptName: String, val success: Boolean, val error: String?) : GameEvent()
 }

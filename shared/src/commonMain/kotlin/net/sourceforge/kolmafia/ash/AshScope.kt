@@ -39,11 +39,19 @@ class AshScope(val parent: AshScope? = null) {
     fun resolveFunction(name: String, argTypes: List<AshType>): AshFunction? {
         val candidates = functions[name.lowercase()]
         if (candidates != null) {
-            val match = candidates.find { fn ->
+            // Prefer exact-type match so overloads like to_int(float) aren't shadowed
+            // by to_int(string) just because float coerces to string.
+            val exactMatch = candidates.find { fn ->
+                fn.params.size == argTypes.size &&
+                fn.params.zip(argTypes).all { (param, arg) -> arg == param.second }
+            }
+            if (exactMatch != null) return exactMatch
+            // Fall back to coercion-based match
+            val coerced = candidates.find { fn ->
                 fn.params.size == argTypes.size &&
                 fn.params.zip(argTypes).all { (param, arg) -> AshType.canCoerce(arg, param.second) }
             }
-            if (match != null) return match
+            if (coerced != null) return coerced
         }
         return parent?.resolveFunction(name, argTypes)
     }
