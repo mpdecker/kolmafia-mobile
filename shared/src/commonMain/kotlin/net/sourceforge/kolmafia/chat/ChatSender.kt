@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.chat
 import io.ktor.client.*
 import io.ktor.client.request.forms.*
 import io.ktor.http.*
+import kotlinx.coroutines.CancellationException
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
 class ChatSender(private val httpClient: HttpClient) {
@@ -16,6 +17,8 @@ class ChatSender(private val httpClient: HttpClient) {
             }
         )
         Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -29,6 +32,8 @@ class ChatSender(private val httpClient: HttpClient) {
             }
         )
         Result.success(Unit)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(e)
     }
