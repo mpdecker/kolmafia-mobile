@@ -5,6 +5,8 @@ import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.adventure.AdventureRequest
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.adventure.FightRequest
+import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
+import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.event.GameEventBus
@@ -46,6 +48,16 @@ val sharedModule = module {
     singleOf(::SkillCastRequest)
     singleOf(::SkillManager)
     singleOf(::EffectManager)
+    single {
+        GameRuntimeLibrary(
+            character = get(),
+            inventoryManager = get(),
+            skillManager = get(),
+            effectManager = get(),
+            adventureManager = get()
+        )
+    }
+    singleOf(::ScriptManager)
     singleOf(::SessionManager)
     singleOf(::ShopRequest)
     singleOf(::CoinmasterRequest)

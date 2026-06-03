@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.session
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
@@ -27,7 +28,8 @@ class SessionManager(
     private val inventoryManager: InventoryManager,
     private val familiarManager: FamiliarManager,
     private val skillManager: SkillManager,
-    private val effectManager: EffectManager
+    private val effectManager: EffectManager,
+    private val scriptManager: ScriptManager
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -42,6 +44,7 @@ class SessionManager(
                         familiarManager.initialize(appScope)
                         skillManager.initialize(appScope)
                         effectManager.initialize(appScope)
+                        scriptManager.initialize()
                         SessionState.LoggedIn
                     },
                     onFailure = { error ->
