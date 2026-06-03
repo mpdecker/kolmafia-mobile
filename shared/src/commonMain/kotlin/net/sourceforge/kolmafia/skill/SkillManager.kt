@@ -24,7 +24,7 @@ private data class SkillApiEntry(
     val mpcost: Int = 0
 )
 
-class SkillManager(
+open class SkillManager(
     private val client: HttpClient,
     private val castRequest: SkillCastRequest,
     private val eventBus: GameEventBus
@@ -64,7 +64,7 @@ class SkillManager(
         }
     }
 
-    suspend fun cast(skill: SkillData, quantity: Int = 1): Result<Unit> {
+    open suspend fun cast(skill: SkillData, quantity: Int = 1): Result<Unit> {
         val result = castRequest.cast(skill.id, quantity)
         result.onSuccess {
             val updatedSkills = _state.value.skills.map { s ->

@@ -21,4 +21,19 @@ class MoodManager(
                 remaining < trigger.minimumTurns
             }
     }
+
+    suspend fun executeActiveMood(
+        effectState: EffectState,
+        skillState: SkillState,
+        charState: CharacterState,
+    ) {
+        val mood = activeMood ?: return
+        if (!preferences.getBoolean(Preferences.AUTO_BUFF, true)) return
+        for (trigger in missingTriggers(mood, effectState)) {
+            val skill = skillState.skills.firstOrNull { it.id == trigger.skillId } ?: continue
+            if (skill.mpCost > charState.currentMp) continue
+            if (skill.dailyLimit > 0 && skill.timesCast >= skill.dailyLimit) continue
+            skillManager.cast(skill)
+        }
+    }
 }
