@@ -137,6 +137,13 @@ data class CharacterState(
     // ── Computed: ascension path ──────────────────────────────────────────────
     val ascensionPath: AscensionPath get() = AscensionPath.fromApiString(challengePath)
 
+    // ── Computed: challenge-path run mode ─────────────────────────────────────
+    // Mirrors KoLCharacter.inFistcore() / inAxecore() from the desktop.
+    val isFistcore: Boolean
+        get() = !kingLiberated && ascensionPath == AscensionPath.SURPRISING_FIST
+    val isAxecore: Boolean
+        get() = ascensionPath == AscensionPath.AVATAR_OF_BORIS
+
     // ── Computed: main buffed stat ────────────────────────────────────────────
     val buffedMainStat: Int get() = when (mainStat) {
         MainStat.MUSCLE      -> buffedMusc
