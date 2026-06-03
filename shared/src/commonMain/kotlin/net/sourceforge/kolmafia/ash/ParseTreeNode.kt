@@ -20,7 +20,8 @@ data class ForNode(
     val start: ExprNode,
     val end: ExprNode,
     val step: ExprNode?,
-    val ascending: Boolean
+    val ascending: Boolean,
+    val body: List<ParseTreeNode> = emptyList()
 ) : ParseTreeNode()
 
 data class ForEachNode(
