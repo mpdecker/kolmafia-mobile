@@ -14,16 +14,19 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceSolvers
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.effect.EffectManager
+import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.skill.SkillState
 
 class AdventureManager(
     private val adventureRequest: AdventureRequest,
@@ -117,9 +120,9 @@ class AdventureManager(
             options        = ChoiceUtilities.parseChoices(responseText),
             responseText   = responseText,
             characterState = character.state.value,
-            inventoryState = inventory?.state?.value ?: net.sourceforge.kolmafia.inventory.InventoryState(),
-            effectState    = effects?.state?.value ?: net.sourceforge.kolmafia.effect.EffectState(),
-            skillState     = skills?.state?.value ?: net.sourceforge.kolmafia.skill.SkillState(),
+            inventoryState = inventory?.state?.value ?: InventoryState(),
+            effectState    = effects?.state?.value ?: EffectState(),
+            skillState     = skills?.state?.value ?: SkillState(),
             preferences    = preferences,
             goalManager    = goalManager,
             questDatabase  = questDatabase,
