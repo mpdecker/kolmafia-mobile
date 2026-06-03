@@ -29,15 +29,4 @@ class MacroStrategyTest {
         assertEquals("skill 3005", MacroStrategy.forLocation("1", p))
     }
 
-    @Test
-    fun choiceOptionDefaultsToOne() {
-        assertEquals(1, MacroStrategy.choiceOptionFor(105, prefs()))
-    }
-
-    @Test
-    fun choiceOptionUsesPreference_whenSet() {
-        val p = prefs()
-        p.setString("choiceAdventure105", "2")
-        assertEquals(2, MacroStrategy.choiceOptionFor(105, p))
-    }
 }

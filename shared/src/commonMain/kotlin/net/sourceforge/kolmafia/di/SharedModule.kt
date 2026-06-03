@@ -2,11 +2,26 @@ package net.sourceforge.kolmafia.di
 
 import io.ktor.client.*
 import net.sourceforge.kolmafia.adventure.AdventureManager
-import net.sourceforge.kolmafia.character.DailyResourceTracker
-import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.adventure.AdventureRequest
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.adventure.FightRequest
+import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
+import net.sourceforge.kolmafia.adventure.choice.ChoiceSolvers
+import net.sourceforge.kolmafia.adventure.choice.handlers.ComplexHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.DreadsylvaniaHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.GoalHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.HiddenCityHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.InventoryHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.MiscHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.QuestHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.ResponseTextHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.SkillUsesHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.SolverHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.StatHandlers
+import net.sourceforge.kolmafia.character.DailyResourceTracker
+import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
 import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.character.KoLCharacter
@@ -46,12 +61,56 @@ val sharedModule = module {
     singleOf(::AdventureRequest)
     singleOf(::FightRequest)
     singleOf(::ChoiceRequest)
-    singleOf(::AdventureManager)
+    single { GoalManager() }
+    single { QuestDatabase(get()) }
+    single {
+        ChoiceSolvers(
+            safetyShelter = net.sourceforge.kolmafia.adventure.choice.solvers.SafetyShelterSolver.NoOp,
+            vampOut       = net.sourceforge.kolmafia.adventure.choice.solvers.VampOutSolver.NoOp,
+            arcadeGame    = net.sourceforge.kolmafia.adventure.choice.solvers.ArcadeGameSolver.NoOp,
+            lostKey       = net.sourceforge.kolmafia.adventure.choice.solvers.LostKeySolver.NoOp,
+            gamepro       = net.sourceforge.kolmafia.adventure.choice.solvers.GameproSolver.NoOp,
+            lightsOut     = net.sourceforge.kolmafia.adventure.choice.solvers.LightsOutSolver.NoOp,
+        )
+    }
+    single {
+        ChoiceHandlerRegistry().also { r ->
+            InventoryHandlers.registerAll(r)
+            ResponseTextHandlers.registerAll(r)
+            StatHandlers.registerAll(r)
+            ComplexHandlers.registerAll(r)
+            DreadsylvaniaHandlers.registerAll(r)
+            HiddenCityHandlers.registerAll(r)
+            MiscHandlers.registerAll(r)
+            GoalHandlers.registerAll(r)
+            QuestHandlers.registerAll(r)
+            SkillUsesHandlers.registerAll(r)
+            SolverHandlers.registerAll(r)
+        }
+    }
     singleOf(::InventoryManager)
     singleOf(::FamiliarManager)
     singleOf(::SkillCastRequest)
     singleOf(::SkillManager)
     singleOf(::EffectManager)
+    single {
+        AdventureManager(
+            adventureRequest = get(),
+            fightRequest     = get(),
+            choiceRequest    = get(),
+            characterRequest = get(),
+            character        = get(),
+            preferences      = get(),
+            eventBus         = get(),
+            registry         = get(),
+            goalManager      = get(),
+            questDatabase    = get(),
+            solvers          = get(),
+            inventory        = get(),
+            effects          = get(),
+            skills           = get(),
+        )
+    }
     single {
         GameRuntimeLibrary(
             character = get(),

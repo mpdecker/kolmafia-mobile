@@ -57,6 +57,7 @@ enum class AscensionPath(
     HAT_TRICK("Hat Trick"),
     MEAT("Adventurer Meats World",      canDrink = false, canChew = false),
     THRIFTY("Thrifty"),
+    SURPRISING_FIST("Way of the Surprising Fist"),
 
     UNKNOWN("Unknown");
 

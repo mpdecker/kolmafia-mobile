@@ -12,6 +12,4 @@ object MacroStrategy {
         return global.ifBlank { SAFE_DEFAULT }
     }
 
-    fun choiceOptionFor(choiceId: Int, preferences: Preferences): Int =
-        preferences.getString("choiceAdventure$choiceId").toIntOrNull() ?: 1
 }
