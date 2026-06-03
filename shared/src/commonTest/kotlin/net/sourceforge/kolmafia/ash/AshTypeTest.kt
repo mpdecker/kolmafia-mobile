@@ -139,4 +139,54 @@ class AshTypeTest {
         assertEquals(100L, v.getField(0).toLong())
         assertEquals("Testington", v.getField(1).toString())
     }
+
+    @Test
+    fun canCoerce_aggregateDifferentIndexType_isFalse() {
+        assertFalse(AshType.canCoerce(
+            AggregateType(AshType.STRING, AshType.INT),
+            AggregateType(AshType.ITEM, AshType.INT)
+        ))
+    }
+
+    @Test
+    fun canCoerce_sameAggregateType_isTrue() {
+        val t = AggregateType(AshType.STRING, AshType.INT)
+        assertTrue(AshType.canCoerce(t, t))
+    }
+
+    @Test
+    fun scriptException_messageWithLine() {
+        val ex = ScriptException("bad", 5)
+        assertEquals("Script error at line 5: bad", ex.message)
+    }
+
+    @Test
+    fun scriptException_messageNoLine() {
+        assertEquals("Script error: bad", ScriptException("bad").message)
+        assertEquals("Script error: bad", ScriptException("bad", -1).message)
+        assertEquals("Script error: bad", ScriptException("bad", 0).message)
+    }
+
+    @Test
+    fun recordValue_getSetField_byName() {
+        val fields = listOf(RecordField("hp", AshType.INT, 0), RecordField("name", AshType.STRING, 1))
+        val t = RecordType("PC", fields)
+        val v = RecordValue(t)
+        v.setField("hp", AshValue.of(99))
+        v.setField("name", AshValue.of("Hero"))
+        assertEquals(99L, v.getField("hp").toLong())
+        assertEquals("Hero", v.getField("name").toString())
+    }
+
+    @Test
+    fun recordValue_getField_unknownName_throws() {
+        val t = RecordType("PC", listOf(RecordField("hp", AshType.INT, 0)))
+        val v = RecordValue(t)
+        try {
+            v.getField("nonexistent")
+            kotlin.test.fail("Expected ScriptException")
+        } catch (e: ScriptException) {
+            assertTrue(e.message?.contains("nonexistent") == true)
+        }
+    }
 }

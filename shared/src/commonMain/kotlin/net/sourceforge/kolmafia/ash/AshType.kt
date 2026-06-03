@@ -8,15 +8,15 @@ open class AshType(val name: String) {
     open val isAggregate: Boolean = false
     open val isRecord: Boolean = false
 
-    fun defaultValue(): AshValue = when {
-        this == VOID -> AshValue.VOID
-        this == BOOLEAN -> AshValue.FALSE
-        this == INT -> AshValue.ZERO
-        this == FLOAT -> AshValue.of(0.0)
-        this == STRING -> AshValue.EMPTY_STRING
-        this == BUFFER -> AshValue(BUFFER, StringBuilder())
-        isAggregate -> AggregateValue(this as AggregateType)
-        isRecord -> RecordValue(this as RecordType)
+    fun defaultValue(): AshValue = when (this) {
+        VOID -> AshValue.VOID
+        BOOLEAN -> AshValue.FALSE
+        INT -> AshValue.ZERO
+        FLOAT -> AshValue.of(0.0)
+        STRING -> AshValue.EMPTY_STRING
+        BUFFER -> AshValue(BUFFER, StringBuilder())
+        is AggregateType -> AggregateValue(this)
+        is RecordType -> RecordValue(this)
         else -> AshValue(this, "") // game entity types: empty string = "none"
     }
 
@@ -58,7 +58,6 @@ open class AshType(val name: String) {
             from == INT && to == FLOAT -> true
             from == BOOLEAN && to == INT -> true
             to == STRING -> true
-            from is AggregateType && to is AggregateType && from.dataType == to.dataType -> true
             else -> false
         }
     }

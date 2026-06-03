@@ -1,6 +1,14 @@
 package net.sourceforge.kolmafia.ash
 
-open class AshValue(open val type: AshType, val content: Any?) {
+open class AshValue internal constructor(open val type: AshType, val content: Any?) {
+    init {
+        when (type) {
+            AshType.INT -> require(content is Long?) { "INT value must be Long, got ${content?.let { it::class.simpleName }}" }
+            AshType.FLOAT -> require(content is Double?) { "FLOAT value must be Double, got ${content?.let { it::class.simpleName }}" }
+            AshType.BOOLEAN -> require(content is Boolean?) { "BOOLEAN value must be Boolean, got ${content?.let { it::class.simpleName }}" }
+            else -> {} // other types accept Any?
+        }
+    }
 
     override fun equals(other: Any?): Boolean =
         other is AshValue && type == other.type && content == other.content
