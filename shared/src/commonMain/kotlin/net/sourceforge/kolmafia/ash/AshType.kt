@@ -21,6 +21,11 @@ open class AshType(val name: String) {
     }
 
     companion object {
+        /** Sentinel: any aggregate value is accepted for this parameter (used by count/clear). */
+        val AGGREGATE: AshType = object : AshType("aggregate") {
+            override val isAggregate = false // not itself an aggregate; just a sentinel
+        }
+
         val VOID = AshType("void")
         val BOOLEAN = AshType("boolean")
         val INT = AshType("int")
@@ -58,6 +63,8 @@ open class AshType(val name: String) {
             from == INT && to == FLOAT -> true
             from == BOOLEAN && to == INT -> true
             to == STRING -> true
+            // Any concrete aggregate coerces to the AGGREGATE sentinel (used by count/clear)
+            from.isAggregate && to === AGGREGATE -> true
             else -> false
         }
     }
