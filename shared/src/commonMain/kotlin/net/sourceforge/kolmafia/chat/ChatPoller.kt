@@ -11,48 +11,26 @@ class ChatPoller(private val httpClient: HttpClient) {
     var lastTime: String = "0"
         private set
 
-    private val listeners = mutableListOf<(List<ChatMessage>) -> Unit>()
+    @Volatile
+    private var listeners: List<(List<ChatMessage>) -> Unit> = emptyList()
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var pollingJob: Job? = null
 
     fun onMessages(listener: (List<ChatMessage>) -> Unit) {
-        listeners += listener
+        listeners = listeners + listener
     }
 
     suspend fun pollOnce() {
-        try {
-            val body = httpClient
-                .get("$KOL_BASE_URL/newchatmessages.php") { parameter("lasttime", lastTime) }
-                .bodyAsText()
-            val response = ChatParser.parse(body)
-            lastTime = response.lastTime
-            if (response.messages.isNotEmpty()) {
-                listeners.forEach { it(response.messages) }
-            }
-        } catch (_: Exception) {
-            // Network errors are non-fatal; next poll will retry
-        }
+        fetchAndDispatch()
     }
 
     fun start() {
         if (pollingJob?.isActive == true) return
         pollingJob = scope.launch {
             while (isActive) {
-                val body = runCatching {
-                    httpClient.get("$KOL_BASE_URL/newchatmessages.php") {
-                        parameter("lasttime", lastTime)
-                    }.bodyAsText()
-                }.getOrNull()
-                if (body != null) {
-                    val response = ChatParser.parse(body)
-                    lastTime = response.lastTime
-                    if (response.messages.isNotEmpty()) {
-                        listeners.forEach { it(response.messages) }
-                    }
-                    delay(response.delayMillis)
-                } else {
-                    delay(3_000L)
-                }
+                val delayMs = fetchAndDispatch()
+                delay(delayMs)
             }
         }
     }
@@ -60,5 +38,26 @@ class ChatPoller(private val httpClient: HttpClient) {
     fun stop() {
         pollingJob?.cancel()
         pollingJob = null
+    }
+
+    private suspend fun fetchAndDispatch(): Long {
+        return try {
+            val body = httpClient
+                .get("$KOL_BASE_URL/newchatmessages.php") { parameter("lasttime", lastTime) }
+                .bodyAsText()
+            val response = ChatParser.parse(body)
+            lastTime = response.lastTime
+            val snapshot = listeners
+            if (response.messages.isNotEmpty()) {
+                snapshot.forEach { it(response.messages) }
+            }
+            response.delayMillis
+        } catch (_: Exception) {
+            RETRY_DELAY_MS
+        }
+    }
+
+    companion object {
+        private const val RETRY_DELAY_MS = 3_000L
     }
 }
