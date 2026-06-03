@@ -1,0 +1,3087 @@
+3
+# The mixing method (2nd field in each line) can be a comma-separated list
+# of the following elements:
+#
+# Basic creation type (exactly one is required):
+# COMBINE, COOK, MIX, MALUS, JEWEL, STAR, SUGAR, PIXEL, ROLL,
+# TINKER, STAFF, SUSHI, SUSE, MUSE, PHINEAS, SEWER
+# STILL (booze & mixer upgrades)
+# SMITH (basic smithing that can be done by Innabox)
+# SSMITH (smithing you have to do yourself - always requires a skill)
+# CRIMBO05, CRIMBO06, CRIMBO07 (historical), CRIMBO12
+# ACOMBINE (meat pasting recipes that cannot be untinkered)
+#
+# Additional requirements (add to a basic creation type):
+# MALE, FEMALE (craftable only by a specific gender)
+# SSPD (craftable only on St. Sneaky Pete's Day)
+# HAMMER (requires a tenderizing hammer - implied for smithing)
+# GRIMACITE (requires a depleted Grimacite hammer)
+# TORSO, WEAPON, ARMOR (smithing-related skills)
+# ELDRITCH (requires Eldritch Intellect)
+# EXPENSIVE (jewelrymaking skill)
+# REAGENT, WAY, DEEP, PASTAMASTERY, TRANSNOODLE, TEMPURAMANCY, PATENT (cooking)
+# AC, SHC, SALACIOUS (cocktailcrafting skills)
+# NOBEE (cannot be make in Beecore)
+#
+# Informational flags:
+# SX3 (Saucerors make 3 at a time)
+# NODISCOVERY (does not generate discovery, even though it uses
+#	one of the normally discoverable crafting types)
+# MANUAL (should never be used automatically - for completeness only)
+#	(Mafia currently ignores MANUAL recipes entirely.)
+#
+# Combinations of creation type & skill, for convenience:
+# WSMITH, ASMITH (skilled smithing)
+# PASTA, TNOODLE, TEMPURA, SAUCE, SSAUCE, DSAUCE (skilled cooking)
+# ACOCK, SCOCK, SACOCK (skilled mixing)
+# EJEWEL (skilled jewelrymaking)
+# TIKI (Tiki mixing)
+
+# Items which can be obtained by simply using another item.  There are
+# lots more of these, but this appears to be the only one that
+# guarantees that each item drops exactly once.
+
+tamarind-flavored chewing gum	SUSE	pack of chewing gum
+lime-and-chile-flavored chewing gum	SUSE	pack of chewing gum
+pickle-flavored chewing gum	SUSE	pack of chewing gum
+jaba&ntilde;ero-flavored chewing gum	SUSE	pack of chewing gum
+
+tropical orchid (6)	SUSE	packet of orchid seeds
+
+ancient calendar	SUSE	ancient calendar fragment (8)
+
+plate of Heimz Fortified Kidney Beans	SUSE	Heimz Fortified Kidney Beans
+plate of Tesla's Electroplated Beans	SUSE	Tesla's Electroplated Beans
+plate of Mixed Garbanzos and Chickpeas	SUSE	Mixed Garbanzos and Chickpeas
+plate of Hellfire Spicy Beans	SUSE	Hellfire Spicy Beans
+plate of Frigid Northern Beans	SUSE	Frigid Northern Beans
+plate of World's Blackest-Eyed Peas	SUSE	World's Blackest-Eyed Peas
+plate of Trader Olaf's Exotic Stinkbeans	SUSE	Trader Olaf's Exotic Stinkbeans
+plate of Pork 'n' Pork 'n' Pork 'n' Beans	SUSE	Pork 'n' Pork 'n' Pork 'n' Beans
+plate of Shrub's Premium Baked Beans	SUSE	Shrub's Premium Baked Beans
+
+# Christmas-specific items which can be created through combination or
+# smithing.
+
+present	COMBINE	box	wrapping paper
+bow staff	SMITH	big stick	bow
+bowlegged pants	SMITH	pants kit	bow
+bowler	SMITH	helmet recipe	bow
+Crimbo hat	SMITH	wrapping paper	helmet recipe
+Crimbo pants	SMITH	wrapping paper	pants kit
+Crimbo sword	SMITH	wrapping paper	sword hilt
+Tropical Crimbo Hat	SMITH	tropical wrapping paper	helmet recipe
+Tropical Crimbo Shorts	SMITH	tropical wrapping paper	pants kit
+Tropical Crimbo Sword	SMITH	tropical wrapping paper	sword hilt
+
+
+# Quest items which are created by combination and their subparts.
+
+abridged dictionary	COMBINE	bridge	dictionary
+badass belt	COMBINE	batskin belt	skull of the Bonerdagon
+bitchin' meatcar	ACOMBINE	dope wheels	meat engine
+pumpkin carriage	ACOMBINE	dope wheels	pumpkin
+bone rattle	COMBINE	skeleton bone	broken skull
+Bonerdagon necklace	COMBINE	hemp string	vertebra of the Bonerdagon
+cog and sprocket assembly	COMBINE	cog	sprocket assembly
+dope wheels	COMBINE	tires	sweet rims
+full meat tank	COMBINE	empty meat tank	meat stack
+Harold's hammer	COMBINE	Harold's hammer head	Harold's hammer handle
+heavy metal sonata	COMBINE	chrome ore	drab sonata
+heavy metal thunderrr guitarrr	COMBINE	acoustic guitarrr	chrome ore
+hosed fishbowl	COMBINE	fishbowl	fish hose
+hosed tank	COMBINE	fishtank	fish hose
+imbued seal-blubber candle	COMBINE	powdered sealbone	seal-blubber candle
+intragalactic rowboat	COMBINE	S.O.C.K.	quantum egg
+makeshift SCUBA gear	COMBINE	hosed tank	fishbowl
+makeshift SCUBA gear	COMBINE	hosed fishbowl	fishtank
+Mighty Bjorn action figure	COMBINE, NODISCOVERY	action figure head	action figure body
+oyster basket	COMBINE	tisket	tasket
+really really sticky spider web	COMBINE	really sticky spider web	really sticky spider web
+really sticky spider web	COMBINE	spider web	spider web
+skeleton key	COMBINE	skeleton bone	loose teeth
+rusty metal key	COMBINE	rusty metal ring	rusty metal shaft
+tambourine	COMBINE	Gnollish pie tin	tambourine bells
+charged magnet	COMBINE	floaty sand	moxie magnet
+pumpkin bomb	COMBINE	pumpkin	Knob Goblin firecracker
+peppermint parasol	ACOMBINE	peppermint patty	peppermint crook
+candy cane candygram	ACOMBINE	peppermint crook	peppermint crook
+
+headpiece of the Staff of Ed	COMBINE	[2180]ancient amulet	[2286]Eye of Ed
+Staff of Ed, almost	COMBINE	[2180]ancient amulet	[2268]Staff of Fats
+[2325]Staff of Ed	COMBINE	headpiece of the Staff of Ed	[2268]Staff of Fats
+[2325]Staff of Ed	COMBINE	[2286]Eye of Ed	Staff of Ed, almost
+
+meat stack	ACOMBINE, MANUAL	fairy gravy boat	meat from yesterday
+
+
+# Items involved with defacing skillbooks into used skillbooks
+
+scrap of sticky paper	COMBINE	tattered scrap of paper	spider web
+sandpaper	COMBINE	scrap of sticky paper	handful of sand
+A Crimbo Carol, Ch. 1 (used)	ACOMBINE	A Crimbo Carol, Ch. 1	sandpaper
+A Crimbo Carol, Ch. 2 (used)	ACOMBINE	A Crimbo Carol, Ch. 2	sandpaper
+A Crimbo Carol, Ch. 3 (used)	ACOMBINE	A Crimbo Carol, Ch. 3	sandpaper
+A Crimbo Carol, Ch. 4 (used)	ACOMBINE	A Crimbo Carol, Ch. 4	sandpaper
+A Crimbo Carol, Ch. 5 (used)	ACOMBINE	A Crimbo Carol, Ch. 5	sandpaper
+A Crimbo Carol, Ch. 6 (used)	ACOMBINE	A Crimbo Carol, Ch. 6	sandpaper
+CRIMBCO Employee Handbook (chapter 1) (used)	ACOMBINE	CRIMBCO Employee Handbook (chapter 1)	sandpaper
+CRIMBCO Employee Handbook (chapter 2) (used)	ACOMBINE	CRIMBCO Employee Handbook (chapter 2)	sandpaper
+CRIMBCO Employee Handbook (chapter 3) (used)	ACOMBINE	CRIMBCO Employee Handbook (chapter 3)	sandpaper
+CRIMBCO Employee Handbook (chapter 4) (used)	ACOMBINE	CRIMBCO Employee Handbook (chapter 4)	sandpaper
+CRIMBCO Employee Handbook (chapter 5) (used)	ACOMBINE	CRIMBCO Employee Handbook (chapter 5)	sandpaper
+The Art of Slapfighting (used)	ACOMBINE	The Art of Slapfighting	sandpaper
+Uncle Romulus (used)	ACOMBINE	Uncle Romulus	sandpaper
+Zu Mannk&auml;se Dienen (used)	ACOMBINE	Zu Mannk&auml;se Dienen	sandpaper
+A Beginner's Guide to Charming Snakes (used)	ACOMBINE	A Beginner's Guide to Charming Snakes	sandpaper
+Autobiography Of Dynamite Superman Jones (used)	ACOMBINE	The Autobiography Of Dynamite Superman Jones	sandpaper
+Inigo's Incantation of Inspiration (crumpled)	ACOMBINE	Inigo's Incantation of Inspiration	sandpaper
+Ellsbury's journal (used)	ACOMBINE	Ellsbury's journal	sandpaper
+Tales of a Kansas Toymaker (used)	ACOMBINE	Tales of a Kansas Toymaker	sandpaper
+The Joy of Wassailing (used)	ACOMBINE	The Joy of Wassailing	sandpaper
+Field Guide to Skeletal Anatomy (shredded)	ACOMBINE	Field Guide to Skeletal Anatomy	sandpaper
+The Necbronomicon (used)	ACOMBINE	The Necbronomicon	sandpaper
+
+# Items involved with the campground, or subcomponents involved in the
+# creation of campground items.
+
+barskin tent	COMBINE	bar skin	wooden stakes
+beanbag chair	COMBINE	hill of beans	filthy knitted dread sack
+cottage	COMBINE	anticheese	bowl of cottage cheese
+evil golden arches	COMBINE	evil golden arch	evil golden arch
+lifeless meat doll	COMBINE	meat face	wooden figurine
+maid head	COMBINE	brainy skull	maiden wig
+meat engine	COMBINE	full meat tank	cog and sprocket assembly
+meat face	COMBINE	fairy gravy boat	dried face
+meat golem	COMBINE	lifeless meat doll	magicalness-in-a-can
+Meat maid	COMBINE	maid head	Meat maid body
+Meat maid body	COMBINE	frilly skirt	meat engine
+pretty bouquet	COMBINE	pretty flower	pretty flower
+spooky scarecrow	COMBINE	wooden stakes	spooky staff
+
+
+# Weapons and accessories that can be created by non-seal clubbers by
+# combining items.
+
+aerated diving helmet	COMBINE	bubblin' stone	rusty diving helmet
+asshat	COMBINE	bum cheek	bum cheek
+beach glass necklace	COMBINE	beach glass bead	hemp string
+detective skull	COMBINE	gnoll lips	brainy skull
+disembodied smile	COMBINE	gnoll lips	gnoll teeth
+enchanted eyepatch	COMBINE	eyepatch	lihc eye
+gnatwing earring	COMBINE	gnatwing	piercing post
+Gnollish autoplunger	COMBINE	Gnollish plunger	meat engine
+gnoll-tooth necklace	COMBINE	gnoll teeth	hemp string
+peace-sign necklace	COMBINE	clay peace-sign bead	hemp string
+phat turquoise bracelet	COMBINE	phat turquoise bead	hemp string
+spooky staff	COMBINE	spooky shrunken head	spooky stick
+
+snakehead charrrm	SUSE	gaudy key
+# Talisman o' Namsilat	SUSE	snakehead charrrm	snakehead charrrm
+Talisman o' Namsilat	COMBINE	Copperhead Charm	Copperhead Charm (rampant)
+
+boxing glove on a spring	COMBINE	spring	boxing glove
+grass whistle	COMBINE	leaf of grass	leaf of grass
+office-supply crossbow	COMBINE	stolen office supplies	stolen office supplies
+wings of fire	COMBINE	fiery wing	fiery wing
+club of corruption	COMBINE	seal-clubbing club	tainted seal's blood
+corrupt club of corruption	COMBINE	club of corruption	tainted seal's blood
+corrupt club of corrupt corruption	COMBINE	corrupt club of corruption	tainted seal's blood
+
+memory of a CA base pair	COMBINE	memory of a C	memory of an A
+memory of a CG base pair	COMBINE	memory of a C	memory of a G
+memory of a CT base pair	COMBINE	memory of a C	memory of a T
+memory of an AG base pair	COMBINE	memory of an A	memory of a G
+memory of an AT base pair	COMBINE	memory of an A	memory of a T
+memory of a GT base pair	COMBINE	memory of a G	memory of a T
+
+ice skate doll	COMBINE	skate skin	spangly unitard
+ice skate decoy	COMBINE	ice skate doll	collapsible baton
+roller skate doll	COMBINE	skate skin	skate skates
+roller skate decoy	COMBINE	roller skate doll	brass dorsal fin
+
+# Amazing Ideas
+
+giant diamond ring	JEWEL	lump of diamond	ring setting
+mysterious present	ACOMBINE	box	probability potion
+Russian Ice	MIX_FANCY	bottle of vodka	magical ice cubes
+boxing-glove-in-a-box	ACOMBINE	nothing-in-the-box	boxing glove
+innuendo	ACOMBINE	skeleton key	skate skates
+Salsa de las Epocas	COOK_FANCY	scrumptious reagent	marzipan skull
+creepy voodoo doll	ACOMBINE	wooden figurine	gob of wet hair
+s'more gun	ACOMBINE	[2426]fire flower	armgun
+popcorn	ACOMBINE	Knob Goblin firecracker	cob of corn
+the finger	ACOMBINE	asparagus knife	fake hand
+tiny black hole	ACOMBINE	lime	coconut shell
+
+spaghetti con calaveras	PASTA	Salsa de las Epocas	dry noodles
+chaos popcorn	COMBINE	popcorn	chaos butterfly
+
+# Clover weapons and their subcomponents.  These can be made by all
+# classes by meatsmithing
+
+ten-leaf clover	SUSE, NOBEE	disassembled clover
+disassembled clover	SUSE	ten-leaf clover
+
+# seal-toothed rock	SMITH	seal tooth	big rock
+# Bjorn's Hammer	SMITH	seal-toothed rock	seal-clubbing club
+Hammer of Smiting	SMITH	Bjorn's Hammer	distilled seal blood
+
+# stone turtle	SMITH	chisel	big rock
+# Mace of the Tortoise	SMITH	stone turtle	turtle totem
+Chelonian Morningstar	SMITH	Mace of the Tortoise	turtle chain
+
+# spaghetti with rock-balls	SMITH	petrified noodles	big rock
+# Pasta of Peril	SMITH	spaghetti with rock-balls	pasta spoon
+Greek Pasta Spoon of Peril	SMITH	Pasta Spoon of Peril	high-octane olive oil
+
+# heavy hot sauce	SMITH	jaba&ntilde;ero pepper	big rock
+# 5-Alarm Saucepan	SMITH	heavy hot sauce	saucepan
+17-alarm Saucepan	SMITH	5-Alarm Saucepan	Peppercorns of Power
+
+# stone banjo	SMITH	banjo strings	big rock
+# Disco Banjo	SMITH	stone banjo	disco ball
+Shagadelic Disco Banjo	SMITH	Disco Banjo	vial of mojo
+
+# heart of rock and roll	SMITH	hot buttered roll	big rock
+# Rock and Roll Legend	SMITH	heart of rock and roll	stolen accordion
+Squeezebox of the Ages	SMITH	Rock and Roll Legend	golden reeds
+
+dueling banjo	SMITH	dueling turtle	banjo strings
+
+shin gourds	SMITH	pumpkin	pumpkin
+
+# Familiar items and their subcomponents which do not serve any other
+# recalled purpose.
+
+cocoa egg	COOK	large cocoa eggshell fragment	large cocoa eggshell fragment
+fertilized ghuol egg	COMBINE	ghuol egg	Spooky-Gro fertilizer
+goat	COMBINE	anticheese	goat cheese
+hovering sombrero	COMBINE	irate sombrero	poultrygeist
+large cocoa eggshell fragment	COOK	cocoa eggshell fragment	cocoa eggshell fragment
+one-winged stab bat	COMBINE	batblade	bat wing
+pirate skull	COMBINE	eyepatch	brainy skull
+spooky pirate skeleton	SUSE	pirate skull	sunken chest	pirate pelvis	skeleton bone (8)
+pregnant gloomy black mushroom	COOK	gloomy black mushroom	spooky fairy gravy
+pregnant oily golden mushroom	COOK	oily golden mushroom	sleazy fairy gravy
+pregnant mushroom	COOK	Knob mushroom	fairy gravy boat
+rewinged stab bat	COMBINE	bat wing	one-winged stab bat
+sabre-toothed lime cub	COMBINE	lime	sabre teeth
+sleazy fairy gravy	COOK	pr0n legs	fairy gravy boat
+ghost pickle on a stick	COOK	spectral pickle	skewer
+
+clockwork pirate skull	COMBINE	clockwork sphere	enchanted eyepatch
+pirate zombie head	COMBINE	clockwork pirate skull	zombie pineal gland
+pirate zombie robot head	COMBINE	pirate zombie head	glowing red eye
+ninja pirate zombie robot head	COMBINE	pirate zombie robot head	cold ninja mask
+
+rock lobster	SUSE, NOBEE	wok lobster	floaty rock
+
+wet stew	COOK	bird rib	lion oil
+wet stunt nut stew	COOK	wet stew	stunt nuts
+unfrosted Knob cake	COOK	Knob cake pan	Knob batter
+Knob cake	COOK_FANCY	unfrosted Knob cake	Knob frosting
+unstable fulminate	COOK_FANCY	bottle of Chateau de Vinegar	blasting soda
+
+baneful bandolier	SMITH	caustic slime nodule	slime-covered necklace
+bitter pill	SAUCE	caustic slime nodule	scrumptious reagent
+corroded breeches	SMITH	caustic slime nodule	slime-covered greaves
+corrosive cowl	SMITH	caustic slime nodule	slime-covered helmet
+diabolical crossbow	SMITH	caustic slime nodule	slime-covered speargun
+grisly shield	SMITH	caustic slime nodule	slime-covered lantern
+malevolent medallion	SMITH	caustic slime nodule	slime-covered compass
+pernicious cudgel	SMITH	caustic slime nodule	slime-covered club
+villainous scythe	SMITH	caustic slime nodule	slime-covered shovel
+
+# Box parts and things that go into boxes or become boxes or are involved
+# in some way with boxes and the things that become/go into them.
+
+bartender skull	COMBINE	brainy skull	beer goggles
+bartender-in-the-box	COMBINE	nothing-in-the-box	bartender skull
+beer goggles	COMBINE	beer lens	beer lens
+box-in-the-box	COMBINE	box	nothing-in-the-box
+box-in-the-box-in-the-box	COMBINE	box	nothing-in-the-box-in-the-box
+brainy skull	COMBINE	disembodied brain	smart skull
+chef skull	COMBINE	brainy skull	chef's hat
+chef-in-the-box	COMBINE	nothing-in-the-box	chef skull
+nothing-in-the-box	COMBINE	box	spring
+nothing-in-the-box-in-the-box	COMBINE	box-in-the-box	spring
+sprocket assembly	COMBINE	sprocket	spring
+4-d camera	COMBINE	nothing-in-the-box	beer lens
+
+# Items created by combining letters.
+
+ND	COMBINE	lowercase N	heavy D
+NG	COMBINE	lowercase N	original G
+WA	COMBINE	metallic A	ruby W
+Wand of Nagamar	ACOMBINE	WA	ND
+wang	COMBINE	WA	NG
+
+# Burritos, pizza and statue lime pies.  These are a class all their own
+# because of their popularity.  Other really popular items, like spectral
+# pickles, are also included.
+
+lemon popsicle	COOK	popsicle stick	lemon
+orange popsicle	COOK	popsicle stick	orange
+strawberry popsicle	COOK	popsicle stick	strawberry
+liver popsicle	COOK	popsicle stick	bunny liver
+They liver popsicle	COOK	popsicle stick	They liver
+fudgesicle	COOK	popsicle stick	frigid fudgepuck
+banana cream pie	COOK	pie crust	banana
+banana milkshake	COOK	glass of baboon milk	banana
+banana spritzer	COOK	banana	soda water
+bean burrito	COOK	flat dough	hill of beans
+cherry pie	COOK	pie crust	cherry
+cream pie	COOK	pie crust	glass of goat's milk
+briny vinegar	COOK	brine	vinegar
+enchanted bean burrito	COOK	flat dough	enchanted bean
+flower petal pie	COOK	pretty flower	pie crust
+ghostly pickling solution	COOK	briny vinegar	dill
+goat cheese pizza	COOK	plain pizza	goat cheese
+guano coffee cup	SUSE, NOBEE	bat guano
+herb brownies	COOK	herbs	Uncle Jick's Brownie Mix
+hippy herbal tea	COOK	guano coffee cup	herbs
+Humpty Dumplings	COOK	eggman noodles	Vial of <i>jus de larmes</i>
+insanely spicy bean burrito	COOK	spicy bean burrito	jaba&ntilde;ero pepper
+insanely spicy enchanted bean burrito	COOK	spicy enchanted bean burrito	jaba&ntilde;ero pepper
+insanely spicy jumping bean burrito	COOK	spicy jumping bean burrito	jaba&ntilde;ero pepper
+jumping bean burrito	COOK	flat dough	pile of jumping beans
+lemon meringue pie	COOK	pie crust	lemon
+Lucky Surprise Egg	COOK	ten-leaf clover	cocoa egg
+mushroom pizza	COOK	plain pizza	Knob mushroom
+pie crust	COOK	Gnollish pie tin	wad of dough
+plain pizza	COOK	wad of dough	tomato
+plain pizza	COOK	flat dough	tomato
+pumpkin pie	COOK	pie crust	pumpkin
+rocky road ice cream	COOK	glass of goat's milk	floaty gravel
+rocky road ice cream	COOK	glass of baboon milk	floaty gravel
+sausage pizza	COOK	plain pizza	Knob sausage
+spicy bean burrito	COOK	bean burrito	spices
+spicy enchanted bean burrito	COOK	enchanted bean burrito	spices
+spicy jumping bean burrito	COOK	jumping bean burrito	spices
+spectral pickle	COOK	ghost cucumber	ghostly pickling solution
+Spooky Surprise Egg	COOK	spooky wad	cocoa egg
+strawberry pie	COOK	pie crust	strawberry
+
+Boris's key lime	COOK	Boris's key	lime
+Boris's key lime pie	COOK_FANCY	Boris's key lime	pie crust
+Jarlsberg's key lime	COOK	Jarlsberg's key	lime
+Jarlsberg's key lime pie	COOK_FANCY	Jarlsberg's key lime	pie crust
+Sneaky Pete's key lime	COOK	Sneaky Pete's key	lime
+Sneaky Pete's key lime pie	COOK_FANCY	Sneaky Pete's key lime	pie crust
+star key lime	COOK	Richard's star key	lime
+star key lime pie	COOK_FANCY	star key lime	pie crust
+
+lava cake	COOK	wad of dough	gooey lava globs
+
+# Items which can be created by using a rolling pin.
+
+flat dough	ROLL	wad of dough
+wad of dough	ROLL	flat dough
+
+
+# Other recipes which aren't popular but can be created.  There is no
+# real reason why they aren't popular - they just aren't.
+
+bat haggis	COOK	batgut	spices
+bat wing kabob	COOK	bat wing	skewer
+brains casserole	COOK	fricasseed brains	Gnollish casserole dish
+carob brownies	COOK	carob chunks	Uncle Jick's Brownie Mix
+carob chunk cookies	COOK	carob chunks	wad of dough
+carrot cake	COOK	carrot nose	wad of dough
+catgut taco	COOK	catgut	taco shell
+chorizo taco	COOK	uncooked chorizo	taco shell
+ghuol egg quiche	COOK	ghuol egg	pie crust
+ghuol-ear kabob	COOK	ghuol ears	skewer
+goat cheese taco	COOK	goat cheese	taco shell
+grue egg omelette	COOK_FANCY	grue egg	spooky mushroom
+hot stuffing	COOK	heavy hot sauce	stuffing
+jumping bean taco	COOK	pile of jumping beans	taco shell
+Knob shroomkabob	COOK	Knob mushroom	skewer
+Knoll shroomkabob	COOK	Knoll mushroom	skewer
+lihc eye pie	COOK	lihc eye	pie crust
+menudo	COOK	catgut	spices
+papaya taco	COOK	papaya	taco shell
+pr0n cocktail	COOK	pr0n legs	ketchup
+pr0n cocktail	COOK	pr0n legs	catsup
+pr0n taco	COOK	pr0n legs	taco shell
+rat appendix kabob	COOK	rat appendix	skewer
+rat scrapple	COOK	ratgut	spices
+royal jelly taco	COOK	royal jelly	taco shell
+skewered cat appendix	COOK	cat appendix	skewer
+spooky shroomkabob	COOK	spooky mushroom	skewer
+stuffed spooky mushroom	COOK	spooky mushroom	goat cheese
+tofu casserole	COOK	wad of tofu	Gnollish casserole dish
+tofu taco	COOK	wad of tofu	taco shell
+white chocolate chip cookies	COOK	white chocolate chips	wad of dough
+white chocolate chip brownies	COOK	white chocolate chips	Uncle Jick's Brownie Mix
+
+
+# Food requiring access to L11 or L12 quest areas
+
+fishy fish	COOK	displaced fish	dehydrated caviar
+fishy fish casserole	COOK	fishy fish	Gnollish casserole dish
+gnatloaf	COOK	[2528]filet of tangy gnat	ancient spice
+gnatloaf casserole	COOK	gnatloaf	Gnollish casserole dish
+long pork chop sandwiches	COOK	long pork	black pepper
+long pork casserole	COOK	long pork chop sandwiches	Gnollish casserole dish
+
+nutty organic salad	COOK	mixed wildflower greens	handful of walnuts
+super salad	COOK	mixed wildflower greens	megatofu
+
+beer basted brat	COOK	frat brats	McMillicancuddy's Special Lager
+super ka-bob	COOK	frat brats	knob ka-bobs
+
+Crimbo pie	COOK	pie crust	plum
+pear tart	COOK	pie crust	pear
+peach pie	COOK	pie crust	peach
+
+# Sushi
+
+beefy nigiri	SUSHI	beefy fish meat	white rice
+glistening nigiri	SUSHI	glistening fish meat	white rice
+slick nigiri	SUSHI	slick fish meat	white rice
+
+beefy maki	SUSHI	beefy fish meat	white rice	seaweed
+giant dragon roll	SUSHI	beefy fish meat	white rice	seaweed	sea cucumber
+Jack LaLanne roll	SUSHI	beefy fish meat	white rice	seaweed	sea radish
+musclebound rabbit roll	SUSHI	beefy fish meat	white rice	seaweed	sea carrot
+python roll	SUSHI	beefy fish meat	white rice	seaweed	sea avocado
+
+magical beefy maki	SUSHI	beefy fish meat	white rice	seaweed	dragonfish caviar
+magical giant dragon roll	SUSHI	beefy fish meat	white rice	seaweed	sea cucumber	dragonfish caviar
+magical Jack LaLanne roll	SUSHI	beefy fish meat	white rice	seaweed	sea radish	dragonfish caviar
+magical musclebound rabbit roll	SUSHI	beefy fish meat	white rice	seaweed	sea carrot	dragonfish caviar
+magical python roll	SUSHI	beefy fish meat	white rice	seaweed	sea avocado	dragonfish caviar
+
+salty beefy maki	SUSHI	beefy fish meat	white rice	seaweed	sea salt crystal
+salty giant dragon roll	SUSHI	beefy fish meat	white rice	seaweed	sea cucumber	sea salt crystal
+salty Jack LaLanne roll	SUSHI	beefy fish meat	white rice	seaweed	sea radish	sea salt crystal
+salty musclebound rabbit roll	SUSHI	beefy fish meat	white rice	seaweed	sea carrot	sea salt crystal
+salty python roll	SUSHI	beefy fish meat	white rice	seaweed	sea avocado	sea salt crystal
+
+electric beefy maki	SUSHI	beefy fish meat	white rice	seaweed	eel sauce
+electric giant dragon roll	SUSHI	beefy fish meat	white rice	seaweed	sea cucumber	eel sauce
+electric Jack LaLanne roll	SUSHI	beefy fish meat	white rice	seaweed	sea radish	eel sauce
+electric musclebound rabbit roll	SUSHI	beefy fish meat	white rice	seaweed	sea carrot	eel sauce
+electric python roll	SUSHI	beefy fish meat	white rice	seaweed	sea avocado	eel sauce
+
+glistening maki	SUSHI	glistening fish meat	white rice	seaweed
+wise dragon roll	SUSHI	glistening fish meat	white rice	seaweed	sea cucumber
+wizened master roll	SUSHI	glistening fish meat	white rice	seaweed	sea radish
+white rabbit roll	SUSHI	glistening fish meat	white rice	seaweed	sea carrot
+ancient serpent roll	SUSHI	glistening fish meat	white rice	seaweed	sea avocado
+
+magical glistening maki	SUSHI	glistening fish meat	white rice	seaweed	dragonfish caviar
+magical wise dragon roll	SUSHI	glistening fish meat	white rice	seaweed	sea cucumber	dragonfish caviar
+magical wizened master roll	SUSHI	glistening fish meat	white rice	seaweed	sea radish	dragonfish caviar
+magical white rabbit roll	SUSHI	glistening fish meat	white rice	seaweed	sea carrot	dragonfish caviar
+magical ancient serpent roll	SUSHI	glistening fish meat	white rice	seaweed	sea avocado	dragonfish caviar
+
+salty glistening maki	SUSHI	glistening fish meat	white rice	seaweed	sea salt crystal
+salty wise dragon roll	SUSHI	glistening fish meat	white rice	seaweed	sea cucumber	sea salt crystal
+salty wizened master roll	SUSHI	glistening fish meat	white rice	seaweed	sea radish	sea salt crystal
+salty white rabbit roll	SUSHI	glistening fish meat	white rice	seaweed	sea carrot	sea salt crystal
+salty ancient serpent roll	SUSHI	glistening fish meat	white rice	seaweed	sea avocado	sea salt crystal
+
+electric glistening maki	SUSHI	glistening fish meat	white rice	seaweed	eel sauce
+electric wise dragon roll	SUSHI	glistening fish meat	white rice	seaweed	sea cucumber	eel sauce
+electric wizened master roll	SUSHI	glistening fish meat	white rice	seaweed	sea radish	eel sauce
+electric white rabbit roll	SUSHI	glistening fish meat	white rice	seaweed	sea carrot	eel sauce
+electric ancient serpent roll	SUSHI	glistening fish meat	white rice	seaweed	sea avocado	eel sauce
+
+slick maki	SUSHI	slick fish meat	white rice	seaweed
+eleven oceans roll	SUSHI	slick fish meat	white rice	seaweed	sea radish
+tricky dragon roll	SUSHI	slick fish meat	white rice	seaweed	sea cucumber
+sneaky rabbit roll	SUSHI	slick fish meat	white rice	seaweed	sea carrot
+slippery snake roll	SUSHI	slick fish meat	white rice	seaweed	sea avocado
+
+magical slick maki	SUSHI	slick fish meat	white rice	seaweed	dragonfish caviar
+magical eleven oceans roll	SUSHI	slick fish meat	white rice	seaweed	sea radish	dragonfish caviar
+magical tricky dragon roll	SUSHI	slick fish meat	white rice	seaweed	sea cucumber	dragonfish caviar
+magical sneaky rabbit roll	SUSHI	slick fish meat	white rice	seaweed	sea carrot	dragonfish caviar
+magical slippery snake roll	SUSHI	slick fish meat	white rice	seaweed	sea avocado	dragonfish caviar
+
+salty slick maki	SUSHI	slick fish meat	white rice	seaweed	sea salt crystal
+salty eleven oceans roll	SUSHI	slick fish meat	white rice	seaweed	sea radish	sea salt crystal
+salty tricky dragon roll	SUSHI	slick fish meat	white rice	seaweed	sea cucumber	sea salt crystal
+salty sneaky rabbit roll	SUSHI	slick fish meat	white rice	seaweed	sea carrot	sea salt crystal
+salty slippery snake roll	SUSHI	slick fish meat	white rice	seaweed	sea avocado	sea salt crystal
+
+electric slick maki	SUSHI	slick fish meat	white rice	seaweed	eel sauce
+electric eleven oceans roll	SUSHI	slick fish meat	white rice	seaweed	sea radish	eel sauce
+electric tricky dragon roll	SUSHI	slick fish meat	white rice	seaweed	sea cucumber	eel sauce
+electric sneaky rabbit roll	SUSHI	slick fish meat	white rice	seaweed	sea carrot	eel sauce
+electric slippery snake roll	SUSHI	slick fish meat	white rice	seaweed	sea avocado	eel sauce
+
+tempura cucumber bento box with anemone sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	anemone sauce	tempura cucumber
+tempura carrot bento box with anemone sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	anemone sauce	tempura carrot
+tempura avocado bento box with anemone sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	anemone sauce	tempura avocado
+tempura broccoli bento box with anemone sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	anemone sauce	tempura broccoli
+tempura cauliflower bento box with anemone sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	anemone sauce	tempura cauliflower
+tempura radish bento box with anemone sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	anemone sauce	tempura radish
+tempura cucumber bento box with inky squid sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	inky squid sauce	tempura cucumber
+tempura carrot bento box with inky squid sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	inky squid sauce	tempura carrot
+tempura avocado bento box with inky squid sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	inky squid sauce	tempura avocado
+tempura broccoli bento box with inky squid sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	inky squid sauce	tempura broccoli
+tempura cauliflower bento box with inky squid sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	inky squid sauce	tempura cauliflower
+tempura radish bento box with inky squid sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	inky squid sauce	tempura radish
+tempura cucumber bento box with Mer-kin weaksauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	Mer-kin weaksauce	tempura cucumber
+tempura carrot bento box with Mer-kin weaksauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	Mer-kin weaksauce	tempura carrot
+tempura avocado bento box with Mer-kin weaksauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	Mer-kin weaksauce	tempura avocado
+tempura broccoli bento box with Mer-kin weaksauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	Mer-kin weaksauce	tempura broccoli
+tempura cauliflower bento box with Mer-kin weaksauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	Mer-kin weaksauce	tempura cauliflower
+tempura radish bento box with Mer-kin weaksauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	Mer-kin weaksauce	tempura radish
+tempura cucumber bento box with eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	eel sauce	tempura cucumber
+tempura carrot bento box with eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	eel sauce	tempura carrot
+tempura avocado bento box with eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	eel sauce	tempura avocado
+tempura broccoli bento box with eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	eel sauce	tempura broccoli
+tempura cauliflower bento box with eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	eel sauce	tempura cauliflower
+tempura radish bento box with eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	eel sauce	tempura radish
+tempura cucumber bento box with peanut sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peanut sauce	tempura cucumber
+tempura carrot bento box with peanut sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peanut sauce	tempura carrot
+tempura avocado bento box with peanut sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peanut sauce	tempura avocado
+tempura broccoli bento box with peanut sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peanut sauce	tempura broccoli
+tempura cauliflower bento box with peanut sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peanut sauce	tempura cauliflower
+tempura radish bento box with peanut sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peanut sauce	tempura radish
+
+# Booze requiring access to L11 or L12 quest areas
+
+shot of blackberry schnapps	MIX	fermenting powder	blackberry
+boilermaker	MIX	McMillicancuddy's Special Lager	bottle of whiskey
+
+plum wine	MIX	fermenting powder	plum
+shot of pear schnapps	MIX	fermenting powder	pear
+shot of peach schnapps	MIX	fermenting powder	peach
+
+# Distillations
+
+bottle of gin (3)	MIX	fermenting powder	juniper berries
+bottle of rum (3)	MIX	fermenting powder	brown sugar cane
+bottle of sake (3)	MIX	fermenting powder	white rice
+bottle of tequila (3)	MIX	fermenting powder	cactus fruit
+bottle of vodka (3)	MIX	fermenting powder	bowl of rye sprouts
+bottle of whiskey (3)	MIX	fermenting powder	cob of corn
+boxed wine (3)	MIX	fermenting powder	bunch of square grapes
+pumpkin beer (3)	MIX	fermenting powder	pumpkin
+
+# Standard, tier 1 and tier 2 beverages.  Nothing special about
+# these mixtures except everyone can make them.
+
+bloody beer	MIX	tomato	ice-cold Sir Schlitz
+bloody beer	MIX	tomato	ice-cold Willer
+bloody mary	MIX	tomato	bottle of vodka
+eggnog	MIX	ghuol egg	spiced rum
+fine wine	MIX	fermenting powder	grapes
+papaya sling	MIX	papaya	bottle of gin
+shot of flower schnapps	MIX	fermenting powder	pretty flower
+shot of grapefruit schnapps	MIX	fermenting powder	grapefruit
+shot of orange schnapps	MIX	fermenting powder	orange
+shot of tomato schnapps	MIX	fermenting powder	tomato
+pebblebr&auml;u	MIX	floaty pebbles	ice-cold Sir Schlitz
+pebblebr&auml;u	MIX	floaty pebbles	ice-cold Willer
+
+green beer	MIX, SSPD	ten-leaf clover	ice-cold Sir Schlitz
+green beer	MIX, SSPD	ten-leaf clover	ice-cold Willer
+# Allow manual crafting on unpredicted/held-over SSPDs
+green beer	MIX, MANUAL	ten-leaf clover	ice-cold Sir Schlitz
+green beer	MIX, MANUAL	ten-leaf clover	ice-cold Willer
+
+flask of peppermint schnapps	MIX	fermenting powder	flask of peppermint oil
+
+carrot claret	MIX	fermenting powder	carrot nose
+
+# Tier 3 and tier 4 beverages which can be made by anyone.  These are
+# believed to be the best creatable drinks without buying a DB's skills or
+# using a tiny plastic sword.
+
+banana daiquiri	MIX	bottle of rum	banana
+extra-spicy bloody mary	MIX	bloody mary	spices
+especially salty dog	MIX	salty dog	brine
+margarita	MIX	bottle of tequila	lemon
+martini	MIX	bottle of gin	olive
+monkey wrench	MIX	bottle of rum	grapefruit
+salty dog	MIX	bottle of gin	grapefruit
+redrum	MIX	bottle of rum	cranberries
+rum and cola	MIX	bottle of rum	Dyspepsi-Cola
+rum and cola	MIX	bottle of rum	Cloaca-Cola
+screwdriver	MIX	bottle of vodka	orange
+spiced rum	MIX	bottle of rum	spices
+strawberry daiquiri	MIX	bottle of rum	strawberry
+strawberry wine	MIX	boxed wine	strawberry
+tequila sunrise	MIX	bottle of tequila	orange
+vodka and cranberry	MIX	bottle of vodka	cranberries
+vodka martini	MIX	bottle of vodka	olive
+whiskey and cola	MIX	bottle of whiskey	Dyspepsi-Cola
+whiskey and cola	MIX	bottle of whiskey	Cloaca-Cola
+whiskey and soda	MIX	bottle of whiskey	soda water
+whiskey sour	MIX	bottle of whiskey	lemon
+white Canadian	MIX	bottle of vodka	glass of goat's milk
+White Hyborian	MIX	bottle of vodka	glass of baboon milk
+wine spritzer	MIX	boxed wine	soda water
+
+
+# Hilarious drinks makable by anyone.
+
+calle de miel with a fly in it	MIX	margarita	magical ice cube with a fly in it
+perpendicular hula with a fly in it	MIX	strawberry daiquiri	magical ice cube with a fly in it
+rockin' wagon with a fly in it	MIX	vodka martini	magical ice cube with a fly in it
+slap and tickle with a fly in it	MIX	salty dog	magical ice cube with a fly in it
+Mae West with a fly in it	MIX	rabbit punch	magical ice cube with a fly in it
+mandarina colada with a fly in it	MIX	zmobie	magical ice cube with a fly in it
+tangarita with a fly in it	MIX	tequila sunset	magical ice cube with a fly in it
+prussian cathouse with a fly in it	MIX	parisian cathouse	magical ice cube with a fly in it
+blended frozen swill with a fly in it	MIX	Typical Tavern swill	magical ice cube with a fly in it
+
+
+# Tier 3, 4 and 5 beverages which can only be made by someone with
+# Advanced Cocktailcrafting.  These include the popular umbrella,
+# coconut and ice drinks.
+
+a little sump'm sump'm	ACOCK	martini	little paper umbrella
+horizontal tango	ACOCK	wine spritzer	little paper umbrella
+roll in the hay	ACOCK	whiskey and soda	little paper umbrella
+ducha de oro	ACOCK	tequila sunrise	little paper umbrella
+
+an evil little sump'm sump'm	MIX, AC	martini	evil paper umbrella
+evil ducha de oro	MIX, AC	tequila sunrise	evil paper umbrella
+evil horizontal tango	MIX, AC	wine spritzer	evil paper umbrella
+evil roll in the hay	MIX, AC	whiskey and soda	evil paper umbrella
+
+fuzzbump	ACOCK	whiskey sour	coconut shell
+slip 'n' slide	ACOCK	screwdriver	coconut shell
+ocean motion	ACOCK	monkey wrench	coconut shell
+pink pony	ACOCK	strawberry wine	coconut shell
+
+slap and tickle	ACOCK	salty dog	magical ice cubes
+rockin' wagon	ACOCK	vodka martini	magical ice cubes
+perpendicular hula	ACOCK	strawberry daiquiri	magical ice cubes
+calle de miel	ACOCK	margarita	magical ice cubes
+
+slap and slap again	MIX	slap and tickle	pretty flower
+
+bungle in the jungle	ACOCK	banana daiquiri	little paper umbrella
+
+soft green echo eyedrop antidote martini	ACOCK	rockin' wagon	soft green echo eyedrop antidote
+Murderer's Punch	MIX, AC	red rum	orange
+
+tropical swill	ACOCK	Typical Tavern swill	coconut shell
+fruity girl swill	ACOCK	Typical Tavern swill	little paper umbrella
+blended frozen swill	ACOCK	Typical Tavern swill	magical ice cubes
+
+berry-infused sake	SCOCK	bottle of Pete's Sake	sea lychee
+citrus-infused sake	SCOCK	bottle of Pete's Sake	sea tangelo
+melon-infused sake	SCOCK	bottle of Pete's Sake	sea honeydew
+
+screwdiver	MIX_FANCY	sea tangelo	slug of vodka
+dew yoana lei	MIX_FANCY	sea honeydew	slug of rum
+lychee chuhai	MIX_FANCY	sea lychee	slug of shochu
+
+salacious screwdiver	SACOCK	screwdiver	seaode
+dew yoana salacious lei	SACOCK	dew yoana lei	seaode
+salacious lychee chuhai	SACOCK	lychee chuhai	seaode
+
+# Beverages which can be made by Superhuman Cocktailcrafting
+
+caipifruta	SCOCK	bottle of Lieutenant Freeman	kiwi
+gibson	SCOCK	bottle of Calcutta Emerald	cocktail onion
+gin and tonic	SCOCK	bottle of Calcutta Emerald	tonic water
+mimosette	SCOCK	boxed champagne	kumquat
+parisian cathouse	SCOCK	boxed champagne	raspberry
+rabbit punch	SCOCK	bottle of Domesticated Turkey	raspberry
+teqiwila	SCOCK	bottle of Jorge Sinsonte	kiwi
+tequila sunset	SCOCK	bottle of Jorge Sinsonte	tangerine
+vodka and tonic	SCOCK	bottle of Definit	tonic water
+vodka gibson	SCOCK	bottle of Definit	cocktail onion
+whiskey bittersweet	SCOCK	bottle of Domesticated Turkey	kumquat
+zmobie	SCOCK	bottle of Lieutenant Freeman	tangerine
+
+
+# Beverages which can be made by Advanced Cocktailcrafting using
+# ingredients available via Superhuman Cocktailcrafting
+
+Divine	ACOCK	whiskey bittersweet	little paper umbrella
+gimlet	ACOCK	gin and tonic	little paper umbrella
+Gordon Bennett	ACOCK	mimosette	little paper umbrella
+yellow brick road	ACOCK	vodka and tonic	little paper umbrella
+
+Mon Tiki	ACOCK	caipifruta	coconut shell
+Neuromancer	ACOCK	gibson	coconut shell
+teqiwila slammer	ACOCK	teqiwila	coconut shell
+vodka stratocaster	ACOCK	vodka gibson	coconut shell
+
+Mae West	ACOCK	rabbit punch	magical ice cubes
+mandarina colada	ACOCK	zmobie	magical ice cubes
+tangarita	ACOCK	tequila sunset	magical ice cubes
+prussian cathouse	ACOCK	parisian cathouse	magical ice cubes
+
+
+# Tiny plastic sword drinks which can be made by anyone.  Also
+# includes skewered items and subingredients.
+
+grog	MIX	bottle of rum	lime
+tequila with training wheels	MIX	bottle of tequila	lime
+skewered lime	MIX_FANCY	lime	tiny plastic sword
+grogtini	MIX_FANCY	grog	skewered lime
+bodyslam	MIX_FANCY	tequila with training wheels	skewered lime
+
+sangria	MIX	boxed wine	cherry
+old-fashioned	MIX	bottle of whiskey	cherry
+skewered cherry	MIX_FANCY	cherry	tiny plastic sword
+sangria del diablo	MIX_FANCY	sangria	skewered cherry
+cherry bomb	MIX_FANCY	old-fashioned	skewered cherry
+
+dry martini	MIX	bottle of gin	jumbo olive
+dry vodka martini	MIX	bottle of vodka	jumbo olive
+skewered jumbo olive	MIX_FANCY	jumbo olive	tiny plastic sword
+dirty martini	MIX_FANCY	dry martini	skewered jumbo olive
+vesper	MIX_FANCY	dry vodka martini	skewered jumbo olive
+
+# Peppermint twist drinks which can be made by anyone
+
+Vodka Matryoshka	MIX_FANCY	bottle of vodka	peppermint twist
+Gin Mint	MIX_FANCY	bottle of gin	peppermint twist
+Tequiz Navidad	MIX_FANCY	bottle of tequila	peppermint twist
+Mint Yulep	MIX_FANCY	bottle of whiskey	peppermint twist
+Crimbojito	MIX_FANCY	bottle of rum	peppermint twist
+Sangria de Menthe	MIX_FANCY	boxed wine	peppermint twist
+
+# Item upgrades accessible with Crosby Nash's Still: Moxie class
+# characters with the Superhuman Cocktailcrafting skill and Sneaky Pete
+
+bottle of Calcutta Emerald	STILL, ROW267	bottle of gin
+bottle of Definit	STILL, ROW270	bottle of vodka
+bottle of Domesticated Turkey	STILL, ROW271	bottle of whiskey
+bottle of Jorge Sinsonte	STILL, ROW269	bottle of tequila
+bottle of Lieutenant Freeman	STILL, ROW268	bottle of rum
+bottle of Ooze-O	STILL, ROW273	bottle of sewage schnapps
+bottle of Pete's Sake	STILL, ROW274	bottle of sake
+boxed champagne	STILL, ROW272	boxed wine
+
+cocktail onion	STILL, ROW277	olive
+kiwi	STILL, ROW276	lemon
+kumquat	STILL, ROW278	orange
+raspberry	STILL, ROW280	strawberry
+tangerine	STILL, ROW275	grapefruit
+tonic water	STILL, ROW279	soda water
+
+# Super-advanced Meatsmithing base ingredients.  These items are used
+# later in the construction of meat-smithing weapons.
+
+asbestos meat stack	WSMITH	asbestos ore	dense meat stack
+chrome meat stack	WSMITH	chrome ore	dense meat stack
+linoleum meat stack	WSMITH	linoleum ore	dense meat stack
+
+
+# Super-advanced Meatsmithing weapons.
+
+asbestos crossbow	WSMITH	sinewy crossbow string	asbestos meat stack
+asbestos staff	WSMITH	bigger stick	asbestos meat stack
+asbestos sword	WSMITH	sturdy sword hilt	asbestos meat stack
+hot cross bow	WSMITH	asbestos crossbow	hot nuggets
+smoldering staff	WSMITH	asbestos staff	patchouli incense stick
+Spirit Precipice	WSMITH	asbestos sword	glowing red eye
+
+chrome crossbow	WSMITH	sinewy crossbow string	chrome meat stack
+chrome staff	WSMITH	bigger stick	chrome meat stack
+chrome sword	WSMITH	sturdy sword hilt	chrome meat stack
+carob cannon	WSMITH	chrome crossbow	carob chunks
+meatspout staff	WSMITH	chrome staff	meat vortex
+staph of homophones	WSMITH	disease	facsimile dictionary
+sword behind inappropriate prepositions	WSMITH	chrome sword	facsimile dictionary
+
+linoleum crossbow	WSMITH	sinewy crossbow string	linoleum meat stack
+linoleum staff	WSMITH	bigger stick	linoleum meat stack
+linoleum sword	WSMITH	sturdy sword hilt	linoleum meat stack
+projectile icemaker	WSMITH	linoleum crossbow	cold nuggets
+hairy staff	WSMITH	linoleum staff	goat beard
+shuddersword	WSMITH	linoleum sword	spooky nuggets
+
+bar whip	WSMITH	whip kit	bar skin
+bat whip	WSMITH	whip kit	leathery bat skin
+clown whip	WSMITH	whip kit	clown skin
+demon whip	WSMITH	whip kit	demon skin
+gnauga hide whip	WSMITH	whip kit	gnauga hide
+hippo whip	WSMITH	whip kit	hippopotamus skin
+penguin whip	WSMITH	whip kit	penguin skin
+rattail whip	WSMITH	whip kit	leathery rat skin
+tail o' nine cats	WSMITH	whip kit	leathery cat skin
+white whip	WSMITH	whip kit	white snake skin
+yak whip	WSMITH	whip kit	yak skin
+
+club of the five seasons	WSMITH	bigger stick	prismatic wad
+rainbow crossbow	WSMITH	dense meat crossbow	prismatic wad
+six-rainbow shield	ASMITH	wonderwall shield	prismatic wad
+
+bad-ass club	SUSE, WEAPON, HAMMER	ingot of seal-iron
+
+creepy-ass club	WSMITH	bad-ass club	seal lube
+evil-ass club	WSMITH	bad-ass club	scrap of shadow
+frigid-ass club	WSMITH	bad-ass club	frost-rimed seal hide
+hot-ass club	WSMITH	bad-ass club	sizzling seal fat
+nasty-ass club	WSMITH	bad-ass club	fustulent seal grulch
+
+soup-chucks	SMITH	soup turtle	soup turtle
+
+rainbow bomb	COMBINE	stick of dynamite	prismatic wad
+
+# Meat-smithing weapons.  These items are grouped based on the
+# type of base material used in their creation.
+
+basic meat crossbow	SMITH	crossbow string	meat stack
+basic meat staff	SMITH	big stick	meat stack
+basic meat sword	SMITH	sword hilt	meat stack
+
+dense meat crossbow	SMITH	sinewy crossbow string	dense meat stack
+dense meat staff	SMITH	bigger stick	dense meat stack
+dense meat sword	SMITH	sturdy sword hilt	dense meat stack
+
+savory crossbow	SMITH	dense meat crossbow	scrumptious reagent
+savory staff	SMITH	dense meat staff	scrumptious reagent
+savory sword	SMITH	dense meat sword	scrumptious reagent
+goulauncher	SMITH	savory crossbow	ghuol guolash
+soylent staff	SMITH	savory staff	wad of tofu
+Super Magic Power Sword X	SMITH	savory sword	Tasty Fun Good rice candy
+
+basic meat foon	SMITH	foon	meat stack
+foon of fulmination	SMITH	basic meat foon	hot powder
+foon of frigidity	SMITH	basic meat foon	cold powder
+foon of foulness	SMITH	basic meat foon	stench powder
+foon of fearfulness	SMITH	basic meat foon	spooky powder
+foon of fleshiness	SMITH	basic meat foon	sleaze powder
+
+basic meat spork	SMITH	meat stack	spork
+
+bubblewrap crossbow	SMITH	basic meat crossbow	bubblewrap ore
+bubble bauble bow	SMITH	bubblewrap crossbow	dope gangsta bling-bling
+bubblewrap staff	SMITH	basic meat staff	bubblewrap ore
+wiffle-flail	SMITH	bubblewrap staff	baseball
+bubblewrap sword	SMITH	basic meat sword	bubblewrap ore
+sword of static	SMITH	bubblewrap sword	long skinny balloon
+
+cardboard crossbow	SMITH	basic meat crossbow	cardboard ore
+grease gun	SMITH	cardboard crossbow	White Citadel burger
+cardboard staff	SMITH	basic meat staff	cardboard ore
+flypaper staff	SMITH	cardboard staff	pine tar
+cardboard sword	SMITH	basic meat sword	cardboard ore
+flaming cardboard sword	SMITH	cardboard sword	hot powder
+
+styrofoam crossbow	SMITH	basic meat crossbow	styrofoam ore
+can cannon	SMITH	styrofoam crossbow	razor-sharp can lid
+styrofoam staff	SMITH	basic meat staff	styrofoam ore
+squeaky staff	SMITH	styrofoam staff	sonar-in-a-biscuit
+styrofoam sword	SMITH	basic meat sword	styrofoam ore
+Frost&trade; brand sword	SMITH	styrofoam sword	cold powder
+
+dripping meat crossbow	SMITH	basic meat crossbow	ketchup
+dripping meat crossbow	SMITH	basic meat crossbow	catsup
+repeating crossbow	SMITH	dripping meat crossbow	meat engine
+dripping meat staff	SMITH	basic meat staff	ketchup
+dripping meat staff	SMITH	basic meat staff	catsup
+glistening staff	SMITH	dripping meat staff	sleaze powder
+dripping meat sword	SMITH	basic meat sword	ketchup
+dripping meat sword	SMITH	basic meat sword	catsup
+muculent machete	SMITH	dripping meat sword	forest tears
+
+eXtreme meat crossbow	SMITH	basic meat crossbow	stone of eXtreme power
+eXtreme meat staff	SMITH	basic meat staff	stone of eXtreme power
+eXtreme meat sword	SMITH	basic meat sword	stone of eXtreme power
+
+Kentucky-fried meat crossbow	SMITH	secret blend of herbs and spices	dense meat crossbow
+potato pistol	SMITH	Kentucky-fried meat crossbow	t8r tots
+Kentucky-fried meat staff	SMITH	secret blend of herbs and spices	dense meat staff
+giant cheesestick	SMITH	Kentucky-fried meat staff	goat cheese
+Kentucky-fried meat sword	SMITH	secret blend of herbs and spices	dense meat sword
+buffalo blade	SMITH	Kentucky-fried meat sword	hot wing
+
+starchy crossbow	SMITH	basic meat crossbow	dry noodles
+curdflinger	SMITH	starchy crossbow	bowl of cottage cheese
+starchy staff	SMITH	basic meat staff	dry noodles
+poutine pole	SMITH	starchy staff	poutine
+starchy sword	SMITH	basic meat sword	dry noodles
+pestoblade	SMITH	starchy sword	spices
+
+ram-battering staff	SMITH	ram horns	ram stick
+icy-hot katana	SMITH	icy katana hilt	hot katana blade
+
+Staff of the November Jack-O-Lantern	SMITH	bigger stick	pumpkin
+
+# Meat-smithing armor pieces.  These items are helmets, pants,
+# and sometimes accessories which are created in smithing.
+
+meaty helmet turtle	ASMITH	helmet turtle	dense meat stack
+asbestos helmet turtle	ASMITH	meaty helmet turtle	asbestos ore
+chrome helmet turtle	ASMITH	meaty helmet turtle	chrome ore
+linoleum helmet turtle	ASMITH	meaty helmet turtle	linoleum ore
+
+basic meat pants	SMITH	meat stack	pants kit
+basic meat helmet	SMITH	meat stack	helmet recipe
+enchantlers	SMITH	basic meat helmet	ram horns
+meatloaf helmet	SMITH	basic meat helmet	ketchup
+meatloaf helmet	SMITH	basic meat helmet	catsup
+raspberry beret	SMITH	basic meat helmet	raspberry
+
+basic meat fez	SMITH	basic meat helmet	tassel
+sequined fez	SMITH	basic meat fez	teeny-tiny ninja stars
+
+grass blade	SMITH	fake plastic grass	sword hilt
+grass hat	SMITH	fake plastic grass	helmet recipe
+grass skirt	SMITH	fake plastic grass	skirt / kilt kit
+
+fez of etymology	SMITH	basic meat fez	facsimile dictionary
+
+meat cowboy hat	SMITH	basic meat helmet	white snake skin
+pimpin' meat hat	SMITH	basic meat helmet	dope gangsta bling-bling
+floaty rock helmet	ASMITH	basic meat helmet	floaty rock
+floaty rock pants	ASMITH	basic meat pants	floaty rock
+
+
+# Weapon made via armorcrafting
+
+gatorskin umbrella	ASMITH	titanium assault umbrella	gator skin
+gatorskin umbrella	ASMITH	goatskin umbrella	gator skin
+
+
+# Accessories made of hides of various sorts.
+
+black belt	ASMITH	black snake skin	enormous belt buckle
+clownskin belt	SMITH	clown skin	big red clown nose
+ratskin belt	ASMITH	leathery rat skin	enormous belt buckle
+sea holster	ASMITH	black belt	sea leather
+white belt	SMITH	white snake skin	enormous belt buckle
+
+
+# Hats made of hides of various sorts.
+
+barskin hat	SMITH	basic meat helmet	bar skin
+bat hat	ASMITH	basic meat helmet	leathery bat skin
+black cowboy hat	ASMITH	basic meat helmet	black snake skin
+catskin cap	ASMITH	basic meat helmet	leathery cat skin
+clown wig	SMITH	basic meat helmet	clown skin
+demon-horned hat	SMITH	basic meat helmet	demon skin
+eelskin hat	ASMITH	basic meat helmet	eel skin
+lynyrdskin cap	ASMITH	helmet recipe	lynyrd skin
+nasty rat mask	ASMITH	basic meat helmet	leathery rat skin
+sea cowboy hat	SMITH	helmet recipe	sea leather
+sponge helmet	ASMITH	basic meat helmet	slab of sponge
+yak toupee	ASMITH	basic meat helmet	yak skin
+
+
+# Pants made of hides of various sorts.
+
+barskin loincloth	SMITH	bar skin	pants kit
+demonskin trousers	SMITH	demon skin	pants kit
+eelskin pants	ASMITH	eel skin	pants kit
+furry pants	ASMITH	furry fur	pants kit
+hippopotamus pants	ASMITH	hippopotamus skin	pants kit
+lynyrdskin breeches	ASMITH	pants kit	lynyrd skin
+penguin shorts	ASMITH	penguin skin	pants kit
+pink pinkslip slip	ASMITH	Mer-kin pinkslip	Mer-kin pinkslip
+square sponge pants	ASMITH	slab of sponge	basic meat pants
+sticky meat pants	SMITH	really really sticky spider web	basic meat pants
+tighty whiteys	SMITH	white snake skin	pants kit
+yakskin pants	ASMITH	yak skin	pants kit
+gnauga hide chaps	ASMITH	gnauga hide	pants kit
+sea chaps	SMITH	sea leather	pants kit
+
+
+# Skirts made of hides of various sorts.
+
+basic meat skirt	SMITH, FEMALE	meat stack	skirt / kilt kit
+sticky meat skirt	SMITH, FEMALE	really really sticky spider web	basic meat skirt
+
+furry skirt	ASMITH, FEMALE	furry fur	skirt / kilt kit
+gnauga hide skirt	ASMITH, FEMALE	gnauga hide	skirt / kilt kit
+hippopotamus skirt	ASMITH, FEMALE	hippopotamus skin	skirt / kilt kit
+penguinskin mini-skirt	ASMITH, FEMALE	penguin skin	skirt / kilt kit
+yakskin skirt	ASMITH, FEMALE	yak skin	skirt / kilt kit
+
+
+# Kilts made of hides of various sorts.
+
+basic meat kilt	SMITH, MALE	meat stack	skirt / kilt kit
+sticky meat kilt	SMITH, MALE	really really sticky spider web	basic meat kilt
+sticky meat kilt	SMITH, MALE	really really sticky spider web	basic meat skirt
+
+furry kilt	ASMITH, MALE	furry fur	skirt / kilt kit
+gnauga hide kilt	ASMITH, MALE	gnauga hide	skirt / kilt kit
+hippopotamus kilt	ASMITH, MALE	hippopotamus skin	skirt / kilt kit
+penguinskin mini-kilt	ASMITH, MALE	penguin skin	skirt / kilt kit
+yakskin kilt	ASMITH, MALE	yak skin	skirt / kilt kit
+
+
+# Bucklers made of hides of various sorts.
+
+barskin buckler	ASMITH	buckler buckle	bar skin
+catskin buckler	ASMITH	buckler buckle	leathery cat skin
+clownskin buckler	ASMITH	buckler buckle	clown skin
+demon buckler	ASMITH	buckler buckle	demon skin
+gnauga hide buckler	ASMITH	buckler buckle	gnauga hide
+hippo skin buckler	ASMITH	buckler buckle	hippopotamus skin
+penguin skin buckler	ASMITH	buckler buckle	penguin skin
+yakskin buckler	ASMITH	buckler buckle	yak skin
+
+
+# Advanced Shields
+
+meat shield	ASMITH	buckler buckle	dense meat stack
+eelskin shield	ASMITH	meat shield	eel skin
+painted shield	ASMITH	meat shield	painted turtle
+spiky turtle shield	ASMITH	meat shield	hedgeturtle
+spongy shield	ASMITH	meat shield	slab of sponge
+tortoboggan shield	ASMITH	tortoboggan	tortoboggan
+
+
+# Shirts made of hides of various sorts.
+
+barskin cloak	ASMITH	shirt kit	bar skin
+bat-ass leather jacket	ASMITH	shirt kit	leathery bat skin
+clownskin harness	ASMITH	shirt kit	clown skin
+demonskin jacket	ASMITH	shirt kit	demon skin
+gnauga hide vest	ASMITH	shirt kit	gnauga hide
+hipposkin poncho	ASMITH	shirt kit	hippopotamus skin
+lynyrdskin tunic	ASMITH	shirt kit	lynyrd skin
+tuxedo shirt	ASMITH	shirt kit	penguin skin
+white snakeskin duster	ASMITH	shirt kit	white snake skin
+yak anorak	ASMITH	shirt kit	yak skin
+
+
+# Things made of special turtles
+
+ancient turtle shell helmet	ASMITH	basic meat helmet	ancient turtle shell
+bubblewrap bottlecap turtleban	ASMITH	bubblewrap ore	bottlecap turtle
+cardboard box turtle	ASMITH	cardboard ore	box turtle
+furry green earmuffs	ASMITH	furry green turtle	furry green turtle
+knobby kneepads	ASMITH	knobby helmet turtle	knobby helmet turtle
+reinforced furry underpants	ASMITH	bar skin	skeletortoise
+samurai turtle helmet	ASMITH	basic meat helmet	samurai turtle
+sebaceous shield	ASMITH	bum cheek	sewer turtle
+spiky turtle helmet	ASMITH	basic meat helmet	hedgeturtle
+spiky turtle shoulderpads	ASMITH	hedgeturtle	hedgeturtle
+
+eXtreme nose ring	COMBINE	stone of eXtreme power	piercing post
+spooky glove	COOK	spooky fairy gravy	small leather glove
+
+
+# Things made of ores from the Anemone Mine
+
+decaying wooden oar	COMBINE	decaying wooden pole	decaying wooden paddle
+giant fishhook	COMBINE	tarnished metal ring	tarnished metal rod
+rusty old lantern	COMBINE	brittle plastic handle	foggy glass globe
+
+non-stick pugil stick	WSMITH	decaying wooden pole	teflon ore
+teflon spatula	WSMITH	tarnished metal rod	teflon ore
+teflon shield	ASMITH	rusty valve wheel	teflon ore
+teflon swim fins	SMITH	waterlogged bootstraps	teflon ore
+
+velcro broadsword	WSMITH	brittle plastic handle	velcro ore
+velcro paddle ball	WSMITH	decaying wooden paddle	velcro ore
+velcro shield	ASMITH	rusty valve wheel	velcro ore
+velcro boots	ASMITH	waterlogged bootstraps	velcro ore
+
+7-inch discus	WSMITH	tarnished metal ring	vinyl ore
+PVC staff	WSMITH	foggy glass globe	vinyl ore
+vinyl shield	ASMITH	rusty valve wheel	vinyl ore
+vinyl boots	ASMITH	waterlogged bootstraps	vinyl ore
+
+rusty staff	WSMITH	rusty compass	rusty piece of rebar
+
+
+# Time Trappings, smithable by anyone.
+
+time helmet	SMITH	petrified time	helmet recipe
+time trousers	SMITH	petrified time	pants kit
+time sword	SMITH	petrified time	sword hilt
+
+
+# Clothing of Loathing
+Belt of Loathing	SMITH, MANUAL	Girdle of Hatred	Novelty Belt Buckle of Violence
+Goggles of Loathing	SMITH, MANUAL	Lens of Hatred	Lens of Violence
+Jeans of Loathing	SMITH, MANUAL	Pantaloons of Hatred	Jodhpurs of Violence
+Scepter of Loathing	SMITH, MANUAL	Brand of Violence	Cold Stone of Hatred
+Stick-Knife of Loathing	SMITH, MANUAL	Staff of Simmering Hatred	Pigsticker of Violence
+Treads of Loathing	SMITH, MANUAL	Fuzzy Slippers of Hatred	Ass-Stompers of Violence
+
+
+# Depleted Grimacite items, all of which require reading plans
+
+depleted Grimacite hammer	SMITH	chunk of depleted Grimacite	chunk of depleted Grimacite
+depleted Grimacite astrolabe	SMITH, GRIMACITE	clockwork sphere	chunk of depleted Grimacite
+depleted Grimacite grappling hook	SMITH, GRIMACITE	pygmy spear	chunk of depleted Grimacite
+depleted Grimacite gravy boat	SMITH, GRIMACITE	fairy gravy boat	chunk of depleted Grimacite
+depleted Grimacite ninja mask	SMITH, GRIMACITE	cold ninja mask	chunk of depleted Grimacite
+depleted Grimacite shinguards	SMITH, GRIMACITE	black greaves	chunk of depleted Grimacite
+depleted Grimacite weightlifting belt	SMITH, GRIMACITE	enormous belt buckle	chunk of depleted Grimacite
+
+
+# Elemental powders can be compressed into nuggets and wads with the Malus
+
+twinkly nuggets	MALUS	twinkly powder (5)
+hot nuggets	MALUS	hot powder (5)
+cold nuggets	MALUS	cold powder (5)
+spooky nuggets	MALUS	spooky powder (5)
+stench nuggets	MALUS	stench powder (5)
+sleaze nuggets	MALUS	sleaze powder (5)
+
+twinkly wad	MALUS	twinkly nuggets (5)
+hot wad	MALUS	hot nuggets (5)
+cold wad	MALUS	cold nuggets (5)
+sewer wad	MALUS	sewer nuggets (5)
+spooky wad	MALUS	spooky nuggets (5)
+stench wad	MALUS	stench nuggets (5)
+sleaze wad	MALUS	sleaze nuggets (5)
+
+floaty pebbles	MALUS	floaty sand (5)
+floaty gravel	MALUS	floaty pebbles (5)
+floaty rock	MALUS	floaty gravel (5)
+
+# KoLmafia currently doesn't support items with more than one creation method
+
+hot wad	SSAUCE	twinkly wad	sleaze wad
+cold wad	SSAUCE	twinkly wad	hot wad
+spooky wad	SSAUCE	twinkly wad	cold wad
+stench wad	SSAUCE	twinkly wad	spooky wad
+sleaze wad	SSAUCE	twinkly wad	stench wad
+
+
+# Potions you can make by cooking
+
+vial of baconstone juice	COOK	vial of Gnomochloric acid	baconstone
+vial of hamethyst juice	COOK	vial of Gnomochloric acid	hamethyst
+vial of porquoise juice	COOK	vial of Gnomochloric acid	porquoise
+
+flask of baconstone juice	COOK	flask of Gnomochloric acid	baconstone
+flask of hamethyst juice	COOK	flask of Gnomochloric acid	hamethyst
+flask of porquoise juice	COOK	flask of Gnomochloric acid	porquoise
+
+jug of baconstone juice	COOK	jug of Gnomochloric acid	baconstone
+jug of hamethyst juice	COOK	jug of Gnomochloric acid	hamethyst
+jug of porquoise juice	COOK	jug of Gnomochloric acid	porquoise
+
+
+# Reagent potions.  Not to be confused with reagent broth mixtures
+# which can be combined with pasta by pastamancers.
+
+banana smoothie	SAUCE, SX3	scrumptious reagent	banana
+cordial of concentration	SAUCE, SX3	scrumptious reagent	soda water
+cranberry cordial	SAUCE, SX3	scrumptious reagent	cranberries
+eyedrops of the ermine	SAUCE, SX3	scrumptious reagent	strawberry
+libation of liveliness	SAUCE, SX3	scrumptious reagent	grapes
+milk of magnesium	SAUCE, SX3	scrumptious reagent	glass of goat's milk
+oil of expertise	SAUCE, SX3	scrumptious reagent	cherry
+oil of oiliness	SAUCE, SX3	scrumptious reagent	decaying goldfish liver
+oil of slipperiness	SAUCE, SX3	scrumptious reagent	jumbo olive
+oil of stability	SAUCE, SX3	scrumptious reagent	lime
+ointment of the occult	SAUCE, SX3	scrumptious reagent	grapefruit
+perfume of prejudice	SAUCE, SX3	scrumptious reagent	jaba&ntilde;ero pepper
+philter of phorce	SAUCE, SX3	scrumptious reagent	lemon
+potion of potency	SAUCE, SX3	scrumptious reagent	orange
+serum of sarcasm	SAUCE, SX3	scrumptious reagent	olive
+tomato juice of powerful power	SAUCE, SX3	scrumptious reagent	tomato
+
+# Evil potions. Unlike regular potions, saucerors only get one potion
+# per brewing.
+
+evil eyedrops of the ermine	SAUCE	nauseating reagent	strawberry
+evil libation of liveliness	SAUCE	nauseating reagent	grapes
+evil ointment of the occult	SAUCE	nauseating reagent	grapefruit
+evil philter of phorce	SAUCE	nauseating reagent	lemon
+evil potion of potency	SAUCE	nauseating reagent	orange
+evil serum of sarcasm	SAUCE	nauseating reagent	olive
+evil tomato juice of powerful power	SAUCE	nauseating reagent	tomato
+
+# Slime potions. Unlike regular potions, saucerors only get one potion
+# per brewing
+
+vial of red slime	REAGENT, COOK, MANUAL	vial of red slime	vial of red slime
+vial of yellow slime	REAGENT, COOK, MANUAL	vial of yellow slime	vial of yellow slime
+vial of blue slime	REAGENT, COOK, MANUAL	vial of blue slime	vial of blue slime
+
+vial of orange slime	REAGENT, COOK	vial of red slime	vial of yellow slime
+vial of orange slime	REAGENT, COOK	vial of red slime	vial of amber slime
+vial of orange slime	REAGENT, COOK	vial of yellow slime	vial of vermilion slime
+vial of orange slime	REAGENT, COOK	vial of vermilion slime	vial of amber slime
+vial of orange slime	REAGENT, COOK, MANUAL	vial of orange slime	vial of orange slime
+
+vial of green slime	REAGENT, COOK	vial of yellow slime	vial of blue slime
+vial of green slime	REAGENT, COOK	vial of blue slime	vial of chartreuse slime
+vial of green slime	REAGENT, COOK	vial of yellow slime	vial of teal slime
+vial of green slime	REAGENT, COOK	vial of chartreuse slime	vial of teal slime
+vial of green slime	REAGENT, COOK, MANUAL	vial of green slime	vial of green slime
+
+vial of violet slime	REAGENT, COOK	vial of red slime	vial of blue slime
+vial of violet slime	REAGENT, COOK	vial of blue slime	vial of purple slime
+vial of violet slime	REAGENT, COOK	vial of red slime	vial of indigo slime
+vial of violet slime	REAGENT, COOK	vial of indigo slime	vial of purple slime
+vial of violet slime	REAGENT, COOK, MANUAL	vial of violet slime	vial of violet slime
+
+vial of vermilion slime	REAGENT, COOK	vial of red slime	vial of orange slime
+vial of vermilion slime	REAGENT, COOK	vial of orange slime	vial of vermilion slime
+vial of vermilion slime	REAGENT, COOK	vial of red slime	vial of vermilion slime
+vial of vermilion slime	REAGENT, COOK, MANUAL	vial of vermilion slime	vial of vermilion slime
+
+vial of amber slime	REAGENT, COOK	vial of yellow slime	vial of orange slime
+vial of amber slime	REAGENT, COOK, MANUAL	vial of orange slime	vial of amber slime
+vial of amber slime	REAGENT, COOK, MANUAL	vial of yellow slime	vial of amber slime
+vial of amber slime	REAGENT, COOK, MANUAL	vial of amber slime	vial of amber slime
+
+vial of chartreuse slime	REAGENT, COOK	vial of yellow slime	vial of green slime
+vial of chartreuse slime	REAGENT, COOK, MANUAL	vial of green slime	vial of chartreuse slime
+vial of chartreuse slime	REAGENT, COOK, MANUAL	vial of yellow slime	vial of chartreuse slime
+vial of chartreuse slime	REAGENT, COOK, MANUAL	vial of chartreuse slime	vial of chartreuse slime
+
+vial of teal slime	REAGENT, COOK	vial of blue slime	vial of green slime
+vial of teal slime	REAGENT, COOK, MANUAL	vial of blue slime	vial of teal slime
+vial of teal slime	REAGENT, COOK, MANUAL	vial of green slime	vial of teal slime
+vial of teal slime	REAGENT, COOK, MANUAL	vial of teal slime	vial of teal slime
+
+vial of purple slime	REAGENT, COOK	vial of red slime	vial of violet slime
+vial of purple slime	REAGENT, COOK, MANUAL	vial of red slime	vial of purple slime
+vial of purple slime	REAGENT, COOK, MANUAL	vial of violet slime	vial of purple slime
+vial of purple slime	REAGENT, COOK, MANUAL	vial of purple slime	vial of purple slime
+
+vial of indigo slime	REAGENT, COOK	vial of blue slime	vial of violet slime
+vial of indigo slime	REAGENT, COOK, MANUAL	vial of blue slime	vial of indigo slime
+vial of indigo slime	REAGENT, COOK, MANUAL	vial of violet slime	vial of indigo slime
+vial of indigo slime	REAGENT, COOK, MANUAL	vial of indigo slime	vial of indigo slime
+
+vial of brown slime	REAGENT, COOK, MANUAL	vial of amber slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of amber slime	vial of chartreuse slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of amber slime	vial of indigo slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of amber slime	vial of purple slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of amber slime	vial of teal slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of blue slime	vial of amber slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of blue slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of blue slime	vial of orange slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of blue slime	vial of vermilion slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of brown slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of chartreuse slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of chartreuse slime	vial of indigo slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of chartreuse slime	vial of purple slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of green slime	vial of amber slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of green slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of green slime	vial of indigo slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of green slime	vial of purple slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of green slime	vial of vermilion slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of green slime	vial of violet slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of indigo slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of orange slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of orange slime	vial of chartreuse slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of orange slime	vial of green slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of orange slime	vial of indigo slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of orange slime	vial of purple slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of orange slime	vial of teal slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of orange slime	vial of violet slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of purple slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of red slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of red slime	vial of chartreuse slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of red slime	vial of green slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of red slime	vial of teal slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of teal slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of teal slime	vial of indigo slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of teal slime	vial of purple slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of vermilion slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of vermilion slime	vial of chartreuse slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of vermilion slime	vial of indigo slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of vermilion slime	vial of purple slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of vermilion slime	vial of teal slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of violet slime	vial of amber slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of violet slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of violet slime	vial of chartreuse slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of violet slime	vial of teal slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of violet slime	vial of vermilion slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of yellow slime	vial of brown slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of yellow slime	vial of indigo slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of yellow slime	vial of purple slime
+vial of brown slime	REAGENT, COOK, MANUAL	vial of yellow slime	vial of violet slime
+
+# CLEESH potions
+
+salamander slurry	SAUCE, SX3	scrumptious reagent	salamander spleen
+eyedrops of newt	SAUCE, SX3	scrumptious reagent	eye of newt
+Frogade	SAUCE, SX3	scrumptious reagent	squashed frog
+
+papotion of papower	SAUCE, SX3	scrumptious reagent	papaya
+concoction of clumsiness	SAUCE	scrumptious reagent	lion oil
+
+# Advanced Sauces
+
+scrumdiddlyumptious solution	SUSE, NOBEE	delectable catalyst	scrumptious reagent
+
+# Reagent potions.
+
+Connery's Elixir of Audacity	SSAUCE, SX3	scrumdiddlyumptious solution	cocktail onion
+Hawking's Elixir of Brilliance	SSAUCE, SX3	scrumdiddlyumptious solution	tangerine
+Ferrigno's Elixir of Power	SSAUCE, SX3	scrumdiddlyumptious solution	kiwi
+blackberry polite	SSAUCE, SX3	scrumdiddlyumptious solution	blackberry
+cologne of contempt	SSAUCE, SX3	scrumdiddlyumptious solution	dill
+concentrated cordial of concentration	SSAUCE, SX3	scrumdiddlyumptious solution	tonic water
+potent potion of potency	SSAUCE, SX3	scrumdiddlyumptious solution	kumquat
+eyedrops of the ocelot	SSAUCE, SX3	scrumdiddlyumptious solution	raspberry
+peach lozenge	SSAUCE, SX3	scrumdiddlyumptious solution	peach
+pear lozenge	SSAUCE, SX3	scrumdiddlyumptious solution	pear
+plum lozenge	SSAUCE, SX3	scrumdiddlyumptious solution	plum
+potion of temporary gr8ness	SSAUCE, SX3	scrumdiddlyumptious solution	gr8ps
+
+fluid of fudge-finding	SSAUCE	scrumdiddlyumptious solution	superheated fudge
+
+lotion of hotness	SAUCE, SX3	scrumptious reagent	hot powder
+lotion of coldness	SAUCE, SX3	scrumptious reagent	cold powder
+lotion of spookiness	SAUCE, SX3	scrumptious reagent	spooky powder
+lotion of stench	SAUCE, SX3	scrumptious reagent	stench powder
+lotion of sleaziness	SAUCE, SX3	scrumptious reagent	sleaze powder
+
+phial of hotness	SSAUCE	scrumdiddlyumptious solution	hot cluster
+phial of coldness	SSAUCE	scrumdiddlyumptious solution	cold cluster
+phial of spookiness	SSAUCE	scrumdiddlyumptious solution	spooky cluster
+phial of stench	SSAUCE	scrumdiddlyumptious solution	stench cluster
+phial of sleaziness	SSAUCE	scrumdiddlyumptious solution	sleaze cluster
+
+# Deep Sauces
+
+pressurized potion of perception	DSAUCE	globe of Deep Sauce	sea blueberry
+pressurized potion of perspicacity	DSAUCE	globe of Deep Sauce	sea honeydew
+pressurized potion of proficiency	DSAUCE	globe of Deep Sauce	sea persimmon
+pressurized potion of puissance	DSAUCE	globe of Deep Sauce	sea tangelo
+pressurized potion of pulchritude	DSAUCE	globe of Deep Sauce	sea lychee
+pressurized potion of pneumaticity	DSAUCE	globe of Deep Sauce	[0]
+
+# Dreadsylvania
+
+cold clusterbomb	COMBINE	length of old fuse	cold cluster
+hot clusterbomb	COMBINE	length of old fuse	hot cluster
+sleaze clusterbomb	COMBINE	length of old fuse	sleaze cluster
+spooky clusterbomb	COMBINE	length of old fuse	spooky cluster
+stench clusterbomb	COMBINE	length of old fuse	stench cluster
+
+Dreadsylvanian cold-fashioned	MIX_FANCY	eau de mort	cold cluster
+Dreadsylvanian hot toddy	MIX_FANCY	eau de mort	hot cluster
+Dreadsylvanian slithery nipple	MIX_FANCY	eau de mort	sleaze cluster
+Dreadsylvanian grimlet	MIX_FANCY	eau de mort	spooky cluster
+Dreadsylvanian dank and stormy	MIX_FANCY	eau de mort	stench cluster
+
+Dreadsylvanian cold pocket	COOK_FANCY	bone flour	cold cluster
+Dreadsylvanian hot pocket	COOK_FANCY	bone flour	hot cluster
+Dreadsylvanian sleaze pocket	COOK_FANCY	bone flour	sleaze cluster
+Dreadsylvanian spooky pocket	COOK_FANCY	bone flour	spooky cluster
+Dreadsylvanian stink pocket	COOK_FANCY	bone flour	stench cluster
+
+moon-amber necklace	EJEWEL	polished moon-amber	heavy necklace chain
+
+cuckoo clock	SUSE	intricate clockwork birdhouse	intricate clockwork disc	intricate clockwork big hand	intricate clockwork little hand	intricate clockwork numeral I	intricate clockwork numeral II	intricate clockwork numeral III	intricate clockwork numeral IV	intricate clockwork numeral V	intricate clockwork numeral VI	intricate clockwork numeral VII	intricate clockwork numeral VIII	intricate clockwork numeral IX	intricate clockwork numeral X	intricate clockwork numeral XI	intricate clockwork numeral XII	intricate clockwork cuckoo
+
+# Simple pastamancer recipes.  Available to pastamancers only, and
+# creates pasta if you don't have finer ingredients.
+
+boring spaghetti	PASTA	dry noodles	tomato
+delicious noodles	PASTA	dry noodles	herbs
+delicious spicy noodles	PASTA	dry noodles	secret blend of herbs and spices
+painful penne pasta	PASTA	dry noodles	jaba&ntilde;ero pepper
+pr0n m4nic0tti	PASTA	dry noodles	pr0n legs
+ravioli della hippy	PASTA	dry noodles	wad of tofu
+spicy noodles	PASTA	dry noodles	spices
+
+evil boring spaghetti	PASTA	evil noodles	tomato
+evil delicious noodles	PASTA	evil noodles	herbs
+evil delicious spicy noodles	PASTA	evil noodles	secret blend of herbs and spices
+evil painful penne pasta	PASTA	evil noodles	jaba&ntilde;ero pepper
+3vi1 pr0n m4nic0tti	PASTA	evil noodles	pr0n legs
+evil ravioli della hippy	PASTA	evil noodles	wad of tofu
+evil spicy noodles	PASTA	evil noodles	spices
+
+fusilli marrownarrow	PASTA	dry noodles	succulent marrow
+ghuol guolash	PASTA	dry noodles	ghuol ears
+suggestive strozzapreti	PASTA	dry noodles	salacious crumbs
+spaghetti with ghost balls	PASTA	dry noodles	ectoplasmic orbs
+agnolotti arboli	PASTA	dry noodles	pestopiary
+crudles	PASTA	dry noodles	bubblin' crude
+
+# Items involved in the famous pastamancer-sauceror lunch creation
+# duo - end items and non-end items.
+
+fancy schmancy cheese sauce	SAUCE	scrumptious reagent	goat cheese
+fettucini Inconnu	PASTA	fancy schmancy cheese sauce	dry noodles
+fettucini &eacute;pines Inconnu	COOK	fettucini Inconnu	pretty flower
+
+Hell broth	SAUCE	scrumptious reagent	hellion cube
+Hell ramen	PASTA	Hell broth	dry noodles
+
+Special&trade; Sauce	SAUCE	scrumptious reagent	pink slime
+spagecialetti	PASTA	Special&trade; Sauce	dry noodles
+
+Devil's Elbow Hot Sauce	SAUCE	scrumptious reagent	hot wing
+devil hair pasta	PASTA	Devil's Elbow Hot Sauce	dry noodles
+
+Himalayan Hidalgo sauce	SAUCE	scrumptious reagent	Knob mushroom
+gnocchetti di Nietzsche	PASTA	Himalayan Hidalgo sauce	dry noodles
+
+sauce of the ages	SAUCE	scrumptious reagent	Knob sausage
+spaghetti with Skullheads	PASTA	sauce of the ages	dry noodles
+
+cheesy eagle sauce	SAUCE	scrumptious reagent	eagle's milk
+fleetwood mac 'n' cheese	PASTAMASTERY	cheesy eagle sauce	fleetwood macaroni
+
+Mountain Stream gastrique	SAUCE	scrumptious reagent	Mountain Stream soda
+linguini immondizia bianco	PASTA	Mountain Stream gastrique	dry noodles
+
+oyster sauce	SAUCE	scrumptious reagent	Mt. McLargeHuge oyster
+shells a la shellfish	PASTA	oyster sauce	dry noodles
+
+
+# Stir-fries
+
+secret blend of herbs and spices	COOK	herbs	spices
+
+asparagus stir-fry	COOK_FANCY	stalk of asparagus	secret blend of herbs and spices
+Knob stir-fry	COOK_FANCY	Knob mushroom	secret blend of herbs and spices
+Knoll stir-fry	COOK_FANCY	Knoll mushroom	secret blend of herbs and spices
+olive stir-fry	COOK_FANCY	olive	secret blend of herbs and spices
+spooky stir-fry	COOK_FANCY	spooky mushroom	secret blend of herbs and spices
+
+bat wing stir-fry	COOK	bat wing	Knob stir-fry
+Knob sausage stir-fry	COOK	Knob sausage	Knoll stir-fry
+pr0n stir-fry	COOK	pr0n legs	olive stir-fry
+rat appendix stir-fry	COOK	rat appendix	spooky stir-fry
+tofu stir-fry	COOK	wad of tofu	asparagus stir-fry
+
+
+# Middle-end foods made by cooking stir-fries with dry noodles
+
+asparagus lo mein	PASTA	asparagus stir-fry	dry noodles
+Knob lo mein	PASTA	Knob stir-fry	dry noodles
+Knoll lo mein	PASTA	Knoll stir-fry	dry noodles
+olive lo mein	PASTA	olive stir-fry	dry noodles
+spooky lo mein	PASTA	spooky stir-fry	dry noodles
+
+Knob stuffed shells	PASTA	Knob sausage	dry noodles
+b&auml;tzle	PASTA	bat wing	dry noodles
+ratini	PASTA	rat appendix	dry noodles
+Knob stroganoff	PASTA	Knob mushroom	dry noodles
+menudo ravioli	PASTA	batgut	dry noodles
+
+# Food ingredients that use scrumdiddlyumptious solution
+
+cold and sour sauce	SSAUCE	scrumdiddlyumptious solution	cold wad
+hot and sour sauce	SSAUCE	scrumdiddlyumptious solution	hot wad
+sleazy and sour sauce	SSAUCE	scrumdiddlyumptious solution	sleaze wad
+spooky and sour sauce	SSAUCE	scrumdiddlyumptious solution	spooky wad
+stench and sour sauce	SSAUCE	scrumdiddlyumptious solution	stench wad
+
+good gravy	SSAUCE	giant turkey leg	scrumdiddlyumptious solution
+illicit fish sauce	SSAUCE	stolen sushi	scrumdiddlyumptious solution
+Salsa Libre	SSAUCE	open sauce	scrumdiddlyumptious solution
+
+Alexy sauce	SSAUCE	scrumdiddlyumptious solution	imitation White Russian
+rainbow sauce	SSAUCE	scrumdiddlyumptious solution	colorful toad
+drug cocktail sauce	SSAUCE	scrumdiddlyumptious solution	pill cup
+
+
+# Advanced noodles
+
+savory dry noodles	TNOODLE	dry noodles	MSG
+
+# Specialty foods made by cooking with savory dry noodles
+
+unfortunate dumplings	TNOODLE	C.H.U.M. chum	savory dry noodles
+wok lobster	TNOODLE	live lobster	savory dry noodles
+
+# Top-end foods made by cooking with savory dry noodles
+
+cold hi mein	TNOODLE	cold and sour sauce	savory dry noodles
+hot hi mein	TNOODLE	hot and sour sauce	savory dry noodles
+sleazy hi mein	TNOODLE	sleazy and sour sauce	savory dry noodles
+spooky hi mein	TNOODLE	spooky and sour sauce	savory dry noodles
+stinky hi mein	TNOODLE	stench and sour sauce	savory dry noodles
+
+turkish mostaccioli	TNOODLE	good gravy	savory dry noodles
+linguini of the sea	TNOODLE	illicit fish sauce	savory dry noodles
+libertagliatelle	TNOODLE	Salsa Libre	savory dry noodles
+
+Fettris	TNOODLE	Alexy sauce	savory dry noodles
+fusillocybin	TNOODLE	rainbow sauce	savory dry noodles
+prescription noodles	TNOODLE	drug cocktail sauce	savory dry noodles
+
+fishy fish lasagna	TNOODLE	fishy fish casserole	savory dry noodles
+gnat lasagna	TNOODLE	gnatloaf casserole	savory dry noodles
+long pork lasagna	TNOODLE	long pork casserole	savory dry noodles
+sausage wonton	TNOODLE	beer basted brat	savory dry noodles
+tofu wonton	TNOODLE	super salad	savory dry noodles
+
+
+# Tempura foods
+
+tempura avocado	TEMPURA	bubbling tempura batter	sea avocado
+tempura broccoli	TEMPURA	bubbling tempura batter	sea broccoli
+tempura carrot	TEMPURA	bubbling tempura batter	sea carrot
+tempura cauliflower	TEMPURA	bubbling tempura batter	sea cauliflower
+tempura cucumber	TEMPURA	bubbling tempura batter	sea cucumber
+tempura radish	TEMPURA	bubbling tempura batter	sea radish
+tempura air	TEMPURA	bubbling tempura batter	[0]
+
+
+# Sealhide items.  These are items which are created at Phineas
+# after defeating Gorgolok and collecting enough seal parts.
+
+sealhide hood	PHINEAS	hellseal brain (3)	hellseal sinew (2)	hellseal hide (2)	hellseal whisker (3)	hellseal claw (5)
+sealhide leggings	PHINEAS	hellseal brain (2)	hellseal sinew (3)	hellseal hide (3)	hellseal whisker (5)	hellseal claw (3)
+sealhide cloak	PHINEAS	hellseal brain (2)	hellseal sinew (3)	hellseal hide (3)	hellseal whisker (5)	hellseal claw (3)
+sealhide buckler	PHINEAS	hellseal brain (2)	hellseal sinew (1)	hellseal hide (2)	hellseal whisker (2)	hellseal claw (1)
+sealhide whip	PHINEAS	hellseal brain (1)	hellseal sinew (3)	hellseal hide (1)	hellseal whisker (1)	hellseal claw (2)
+sealhide moccasins	PHINEAS	hellseal brain (1)	hellseal sinew (1)	hellseal hide (1)	hellseal whisker (4)	hellseal claw (2)
+sealhide gloves	PHINEAS	hellseal brain (1)	hellseal sinew (1)	hellseal hide (1)	hellseal whisker (2)	hellseal claw (4)
+sealhide belt	PHINEAS	hellseal brain (1)	hellseal sinew (1)	hellseal hide (1)	hellseal whisker (3)	hellseal claw (3)
+sealhide snare	PHINEAS	hellseal sinew (1)	hellseal whisker (2)	hellseal claw (2)
+sealhide seal doll	PHINEAS	hellseal hide (1)	hellseal whisker (2)	hellseal claw (1)
+seal-brain elixir	PHINEAS	hellseal brain (1)	hellseal whisker (2)	hellseal claw (1)
+
+# Things to fish out of the sewer using chewing-gum-on-a-string
+# These could be SUSE recipes except you are not guaranteed to get
+# exactly the item you seek without inventory manipulation
+
+seal-skull helmet	SEWER	chewing gum on a string
+seal-clubbing club	SEWER	chewing gum on a string
+helmet turtle	SEWER	chewing gum on a string
+turtle totem	SEWER	chewing gum on a string
+ravioli hat	SEWER	chewing gum on a string
+pasta spoon	SEWER	chewing gum on a string
+Hollandaise helmet	SEWER	chewing gum on a string
+saucepan	SEWER	chewing gum on a string
+disco mask	SEWER	chewing gum on a string
+disco ball	SEWER	chewing gum on a string
+mariachi hat	SEWER	chewing gum on a string
+stolen accordion	SEWER	chewing gum on a string
+old sweatpants	SEWER	chewing gum on a string
+worthless trinket	SEWER	chewing gum on a string
+worthless gewgaw	SEWER	chewing gum on a string
+worthless knick-knack	SEWER	chewing gum on a string
+# pseudo item
+worthless item	SEWER	chewing gum on a string
+
+# Jewelry making recipes.  These are recipes which are only available
+# once you acquire jewelry-making pliers.
+
+hamethyst earring	JEWEL	hamethyst	piercing post
+hamethyst necklace	JEWEL	hamethyst	necklace chain
+hamethyst ring	JEWEL	hamethyst	ring setting
+baconstone earring	JEWEL	baconstone	piercing post
+baconstone pendant	JEWEL	baconstone	necklace chain
+baconstone ring	JEWEL	baconstone	ring setting
+porquoise eyebrow ring	JEWEL	porquoise	piercing post
+porquoise necklace	JEWEL	porquoise	necklace chain
+porquoise ring	JEWEL	porquoise	ring setting
+
+vampire pearl earring	JEWEL	vampire pearl	piercing post
+vampire pearl necklace	JEWEL	vampire pearl	necklace chain
+vampire pearl ring	JEWEL	vampire pearl	ring setting
+
+torquoise ring	JEWEL	torquoise	ring setting
+
+dark hamethyst ring	JEWEL	black gold	hamethyst
+dark porquoise ring	JEWEL	black gold	porquoise
+dark baconstone ring	JEWEL	black gold	baconstone
+
+# Expensive Jewelry making recipes.  These require jewelry-making pliers
+# and the Really Expensive Jewelrycrafting skill
+
+filigreed hamethyst ring	EJEWEL	hamethyst	extra-fancy ring setting
+filigreed hamethyst earring	EJEWEL	hamethyst	precious piercing post
+filigreed hamethyst necklace	EJEWEL	hamethyst	heavy necklace chain
+
+solid baconstone ring	EJEWEL	baconstone	extra-fancy ring setting
+solid baconstone earring	EJEWEL	baconstone	precious piercing post
+solid baconstone necklace	EJEWEL	baconstone	heavy necklace chain
+
+pulled porquoise ring	EJEWEL	porquoise	extra-fancy ring setting
+pulled porquoise earring	EJEWEL	porquoise	precious piercing post
+pulled porquoise pendant	EJEWEL	porquoise	heavy necklace chain
+
+Earring of Fire	EJEWEL	steamy ruby	precious piercing post
+Pendant of Fire	EJEWEL	steamy ruby	heavy necklace chain
+Ring of Fire	EJEWEL	steamy ruby	extra-fancy ring setting
+
+Ice-Cold Beerring	EJEWEL	glacial sapphire	precious piercing post
+Ice-Cold Aluminum Necklace	EJEWEL	glacial sapphire	heavy necklace chain
+Ice-Cold Beer Ring	EJEWEL	glacial sapphire	extra-fancy ring setting
+
+Unspeakable Earring	EJEWEL	unearthly onyx	precious piercing post
+Choker of the Ultragoth	EJEWEL	unearthly onyx	heavy necklace chain
+The Ring	EJEWEL	unearthly onyx	extra-fancy ring setting
+
+Nose Ring of Putrescence	EJEWEL	effluvious emerald	precious piercing post
+Putrid Pendant	EJEWEL	effluvious emerald	heavy necklace chain
+Ring of the Sewer Snake	EJEWEL	effluvious emerald	extra-fancy ring setting
+
+Mudflap-Girl Earring	EJEWEL	tawdry amethyst	precious piercing post
+Mudflap-Girl Necklace	EJEWEL	tawdry amethyst	heavy necklace chain
+Mudflap-Girl Ring	EJEWEL	tawdry amethyst	extra-fancy ring setting
+
+bezoar ring	EJEWEL	flytrap bezoar	extra-fancy ring setting
+groovy prism necklace	EJEWEL	prismatic wad	heavy necklace chain
+shark tooth necklace	EJEWEL	shark tooth	heavy necklace chain
+
+floaty rock necklace	EJEWEL	floaty rock	heavy necklace chain
+
+bananarama bangle	EJEWEL	bananagate	heavy necklace chain
+pair of pearidot earrings	EJEWEL	pearidot	precious piercing post
+tourmalime tourniquet	EJEWEL	tourmalime	heavy necklace chain
+kumquartz ring	EJEWEL	kumquartz	extra-fancy ring setting
+strawberyl necklace	EJEWEL	strawberyl	heavy necklace chain
+
+aquamariner's necklace	EJEWEL	marine aquamarine	long-forgotten necklace
+aquamariner's ring	EJEWEL	marine aquamarine	jam band
+pearl diver's necklace	EJEWEL	giant pearl	long-forgotten necklace
+pearl diver's ring	EJEWEL	giant pearl	jam band
+
+rainbow pearl earring	EJEWEL	rainbow pearl	precious piercing post
+rainbow pearl necklace	EJEWEL	rainbow pearl	heavy necklace chain
+rainbow pearl ring	EJEWEL	rainbow pearl	extra-fancy ring setting
+
+meteorite earring	EJEWEL	meteorite fragment	precious piercing post
+meteorite necklace	EJEWEL	meteorite fragment	heavy necklace chain
+meteorite ring	EJEWEL	meteorite fragment	extra-fancy ring setting
+
+# Silver Items
+
+nicksilver ring	COMBINE	red-hot knucklebone	nugget of nicksilver
+quicksilver ring	COMBINE	red-hot knucklebone	nugget of quicksilver
+sicksilver ring	COMBINE	red-hot knucklebone	nugget of sicksilver
+slicksilver ring	COMBINE	red-hot knucklebone	nugget of slicksilver
+thicksilver ring	COMBINE	red-hot knucklebone	nugget of thicksilver
+ticksilver ring	COMBINE	red-hot knucklebone	nugget of ticksilver
+wicksilver ring	COMBINE	red-hot knucklebone	nugget of wicksilver
+
+nicksilver spurs	SMITH	jangly spurs	nugget of nicksilver
+quicksilver spurs	SMITH	jangly spurs	nugget of quicksilver
+sicksilver spurs	SMITH	jangly spurs	nugget of sicksilver
+slicksilver spurs	SMITH	jangly spurs	nugget of slicksilver
+thicksilver spurs	SMITH	jangly spurs	nugget of thicksilver
+ticksilver spurs	SMITH	jangly spurs	nugget of ticksilver
+wicksilver spurs	SMITH	jangly spurs	nugget of wicksilver
+
+# Chef staves made by Rodoric
+
+Staff of Blood and Pudding	STAFF	dripping meat staff	mugcake	bloody mary	twinkly nuggets	bottle of used blood
+Staff of the Black Kettle	STAFF	Staff of the Teapot Tempest	olive lo mein	around the world	jug-o-magicalness	magical mystery juice (6)	asbestos ore
+Staff of the Deepest Freeze	STAFF	Frosty's arm	bowl of fishysoisse	mandarina colada (3)	epic wad	glacial sapphire (3)	frigid mote
+Staff of the Electric Range	STAFF	Jacob's rung	gunky chicken	painting of a glass of wine	spooky music box mechanism	creepy doll head
+Staff of the Grand Flamb&eacute;	STAFF	smoldering staff	hot hi mein (3)	flaming mushroom wine	hot wad (10)	flaming feather
+Staff of the Grease Trap	STAFF	giant cheesestick	sleazy hi mein (3)	flat mushroom wine	sleaze wad (10)	flirtatious feather
+Staff of the Greasefire	STAFF	Kentucky-fried meat staff	spicy noodles	bottle of tequila	hot nuggets	sleaze nuggets
+Staff of Holiday Sensations	STAFF	giant candy cane	peppermint patty	Crimbojito	lotion of coldness (3)	frozen nunchaku	freezerburned ice cube
+Staff of the Kitchen Floor	STAFF	linoleum staff	stinky hi mein (3)	stinky mushroom wine	stench wad (10)	fetid feather
+Staff of the Midnight Snack	STAFF	spooky staff	fricasseed brains	bottle of popskull	spooky powder (3)	spray paint (3)
+Staff of the Roaring Hearth	STAFF	Unkillable Skeleton's restless leg	Dreadsylvanian hot pocket	Dreadsylvanian hot toddy	hot cluster (3)	vengeful spirit
+Staff of the Scummy Sink	STAFF	slime-covered staff	slimy sweetbreads	slimy fermented bile bladder	sleaze wad (10)	big bumboozer marble
+Staff of the Short Order Cook	STAFF	basic meat staff	bowl of cottage cheese	ice-cold Sir Schlitz (3)	twinkly powder (3)	magicalness-in-a-can (5)
+Staff of the Soupbone	STAFF	rib of the Bonerdagon	spooky lo mein	old-fashioned	Glass Balls of the Goblin King	lump of diamond	lihc face
+Staff of the Teapot Tempest	STAFF	big stirring stick	menudo	sangria	hippy herbal tea	concentrated magicalness pill	magical mystery juice (3)
+Staff of the Walk-In Freezer	STAFF	ram stick	cold hi mein (3)	icy mushroom wine	cold wad (10)	frozen feather
+Staff of the Well-Tempered Cauldron	STAFF	Staff of the Black Kettle	b&auml;tzle	Supernova Champagne	bit-o-cactus	squashed frog	eye of newt	salamander spleen
+
+# Archaeology recipes
+
+smoked potsherd	COMBINE	unearthed potsherd	volcanic ash
+pottery yo-yo	MUSE	smoked potsherd (5)
+pottery hat	MUSE	smoked potsherd (7)
+pottery club	MUSE	smoked potsherd (8)
+pottery shield	MUSE	smoked potsherd (9)
+pottery training pants	MUSE	smoked potsherd (11)
+
+# Recipes that involve multi-using a quantity of an item
+
+balloon helmet	MUSE, NOBEE	long skinny balloon (2)
+balloon monkey	MUSE, NOBEE	long skinny balloon (7)
+balloon shield	MUSE, NOBEE	long skinny balloon (4)
+balloon sword	MUSE, NOBEE	long skinny balloon (3)
+
+palm-frond fan	MUSE	palm frond (2)
+palm-frond net	MUSE	palm frond (3)
+palm-frond whip	MUSE	palm frond (4)
+palm-frond capris	MUSE	palm frond (5)
+extra-large palm-frond toupee	MUSE	palm frond (6)
+palm-frond cloak	MUSE	palm frond (7)
+
+really thick bandage	MUSE	mummy wrapping (2)
+mummy mask	MUSE	mummy wrapping (4)
+gauze shorts	MUSE	mummy wrapping (6)
+gauze hammock	MUSE	mummy wrapping (10)
+
+duct tape wallet	MUSE	duct tape (4)
+duct tape buckler	MUSE	duct tape (10)
+duct tape dockers	MUSE	duct tape (12)
+duct tape fedora	MUSE	duct tape (14)
+duct tape sword	MUSE	duct tape (17)
+duct tape shirt	MUSE, TORSO	duct tape (23)
+
+paperclip sproinger	MUSE	paperclip (1)
+paperclip-on tie	MUSE	paperclip (10)
+paperclip turban	MUSE	paperclip (15)
+paperclip cape	MUSE	paperclip (20)
+paperclip pants	MUSE	paperclip (25)
+
+double-ice cap	MUSE, NOBEE	shard of double-ice (5)
+double-ice box	MUSE, NOBEE	shard of double-ice (7)
+double-ice britches	MUSE, NOBEE	shard of double-ice (9)
+
+clingfilm tangle	MUSE, NOBEE	bit of clingfilm (3)
+clingfilm slippers	MUSE, NOBEE	bit of clingfilm (7)
+clingfilm cap	MUSE, NOBEE	bit of clingfilm (9)
+clingfilm trousers	MUSE, NOBEE	bit of clingfilm (11)
+
+brick of sand	MUSE, NODISCOVERY	handful of sand (5)
+sandcastle	MUSE, NOBEE, NODISCOVERY	brick of sand (20)
+
+house of twigs and spit	MUSE	interesting-looking twig (100)
+
+deck of lewd playing cards	MUSE, NODISCOVERY	lewd playing card (52)
+
+propeller beanie	MUSE, NOBEE	Bash-&#332;s boxtop (20)
+
+bark bracelet	MUSE, NOBEE	spooky bark (5)
+bark beret	MUSE, NOBEE	spooky bark (7)
+bark boxers	MUSE, NOBEE	spooky bark (9)
+
+snailmail coif	MUSE, NOBEE	snailmail bits (3)
+snailmail breeches	MUSE, NOBEE	snailmail bits (5)
+snailmail hauberk	MUSE, NOBEE, TORSO	snailmail bits (8)
+
+turtlemail coif	MUSE, NOBEE	turtlemail bits (3)
+turtlemail breeches	MUSE, NOBEE	turtlemail bits (5)
+turtlemail hauberk	MUSE, NOBEE, TORSO	turtlemail bits (8)
+
+wumpus-hair bolo	MUSE	wumpus hair (2)
+wumpus-hair net	MUSE	wumpus hair (5)
+wumpus-hair whip	MUSE	wumpus hair (11)
+wumpus-hair wig	MUSE	wumpus hair (16)
+wumpus-hair loincloth	MUSE	wumpus hair (23)
+wumpus-hair sweater	MUSE, TORSO	wumpus hair (30)
+
+BRICKO ooze	MUSE, NOBEE	BRICKO brick (2)	BRICKO eye brick (1)
+BRICKO hat	MUSE, NOBEE	BRICKO brick (3)
+BRICKO bat	MUSE, NOBEE	BRICKO brick (5)	BRICKO eye brick (1)
+BRICKO sword	MUSE, NOBEE	BRICKO brick (6)
+BRICKO oyster	MUSE, NOBEE	BRICKO brick (8)	BRICKO eye brick (1)
+BRICKO pants	MUSE, NOBEE	BRICKO brick (9)
+BRICKO turtle	MUSE, NOBEE	BRICKO brick (11)	BRICKO eye brick (1)
+BRICKO elephant	MUSE, NOBEE	BRICKO brick (23)	BRICKO eye brick (1)
+BRICKO octopus	MUSE, NOBEE	BRICKO brick (37)	BRICKO eye brick (1)
+BRICKO python	MUSE, NOBEE	BRICKO brick (69)	BRICKO eye brick (1)
+BRICKO pyramid	MUSE, NOBEE	BRICKO brick (420)
+BRICKO vacuum cleaner	MUSE, NOBEE	BRICKO brick (1100)	BRICKO eye brick (1)
+BRICKO airship	MUSE, NOBEE	BRICKO brick (2300)	BRICKO eye brick (1)
+BRICKO cathedral	MUSE, NOBEE	BRICKO brick (3700)	BRICKO eye brick (1)
+BRICKO gargantuchicken	MUSE, NOBEE	BRICKO brick (6900)	BRICKO eye brick (1)
+
+gilded BRICKO chalice	MUSE, NOBEE	gilded BRICKO brick (11)
+
+honeypot	MUSE	handful of honey (3)
+honey mead	MUSE	handful of honey (4)
+wild honey pie	MUSE	handful of honey (5)
+honeycap	MUSE	handful of honey (37)
+honeybritches	MUSE	handful of honey (42)
+honey dipper	MUSE	handful of honey (69)
+
+peppermint twist	MUSE	peppermint sprout (1)
+peppermint patty	MUSE	peppermint sprout (2)
+peppermint crook	MUSE	peppermint sprout (3)
+cane-mail pants	MUSE	peppermint sprout (10)
+peppermint rhino baby	MUSE	peppermint sprout (11)
+cane-mail shirt	MUSE	peppermint sprout (15)
+
+wax hat	MUSE	crayon shavings (7)
+wax pants	MUSE	crayon shavings (11)
+
+celestial olive oil	MUSE	Cosmic Calorie (20)
+celestial carrot juice	MUSE	Cosmic Calorie (30)
+celestial au jus	MUSE	Cosmic Calorie (50)
+celestial squid ink	MUSE	Cosmic Calorie (60)
+
+numberwang	MUSE, NODISCOVERY	dubious peppermint (169)
+
+smooth velvet bra	MUSE	unsmoothed velvet (3)
+smooth velvet pocket square	MUSE	unsmoothed velvet (5)
+smooth velvet socks	MUSE	unsmoothed velvet (6)
+smooth velvet hat	MUSE	unsmoothed velvet (7)
+smooth velvet shirt	MUSE	unsmoothed velvet (8)
+smooth velvet hanky	MUSE	unsmoothed velvet (9)
+smooth velvet pants	MUSE	unsmoothed velvet (10)
+
+SMOOCH bracers	MUSE	superheated metal (5)
+SMOOCH kneepads	MUSE	superheated metal (7)
+SMOOCH spaulders	MUSE	superheated metal (9)
+SMOOCH codpiece	MUSE	superheated metal (11)
+SMOOCH breastplate	MUSE	superheated metal (13)
+
+high-temperature mining drill	SUSE	broken high-temperature mining drill	heat-resistant sheet metal
+
+insulated gold wire	COMBINE	thin gold wire	unsmoothed velvet
+
+uncapped red lava bottle	SUSE	red lava globs	full lava bottle
+uncapped blue lava bottle	SUSE	blue lava globs	full lava bottle
+uncapped green lava bottle	SUSE	green lava globs	full lava bottle
+
+capped red lava bottle	COMBINE	uncapped red lava bottle	SMOOCH bottlecap
+capped blue lava bottle	COMBINE	uncapped blue lava bottle	SMOOCH bottlecap
+capped green lava bottle	COMBINE	uncapped green lava bottle	SMOOCH bottlecap
+
+red LavaCo Lamp&trade;	COMBINE	LavaCo&trade; Lamp housing	capped red lava bottle
+blue LavaCo Lamp&trade;	COMBINE	LavaCo&trade; Lamp housing	capped blue lava bottle
+green LavaCo Lamp&trade;	COMBINE	LavaCo&trade; Lamp housing	capped green lava bottle
+
+Golden Kokomo Resort Chip	SUSE	Kokomo Resort Chip (100)
+
+# Recipes that involve single-using one of the ingredients
+
+booty chest charrrm bracelet	SUSE, NOBEE	booty chest charrrm	charrrm bracelet
+cannonball charrrm bracelet	SUSE, NOBEE	cannonball charrrm	charrrm bracelet
+copper ha'penny charrrm bracelet	SUSE	copper ha'penny charrrm	charrrm bracelet
+grumpy old man charrrm bracelet	SUSE	grumpy old man charrrm	charrrm bracelet
+Jolly Roger charrrm bracelet	SUSE	Jolly Roger charrrm	charrrm bracelet
+rum barrel charrrm bracelet	SUSE, NOBEE	rum barrel charrrm	charrrm bracelet
+silver tongue charrrm bracelet	SUSE	silver tongue charrrm	charrrm bracelet
+tarrrnished charrrm bracelet	SUSE	tarrrnish charrrm	charrrm bracelet
+
+charrrm bracelet	SUSE, NOBEE	Jolly Roger charrrm bracelet
+
+turtle wax shield	SUSE	turtle wax
+ancient turtle shell powder	SUSE	ancient turtle shell
+
+brown crock marble	SUSE	green peawee marble (2)
+red China marble	SUSE, NOBEE	brown crock marble (2)
+lemonade marble	SUSE	red China marble (2)
+bumblebee marble	SUSE	lemonade marble (2)
+jet bennie marble	SUSE, NOBEE	bumblebee marble (2)
+beige clambroth marble	SUSE, NOBEE	jet bennie marble (2)
+steely marble	SUSE, NOBEE	beige clambroth marble (2)
+beach ball marble	SUSE	steely marble (2)
+black catseye marble	SUSE, NOBEE	beach ball marble (2)
+big bumboozer marble	SUSE, NOBEE	black catseye marble (2)
+
+glob of Blank-Out	SUSE, NOBEE	bottle of Blank-Out
+
+pumpkin juice (3)	SUSE	pumpkin
+
+carrot juice	SUSE	carrot nose
+
+cozy scimitar	SUSE	scimitar cozy	fish scimitar
+Staff of the Cozy Fish	SUSE	fish stick cozy	fish stick
+cozy bazooka	SUSE	bazooka cozy	fish bazooka
+
+McClusky file (complete)	SUSE	boring binder clip	McClusky file (page 1)	McClusky file (page 2)	McClusky file (page 3)	McClusky file (page 4)	McClusky file (page 5)
+
+Miniborg Destroy-O-Bot	SUSE	Miniborg hiveminder	Miniborg stomper	Miniborg strangler	Miniborg laser	Miniborg beeper
+
+# Familiars.
+
+maple leaf	COMBINE	leaf	maple syrup
+unwound clockwork grapefruit	COOK	clockwork endoskeleton	grapefruit
+deactivated MicroMechaMech	TINKER	clockwork spine	clockwork claws	clockwork key
+dusty animal skull	COMBINE	dusty animal cranium	dusty animal jawbone
+scary death orb	COMBINE	clockwork sphere	grouchy restless spirit
+reassembled blackbird	COMBINE	broken wings	sunken eyes
+reconstituted crow	COMBINE	busted wings	bird brain
+holiday log	COMBINE	holiday cheese log	anticheese
+
+
+# These are item-combinations which are only available post-ascension,
+# and does not fall into any other categories.
+
+leaf	COMBINE	leaflet	leaflet
+wholeberd	COMBINE	halfberd	halfberd
+
+
+# Foods.  These are foods which are only available post-ascension,
+# and include the mushroom recipes.
+
+spicy mushroom quesadilla	COOK	warm mushroom	flat dough
+cool mushroom casserole	COOK	cool mushroom	Gnollish casserole dish
+cream of pointy mushroom soup	COOK	pointy mushroom	glass of goat's milk
+
+
+# Drinks.  These are drinks which are only available post-ascension,
+# and include the lumberjack and the mushroom wines.
+
+lumbering jack	MIX	bottle of whiskey	Blatantly Canadian
+flaming mushroom wine	MIX_FANCY	mushroom fermenting solution	flaming mushroom
+icy mushroom wine	MIX_FANCY	mushroom fermenting solution	frozen mushroom
+stinky mushroom wine	MIX_FANCY	mushroom fermenting solution	stinky mushroom
+pointy mushroom wine	MIX_FANCY	mushroom fermenting solution	pointy mushroom
+flat mushroom wine	MIX_FANCY	mushroom fermenting solution	warm mushroom
+cool mushroom wine	MIX_FANCY	mushroom fermenting solution	cool mushroom
+knob mushroom wine	MIX_FANCY	mushroom fermenting solution	Knob mushroom
+knoll mushroom wine	MIX_FANCY	mushroom fermenting solution	Knoll mushroom
+spooky mushroom wine	MIX_FANCY	mushroom fermenting solution	spooky mushroom
+gloomy mushroom wine	MIX_FANCY	mushroom fermenting solution	gloomy black mushroom
+oily mushroom wine	MIX_FANCY	mushroom fermenting solution	oily golden mushroom
+
+
+# Tinker recipes.  These recipes are the recipes which are used in the
+# supertinkering process for Moxie signs.
+
+clockwork widget	TINKER	flange	cog	sprocket
+clockwork thingamajig	TINKER	flange	cog	spring
+clockwork doohickey	TINKER	flange	spring	sprocket
+clockwork clockwise dome	TINKER	clockwork widget	flange	spring
+clockwork spine	TINKER	clockwork widget	spring	cog
+clockwork rings	TINKER	clockwork thingamajig	flange	sprocket
+clockwork claws	TINKER	clockwork thingamajig	spring	sprocket
+clockwork endoskeleton	TINKER	clockwork claws	clockwork counterclockwise dome	clockwork key
+clockwork sheet	TINKER	clockwork doohickey	cog	flange
+clockwork counterclockwise dome	TINKER	clockwork doohickey	cog	sprocket
+clockwork sphere	TINKER	clockwork counterclockwise dome	clockwork clockwise dome	clockwork key
+clockwork handle	TINKER	clockwork doohickey	cog	spring
+clockwork rod	TINKER	clockwork thingamajig	cog	sprocket
+clockwork shank	TINKER	clockwork widget	spring	sprocket
+clockwork hat	TINKER	clockwork clockwise dome	clockwork rings	clockwork key
+clockwork trench coat	TINKER	clockwork spine	clockwork sheet	clockwork key
+clockwork pants	TINKER	clockwork sheet	clockwork rings	clockwork key
+clockwork sword	TINKER	clockwork handle	clockwork shank	clockwork key
+clockwork staff	TINKER	clockwork handle	clockwork rod	clockwork key
+clockwork crossbow	TINKER	clockwork rod	clockwork shank	clockwork key
+
+
+# Clockwork servant recipes.  These recipes are used to create clockwork
+# counterparts to the standard servants available pre-ascension.
+
+clockwork detective skull	COMBINE	clockwork sphere	gnoll lips
+
+clockwork maid head	COMBINE	clockwork sphere	maiden wig
+clockwork maid	COMBINE	clockwork maid head	Meat maid body
+
+clockwork chef head	COMBINE	clockwork sphere	chef's hat
+clockwork chef-in-the-box	COMBINE	clockwork chef head	nothing-in-the-box
+
+clockwork bartender head	COMBINE	clockwork sphere	beer goggles
+clockwork bartender-in-the-box	COMBINE	clockwork bartender head	nothing-in-the-box
+
+
+# Items created via item usage.
+
+dead guy's memento	SUSE, NOBEE	dead guy's piece of double-sided tape	dead guy's watch	picture of a dead guy's girlfriend
+rusty diving helmet	SUSE, NOBEE	rusty broken diving helmet	rusty porthole	rusty rivet (8)
+scroll of ancient forbidden unspeakable evil	SUSE	disintegrating quill pen	inkwell	tattered scrap of paper
+toast with jam	SUSE	jamfish jam	toast
+toe jam toast	SUSE	toe jam	toast
+traffic jam toast	SUSE	traffic jam	toast
+space jam toast	SUSE	space jam	toast
+
+
+# Legendary Beat quest items
+squirmy violent party snack	COOK	a dance upon the palate	tiny frozen prehistoric meteorite jawbreaker
+world's most unappetizing beverage	MIX	hair of the calf	can of depilatory cream
+
+# Clip Art tome summoned items
+# 1: donut      2: bomb       3: kitten  4: wine    5: cheese
+# 6: lightbulb  7: snowflake  8: skull   9: clock  10: hammer
+Ur-Donut	CLIPART	1	1	1
+The Bomb	CLIPART	2	2	2
+box of Familiar Jacks	CLIPART	3	3	3
+bucket of wine	CLIPART	4	4	4
+ultrafondue	CLIPART	5	5	5
+oversized snowflake	CLIPART	7	7	7
+unbearable light	CLIPART	6	6	6
+crystal skull	CLIPART	8	8	8
+borrowed time	CLIPART	9	9	9
+box of hammers	CLIPART	10	10	10
+shining halo	CLIPART	1	6	6
+furry halo	CLIPART	1	3	3
+frosty halo	CLIPART	1	7	7
+time halo	CLIPART	1	9	9
+Lumineux Limnio	CLIPART	4	4	6
+Morto Moreto	CLIPART	4	4	8
+Temps Tempranillo	CLIPART	4	4	9
+Bordeaux Marteaux	CLIPART	4	4	10
+Fromage Pinotage	CLIPART	4	4	5
+Beignet Milgranet	CLIPART	4	4	1
+Muschat	CLIPART	4	4	3
+cool jelly donut	CLIPART	1	4	7
+shrapnel jelly donut	CLIPART	1	4	10
+occult jelly donut	CLIPART	1	4	8
+thyme jelly donut	CLIPART	1	4	9
+frozen danish	CLIPART	1	5	7
+smashed danish	CLIPART	1	5	10
+forbidden danish	CLIPART	1	5	8
+cool cat claw	CLIPART	1	3	7
+blunt cat claw	CLIPART	1	3	10
+shadowy cat claw	CLIPART	1	3	8
+cheezburger	CLIPART	5	5	3
+toasted brie	CLIPART	5	5	6
+potion of the field gar	CLIPART	4	3	3
+too legit potion	CLIPART	4	9	10
+Bright Water	CLIPART	4	6	6
+cold-filtered water	CLIPART	4	7	7
+graveyard snowglobe	CLIPART	4	7	8
+cool cat elixir	CLIPART	4	7	3
+potion of the captain's hammer	CLIPART	4	10	10
+potion of X-ray vision	CLIPART	4	6	8
+potion of the litterbox	CLIPART	4	3	5
+potion of animal rage	CLIPART	4	3	8
+potion of punctual companionship	CLIPART	4	3	9
+holy bomb, batman	CLIPART	2	6	6
+bobcat grenade	CLIPART	2	3	3
+chocolate frosted sugar bomb	CLIPART	2	1	1
+broken glass grenade	CLIPART	2	6	10
+noxious gas grenade	CLIPART	2	3	5
+skull with a fuse in it	CLIPART	2	2	8
+boozebomb	CLIPART	2	2	4
+4:20 bomb	CLIPART	2	2	9
+blunt icepick	CLIPART	10	10	7
+fluorescent lightbulb	CLIPART	10	10	6
+blammer	CLIPART	10	10	2
+clock-cleaning hammer	CLIPART	10	10	9
+hammerus	CLIPART	10	10	8
+broken clock	CLIPART	9	9	10
+dethklok	CLIPART	9	9	8
+glacial clock	CLIPART	9	9	7
+
+# Rad Libs recipes
+papier-m&acirc;ch&eacute; glob	COOK	Rad Lib	soda water
+
+papier-mochi	MUSE	papier-m&acirc;ch&eacute; glob (2)
+papier-m&acirc;chaeranthera	MUSE	papier-m&acirc;ch&eacute; glob (3)
+papier-m&acirc;ch&eacute; toothpicks	MUSE	papier-m&acirc;ch&eacute; glob (4)
+papier-m&acirc;ch&eacute;te	MUSE	papier-m&acirc;ch&eacute; glob (5)
+papier-m&acirc;chine gun	MUSE	papier-m&acirc;ch&eacute; glob (6)
+papier-masque	MUSE	papier-m&acirc;ch&eacute; glob (7)
+papier-mitre	MUSE	papier-m&acirc;ch&eacute; glob (9)
+papier-m&acirc;churidars	MUSE	papier-m&acirc;ch&eacute; glob (11)
+papier-m&acirc;ch&eacute; plaque	MUSE	papier-m&acirc;ch&eacute; glob (23)
+papier-m&acirc;ch&eacute; handle	MUSE	papier-m&acirc;ch&eacute; glob (37)
+papier-m&acirc;ch&eacute; base	MUSE	papier-m&acirc;ch&eacute; glob (69)
+papier-m&acirc;ch&eacute; bowl	MUSE	papier-m&acirc;ch&eacute; glob (111)
+
+papier-m&acirc;ch&eacute; trophy pi&ntilde;ata	SUSE	papier-m&acirc;ch&eacute; bowl	papier-m&acirc;ch&eacute; plaque	papier-m&acirc;ch&eacute; handle (2)	papier-m&acirc;ch&eacute; base
+
+# Skeleton recipes
+skeleton skis	MUSE	skeleton (2)
+skeleton quiche	MUSE	skeleton (3)
+skeletal scabbard	MUSE	skeleton (4)
+crystal skeleton vodka	MUSE	skeleton (5)
+skeletal skiff	MUSE	skeleton (7)
+auxiliary backbone	MUSE	skeleton (9)
+Bonestabber	MUSE	skeleton (11)
+Lazybones&trade; recliner	MUSE	skeleton (13)
+shaking skull	MUSE	skeleton (100)
+
+# Crimbo toys.  These are items which are created at Uncle Crimbo
+# after collecting enough toy components.
+
+ball	CRIMBO07	stuffing	felt
+doll house	CRIMBO07	wooden block (4)	felt (3)
+duck-on-a-string	CRIMBO07	length of string	googly eye (2)	wooden block (2)	toy wheel (2)
+kite	CRIMBO07	length of string	felt
+marionette	CRIMBO07	length of string (2)	googly eye (2)	wooden block (2)
+pet rock	CRIMBO07	googly eye	wooden block
+rag doll	CRIMBO07	googly eye (2)	stuffing (3)	felt (2)
+sock monkey	CRIMBO07	googly eye (2)	stuffing (3)	felt
+stuffed doppelshifter	CRIMBO07	googly eye	stuffing
+teddy bear	CRIMBO07	googly eye (2)	stuffing (4)	felt (2)
+top	CRIMBO07	wooden block	toy wheel
+toy soldier	CRIMBO07	googly eye (2)	wooden block (3)
+toy train	CRIMBO07	length of string (2)	wooden block (3)	toy wheel (6)
+yo-yo	CRIMBO07	length of string	toy wheel
+
+Bulky Buddy Box	CRIMBO07	iGoogly	LED block
+borg sock monkey	CRIMBO07	iGoogly (2)	synthetic stuffing (3)	nanofiber cloth
+buckyball	CRIMBO07	synthetic stuffing	nanofiber cloth
+cyborg doll	CRIMBO07	iGoogly (2)	synthetic stuffing (3)	nanofiber cloth (2)
+dollhive	CRIMBO07	nanofiber cloth (3)	LED block (4)
+gyroscope	CRIMBO07	LED block	toy hoverpad
+marionette collective	CRIMBO07	theoretical string (2)	iGoogly (2)	LED block (2)
+monomolecular yo-yo	CRIMBO07	theoretical string	toy hoverpad
+mylar scout drone	CRIMBO07	theoretical string	nanofiber cloth
+roboduck-on-a-string	CRIMBO07	theoretical string	iGoogly (2)	LED block (2)	toy hoverpad (2)
+stuffed gray blob	CRIMBO07	iGoogly	synthetic stuffing
+teddy borg	CRIMBO07	iGoogly (2)	nanofiber cloth (2)	synthetic stuffing (4)
+toy deathbot	CRIMBO07	iGoogly (2)	LED block (3)
+toy maglev monorail	CRIMBO07	theoretical string (2)	LED block (3)	toy hoverpad (6)
+
+# Crimbo tools.  These are items which are created at Ugh Crimbo
+# after collecting enough components.
+
+# fire	CRIMBO07	stick	stick
+prehistoric spear	CRIMBO07	stick	tooth
+stick-on-a-string	CRIMBO07	stick	stringy sinew
+toothsome rock	CRIMBO07	tooth	[2108]rock
+wheel	CRIMBO07	stick	[2108]rock
+yo	CRIMBO07	stringy sinew	[2108]rock
+
+leaf tube	CRIMBO06	stringy sinew	big leaf
+lit cigar	COMBINE, NODISCOVERY	fire	leaf tube
+
+# Evil Crimbo toys.  These are items which are created by Lady Linnea
+# after collecting enough toy components.
+
+evil teddy bear	CRIMBO07	evil googly eye (2)	spooky stuffing (4)	spooky felt (2)
+fancy dress ball	CRIMBO07	spooky stuffing	spooky felt
+incredibly creepy marionette	CRIMBO07	spooky length of string (2)	evil googly eye (2)	spooky wooden block (2)
+killer rag doll	CRIMBO07	evil googly eye (2)	spooky stuffing (3)	spooky felt (2)
+mad scientist's sock monkey	CRIMBO07	evil googly eye (2)	spooky stuffing (3)	spooky felt
+possessed top	CRIMBO07	spooky wooden block	spooky toy wheel
+razor-tipped yo-yo	CRIMBO07	spooky length of string	spooky toy wheel
+stuffed alien blob	CRIMBO07	evil googly eye	spooky stuffing
+toy crazy train	CRIMBO07	spooky length of string (2)	spooky wooden block (3)	spooky toy wheel (6)
+toy mercenary	CRIMBO07	evil googly eye (2)	spooky wooden block (3)
+tree-eating kite	CRIMBO07	spooky length of string	spooky felt
+vampire duck-on-a-string	CRIMBO07	spooky length of string	evil googly eye (2)	spooky wooden block (2)	spooky toy wheel (2)
+
+# Future Crimbo toys.  These are items which are created by Uncle Crimborg
+# after collecting enough toy components.
+
+atomic vector plotter	CRIMBO07	ion grid	Feynman gate
+bi-lateral logic compressor	CRIMBO07	capacitor relay	Feynman gate
+computronic processing unit	CRIMBO07	capacitor relay	logic synthesizer
+hyperbolic plasma focuser	CRIMBO07	Feynman gate	logic synthesizer
+ion-pulse modulation stabilizer	CRIMBO07	ion grid	logic synthesizer
+quantum polarity inducer	CRIMBO07	capacitor relay	ion grid
+recursive spline reticulator	CRIMBO07	carbon nanotube frame	logic synthesizer
+reverse-oscillating klystron	CRIMBO07	carbon nanotube frame	ion grid
+servomechanical torsion facilitator	CRIMBO07	capacitor relay	carbon nanotube frame
+sub-molecular interocitor	CRIMBO07	carbon nanotube frame	Feynman gate
+
+MagiMechTech NanoMechaMech	CRIMBO07	high-resistance ultrapolymer plating	computronic processing unit	sub-molecular interocitor
+astronaut pants	CRIMBO07	high-resistance ultrapolymer plating	quantum polarity inducer	recursive spline reticulator
+toy jet pack	CRIMBO07	high-resistance ultrapolymer plating	reverse-oscillating klystron	ion-pulse modulation stabilizer
+toy ray gun	CRIMBO07	high-resistance ultrapolymer plating	servomechanical torsion facilitator	hyperbolic plasma focuser
+toy space helmet	CRIMBO07	high-resistance ultrapolymer plating	bi-lateral logic compressor	atomic vector plotter
+
+# Crimbo 2008 items
+
+wriggling tentacle	COMBINE	unstable DNA	pulsing flesh
+mass of wriggling tentacles	COMBINE	wriggling tentacle	wriggling tentacle
+pair of twitching claws	COMBINE	twitching claw	twitching claw
+gnashing teeth	COMBINE	pair of twitching claws	unstable DNA
+chitinous pod	COMBINE	rigid carapace	rigid carapace
+
+parasitic claw	COMBINE	twitching claw	unstable DNA
+parasitic tentacles	COMBINE	mass of wriggling tentacles	rigid carapace
+parasitic headgnawer	COMBINE	gnashing teeth	rigid carapace
+parasitic strangleworm	COMBINE	wriggling tentacle	rigid carapace
+
+burrowgrub hive	COMBINE	chitinous pod	unstable DNA
+pair of ragged claws	COMBINE	mass of wriggling tentacles	pair of twitching claws
+
+# Crimbo 2011 items
+
+banana supersucker	COMBINE	bananagate	lollipop stick
+pear supersucker	COMBINE	pearidot	lollipop stick
+lime supersucker	COMBINE	tourmalime	lollipop stick
+kumquat supersucker	COMBINE	kumquartz	lollipop stick
+strawberry supersucker	COMBINE	strawberyl	lollipop stick
+
+blank fudge mold	COMBINE	sucker scaffold	fudge cube
+trilobite candy mold	COMBINE	blank fudge mold	trilobite fossil
+ammonite candy mold	COMBINE	blank fudge mold	ammonite fossil
+belemnite candy mold	COMBINE	blank fudge mold	belemnite fossil
+
+gummi trilobite	SUSE	trilobite candy mold	red gummi ingot (10)	green gummi ingot (10)	yellow gummi ingot (10)
+gummi ammonite	SUSE	ammonite candy mold	red gummi ingot (10)	green gummi ingot (10)	yellow gummi ingot (10)
+gummi belemnite	SUSE	belemnite candy mold	red gummi ingot (10)	green gummi ingot (10)	yellow gummi ingot (10)
+
+gummi salamander	SUSE	red gummi ingot
+gummi snake	SUSE	green gummi ingot
+gummi canary	SUSE	yellow gummi ingot
+
+giant red gummi ingot	WSMITH	red gummi ingot	red gummi ingot
+giant green gummi ingot	WSMITH	green gummi ingot	green gummi ingot
+giant yellow gummi ingot	WSMITH	yellow gummi ingot	yellow gummi ingot
+
+giant red gummi bear	SUSE	giant red gummi ingot
+giant green gummi bear	SUSE	giant green gummi ingot
+giant yellow gummi bear	SUSE	giant yellow gummi ingot
+
+red drunki-bear	MIX	bottle of vodka	giant red gummi bear
+green drunki-bear	MIX	bottle of vodka	giant green gummi bear
+yellow drunki-bear	MIX	bottle of vodka	giant yellow gummi bear
+
+# Brushfire items
+
+hot daub	COMBINE	molten brick	drop of water-37
+ballpark hot daub	MUSE	hot daub
+hot daub bun	MUSE	hot daub (15)
+foot-long hot daub	MUSE	hot daub (17)
+hot daub stand	MUSE	hot daub (19)
+
+oily boid	MUSE	bubblin' crude (3)
+oil cap	MUSE	bubblin' crude (8)
+oil lamp	MUSE	bubblin' crude (9)
+oil slacks	MUSE	bubblin' crude (10)
+oil pan	MUSE	bubblin' crude (11)
+jar of oil	MUSE	bubblin' crude (12)
+
+blessed large box	COMBINE	large box	ten-leaf clover
+opium grenade	COMBINE	poppy	poppy
+
+# Crimboku toys.  These are items which are created at Uncle Crimboku
+# after collecting enough components.
+
+bubble-wrap simulator	CRIMBO12	plastic ingot (4)	electrical thingamabob (1)
+blind-packed capsule toy	CRIMBO12	plastic ingot (7)	electrical thingamabob (3)
+brainwave-controlled unicorn horn	CRIMBO12	plastic ingot (70)	electrical thingamabob (50)
+electronic dulcimer pants	CRIMBO12	plastic ingot (20)	electrical thingamabob (80)
+Frown Exerciser	CRIMBO12	plastic ingot (50)	electrical thingamabob (10)
+BittyCar HotCar	CRIMBO12	plastic ingot (100)	electrical thingamabob (150)
+BittyCar SoulCar	CRIMBO12	plastic ingot (200)	electrical thingamabob (300)
+BittyCar MeatCar	CRIMBO12	plastic ingot (400)	electrical thingamabob (600)
+ChibiBuddy&trade; (off)	CRIMBO12	plastic ingot (1100)	electrical thingamabob (1400)
+
+Super Crimboman Ultra Mega Hypersword	SUSE	Crimbo Elf creepy bobble-head	Crimbo stogie-scented room odorizer	Crimbo bottomless hot cocoa mug	Crimbo tree flocker	Crimbo light-up Rudolph doll
+Crimbo Elf creepy bobble-head	SUSE	Super Crimboman Ultra Mega Hypersword
+Crimbo stogie-scented room odorizer	SUSE	Super Crimboman Ultra Mega Hypersword
+Crimbo bottomless hot cocoa mug	SUSE	Super Crimboman Ultra Mega Hypersword
+Crimbo tree flocker	SUSE	Super Crimboman Ultra Mega Hypersword
+Crimbo light-up Rudolph doll	SUSE	Super Crimboman Ultra Mega Hypersword
+
+# Psychoanalytic items
+
+Byte	SUSE	flickering pixel (8)
+White Dragon Fang	ACOMBINE	magical battery	toy taijijian
+goblin bone hilt	COMBINE	goblin collarbone	wad of spider silk
+loose blade	COMBINE	goblin collarbone	sharp tin strip
+sticky sword blade	COMBINE	wad of spider silk	sharp tin strip
+pair of rhinoceros horns	COMBINE	rhinoceros horn	rhinoceros horn
+furry brown pillow	COMBINE	furry pink pillow	bottle of limeade
+makeshift yakuza mask	COMBINE	pair of rhinoceros horns	furry brown pillow
+
+# Giant's Castle
+
+Mark I Steam-Hat	COMBINE	brown felt tophat	brass gear
+Mark II Steam-Hat	COMBINE	Mark I Steam-Hat	brass gear
+Mark III Steam-Hat	COMBINE	Mark II Steam-Hat	brass gear
+Mark IV Steam-Hat	COMBINE	Mark III Steam-Hat	brass gear
+Mark V Steam-Hat	COMBINE	Mark IV Steam-Hat	brass gear
+
+# Avatar of Jarlsberg ingredients
+mediocre lager (6)	SUSE	cosmic six-pack
+
+# Beer Can
+tin cup	MUSE	fancy tin beer can (1)
+tin snips	MUSE	fancy tin beer can (2)
+tin lizzie	MUSE	fancy tin beer can (4)
+tin tam	MUSE	fancy tin beer can (8)
+tin foil	MUSE	fancy tin beer can (11)
+tin drum	MUSE	fancy tin beer can (16)
+tin roof (rusted)	MUSE	fancy tin beer can (32)
+
+# Smith Tome
+Every Day is Like This Sundae	COOK	handful of Smithereens	cool whip
+Miserable Pie	COOK	handful of Smithereens	Gnollish pie tin
+This Charming Flan	COOK	handful of Smithereens	pickled egg
+Irish Coffee, English Heart	MIX	handful of Smithereens	cup of lukewarm tea
+Strikes Again Bigmouth	MIX	handful of Smithereens	fermenting powder
+Paint A Vulgar Pitcher	MIX	handful of Smithereens	plain old beer
+Flaskfull of Hollow	ACOMBINE	handful of Smithereens	handful of Smithereens
+Louder Than Bomb	COMBINE	handful of Smithereens	Ben-Gal&trade; Balm
+Golden Light	COMBINE	handful of Smithereens	glittery mascara
+Handsome Devil	COMBINE	handful of Smithereens	hair spray
+Hairpiece On Fire	SMITH	lump of Brituminous coal	maiden wig
+Vicar's Tutu	SMITH	lump of Brituminous coal	frilly skirt
+Hand in Glove	SMITH	lump of Brituminous coal	dirty hobo gloves
+Work is a Four Letter Sword	SMITH	lump of Brituminous coal	sword hilt
+Staff of the Headmaster's Victuals	SMITH	lump of Brituminous coal	big stick
+Sheila Take a Crossbow	SMITH	lump of Brituminous coal	crossbow string
+A Light that Never Goes Out	SMITH	lump of Brituminous coal	third-hand lantern
+Half a Purse	SMITH	lump of Brituminous coal	loose purse strings
+Meat Tenderizer is Murder	SMITH	lump of Brituminous coal	seal-clubbing club
+Ouija Board, Ouija Board	SMITH	lump of Brituminous coal	turtle totem
+Hand that Rocks the Ladle	SMITH	lump of Brituminous coal	pasta spoon
+Saucepanic	SMITH	lump of Brituminous coal	saucepan
+Frankly Mr. Shank	SMITH	lump of Brituminous coal	disco ball
+Shakespeare's Sister's Accordion	SMITH	lump of Brituminous coal	stolen accordion
+
+# Crimbo 2013
+warbear hoverbelt	MUSE	warbear hoverbelt piecepart (8)
+
+warbear plain fedora	MUSE	warbear helm fragment (11)
+warbear feathered fedora	MUSE	warbear helm fragment (23)
+warbear fancy fedora	MUSE	warbear helm fragment (37)
+warbear plain helm	MUSE	warbear helm fragment (10)
+warbear spiked helm	MUSE	warbear helm fragment (22)
+warbear electro-spiked helm	MUSE	warbear helm fragment (36)
+warbear plain ushanka	MUSE	warbear helm fragment (9)
+warbear lined ushanka	MUSE	warbear helm fragment (21)
+warbear heated ushanka	MUSE	warbear helm fragment (35)
+
+warbear party pants	MUSE	warbear trouser fragment (11)
+warbear ceremonial party pants	MUSE	warbear trouser fragment (23)
+warbear high festival pants	MUSE	warbear trouser fragment (37)
+warbear battle greaves	MUSE	warbear trouser fragment (10)
+warbear officer greaves	MUSE	warbear trouser fragment (22)
+warbear bearserker greaves	MUSE	warbear trouser fragment (36)
+warbear long johns	MUSE	warbear trouser fragment (9)
+warbear fleece-lined long johns	MUSE	warbear trouser fragment (21)
+warbear electric long johns	MUSE	warbear trouser fragment (35)
+
+warbear goggles	MUSE	warbear accoutrements chunk (11)
+warbear snowblindness goggles	MUSE	warbear accoutrements chunk (23)
+warbear polarized goggles	MUSE	warbear accoutrements chunk (37)
+warbear laser bowtie	MUSE	warbear accoutrements chunk (10)
+warbear plasma bowtie	MUSE	warbear accoutrements chunk (22)
+warbear nuclear bowtie	MUSE	warbear accoutrements chunk (36)
+warbear warscarf	MUSE	warbear accoutrements chunk (9)
+warbear fleece-lined warscarf	MUSE	warbear accoutrements chunk (21)
+warbear electric warscarf	MUSE	warbear accoutrements chunk (35)
+
+# Grimstone Mask content
+
+lemon drop trousers	MUSE	lemony scales (6)
+lemon party hat	MUSE	lemony scales (4)
+lemon shirt	MUSE	lemony scales (5)
+candy carrot cake	COOK_FANCY	candy carrot	wad of dough
+carrot-on-a-stick	COMBINE	candy carrot	candy stick
+snakebite	MIX	cream stout	anise-flavored venom
+pecan pie	COOK	candied pecan	pie crust
+chocotini	MIX_FANCY	vodka martini	candy mountain oyster
+mulled berry wine	MIX	mulberry	boxed wine
+
+# can of V-11
+elevenderizing hammer	SMITH, MANUAL	can of V-11	tenderizing hammer
+elevent	SMITH, MANUAL	can of V-11	barskin tent
+elevennis shoes	SMITH, MANUAL	can of V-11	clown shoes
+
+# Spring Break Beach
+sugar fairy	MUSE	possessed sugar cube
+sugar bunny	MUSE	possessed sugar cube (3)
+sweet tooth	MUSE	possessed sugar cube (11)
+Beefy Crunch Pastaco	TNOODLE	Pastaco shell	Boletus Broletus mushroom
+Brain Food Pastaco	TNOODLE	Pastaco shell	Omphalotus Omphaloskepsis mushroom
+Cool Brunch Pastaco	TNOODLE	Pastaco shell	Gyromitra Dynomita mushroom
+Energy Buzz Pastaco	TNOODLE	Pastaco shell	Stemonitis Staticus mushroom
+Ludovico Pastaco	TNOODLE	Pastaco shell	Tremella Tarantella mushroom
+Medical Pastaco	TNOODLE	Pastaco shell	Helvella Haemophilia mushroom
+blood-red mushroom wine	SCOCK	mushroom fermenting solution	Helvella Haemophilia mushroom
+buzzing mushroom wine	SCOCK	mushroom fermenting solution	Stemonitis Staticus mushroom
+complex mushroom wine	SCOCK	mushroom fermenting solution	Omphalotus Omphaloskepsis mushroom
+overpowering mushroom wine	SCOCK	mushroom fermenting solution	Boletus Broletus mushroom
+smooth mushroom wine	SCOCK	mushroom fermenting solution	Gyromitra Dynomita mushroom
+swirling mushroom wine	SCOCK	mushroom fermenting solution	Tremella Tarantella mushroom
+
+# Spookyraven
+plaid bandage	MUSE	plaid swatch (2)
+plaid pocket square	MUSE	plaid swatch (4)
+plaid skirt	MUSE	plaid swatch (6)
+ghast iron ingot	SMITH	chunk of hot iron	hot coal
+ghast iron cleaver	WSMITH	ghast iron ingot	sword hilt
+ghast iron codpiece	ASMITH	ghast iron ingot	pants kit
+ghast iron Garibaldi	ASMITH	ghast iron ingot	helmet recipe
+ghast iron heater shield	ASMITH	ghast iron ingot	buckler buckle
+deluxe layer cake	COOK	moose chocolate	sheet cake
+Pendant of Gargalesis	EJEWEL	heavy necklace chain	mangled finger
+doll-eye amulet	EJEWEL	heavy necklace chain	droopy doll eye
+picture of you	COMBINE	ancient oil painting of yourself	ornate picture frame
+
+# Twitch Events
+government	ACOMBINE	anticheese	government cheese
+stealth bomber	MIX	government	rocket fuel
+buffed alien drugs	COMBINE	alien drugs	alien protein powder
+grilled cheese sandwich	COOK	loaf of alien bread	government cheese
+space invader	MUSE	space junk (5)
+space bar	MUSE	space junk (10)
+space port (3)	SUSE	space bar
+space needle	MUSE	space junk (15)
+space heater	MUSE	space junk (20)
+space beast fur hat	SMITH	space beast fur	basic meat helmet
+space beast fur pants	SMITH	space beast fur	basic meat pants
+space beast fur whip	SMITH	space beast fur	whip kit
+handful of napalm	COMBINE	impure gasoline	unused soap
+seared dino steak	COOK_FANCY	impure gasoline	Z-Bone steak
+bottle of drinkin' gas	MIX_FANCY	impure gasoline	tarnished bottlecap
+gelatinous meat mass	SMITH	Z-Bone steak	viral DNA
+simple AI	SMITH	TI-9000 calculator	tarnished bottlecap
+sentient meat mass	WSMITH	gelatinous meat mass	simple AI
+99.44% pure math	COMBINE	TI-9000 calculator	unused soap
+dove DNA	COMBINE	unused soap	viral DNA
+corrupted bird DNA	COMBINE	dove DNA	99.44% pure math
+zombie dinosaur egg	WSMITH	corrupted bird DNA	sentient meat mass
+
+# Galloping Grill
+ash soda	COOK	hot ashes	soda water
+
+# The Confiscator's Grimoire
+rubber cape	MUSE	rubber nubbin (11)
+
+# Crimbo 2014
+Crimbonium fuel rod	SMITH	cylindrical mold	nugget of Crimbonium
+neutron lollipop	COOK	peppermint tailings	skewer
+gamma nog	MIX	peppermint tailings	fermenting powder
+
+# Overgrown Lot
+glob of cream cheese (3)	SUSE	carton of snake milk
+Breakfast Blast wine cooler	MIX	unflavored wine cooler	grapefruit
+Citrus Crush wine cooler	MIX	unflavored wine cooler	lemon
+Orangemageddon wine cooler	MIX	unflavored wine cooler	orange
+Radberry Rip wine cooler	MIX	unflavored wine cooler	strawberry
+Cherrytastrophe wine cooler	MIX	unflavored wine cooler	cherry
+
+# Madness Bakery
+
+loaf of soda bread	COOK	wad of dough	soda water
+magical baguette	COOK	wad of dough	magicalness-in-a-can
+standard-issue cupcake	COOK	wad of dough	glob of enchanted icing
+acceptable bagel	COOK	plain bagel	glob of cream cheese
+ultra-deluxe cupcake	COOK	standard-issue cupcake	cherry
+
+# Shrine to the Barrel God
+
+double barreled barrel gun	COMBINE	barrel gun	barrel gun
+triple barreled barrel gun	COMBINE	double barreled barrel gun	barrel gun
+barrel beryl nose ring	JEWEL	barrel beryl	piercing post
+barrel beryl choker	JEWEL	barrel beryl	necklace chain
+barrel beryl ring	JEWEL	barrel beryl	ring setting
+
+# The Glaciest
+
+perfect negroni	MIX	perfect ice cube	bottle of gin
+perfect dark and stormy	MIX	perfect ice cube	bottle of rum
+perfect paloma	MIX	perfect ice cube	bottle of tequila
+perfect cosmopolitan	MIX	perfect ice cube	bottle of vodka
+perfect old-fashioned	MIX	perfect ice cube	bottle of whiskey
+perfect mimosa	MIX	perfect ice cube	boxed wine
+
+# VYKEA - Ingredients listed in the order they are required in the choice chain
+
+level 1 bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA plank (5)
+level 1 frenzy bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA plank (5)
+level 1 blood bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA plank (5)
+level 1 lightning bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA plank (5)
+level 2 bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (1)	VYKEA plank (5)
+level 2 frenzy bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (1)	VYKEA plank (5)
+level 2 blood bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (1)	VYKEA plank (5)
+level 2 lightning bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (1)	VYKEA plank (5)
+level 3 bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (11)	VYKEA plank (5)
+level 3 frenzy bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (11)	VYKEA plank (5)
+level 3 blood bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (11)	VYKEA plank (5)
+level 3 lightning bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (11)	VYKEA plank (5)
+level 4 bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (23)	VYKEA plank (5)
+level 4 frenzy bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (23)	VYKEA plank (5)
+level 4 blood bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (23)	VYKEA plank (5)
+level 4 lightning bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (23)	VYKEA plank (5)
+level 5 bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (37)	VYKEA plank (5)
+level 5 frenzy bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (37)	VYKEA plank (5)
+level 5 blood bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (37)	VYKEA plank (5)
+level 5 lightning bookshelf	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (37)	VYKEA plank (5)
+
+level 1 ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA bracket (5)
+level 1 frenzy ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA bracket (5)
+level 1 blood ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA bracket (5)
+level 1 lightning ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA bracket (5)
+level 2 ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (1)	VYKEA bracket (5)
+level 2 frenzy ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (1)	VYKEA bracket (5)
+level 2 blood ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (1)	VYKEA bracket (5)
+level 2 lightning ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (1)	VYKEA bracket (5)
+level 3 ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (11)	VYKEA bracket (5)
+level 3 frenzy ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (11)	VYKEA bracket (5)
+level 3 blood ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (11)	VYKEA bracket (5)
+level 3 lightning ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (11)	VYKEA bracket (5)
+level 4 ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (23)	VYKEA bracket (5)
+level 4 frenzy ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (23)	VYKEA bracket (5)
+level 4 blood ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (23)	VYKEA bracket (5)
+level 4 lightning ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (23)	VYKEA bracket (5)
+level 5 ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (37)	VYKEA bracket (5)
+level 5 frenzy ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (37)	VYKEA bracket (5)
+level 5 blood ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (37)	VYKEA bracket (5)
+level 5 lightning ceiling fan	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (37)	VYKEA bracket (5)
+
+level 1 couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA plank (5)
+level 1 frenzy couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA plank (5)
+level 1 blood couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA plank (5)
+level 1 lightning couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA plank (5)
+level 2 couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (1)	VYKEA plank (5)
+level 2 frenzy couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (1)	VYKEA plank (5)
+level 2 blood couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (1)	VYKEA plank (5)
+level 2 lightning couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (1)	VYKEA plank (5)
+level 3 couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (11)	VYKEA plank (5)
+level 3 frenzy couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (11)	VYKEA plank (5)
+level 3 blood couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (11)	VYKEA plank (5)
+level 3 lightning couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (11)	VYKEA plank (5)
+level 4 couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (23)	VYKEA plank (5)
+level 4 frenzy couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (23)	VYKEA plank (5)
+level 4 blood couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (23)	VYKEA plank (5)
+level 4 lightning couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (23)	VYKEA plank (5)
+level 5 couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (37)	VYKEA plank (5)
+level 5 frenzy couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (37)	VYKEA plank (5)
+level 5 blood couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (37)	VYKEA plank (5)
+level 5 lightning couch	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (37)	VYKEA plank (5)
+
+level 1 dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA bracket (5)
+level 1 frenzy dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA bracket (5)
+level 1 blood dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA bracket (5)
+level 1 lightning dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA bracket (5)
+level 2 dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (1)	VYKEA bracket (5)
+level 2 frenzy dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (1)	VYKEA bracket (5)
+level 2 blood dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (1)	VYKEA bracket (5)
+level 2 lightning dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (1)	VYKEA bracket (5)
+level 3 dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (11)	VYKEA bracket (5)
+level 3 frenzy dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (11)	VYKEA bracket (5)
+level 3 blood dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (11)	VYKEA bracket (5)
+level 3 lightning dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (11)	VYKEA bracket (5)
+level 4 dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (23)	VYKEA bracket (5)
+level 4 frenzy dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (23)	VYKEA bracket (5)
+level 4 blood dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (23)	VYKEA bracket (5)
+level 4 lightning dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (23)	VYKEA bracket (5)
+level 5 dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (37)	VYKEA bracket (5)
+level 5 frenzy dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (37)	VYKEA bracket (5)
+level 5 blood dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (37)	VYKEA bracket (5)
+level 5 lightning dishrack	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (37)	VYKEA bracket (5)
+
+level 1 dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA rail (5)
+level 1 frenzy dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA rail (5)
+level 1 blood dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA rail (5)
+level 1 lightning dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA rail (5)
+level 2 dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (1)	VYKEA rail (5)
+level 2 frenzy dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (1)	VYKEA rail (5)
+level 2 blood dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (1)	VYKEA rail (5)
+level 2 lightning dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (1)	VYKEA rail (5)
+level 3 dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (11)	VYKEA rail (5)
+level 3 frenzy dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (11)	VYKEA rail (5)
+level 3 blood dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (11)	VYKEA rail (5)
+level 3 lightning dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (11)	VYKEA rail (5)
+level 4 dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (23)	VYKEA rail (5)
+level 4 frenzy dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (23)	VYKEA rail (5)
+level 4 blood dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (23)	VYKEA rail (5)
+level 4 lightning dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (23)	VYKEA rail (5)
+level 5 dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA dowel (37)	VYKEA rail (5)
+level 5 frenzy dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA frenzy rune (1)	VYKEA dowel (37)	VYKEA rail (5)
+level 5 blood dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA blood rune (1)	VYKEA dowel (37)	VYKEA rail (5)
+level 5 lightning dresser	VYKEA	VYKEA instructions (1)	VYKEA plank (5)	VYKEA lightning rune (1)	VYKEA dowel (37)	VYKEA rail (5)
+
+level 1 lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA rail (5)
+level 1 frenzy lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA rail (5)
+level 1 blood lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA rail (5)
+level 1 lightning lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA rail (5)
+level 2 lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (1)	VYKEA rail (5)
+level 2 frenzy lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (1)	VYKEA rail (5)
+level 2 blood lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (1)	VYKEA rail (5)
+level 2 lightning lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (1)	VYKEA rail (5)
+level 3 lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (11)	VYKEA rail (5)
+level 3 frenzy lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (11)	VYKEA rail (5)
+level 3 blood lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (11)	VYKEA rail (5)
+level 3 lightning lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (11)	VYKEA rail (5)
+level 4 lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (23)	VYKEA rail (5)
+level 4 frenzy lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (23)	VYKEA rail (5)
+level 4 blood lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (23)	VYKEA rail (5)
+level 4 lightning lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (23)	VYKEA rail (5)
+level 5 lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA dowel (37)	VYKEA rail (5)
+level 5 frenzy lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA frenzy rune (1)	VYKEA dowel (37)	VYKEA rail (5)
+level 5 blood lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA blood rune (1)	VYKEA dowel (37)	VYKEA rail (5)
+level 5 lightning lamp	VYKEA	VYKEA instructions (1)	VYKEA rail (5)	VYKEA lightning rune (1)	VYKEA dowel (37)	VYKEA rail (5)
+
+# Crimbo 2015
+pine cone necklace	COMBINE	pine cone	iron chain
+
+# Rockin' Robin
+
+robin nog	MIX	robin's egg	fermenting powder
+robin flan	COOK	robin's egg	Gnollish pie tin
+
+# LT&T Telegraph office
+
+rinky-dink sixgun	MUSE	gun parts (4)
+makeshift sixgun	MUSE	gun parts (7)
+custom sixgun	MUSE	gun parts (11)
+baconstone-handled sixgun	COMBINE	custom sixgun	baconstone
+hamethyst-handled sixgun	COMBINE	custom sixgun	hamethyst
+porquoise-handled sixgun	COMBINE	custom sixgun	porquoise
+
+# Avatar of West of Loathing
+
+patent preventative tonic	COOK, PATENT	skin oil	snake oil
+patent invisibility tonic	COOK, PATENT	eldritch oil	snake oil
+patent aggression tonic	COOK, PATENT	unusual oil	snake oil
+patent sallowness tonic	COOK, PATENT	eldritch oil	skin oil
+patent avarice tonic	COOK, PATENT	unusual oil	skin oil
+patent alacrity tonic	COOK, PATENT	eldritch oil	unusual oil
+
+# Source Terminal
+
+browser cookie	TERMINAL	Source essence (10)
+hacked gibson	TERMINAL	Source essence (10)
+Source shades	TERMINAL	Source essence (100)
+software bug	TERMINAL	Source essence (10000)
+Source terminal PRAM chip	TERMINAL	Source essence (100)
+Source terminal GRAM chip	TERMINAL	Source essence (100)
+Source terminal SPAM chip	TERMINAL	Source essence (100)
+Source terminal CRAM chip	TERMINAL	Source essence (1000)
+Source terminal DRAM chip	TERMINAL	Source essence (1000)
+Source terminal TRAM chip	TERMINAL	Source essence (1000)
+
+# Barrel Shrine
+
+barrel lid	BARREL
+barrel hoop earring	BARREL
+bankruptcy barrel	BARREL
+
+# Eldritch Tentacle Event
+
+eldritch extract	MUSE	eldritch effluvium (37)
+eldritch concentrate	ELDRITCH, MUSE	eldritch effluvium (111)
+eldritch distillate	COOK, ELDRITCH	eldritch extract	handful of fire
+eldritch essence	COOK_FANCY	eldritch concentrate	jar of oil
+eldritch elixir	ELDRITCH, MIX_FANCY	eldritch distillate	eldritch distillate
+eldritch rub	MUSE	eldritch ichor (111)
+eldritch tincture	MUSE	eldritch ichor (666)
+eldritch mushroom pizza	COOK	eldritch mushroom	plain pizza
+
+# Thanksgarden
+
+baked stuffing	COOK	raw stuffing	stuffing fluffer
+bomb of unknown origin	COMBINE	bread mold	fire of unknown origin
+bread roll	COOK	raw bread	bread mold
+candied sweet potatoes	COOK	raw sweet potato	mini-marshmallow dispenser
+cranberry cylinder	COOK	raw cranberry sauce	can opener
+green bean casserole	COOK	raw green beans	glass casserole dish
+leftovers sandwich	COOK	leftovers	toast
+mashed potatoes	COOK	raw potato	potato masher
+mince pie	COOK	raw mincemeat	glass pie plate
+thanksgiving turkey	COOK	raw turkey	turkey blaster
+warm gravy	COOK	raw gravy	gravy boat
+
+# Space Jellyfish
+
+toast with cold jelly	COOK	toast	cold jelly
+toast with hot jelly	COOK	toast	hot jelly
+toast with sleaze jelly	COOK	toast	sleaze jelly
+toast with spooky jelly	COOK	toast	spooky jelly
+toast with stench jelly	COOK	toast	stench jelly
+
+# Optimistic Candle
+
+wax hand	WAX	glob of melted wax
+miniature candle	WAX	glob of melted wax
+wax pancake	WAX	glob of melted wax
+wax face	WAX	glob of melted wax
+wax booze	WAX	glob of melted wax
+
+# Robortender
+
+Churchill	MIX	bottle of rum	limepatch
+gunner's daughter	MIX	Churchill	grapefruit
+literal grasshopper	MIX	bottle of tequila	pickled grasshopper
+eighth plague	MIX	literal grasshopper	olive
+shroomtini	MIX	bottle of gin	cocktail mushroom
+moreltini	MIX	shroomtini	olive
+soilzerac	MIX	bottle of whiskey	pile of dirt
+dirt julep	MIX	soilzerac	lemon
+great old fashioned	MIX	bottle of whiskey	lump of black ichor
+R'lyeh	MIX	great old fashioned	strawberry
+low tide martini	MIX	bottle of vodka	bottle of clam juice
+Bloody Nora	MIX	low tide martini	olive
+double entendre	MIX	bottle of tequila	bottle of an&iacute;s
+single entendre	MIX	double entendre	lemon
+extremely slippery nipple	MIX	bottle of tequila	baby oil shooter
+Mysterious Island iced tea	MIX	extremely slippery nipple	soda water
+mentholated wine	MIX	boxed wine	peppermint sprig
+Feliz Navidad	MIX	mentholated wine	orange
+Gnomish sagngria	MIX	boxed wine	bottle of gregnadigne
+Gnollish sangria	MIX	Gnomish sagngria	strawberry
+morning dew	MIX	shot of granola liqueur	bottle of rum
+hell in a bucket	MIX	morning dew	soda water
+London frog	MIX	bottle of gin	slime shooter
+Simepore slime	MIX	London frog	strawberry
+nothingtini	MIX	bottle of gin	imaginary lemon
+Phil Collins	MIX	nothingtini	soda water
+Phlegethon	MIX	bottle of rum	bottle of novelty hot sauce
+reverse Tantalus	MIX	Phlegethon	orange
+vodka stinger	MIX	bottle of vodka	bottle of Cr&egrave;me de Fugu
+vodka barracuda	MIX	vodka stinger	lemon
+whiskey squeeze	MIX	bottle of whiskey	can of cherry-flavored sterno
+Newark	MIX	whiskey squeeze	orange
+Siberian sunrise	MIX	bottle of vodka	elemental sugarcube
+elemental caipiroska	MIX	Siberian sunrise	grapefruit
+piscatini	MIX	boxed wine	fish head
+drive-by shooting	MIX	piscatini	grapefruit
+
+# Spacegate
+
+alien sandwich	COOK	edible alien plant bit	alien meat
+murderbot live wire	COMBINE	murderbot component casing	murderbot power cell
+murderbot mask	COMBINE	murderbot component casing	murderbot component casing
+murderbot shield unit	COMBINE	murderbot power cell	murderbot power cell
+murderbot spring injector	COMBINE	murderbot component casing	murderbot monofilament
+murderbot whip	COMBINE	murderbot monofilament	murderbot monofilament
+filter helmet	SPACEGATE
+exo-servo leg braces	SPACEGATE
+rad cloak	SPACEGATE
+gate transceiver	SPACEGATE
+high-friction boots	SPACEGATE
+geological sample kit	SPACEGATE
+botanical sample kit	SPACEGATE
+zoological sample kit	SPACEGATE
+
+# Crimbo 2017
+half double fruitcake	COOK	fruitcake	unfinished fruitcake
+neg grog	MIX	bottle of rum	transparent nog
+nega-mushroom wine	MIX_FANCY	mushroom fermenting solution	nega-mushroom
+
+# Garbage Fire
+burning paper hat	NEWSPAPER	burning newspaper
+burning cape	NEWSPAPER	burning newspaper
+burning paper slippers	NEWSPAPER	burning newspaper
+burning paper jorts	NEWSPAPER	burning newspaper
+burning paper crane	NEWSPAPER	burning newspaper
+
+# Metal Meteoroid
+meteortarboard	METEOROID	metal meteoroid
+meteorite guard	METEOROID	metal meteoroid
+meteorb	METEOROID	metal meteoroid
+asteroid belt	METEOROID	metal meteoroid
+meteorthopedic shoes	METEOROID	metal meteoroid
+shooting morning star	METEOROID	metal meteoroid
+
+# FantasyRealm
+Potion of Heroism	COMBINE	hero's skull	to-go brew
+denastified haunch	COOK	faerie dust	nasty haunch
+bad rum and good cola	MIX	grolblin rum	sanctified cola
+Staff of Kitchen Royalty	STAFF	scepter of the Skeleton Lord	denastified haunch (3)	bad rum and good cola (3)	Potion of Heroism (3)
+FantasyRealm Warrior's Helm	FANTASY_REALM
+FantasyRealm Mage's Hat	FANTASY_REALM
+FantasyRealm Rogue's Mask	FANTASY_REALM
+
+# G-Lover
+glued A-Boo clue	SUSE	A-Boo glue	A-Boo clue
+
+# Voter Registation Form
+haunted orange	COOK	ghostly ectoplasm	orange
+haunted pizza	COOK	ghostly ectoplasm	plain pizza
+haunted cherry pie	COOK	ghostly ectoplasm	cherry pie
+haunted Hell ramen	COOK	ghostly ectoplasm	Hell ramen
+haunted bottle of vodka	MIX	ghostly ectoplasm	bottle of vodka
+haunted martini	MIX	ghostly ectoplasm	martini
+haunted eggnog	MIX	ghostly ectoplasm	eggnog
+haunted gimlet	MIX_FANCY	ghostly ectoplasm	gimlet
+twice-haunted screwdriver	MIX	haunted bottle of vodka	haunted orange
+snakeskin cowboy hat	MUSE	snake skin (11)
+snakeskin thighboots	MUSE	snake skin (23)
+snakeskin jacket	MUSE	snake skin (37)
+
+# Crimbo 2018
+moosemeat pie	COOK	pie crust	mooseflank
+beaver punch (papaya)	MIX	papaya	beavermouth
+beaver punch (peach)	MIX	peach	beavermouth
+beaver punch (cherry)	MIX	cherry	beavermouth
+Staff of Frozen Lard	STAFF	pristine walrus tusk	moosemeat pie (3)	beaver punch (peach) (3)	cold wad (30)	sleaze wad (30)
+
+# Kramco Sausage-o-Matic
+magical sausage	SAUSAGE_O_MATIC	magical sausage casing
+
+# Dark Gyffte
+bloodstick	COOK	blood bag	wad of dough
+actual blood sausage	COOK	blood bag	batgut
+actual blood sausage	COOK	blood bag	ratgut
+blood snowcone	COOK	blood bag	plain snowcone
+blood roll-up	COOK	blood bag	blackberry
+blood-soaked sponge cake	COOK	blood bag	gauze garter
+blood-soaked sponge cake	COOK	blood bag	filthy poultice
+bottle of Sanguiovese	MIX	blood bag	fermenting powder
+mulled blood	MIX	blood bag	spices
+Red Russian	MIX	blood bag	glass of goat's milk
+dusty bottle of blood	MIX	blood bag	dusty bottle of Merlot
+dusty bottle of blood	MIX	blood bag	dusty bottle of Port
+dusty bottle of blood	MIX	blood bag	dusty bottle of Pinot Noir
+dusty bottle of blood	MIX	blood bag	dusty bottle of Zinfandel
+dusty bottle of blood	MIX	blood bag	dusty bottle of Marsala
+dusty bottle of blood	MIX	blood bag	dusty bottle of Muscat
+vampagne	MIX	blood bag	Monstar energy beverage
+vampagne	MIX	blood bag	carbonated soy milk
+
+# PirateRealm
+Island Landslide	TIKI	bottle of dark rhum	pineapple slab
+Island Thunderstorm	TIKI	bottle of extra-dark rhum	pineapple slab
+Island Hurricane	TIKI	bottle of super-extra-dark rhum	pineapple slab
+Skull Punch	TIKI	bottle of dark rhum	hibiscus petal
+Electric Punch	TIKI	bottle of extra-dark rhum	hibiscus petal
+Smuggler's Punch	TIKI	bottle of super-extra-dark rhum	hibiscus petal
+Scorpion Bowl	TIKI	bottle of dark rhum	huge mint leaf
+Turtle Bowl	TIKI	bottle of extra-dark rhum	huge mint leaf
+Cobra Bowl	TIKI	bottle of super-extra-dark rhum	huge mint leaf
+
+signal receiver	SUSE	arcanoferric housing	intact medium-wave antenna	18-picohertz resonator crystal	blown-out speaker cone	overloaded short-pulse transistor
+enhanced signal receiver	SUSE	Murgatroyd diode	signal receiver
+
+# Beach Comb
+small pile of sand	MUSE	grain of sand (100)
+pile of sand	MUSE	grain of sand (1000)
+large pile of sand	MUSE	grain of sand (10000)
+empty hourglass	COMBINE	large pile of sand	fire
+hourglass	COMBINE	small pile of sand	empty hourglass
+etched hourglass	COMBINE	pile of sand	hourglass
+fire	MUSE	stick (2)
+driftwood beach comb	SUSE	piece of driftwood
+bottle of sea wine	SUSE	bunch of sea grapes
+
+# Getaway Campsite
+stick of firewood (10)	SUSE	bundle of firewood
+
+# Crimbo 2019
+tempura green and red bean	TEMPURA	bubbling tempura batter	green and red bean
+salt plum sake	SCOCK	bottle of Pete's Sake	salt plum
+pressurized potion of possessiveness	DSAUCE	globe of Deep Sauce	salt plum
+
+Staff of the Peppermint Twist	STAFF	peppermint spine	green and red bean (3)	super-sweet fish goo (spoiled) (3)	salty gumdrop (3)	intact anemone spike (3)
+
+jacked Santa roll	SUSHI	beefy fish meat	white rice	seaweed	green and red bean
+magical jacked Santa roll	SUSHI	beefy fish meat	white rice	seaweed	green and red bean	dragonfish caviar
+salty jacked Santa roll	SUSHI	beefy fish meat	white rice	seaweed	green and red bean	sea salt crystal
+electric jacked Santa roll	SUSHI	beefy fish meat	white rice	seaweed	green and red bean	eel sauce
+
+omniscient Santa roll	SUSHI	glistening fish meat	white rice	seaweed	green and red bean
+magical omniscient Santa roll	SUSHI	glistening fish meat	white rice	seaweed	green and red bean	dragonfish caviar
+salty omniscient Santa roll	SUSHI	glistening fish meat	white rice	seaweed	green and red bean	sea salt crystal
+electric omniscient Santa roll	SUSHI	glistening fish meat	white rice	seaweed	green and red bean	eel sauce
+
+sneaky Santa roll	SUSHI	slick fish meat	white rice	seaweed	green and red bean
+magical sneaky Santa roll	SUSHI	slick fish meat	white rice	seaweed	green and red bean	dragonfish caviar
+salty sneaky Santa roll	SUSHI	slick fish meat	white rice	seaweed	green and red bean	sea salt crystal
+electric sneaky Santa roll	SUSHI	slick fish meat	white rice	seaweed	green and red bean	eel sauce
+
+Yuletide beefy maki	SUSHI	beefy fish meat	white rice	seaweed	peppermint eel sauce
+Yuletide giant dragon roll	SUSHI	beefy fish meat	white rice	seaweed	sea cucumber	peppermint eel sauce
+Yuletide Jack LaLanne roll	SUSHI	beefy fish meat	white rice	seaweed	sea radish	peppermint eel sauce
+Yuletide musclebound rabbit roll	SUSHI	beefy fish meat	white rice	seaweed	sea carrot	peppermint eel sauce
+Yuletide python roll	SUSHI	beefy fish meat	white rice	seaweed	sea avocado	peppermint eel sauce
+Yuletide jacked Santa roll	SUSHI	beefy fish meat	white rice	seaweed	green and red bean	peppermint eel sauce
+
+Yuletide glistening maki	SUSHI	glistening fish meat	white rice	seaweed	peppermint eel sauce
+Yuletide wise dragon roll	SUSHI	glistening fish meat	white rice	seaweed	sea cucumber	peppermint eel sauce
+Yuletide wizened master roll	SUSHI	glistening fish meat	white rice	seaweed	sea radish	peppermint eel sauce
+Yuletide white rabbit roll	SUSHI	glistening fish meat	white rice	seaweed	sea carrot	peppermint eel sauce
+Yuletide ancient serpent roll	SUSHI	glistening fish meat	white rice	seaweed	sea avocado	peppermint eel sauce
+Yuletide omniscient Santa roll	SUSHI	glistening fish meat	white rice	seaweed	green and red bean	peppermint eel sauce
+
+Yuletide slick maki	SUSHI	slick fish meat	white rice	seaweed	peppermint eel sauce
+Yuletide eleven oceans roll	SUSHI	slick fish meat	white rice	seaweed	sea radish	peppermint eel sauce
+Yuletide tricky dragon roll	SUSHI	slick fish meat	white rice	seaweed	sea cucumber	peppermint eel sauce
+Yuletide sneaky rabbit roll	SUSHI	slick fish meat	white rice	seaweed	sea carrot	peppermint eel sauce
+Yuletide slippery snake roll	SUSHI	slick fish meat	white rice	seaweed	sea avocado	peppermint eel sauce
+Yuletide sneaky Santa roll	SUSHI	slick fish meat	white rice	seaweed	green and red bean	peppermint eel sauce
+
+tempura cucumber bento box with peppermint eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peppermint eel sauce	tempura cucumber
+tempura avocado bento box with peppermint eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peppermint eel sauce	tempura avocado
+tempura broccoli bento box with peppermint eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peppermint eel sauce	tempura broccoli
+tempura carrot bento box with peppermint eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peppermint eel sauce	tempura carrot
+tempura cauliflower bento box with peppermint eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peppermint eel sauce	tempura cauliflower
+tempura radish bento box with peppermint eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peppermint eel sauce	tempura radish
+
+tempura green and red bean bento box with anemone sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	anemone sauce	tempura green and red bean
+tempura green and red bean bento box with eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	eel sauce	tempura green and red bean
+tempura green and red bean bento box with inky squid sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	inky squid sauce	tempura green and red bean
+tempura green and red bean bento box with mer-kin weaksauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	Mer-kin weaksauce	tempura green and red bean
+tempura green and red bean bento box with peanut sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peanut sauce	tempura green and red bean
+tempura green and red bean bento box with peppermint eel sauce	SUSHI	Mer-kin lunchbox	beefy fish meat	glistening fish meat	slick fish meat	white rice	seaweed	peppermint eel sauce	tempura green and red bean
+
+# Crimbo 2022
+
+Crimbosmopolitan	SUSE	crystal Crimbo goblet	dregs of a Crimbo cocktail	cinnamon machine oil	industrially-crushed ice
+Crimbo dinner	SUSE	crystal Crimbo platter	steamed oyster	Crimbo food scraps	honey-drenched ham slice
+
+# February 29
+
+# Only on February 29
+# rubber doll head	SUSE	Mysterious Black Box
+# rubber doll body	SUSE	Mysterious Blue Box
+# plastic doll arms	SUSE	Mysterious Green Box
+# plastic doll legs	SUSE	Mysterious Red Box
+rubber baby doll	SUSE	rubber doll head	rubber doll body	plastic doll arms	plastic doll legs
+
+# Mushroom Garden
+
+mushroom tea	COOK	mushroom filet	soda water
+mushroom whiskey	MIX	mushroom filet	fermenting powder
+mushroom cap	SUSE	mushroom slab
+
+# Path of the Plumber
+red plumber's boots	MUSE	red coin (11)
+
+# Guzzlr tablet
+
+Buttery Boy	MIX_FANCY	Guzzlr cocktail set	Dish of Clarified Butter
+Ghiaccio Colada	MIX_FANCY	Guzzlr cocktail set	cold wad
+Nog-on-the-Cob	MIX_FANCY	Guzzlr cocktail set	robin's egg
+Sourfinger	MIX_FANCY	Guzzlr cocktail set	mangled finger
+Steamboat	MIX_FANCY	Guzzlr cocktail set	miniature boiler
+
+# Drip Institute
+
+drippy salt	COMBINE	Drip Institute petri dish	drippy bezoar
+drippy enzyme	COMBINE	Drip Institute petri dish	drippy grub
+drippy ichor	COMBINE	Drip Institute petri dish	drippy seed
+
+drippy pigment	COMBINE	drippy enzyme	drippy ichor
+drippy bromide	COMBINE	drippy ichor	drippy salt
+drippy flux	COMBINE	drippy enzyme	drippy salt
+
+salty drippy candy bar	COMBINE	drippy candy bar	drippy salt
+gooey drippy candy bar	COMBINE	drippy candy bar	drippy enzyme
+writhing drippy candy bar	COMBINE	drippy candy bar	drippy ichor
+
+lustrous drippy orb	COMBINE	drippy orb	drippy pigment
+gory drippy orb	COMBINE	drippy orb	drippy bromide
+annealed drippy orb	COMBINE	drippy orb	drippy flux
+
+# Potted Power Plant
+
+battery (AA)	COMBINE	battery (AAA)	battery (AAA)
+battery (D)	COMBINE	battery (AA)	battery (AAA)
+battery (9-Volt)	COMBINE	battery (AA)	battery (AA)
+battery (9-Volt)	COMBINE	battery (D)	battery (AAA)
+battery (lantern)	COMBINE	battery (D)	battery (AA)
+battery (lantern)	COMBINE	battery (9-Volt)	battery (AAA)
+battery (car)	COMBINE	battery (D)	battery (D)
+battery (car)	COMBINE	battery (9-Volt)	battery (AA)
+battery (car)	COMBINE	battery (lantern)	battery (AAA)
+
+# St Sneaky Yuletide Pete's Day
+
+green marshmallow	COMBINE, SSPD	ten-leaf clover	marshmallow
+
+# Tiny stillsuit
+
+stillsuit distillate	STILLSUIT
+
+# Recipes of Before Yore
+
+Boris's beer	COOK	Yeast of Boris	bowl of cottage cheese
+honey bun of Boris	COOK	Yeast of Boris	flat dough
+ratatouille de Jarlsberg	COOK	Vegetable of Jarlsberg	spices
+Jarlsberg's vegetable soup	COOK	Vegetable of Jarlsberg	magicalness-in-a-can
+St. Pete's sneaky smoothie	COOK	St. Sneaky Pete's Whey	strawberry
+Pete's wiley whey bar	COOK	St. Sneaky Pete's Whey	wad of dough
+
+Boris's bread	COOK	Yeast of Boris	Yeast of Boris
+roasted vegetable of Jarlsberg	COOK	Vegetable of Jarlsberg	Vegetable of Jarlsberg
+Pete's rich ricotta	COOK	St. Sneaky Pete's Whey	St. Sneaky Pete's Whey
+
+baked veggie ricotta casserole	COOK	roasted vegetable of Jarlsberg	Pete's rich ricotta
+plain calzone	COOK	Boris's bread	Pete's rich ricotta
+roasted vegetable focaccia	COOK	Boris's bread	roasted vegetable of Jarlsberg
+
+Deep Dish of Legend	COOK	baked veggie ricotta casserole	Boris's bread
+Calzone of Legend	COOK	plain calzone	roasted vegetable of Jarlsberg
+Pizza of Legend	COOK	roasted vegetable focaccia	Pete's rich ricotta
+
+# Hobo Sheep
+
+grubby wool hat	WOOL	grubby wool
+grubby wool scarf	WOOL	grubby wool
+grubby wool trousers	WOOL	grubby wool
+grubby wool gloves	WOOL	grubby wool
+grubby wool beerwarmer	WOOL	grubby wool
+grubby woolball (3)	WOOL	grubby wool
+
+nice warm beer	MIX	ice-cold Sir Schlitz	grubby wool beerwarmer
+
+# Short
+chitin powder paste	COOK	chitin powder	haemolymphnode
+
+# Burning Leaves
+autumnic bomb	BURNING_LEAVES	inflammable leaf (37)
+impromptu torch	BURNING_LEAVES	inflammable leaf (42)
+flaming fig leaf	BURNING_LEAVES	inflammable leaf (43)
+smoldering drape	BURNING_LEAVES	inflammable leaf (44)
+distilled resin	BURNING_LEAVES	inflammable leaf (50)
+autumnal aegis	BURNING_LEAVES	inflammable leaf (66)
+lit leaf lasso	BURNING_LEAVES	inflammable leaf (69)
+forest canopy bed	BURNING_LEAVES	inflammable leaf (74)
+autumnic balm	BURNING_LEAVES	inflammable leaf (99)
+day shortener	BURNING_LEAVES	inflammable leaf (222)
+coping juice	BURNING_LEAVES	inflammable leaf (1111)
+smoldering leafcutter ant egg	BURNING_LEAVES	inflammable leaf (6666)
+super-heated leaf	BURNING_LEAVES	inflammable leaf (11111)
+
+# Crimbo 2023
+gunwale whalegun	COMBINE	gunwale	whalegun
+wet tack	COOK	Crimbuccaneer whale oil	peppermint tack
+whalecake	COOK	military-grade peppermint oil	whalesteak
+yule grog	MIX	military-grade peppermint oil	old-school pirate grog
+red white and blue claret	MIX	Crimbuccaneer whale oil	red and white claret
+Crimbow Rainbo	MIX	yule grog	red white and blue claret
+
+# Yams
+
+yam burrito	COOK	flat dough	yam
+yam mayo	COOK	ghuol egg	yam
+yam slider	COOK	wad of dough	yam
+yam martini	MIX	bottle of vodka	yam
+sweet potato punch	ACOCK	coconut shell	yam martini
+Southern yam	ACOCK	little paper umbrella	yam martini
+sweet potato o' mine	ACOCK	magical ice cubes	yam martini
+
+Mayam spinach	MAYAM
+yam and swiss	MAYAM
+yam cannon	MAYAM
+tiny yam cannon	MAYAM
+yam battery	MAYAM
+stuffed yam stinkbomb	MAYAM
+furry yam buckler	MAYAM
+thanksgiving bomb	MAYAM
+yamtility belt	MAYAM
+
+# Sept-Ember Censer
+ember egg	MUSE	embering hunk (21)
+
+# Clan Photo Booth
+photo booth supply list	PHOTO_BOOTH
+fake arrow-through-the-head	PHOTO_BOOTH
+fake huge beard	PHOTO_BOOTH
+astronaut helmet	PHOTO_BOOTH
+cheap plastic pipe	PHOTO_BOOTH
+oversized monocle on a stick	PHOTO_BOOTH
+giant bow tie	PHOTO_BOOTH
+feather boa	PHOTO_BOOTH
+Sheriff badge	PHOTO_BOOTH
+Sheriff pistol	PHOTO_BOOTH
+Sheriff moustache	PHOTO_BOOTH
+
+# Peace Turkey
+peasco sour	MIX	whirled peas	bottle of vodka
+peaza	COOK	whirled peas	flat dough
+pea brittle	COOK	whirled peas	Gnollish casserole dish
+handful of split pea soup	COMBINE	whirled peas	whirled peas
+
+# TakerSpace
+deft pirate hook	TAKERSPACE
+iron tricorn hat	TAKERSPACE
+jolly roger flag	TAKERSPACE
+sleeping profane parrot	TAKERSPACE
+pirrrate's currrse	TAKERSPACE
+tankard of spiced rum	TAKERSPACE
+tankard of spiced Goldschlepper	TAKERSPACE
+packaged luxury garment	TAKERSPACE
+harpoon	TAKERSPACE
+chili powder cutlass	TAKERSPACE
+cursed Aztec tamale	TAKERSPACE
+jolly roger tattoo kit	TAKERSPACE
+golden pet rock	TAKERSPACE
+groggles	TAKERSPACE
+pirate dinghy	TAKERSPACE
+anchor bomb	TAKERSPACE
+silky pirate drawers	TAKERSPACE
+spices	TAKERSPACE
+
+# Crimbo 2024
+gravyskin buckler	ASMITH	buckler buckle	gravy skin
+gravyskin hat	ASMITH	basic meat helmet	gravy skin
+gravyskin pants	ASMITH	pants kit	gravy skin
+gravyskin skirt	ASMITH	skirt / kilt kit	gravy skin
+perfect Christmas scarf	SUSE	ragged wool yarn (50)
+
+# Reagnimated Gnome Parts
+gnomish swimmer's ears	GNOME_PART
+gnomish coal miner's lung	GNOME_PART
+gnomish tennis elbow	GNOME_PART
+gnomish housemaid's kgnee	GNOME_PART
+gnomish athlete's foot	GNOME_PART
+
+# Mobius ring
+toast with mixed berry jelly	COOK	mixed berry jelly	toast
+
+# legendary pasta wand
+Frutti di Scatoletta	COOK	legendary noodles	can of tuna
+Pesto alla Marziano	COOK	legendary noodles	alien salad
+Arrattabbattabiata	COOK	legendary noodles	ratbatatouille
+Orzo di Riso	COOK	legendary noodles	spicy onigiri
+Pasta Grimavera	COOK	legendary noodles	haunted crudit&eacute;s
+Linguini Ubriacapa	COOK	legendary noodles	sauced mutton
+Formica e Pepe	COOK	legendary noodles	hot honey ant
+Tubetto Gelatto	COOK	legendary noodles	tomb aspic
+Gnocci Domani	COOK	legendary noodles	later tots

@@ -1,0 +1,33 @@
+1
+# Item	Level req	Usage note (optional)
+battery (AAA)	0	Grants 15 Energy in You, Robot
+battery (AA)	0	Grants 20 Energy in You, Robot
+battery (D)	0	Grants 25 Energy in You, Robot
+battery (9-Volt)	0	Grants 30 Energy in You, Robot
+battery (lantern)	0	Grants 35 Energy in You, Robot
+battery (car)	0	Grants 40 Energy in You, Robot
+BRICKO airship	11
+BRICKO cathedral	13
+BRICKO elephant	3
+BRICKO gargantuchicken	15
+BRICKO octopus	5
+BRICKO python	7
+BRICKO vacuum cleaner	9
+dolphin whistle	11
+figurine of a charred seal	6
+figurine of a cold seal	6
+figurine of a cute baby seal	5
+figurine of a shadowy seal	6
+figurine of a sleek seal	12
+figurine of a slippery seal	6
+figurine of a stinking seal	6
+figurine of an ancient seal	6
+figurine of an armored seal	9
+gym membership card	4
+Hunger&trade; sauce	15
+juggling ball	6
+lupine appetite hormones	15
+mime army challenge coin	13
+spice melange	6
+Ultra Mega Sour Ball	6
+Xiblaxian direct marketing simcode	11

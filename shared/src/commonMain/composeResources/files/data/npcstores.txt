@@ -1,0 +1,481 @@
+2
+Shadowy Store	guildstore1	ye olde golde frontes	1500	ROW522
+Shadowy Store	guildstore1	bejeweled accordion strap	2000	ROW523
+Shadowy Store	guildstore1	moxie magnet	3000	ROW524
+
+Gouda's Grimoire and Grocery	guildstore2	magical mystery juice	100	ROW527
+Gouda's Grimoire and Grocery	guildstore2	delectable catalyst	1000	ROW531
+Gouda's Grimoire and Grocery	guildstore2	MSG	1000	ROW532
+Gouda's Grimoire and Grocery	guildstore2	big stirring stick	1500	ROW533
+Gouda's Grimoire and Grocery	guildstore2	ladle of mystery	3000	ROW530
+Gouda's Grimoire and Grocery	guildstore2	kickback cookbook	4000	ROW528
+Gouda's Grimoire and Grocery	guildstore2	Codex of Capsaicin Conjuration	4000	ROW526
+Gouda's Grimoire and Grocery	guildstore2	Gazpacho's Glacial Grimoire	4000	ROW525
+Gouda's Grimoire and Grocery	guildstore2	special sauce glove	5000	ROW529
+
+Smacketeria	guildstore3	Medicinal Herb's medicinal herbs	100	ROW536
+Smacketeria	guildstore3	cheap wind-up clock	200	ROW537
+Smacketeria	guildstore3	blood of the Wereseal	500	ROW535
+Smacketeria	guildstore3	enchanted brass knuckles	1000	ROW534
+Smacketeria	guildstore3	seal-blubber candle	100	ROW539
+Smacketeria	guildstore3	figurine of a wretched-looking seal	150	ROW540
+Smacketeria	guildstore3	figurine of a cute baby seal	250	ROW541
+Smacketeria	guildstore3	figurine of an armored seal	500	ROW542
+Smacketeria	guildstore3	turtle pheromones	50	ROW538
+Smacketeria	guildstore3	turtling rod	500	ROW543
+
+Degrassi Knoll Bakery and Hardware Store	gnoll	Gnollish pie tin	30	ROW599
+Degrassi Knoll Bakery and Hardware Store	gnoll	wad of dough	50	ROW600
+Degrassi Knoll Bakery and Hardware Store	gnoll	flat dough	70	ROW603
+Degrassi Knoll Bakery and Hardware Store	gnoll	skewer	80	ROW604
+Degrassi Knoll Bakery and Hardware Store	gnoll	taco shell	80	ROW606
+Degrassi Knoll Bakery and Hardware Store	gnoll	Gnollish casserole dish	150	ROW610
+
+Degrassi Knoll Bakery and Hardware Store	gnoll	cog	20	ROW597
+Degrassi Knoll Bakery and Hardware Store	gnoll	empty meat tank	20	ROW595
+Degrassi Knoll Bakery and Hardware Store	gnoll	spring	20	ROW596
+Degrassi Knoll Bakery and Hardware Store	gnoll	sprocket	20	ROW594
+Degrassi Knoll Bakery and Hardware Store	gnoll	tires	28	ROW598
+
+Degrassi Knoll Bakery and Hardware Store	gnoll	bugbear beanie	70	ROW601
+Degrassi Knoll Bakery and Hardware Store	gnoll	bugbear bungguard	70	ROW602
+Degrassi Knoll Bakery and Hardware Store	gnoll	frilly skirt	80	ROW609
+Degrassi Knoll Bakery and Hardware Store	gnoll	Gnollish flyswatter	80	ROW608
+Degrassi Knoll Bakery and Hardware Store	gnoll	Gnollish plunger	80	ROW605
+Degrassi Knoll Bakery and Hardware Store	gnoll	maiden wig	80	ROW607
+Degrassi Knoll Bakery and Hardware Store	gnoll	detuned radio	300	ROW611
+
+The Tweedleporium	tweedle	puff of smoke	100	ROW578
+The Tweedleporium	tweedle	stuffed porpoise	10000	ROW582
+The Tweedleporium	tweedle	stuffed pocketwatch	10000	ROW579
+The Tweedleporium	tweedle	stuffed bandersnatch	10000	ROW583
+The Tweedleporium	tweedle	stuffed caterpillar	10000	ROW580
+The Tweedleporium	tweedle	stuffed walrus	10000	ROW584
+The Tweedleporium	tweedle	stuffed carpenter	10000	ROW581
+The Tweedleporium	tweedle	stuffed dodo	10000	ROW585
+The Tweedleporium	tweedle	insane tophat	20000	ROW586
+The Tweedleporium	tweedle	helm of the white knight	30000	ROW587
+The Tweedleporium	tweedle	trousers of the white knight	30000	ROW588
+The Tweedleporium	tweedle	wristwatch of the white knight	30000	ROW589
+
+Madeline's Baking Supply	madeline	Gnollish pie tin	25	ROW736
+Madeline's Baking Supply	madeline	wad of dough	40	ROW737
+Madeline's Baking Supply	madeline	skewer	60	ROW739
+Madeline's Baking Supply	madeline	taco shell	60	ROW738
+Madeline's Baking Supply	madeline	Gnollish casserole dish	100	ROW740
+Madeline's Baking Supply	madeline	rolling pin	400	ROW741
+Madeline's Baking Supply	madeline	unrolling pin	400	ROW742
+
+Bugbear Bakery	bugbear	Gnollish pie tin	30	ROW677
+Bugbear Bakery	bugbear	wad of dough	50	ROW678
+Bugbear Bakery	bugbear	taco shell	80	ROW679
+Bugbear Bakery	bugbear	skewer	80	ROW680
+Bugbear Bakery	bugbear	Gnollish casserole dish	150	ROW681
+Bugbear Bakery	bugbear	rolling pin	500	ROW683
+Bugbear Bakery	bugbear	unrolling pin	500	ROW682
+
+Hippy Store (Pre-War)	hippy	herbs	64	ROW663
+Hippy Store (Pre-War)	hippy	orange	70	ROW665
+Hippy Store (Pre-War)	hippy	grapefruit	70	ROW669
+Hippy Store (Pre-War)	hippy	grapes	70	ROW666
+Hippy Store (Pre-War)	hippy	olive	70	ROW670
+Hippy Store (Pre-War)	hippy	tomato	70	ROW667
+Hippy Store (Pre-War)	hippy	strawberry	70	ROW668
+Hippy Store (Pre-War)	hippy	lemon	70	ROW664
+
+Hippy Store (Hippy)	hippy	herbs	64	ROW663
+Hippy Store (Hippy)	hippy	orange	70	ROW665
+Hippy Store (Hippy)	hippy	grapefruit	70	ROW669
+Hippy Store (Hippy)	hippy	grapes	70	ROW666
+Hippy Store (Hippy)	hippy	olive	70	ROW670
+Hippy Store (Hippy)	hippy	tomato	70	ROW667
+Hippy Store (Hippy)	hippy	strawberry	70	ROW668
+Hippy Store (Hippy)	hippy	lemon	70	ROW664
+Hippy Store (Hippy)	hippy	peach	300	ROW673
+Hippy Store (Hippy)	hippy	pear	300	ROW676
+Hippy Store (Hippy)	hippy	plum	300	ROW672
+
+Hippy Store (Fratboy)	hippy	herbs	64	ROW663
+Hippy Store (Fratboy)	hippy	orange	70	ROW665
+Hippy Store (Fratboy)	hippy	grapefruit	70	ROW669
+Hippy Store (Fratboy)	hippy	grapes	70	ROW666
+Hippy Store (Fratboy)	hippy	olive	70	ROW670
+Hippy Store (Fratboy)	hippy	tomato	70	ROW667
+Hippy Store (Fratboy)	hippy	strawberry	70	ROW668
+Hippy Store (Fratboy)	hippy	lemon	70	ROW664
+Hippy Store (Fratboy)	hippy	bowl of rye sprouts	300	ROW674
+Hippy Store (Fratboy)	hippy	cob of corn	300	ROW671
+Hippy Store (Fratboy)	hippy	juniper berries	300	ROW675
+
+Little Canadia Jewelers	jewelers	piercing post	64	ROW544
+Little Canadia Jewelers	jewelers	necklace chain	70	ROW545
+Little Canadia Jewelers	jewelers	ring setting	200	ROW546
+Little Canadia Jewelers	jewelers	precious piercing post	1000	ROW550
+Little Canadia Jewelers	jewelers	heavy necklace chain	1000	ROW551
+Little Canadia Jewelers	jewelers	extra-fancy ring setting	1000	ROW549
+Little Canadia Jewelers	jewelers	jewelry-making pliers	1000	ROW547
+Little Canadia Jewelers	jewelers	Really Expensive Jewelry and You	5000	ROW548
+
+The Knob Dispensary	knobdisp	Knob Goblin seltzer	80	ROW521
+The Knob Dispensary	knobdisp	Knob Goblin stink bomb	130	ROW518
+The Knob Dispensary	knobdisp	Knob Goblin nasal spray	150	ROW513
+The Knob Dispensary	knobdisp	Knob Goblin love potion	170	ROW517
+The Knob Dispensary	knobdisp	Knob Goblin eyedrops	200	ROW514
+The Knob Dispensary	knobdisp	Knob Goblin sharpening spray	230	ROW519
+The Knob Dispensary	knobdisp	Knob Goblin steroids	250	ROW516
+The Knob Dispensary	knobdisp	Knob Goblin pet-buffing spray	250	ROW520
+The Knob Dispensary	knobdisp	Knob Goblin learning pill	300	ROW515
+
+The Black Market	blackmarket	black cherry soda	80	ROW283
+The Black Market	blackmarket	Black Body&trade; spray	300	ROW286
+The Black Market	blackmarket	black facepaint	300	ROW284
+The Black Market	blackmarket	black sheepskin diploma	300	ROW285
+The Black Market	blackmarket	can of black paint	1000	ROW282
+The Black Market	blackmarket	spare kidney	2000	ROW288
+The Black Market	blackmarket	forged identification documents	5000	ROW281
+The Black Market	blackmarket	exotic parrot egg	500000	ROW287
+The Black Market	blackmarket	Red Zeppelin ticket	5000	ROW289
+
+The General Store	generalstore	Ben-Gal&trade; Balm	24	ROW630
+The General Store	generalstore	glittery mascara	24	ROW629
+The General Store	generalstore	hair spray	24	ROW631
+The General Store	generalstore	cup of lukewarm tea	40	ROW644
+The General Store	generalstore	fortune cookie	40	ROW645
+The General Store	generalstore	pickled egg	40	ROW646
+The General Store	generalstore	chewing gum on a string	50	ROW648
+The General Store	generalstore	fermenting powder	70	ROW649
+The General Store	generalstore	soda water	70	ROW650
+The General Store	generalstore	casino pass	100	ROW651
+The General Store	generalstore	hermit permit	100	ROW652
+The General Store	generalstore	loose purse strings	100	ROW632
+The General Store	generalstore	third-hand lantern	100	ROW633
+The General Store	generalstore	marshmallow	100	ROW662
+The General Store	generalstore	oyster basket	300	ROW658
+The General Store	generalstore	party hat	300	ROW654
+The General Store	generalstore	snake	300	ROW637
+The General Store	generalstore	sparkler	300	ROW638
+The General Store	generalstore	M-242	300	ROW639
+The General Store	generalstore	green rocket	600	ROW1002
+The General Store	generalstore	foam noodle	300	ROW660
+The General Store	generalstore	inflatable duck	300	ROW659
+The General Store	generalstore	water wings	300	ROW661
+The General Store	generalstore	sweet rims	300	ROW653
+The General Store	generalstore	dingy planks	400	ROW655
+The General Store	generalstore	Familiar-Gro&trade; Terrarium	500	ROW656
+# The General Store	generalstore	eldritch alignment spray	1000	ROW938
+The General Store	generalstore	high-test fishing line	2500	ROW817
+The General Store	generalstore	Desert Bus pass	5000	ROW657
+The General Store	generalstore	li'l unicorn costume	1000	ROW890
+The General Store	generalstore	li'l candy corn costume	1000	ROW891
+The General Store	generalstore	white rice	250	ROW1607
+
+# Only with an over-the-shoulder folder holder
+The General Store	generalstore	folder (blue)	10	ROW636
+The General Store	generalstore	folder (green)	10	ROW635
+The General Store	generalstore	folder (red)	10	ROW634
+
+The General Store	generalstore	Dramatic&trade; range	1000	ROW643
+The General Store	generalstore	Queue Du Coq cocktailcrafting kit	1000	ROW642
+
+# Only in Heavy Rains
+The General Store	generalstore	water wings for babies	50	ROW625
+The General Store	generalstore	miniature life preserver	100	ROW626
+The General Store	generalstore	heavy duty umbrella	300	ROW627
+The General Store	generalstore	pool skimmer	500	ROW628
+
+# No longer available
+# The General Store	generalstore	sneaky wrapping paper	1000	ROW624
+
+Gno-Mart	gnomart	jaba&ntilde;ero-flavored chewing gum	200	ROW553
+Gno-Mart	gnomart	lime-and-chile-flavored chewing gum	200	ROW552
+Gno-Mart	gnomart	pickle-flavored chewing gum	200	ROW555
+Gno-Mart	gnomart	tamarind-flavored chewing gum	200	ROW554
+Gno-Mart	gnomart	handsomeness potion	300	ROW556
+Gno-Mart	gnomart	marzipan skull	300	ROW558
+Gno-Mart	gnomart	Meleegra&trade; pills	300	ROW557
+Gno-Mart	gnomart	vial of Gnomochloric acid	500	ROW559
+Gno-Mart	gnomart	flask of Gnomochloric acid	1000	ROW560
+Gno-Mart	gnomart	jug of Gnomochloric acid	5000	ROW561
+
+Uncle P's Antiques	unclep	Clancy's crumhorn	2500	ROW511
+Uncle P's Antiques	unclep	antique accordion	2500	ROW908
+Uncle P's Antiques	unclep	fancy black tie	1000000	ROW508
+Uncle P's Antiques	unclep	fancy tophat	1000000	ROW506
+Uncle P's Antiques	unclep	fancy tuxedo pants	1000000	ROW509
+Uncle P's Antiques	unclep	'Villa' document	100000000	ROW507
+# No longer available
+# Uncle P's Antiques	unclep	Just a lump of inert eldritch matter	5000000	ROW512
+
+Huggler Memorial Colosseum Snack Bar	snackbar	Hatorade	500	ROW565
+Huggler Memorial Colosseum Snack Bar	snackbar	nailswurst	500	ROW566
+Huggler Memorial Colosseum Snack Bar	snackbar	used beer	500	ROW567
+
+Barrrtleby's Barrrgain Books	bartlebys	pirate brochure	300	ROW612
+Barrrtleby's Barrrgain Books	bartlebys	pirate pamphlet	300	ROW613
+Barrrtleby's Barrrgain Books	bartlebys	pirate tract	300	ROW614
+Barrrtleby's Barrrgain Books	bartlebys	The Big Book of Pirate Insults	500	ROW615
+# Barrrtleby's Barrrgain Books	bartlebys	abridged dictionary	1000	ROW617
+
+Barrrtleby's Barrrgain Books (Bees Hate You)	bartlebys	pirate brochure	300	ROW612
+Barrrtleby's Barrrgain Books (Bees Hate You)	bartlebys	pirate pamphlet	300	ROW613
+Barrrtleby's Barrrgain Books (Bees Hate You)	bartlebys	pirate tract	300	ROW614
+Barrrtleby's Barrrgain Books (Bees Hate You)	bartlebys	Massive Manual of Marauder Mockery	500	ROW616
+# Barrrtleby's Barrrgain Books (Bees Hate You)	bartlebys	abridged dictionary	1000	ROW617
+
+Meatsmith's Shop	meatsmith	meatsmithing guide	50	ROW495
+Meatsmith's Shop	meatsmith	sword hilt	100	ROW492
+Meatsmith's Shop	meatsmith	helmet recipe	100	ROW493
+Meatsmith's Shop	meatsmith	pants kit	100	ROW494
+Meatsmith's Shop	meatsmith	big stick	100	ROW496
+Meatsmith's Shop	meatsmith	crossbow string	100	ROW497
+Meatsmith's Shop	meatsmith	whip kit	100	ROW499
+Meatsmith's Shop	meatsmith	buckler buckle	100	ROW500
+Meatsmith's Shop	meatsmith	skirt / kilt kit	100	ROW501
+Meatsmith's Shop	meatsmith	shirt kit	100	ROW505
+Meatsmith's Shop	meatsmith	bigger stick	1000	ROW502
+Meatsmith's Shop	meatsmith	sinewy crossbow string	1000	ROW503
+Meatsmith's Shop	meatsmith	sturdy sword hilt	1000	ROW504
+Meatsmith's Shop	meatsmith	tenderizing hammer	1000	ROW498
+
+The Typical Tavern	bartender	day-old beer	25	ROW562
+The Typical Tavern	bartender	plain old beer	50	ROW563
+The Typical Tavern	bartender	overpriced &quot;imported&quot; beer	100	ROW564
+
+White Citadel	whitecitadel	White Citadel burger	100	ROW623
+White Citadel	whitecitadel	White Citadel fries	80	ROW618
+White Citadel	whitecitadel	onion shurikens	80	ROW619
+White Citadel	whitecitadel	Cherry Cloaca Cola	80	ROW621
+White Citadel	whitecitadel	Diet Cloaca Cola	80	ROW620
+White Citadel	whitecitadel	Regular Cloaca Cola	80	ROW622
+
+Nervewrecker's Store	nerve	Queue Du Coq cocktailcrafting kit	500	ROW592
+Nervewrecker's Store	nerve	Dramatic&trade; range	500	ROW591
+Nervewrecker's Store	nerve	tenderizing hammer	500	ROW593
+
+Armory and Leggery	armory	cool whip	30	ROW487
+Armory and Leggery	armory	sweet ninja sword	50	ROW490
+Armory and Leggery	armory	rubber spatula	150	ROW684
+Armory and Leggery	armory	wooden spoon	300	ROW685
+Armory and Leggery	armory	suede shortsword	300	ROW466
+Armory and Leggery	armory	crystalline reamer	525	ROW686
+Armory and Leggery	armory	25-meat staff	525	ROW468
+Armory and Leggery	armory	macroplane grater	750	ROW687
+Armory and Leggery	armory	bamboo bokuto	750	ROW467
+Armory and Leggery	armory	bastard baster	900	ROW688
+Armory and Leggery	armory	two-handed depthsword	900	ROW469
+Armory and Leggery	armory	obsidian nutcracker	1125	ROW689
+Armory and Leggery	armory	bill bec-de-bardiche glaive-guisarme	1125	ROW470
+Armory and Leggery	armory	toy accordion	150	ROW491
+Armory and Leggery	armory	slightly peevedbow	450	ROW472
+Armory and Leggery	armory	lead yo-yo	600	ROW471
+Armory and Leggery	armory	sack of doorknobs	825	ROW473
+Armory and Leggery	armory	lucky ball-and-chain	975	ROW474
+Armory and Leggery	armory	automatic catapult	1125	ROW475
+Armory and Leggery	armory	snorkel	30	ROW488
+Armory and Leggery	armory	Kentucky-style derby	50	ROW486
+Armory and Leggery	armory	pentacorn hat	300	ROW476
+Armory and Leggery	armory	goofily-plumed helmet	525	ROW477
+Armory and Leggery	armory	yellow plastic hard hat	675	ROW478
+Armory and Leggery	armory	wooden salad bowl	900	ROW479
+Armory and Leggery	armory	football helmet	1125	ROW480
+Armory and Leggery	armory	studded leather boxer shorts	50	ROW489
+Armory and Leggery	armory	chain-mail monokini	225	ROW481
+Armory and Leggery	armory	union scalemail pants	375	ROW482
+Armory and Leggery	armory	paper-plate-mail pants	600	ROW483
+Armory and Leggery	armory	troutpiece	825	ROW484
+Armory and Leggery	armory	alpha-mail pants	1050	ROW485
+#Armory and Leggery	armory	eldritch scanner	50000	ROW937
+Armory and Leggery	armory	fishin' hat	10000	ROW818
+
+Doc Galaktik's Medicine Show	doc	anti-anti-antidote	30	ROW694
+Doc Galaktik's Medicine Show	doc	Doc Galaktik's Pungent Unguent	30	ROW695
+Doc Galaktik's Medicine Show	doc	Doc Galaktik's Homeopathic Elixir	120	ROW696
+Doc Galaktik's Medicine Show	doc	Doc Galaktik's Invigorating Tonic	90	ROW697
+Doc Galaktik's Medicine Show	doc	Doc Galaktik's Vitality Serum	60	ROW698
+
+Gift Shop	town_giftshop.php	Valentine	100
+Gift Shop	town_giftshop.php	potted cactus	20
+Gift Shop	town_giftshop.php	daisy	100
+Gift Shop	town_giftshop.php	potted fern	200
+Gift Shop	town_giftshop.php	tulip	500
+Gift Shop	town_giftshop.php	Venus flytrap	1000
+Gift Shop	town_giftshop.php	all-purpose flower	2000
+Gift Shop	town_giftshop.php	exotic orchid	5000
+Gift Shop	town_giftshop.php	long-stemmed rose	10000
+Gift Shop	town_giftshop.php	gilded lily	20000
+Gift Shop	town_giftshop.php	deadly nightshade	50000
+Gift Shop	town_giftshop.php	black lotus	100000
+Gift Shop	town_giftshop.php	stuffed can of asparagus	20
+Gift Shop	town_giftshop.php	stuffed dodecapede	100
+Gift Shop	town_giftshop.php	stuffed ghuol whelp	200
+Gift Shop	town_giftshop.php	stuffed zmobie	500
+Gift Shop	town_giftshop.php	Raggedy Hippy doll	1000
+Gift Shop	town_giftshop.php	stuffed stab bat	2000
+Gift Shop	town_giftshop.php	apathetic lizardman doll	5000
+Gift Shop	town_giftshop.php	stuffed yeti	10000
+Gift Shop	town_giftshop.php	stuffed Mob Penguin	20000
+Gift Shop	town_giftshop.php	stuffed sabre-toothed lime	50000
+Gift Shop	town_giftshop.php	giant stuffed bugbear	100000
+Gift Shop	town_giftshop.php	mugcake	20
+Gift Shop	town_giftshop.php	urinal cake	100
+Gift Shop	town_giftshop.php	Happy Birthday, Claude! cake	200
+Gift Shop	town_giftshop.php	personalized birthday cake	500
+Gift Shop	town_giftshop.php	three-tiered wedding cake	1000
+Gift Shop	town_giftshop.php	babycakes	2000
+Gift Shop	town_giftshop.php	blue velvet cake	5000
+Gift Shop	town_giftshop.php	congratulatory cake	10000
+Gift Shop	town_giftshop.php	angel-food cake	20000
+Gift Shop	town_giftshop.php	devil's-food cake	50000
+Gift Shop	town_giftshop.php	birthday party jellybean cheesecake	100000
+Gift Shop	town_giftshop.php	white balloon	20
+Gift Shop	town_giftshop.php	green balloon	100
+Gift Shop	town_giftshop.php	heart-shaped balloon	200
+Gift Shop	town_giftshop.php	anniversary balloon	500
+Gift Shop	town_giftshop.php	Mylar balloon	1000
+Gift Shop	town_giftshop.php	Kevlar balloon	2000
+Gift Shop	town_giftshop.php	thought balloon	5000
+Gift Shop	town_giftshop.php	rat head balloon	10000
+Gift Shop	town_giftshop.php	mini-zeppelin	20000
+Gift Shop	town_giftshop.php	Mr. Balloon	50000
+Gift Shop	town_giftshop.php	red balloon	100000
+Gift Shop	town_giftshop.php	chocolate-covered diamond-studded roses	20000
+Gift Shop	town_giftshop.php	bouquet of circular saw blades	5000
+Gift Shop	town_giftshop.php	Better Than Cuddling Cake	1000
+Gift Shop	town_giftshop.php	stuffed ninja snowman	500
+
+# No longer available
+# FDKOL Requisitions Tent	fdkol	drop of water-37	1000	ROW2
+# FDKOL Requisitions Tent	fdkol	FDKOL hotcakes	5000	ROW10
+
+The Hidden Tavern	hiddentavern	Fog Murderer	500	ROW175
+The Hidden Tavern	hiddentavern	Cursed Punch	500	ROW173
+The Hidden Tavern	hiddentavern	Bowl of Scorpions	500	ROW174
+
+Chateau Mantegna Gift Shop	chateau	electric muscle stimulator	500	ROW411
+Chateau Mantegna Gift Shop	chateau	foreign language tapes	500	ROW412
+Chateau Mantegna Gift Shop	chateau	bowl of potpourri	500	ROW413
+Chateau Mantegna Gift Shop	chateau	antler chandelier	1500	ROW415
+Chateau Mantegna Gift Shop	chateau	artificial skylight	1500	ROW416
+Chateau Mantegna Gift Shop	chateau	ceiling fan	1500	ROW414
+Chateau Mantegna Gift Shop	chateau	continental juice bar	1500	ROW418
+Chateau Mantegna Gift Shop	chateau	fancy stationery set	1500	ROW419
+Chateau Mantegna Gift Shop	chateau	Swiss piggy bank	1500	ROW417
+Chateau Mantegna Gift Shop	chateau	alpine watercolor set	5000	ROW420
+
+Chinatown Shops	chinatown	fortune cookie	40	ROW568
+Chinatown Shops	chinatown	brass abacus	150	ROW569
+Chinatown Shops	chinatown	cheap Chinese beer	250	ROW570
+Chinatown Shops	chinatown	bottle of limeade	300	ROW571
+Chinatown Shops	chinatown	rhinoceros horn	375	ROW572
+Chinatown Shops	chinatown	furry pink pillow	500	ROW573
+Chinatown Shops	chinatown	novelty tattoo sleeves	1000	ROW574
+Chinatown Shops	chinatown	toy taijijian	1000	ROW575
+Chinatown Shops	chinatown	bonsai tree	1500	ROW576
+Chinatown Shops	chinatown	lucky cat statue	2000	ROW577
+
+The Mayo Clinic	mayoclinic	Mayonex	1000	ROW716
+The Mayo Clinic	mayoclinic	Mayodiol	1000	ROW717
+The Mayo Clinic	mayoclinic	Mayostat	1000	ROW718
+The Mayo Clinic	mayoclinic	Mayozapine	1000	ROW719
+The Mayo Clinic	mayoclinic	Mayoflex	1000	ROW720
+The Mayo Clinic	mayoclinic	Mayo Minder&trade;	99	ROW725
+The Mayo Clinic	mayoclinic	sphygmayomanometer	2500	ROW722
+The Mayo Clinic	mayoclinic	tomayohawk-style reflex hammer	2500	ROW723
+The Mayo Clinic	mayoclinic	mayo lance	2500	ROW724
+The Mayo Clinic	mayoclinic	miracle whip	10000	ROW721
+
+Fallout Shelter Medical Supply	vault1	lead umbrella	2500	ROW843
+Fallout Shelter Medical Supply	vault1	Rad-B-Gone (1 lb.)	3000	ROW844
+Fallout Shelter Medical Supply	vault1	Rad-Pro (1 oz.)	500	ROW845
+Fallout Shelter Medical Supply	vault1	li'l eyeball costume	1000	ROW892
+Fallout Shelter Medical Supply	vault1	li'l candy corn costume	1000	ROW896
+
+Fallout Shelter Electronics Supply	vault2	Power-Guy 2000 holo-record	300	ROW848
+Fallout Shelter Electronics Supply	vault2	Shrieking Weasel holo-record	300	ROW847
+Fallout Shelter Electronics Supply	vault2	Superdrifter holo-record	300	ROW849
+Fallout Shelter Electronics Supply	vault2	Wrist-Boy	5000	ROW846
+Fallout Shelter Electronics Supply	vault2	li'l robot costume	1000	ROW893
+Fallout Shelter Electronics Supply	vault2	li'l knight costume	1000	ROW898
+
+Underground Record Store	vault3	Drunk Uncles holo-record	1000	ROW881
+Underground Record Store	vault3	EMD holo-record	300	ROW851
+Underground Record Store	vault3	Lucky Strikes holo-record	300	ROW850
+Underground Record Store	vault3	The Pigs holo-record	1000	ROW880
+Underground Record Store	vault3	li'l liberty costume	1000	ROW894
+Underground Record Store	vault3	li'l unicorn costume	1000	ROW897
+
+The Crimbo Cafe (2018)	crimbo18	hot watered rum	50	ROW1030
+The Crimbo Cafe (2018)	crimbo18	yule gruel	50	ROW1029
+
+Crimbo Town Gift-O-Mat	crimbo18giftomat	bottle of Crimbognac	100000	ROW1031
+Crimbo Town Gift-O-Mat	crimbo18giftomat	Crimboysters Rockefeller	100000	ROW1032
+Crimbo Town Gift-O-Mat	crimbo18giftomat	Crimbeau de toilette	100000	ROW1033
+Crimbo Town Gift-O-Mat	crimbo18giftomat	Crimbo candle	250000	ROW1034
+Crimbo Town Gift-O-Mat	crimbo18giftomat	Carol of the Bulls	500000	ROW1035
+Crimbo Town Gift-O-Mat	crimbo18giftomat	Carol of the Hells	500000	ROW1036
+Crimbo Town Gift-O-Mat	crimbo18giftomat	Carol of the Thrills	500000	ROW1037
+Crimbo Town Gift-O-Mat	crimbo18giftomat	Crimbolex watch	1000000	ROW1039
+Crimbo Town Gift-O-Mat	crimbo18giftomat	Crimbo tattoo kit	1000000	ROW1040
+
+The Crimbo Cafe (2019)	crimbo19	fishelada	50	ROW1103
+The Crimbo Cafe (2019)	crimbo19	bowl of mernudo	50	ROW1101
+The Crimbo Cafe (2019)	crimbo19	ojo de pez burrito	50	ROW1104
+
+Drip Institute Cafeteria	dripcafeteria	drippy nugget	10000	ROW1131
+Drip Institute Cafeteria	dripcafeteria	glass of drippy wine	10000	ROW1151
+Drip Institute Cafeteria	dripcafeteria	drippy caviar	1000000	ROW1152
+Drip Institute Cafeteria	dripcafeteria	Drip Institute petri dish	5000	ROW1159
+
+Drip Institute Armory	driparmory	Drip harness	50000	ROW1128
+Drip Institute Armory	driparmory	drippy truncheon	20000	ROW1129
+
+The Crimbo Cafe (2020)	crimbo20cafe	stuffed red and green pepper (stale)	300	ROW1201
+The Crimbo Cafe (2020)	crimbo20cafe	cranberry margarita (brackish)	300	ROW1202
+
+The Black and White and Red All Over Market	crimbo20blackmarket	&quot;reusable&quot; grocery bag	5000	ROW1171
+The Black and White and Red All Over Market	crimbo20blackmarket	cardboard wine carrier	5000	ROW1172
+The Black and White and Red All Over Market	crimbo20blackmarket	antique candy bucket	5000	ROW1173
+The Black and White and Red All Over Market	crimbo20blackmarket	prescription teeth whitener	10000	ROW1174
+The Black and White and Red All Over Market	crimbo20blackmarket	imported lemon lozenge	10000	ROW1175
+The Black and White and Red All Over Market	crimbo20blackmarket	hermedisiac cologne	10000	ROW1176
+The Black and White and Red All Over Market	crimbo20blackmarket	government food shipment	100000	ROW1177
+The Black and White and Red All Over Market	crimbo20blackmarket	government booze shipment	100000	ROW1178
+The Black and White and Red All Over Market	crimbo20blackmarket	government candy shipment	100000	ROW1179
+The Black and White and Red All Over Market	crimbo20blackmarket	Crimbo Cheer tattoo kit	1000000	ROW1180
+The Black and White and Red All Over Market	crimbo20blackmarket	Crimbo Carol tattoo kit	1000000	ROW1181
+The Black and White and Red All Over Market	crimbo20blackmarket	Crimbo Commerce tattoo kit	1000000	ROW1182
+
+Clan Underground Fireworks Shop	fwshop	Arr, M80	100	ROW1254
+Clan Underground Fireworks Shop	fwshop	fire crackers	100	ROW1253
+Clan Underground Fireworks Shop	fwshop	blue rocket	250	ROW1251
+Clan Underground Fireworks Shop	fwshop	red rocket	250	ROW1252
+Clan Underground Fireworks Shop	fwshop	yellow rocket	250	ROW1250
+Clan Underground Fireworks Shop	fwshop	fedora-mounted fountain	500	ROW1247
+Clan Underground Fireworks Shop	fwshop	porkpie-mounted popper	500	ROW1249
+Clan Underground Fireworks Shop	fwshop	sombrero-mounted sparkler	500	ROW1248
+Clan Underground Fireworks Shop	fwshop	Catherine Wheel	1000	ROW1255
+Clan Underground Fireworks Shop	fwshop	oversized sparkler	1000	ROW1257
+Clan Underground Fireworks Shop	fwshop	rocket boots	1000	ROW1256
+
+FDKOL Auxiliary	wildfire	B. L. A. R. T.	10000	ROW1258
+FDKOL Auxiliary	wildfire	rusty empty nacho cheese can	1000	ROW1259
+FDKOL Auxiliary	wildfire	pump grease	5000	ROW1262
+FDKOL Auxiliary	wildfire	rainproof barrel caulk	5000	ROW1261
+FDKOL Auxiliary	wildfire	literal bucket hat	5000	ROW1260
+
+The Crimbo Cafe (2021)	crimbo21cafe	bread pie	50	ROW1263
+The Crimbo Cafe (2021)	crimbo21cafe	clear Russian	50	ROW1264
+
+Ornament Stand	crimbo21ornaments	black Crimbo ball	100	ROW1265
+Ornament Stand	crimbo21ornaments	white Crimbo ball	100	ROW1266
+
+Hack Market	cyber_hackmarket	drenchrome 2.0	500	ROW1557
+Hack Market	cyber_hackmarket	eXpand	500	ROW1556
+Hack Market	cyber_hackmarket	Synapse Blaster	500	ROW1549
+
+Wet Crap For Sale	sandpenny	scroll of sea strength	1000	ROW1613
+Wet Crap For Sale	sandpenny	scroll of sea smarts	1000	ROW1614
+Wet Crap For Sale	sandpenny	scroll of sea smarm	1000	ROW1615
+
+Crimbo Cafe (2025)	crimbo25_cafe	traditional gingerloaf	300	ROW1675
+Crimbo Cafe (2025)	crimbo25_cafe	Scotch and eggnog	300	ROW1676

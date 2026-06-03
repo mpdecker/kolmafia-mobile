@@ -1,0 +1,30 @@
+1
+# Transformable item groups
+#
+# 1st field on each line is the % of max HP that will be inflicted as damage.
+#
+# The items in each group are ordered: an item deterministically
+# transforms into the next in the list.
+#
+# Torso Awareness is required to make a shirt
+# Spirit of Rigatoni or a special sauce glove is required to make a chefstaff
+
+0	scratch 'n' sniff sword	scratch 'n' sniff crossbow
+0	metallic foil bow	metallic foil radar dish	metallic foil cat ears
+0	makeshift cape	makeshift skirt	makeshift crane	makeshift turban
+0	aquaviolet jub-jub bird	crimsilion jub-jub bird	charpuce jub-jub bird
+0	turtle wax shield	turtle wax helmet	turtle wax greaves
+0	ironic moustache	chiptune guitar	fixed-gear bicycle
+5	ice sickle	ice baby	ice pick	ice skates
+5	liar's pants	flaming juggler's balls	flaming pink shirt	flaming familiar doppelg&auml;nger	evil flaming eyeball pendant
+5	naughty fortune teller	origami &quot;gentlemen's&quot; magazine	naughty paper shuriken	origami pasties	origami riding crop
+5	Spooky Putty mitre	Spooky Putty leotard	Spooky Putty ball	Spooky Putty sheet	Spooky Putty snake
+5	stinky cheese sword	stinky cheese diaper	stinky cheese wheel	stinky cheese eye	Staff of Queso Escusado
+0	Loathing Legion knife	Loathing Legion abacus	Loathing Legion can opener	Loathing Legion chainsaw	Loathing Legion corkscrew	Loathing Legion defibrillator	Loathing Legion double prism	Loathing Legion electric knife	Loathing Legion flamethrower	Loathing Legion hammer	Loathing Legion helicopter	Loathing Legion jackhammer	Loathing Legion kitchen sink	Loathing Legion many-purpose hook	Loathing Legion moondial	Loathing Legion necktie	Loathing Legion pizza stone	Loathing Legion rollerblades	Loathing Legion tape measure	Loathing Legion tattoo needle	Loathing Legion universal screwdriver
+0	Boris's Helm	Boris's Helm (askew)
+0	bugged beanie	bugged balaclava
+0	Jarlsberg's pan (Cosmic portal mode)	Jarlsberg's pan
+0	Sneaky Pete's leather jacket	Sneaky Pete's leather jacket (collar popped)
+0	toggle switch (Bounce)	toggle switch (Bartend)
+0	January's Garbage Tote	deceased crimbo tree	broken champagne bottle	tinsel tights	wad of used tape	makeshift garbage shirt	replica January's Garbage Tote
+0	mushroom cap	mushroom shield	mushroom pants	mushroom badge

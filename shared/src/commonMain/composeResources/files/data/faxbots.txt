@@ -1,0 +1,8 @@
+1
+# Bot	XML File URL
+
+# faxbot	http://www.hogsofdestiny.com/faxbot/faxbot.xml
+# faustbot	http://faust.kolbots.com/faustbot.xml
+# cheesefax	http://cheesellc.com/kol/faxlist.xml
+easyfax	https://svn.code.sf.net/p/easyfax/code/Easyfax.xml
+onlyfax	https://onlyfax.loathers.net/OnlyFax.xml
