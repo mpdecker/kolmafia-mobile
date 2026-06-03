@@ -14,4 +14,15 @@ data class ChoiceSolvers(
     val lostKey: LostKeySolver,
     val gamepro: GameproSolver,
     val lightsOut: LightsOutSolver,
-)
+) {
+    companion object {
+        val NoOp = ChoiceSolvers(
+            safetyShelter = SafetyShelterSolver.NoOp,
+            vampOut       = VampOutSolver.NoOp,
+            arcadeGame    = ArcadeGameSolver.NoOp,
+            lostKey       = LostKeySolver.NoOp,
+            gamepro       = GameproSolver.NoOp,
+            lightsOut     = LightsOutSolver.NoOp,
+        )
+    }
+}

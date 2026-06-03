@@ -8,13 +8,22 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import net.sourceforge.kolmafia.adventure.choice.ChoiceContext
+import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
+import net.sourceforge.kolmafia.adventure.choice.ChoiceSolvers
+import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.inventory.InventoryItem
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
+import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.skill.SkillManager
 
 class AdventureManager(
     private val adventureRequest: AdventureRequest,
@@ -23,11 +32,22 @@ class AdventureManager(
     private val characterRequest: CharacterRequest,
     private val character: KoLCharacter,
     private val preferences: Preferences,
-    private val eventBus: GameEventBus
+    private val eventBus: GameEventBus,
+    private val registry: ChoiceHandlerRegistry = ChoiceHandlerRegistry(),
+    private val goalManager: GoalManager = GoalManager(),
+    private val questDatabase: QuestDatabase = QuestDatabase(preferences),
+    private val solvers: ChoiceSolvers = ChoiceSolvers.NoOp,
+    private val inventory: InventoryManager? = null,
+    private val effects: EffectManager? = null,
+    private val skills: SkillManager? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
     private var currentJob: Job? = null
+
+    private var skillUses: Int = 0
+
+    fun setSkillUses(n: Int) { skillUses = n }
 
     fun runAdventures(location: AdventureLocation, turns: Int, scope: CoroutineScope): Job =
         scope.launch {
@@ -70,7 +90,7 @@ class AdventureManager(
         }
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
             is AdventureResult.Combat -> resolveCombat(location)
-            is AdventureResult.Choice -> resolveChoice(parsed)
+            is AdventureResult.Choice -> resolveChoice(parsed.choiceId, parsed.responseText)
             is AdventureResult.NonCombat -> parsed.also { emitItemEvents(it.itemsGained) }
         }
     }
@@ -88,11 +108,34 @@ class AdventureManager(
         return result
     }
 
-    private suspend fun resolveChoice(choice: AdventureResult.Choice): AdventureResult.Choice {
-        val option = MacroStrategy.choiceOptionFor(choice.choiceId, preferences)
-        choiceRequest.choose(choice.choiceId, option)
-        val resolved = choice.copy(chosenOption = option)
-        eventBus.emit(GameEvent.ChoiceResolved(choice.choiceId, option))
+    private suspend fun resolveChoice(
+        choiceId: Int,
+        responseText: String,
+    ): AdventureResult.Choice {
+        val ctx = ChoiceContext(
+            choiceId       = choiceId,
+            options        = ChoiceUtilities.parseChoices(responseText),
+            responseText   = responseText,
+            characterState = character.state.value,
+            inventoryState = inventory?.state?.value ?: net.sourceforge.kolmafia.inventory.InventoryState(),
+            effectState    = effects?.state?.value ?: net.sourceforge.kolmafia.effect.EffectState(),
+            skillState     = skills?.state?.value ?: net.sourceforge.kolmafia.skill.SkillState(),
+            preferences    = preferences,
+            goalManager    = goalManager,
+            questDatabase  = questDatabase,
+            solvers        = solvers,
+            preference     = preferences.getInt("choiceAdventure$choiceId", 0),
+            // TODO: track step count across the adventure loop and pass it here
+            stepCount      = 0,
+            skillUses      = skillUses,
+        )
+        val option = registry.dispatch(ctx) ?: preferences.getString("choiceAdventure$choiceId").toIntOrNull() ?: 1
+        if (option > 0 && skillUses > 0) {
+            skillUses--
+        }
+        choiceRequest.choose(choiceId, option)
+        val resolved = AdventureResult.Choice(choiceId, "Choice Adventure", chosenOption = option)
+        eventBus.emit(GameEvent.ChoiceResolved(choiceId, option))
         return resolved
     }
 

@@ -33,7 +33,7 @@ object AdventureParser {
     private fun parseChoice(html: String): AdventureResult.Choice {
         val choiceId = CHOICE_ID.find(html)?.groupValues?.get(1)?.toIntOrNull() ?: 0
         val options = CHOICE_OPTION.findAll(html).map { it.groupValues[2].trim() }.toList()
-        return AdventureResult.Choice(choiceId, "Choice Adventure", options)
+        return AdventureResult.Choice(choiceId, "Choice Adventure", options, responseText = html)
     }
 
     private fun parseNonCombat(html: String): AdventureResult.NonCombat {
