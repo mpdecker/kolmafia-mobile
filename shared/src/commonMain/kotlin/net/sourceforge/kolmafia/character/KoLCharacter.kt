@@ -18,22 +18,26 @@ class KoLCharacter {
             zodiacSign = response.sign,
             challengePath = response.path,
             ascensionNumber = response.ascensions.toIntOrNull() ?: 0,
+            gender = Gender.fromApiString(response.gender),
+            title = response.title,
 
             // HP / MP
             currentHp = response.hp.toIntOrNull() ?: 0,
             maxHp = response.hpmax.toIntOrNull() ?: 0,
+            baseMaxHp = response.basehpmax.toIntOrNull() ?: response.hpmax.toIntOrNull() ?: 0,
             currentMp = response.mp.toIntOrNull() ?: 0,
             maxMp = response.mpmax.toIntOrNull() ?: 0,
+            baseMaxMp = response.basempmax.toIntOrNull() ?: response.mpmax.toIntOrNull() ?: 0,
 
-            // Base stats
+            // Base stats & subpoints
             baseMusc = response.mus.toIntOrNull() ?: 0,
-            muscSubpoints = response.musexp.toIntOrNull() ?: 0,
+            muscSubpoints = response.musexp.toLongOrNull() ?: 0L,
             baseMyst = response.mys.toIntOrNull() ?: 0,
-            mystSubpoints = response.mysexp.toIntOrNull() ?: 0,
+            mystSubpoints = response.mysexp.toLongOrNull() ?: 0L,
             baseMoxie = response.mox.toIntOrNull() ?: 0,
-            moxieSubpoints = response.moxexp.toIntOrNull() ?: 0,
+            moxieSubpoints = response.moxexp.toLongOrNull() ?: 0L,
 
-            // Buffed stats — fall back to base if buffed values absent
+            // Buffed stats — fall back to base if API omits buffed values
             buffedMusc = response.buffedmus.toIntOrNull()
                 ?: response.mus.toIntOrNull() ?: 0,
             buffedMyst = response.buffedmys.toIntOrNull()
@@ -41,11 +45,16 @@ class KoLCharacter {
             buffedMoxie = response.buffedmox.toIntOrNull()
                 ?: response.mox.toIntOrNull() ?: 0,
 
-            // Currency / turns
+            // Currency
             meat = response.meat.toIntOrNull() ?: 0,
+            storageMeat = response.storagemeat.toLongOrNull() ?: 0L,
+
+            // Turns / days
             adventuresLeft = response.adventures.toIntOrNull() ?: 0,
             turnsPlayed = response.turnsplayed.toIntOrNull() ?: 0,
+            currentRun = response.currentrun.toIntOrNull() ?: 0,
             dayCount = response.daycount.toIntOrNull() ?: 0,
+            rolloverTimestamp = response.rollover.toLongOrNull() ?: 0L,
 
             // Consumables
             fullness = response.fullness.toIntOrNull() ?: 0,
@@ -57,17 +66,50 @@ class KoLCharacter {
 
             // PvP
             pvpFightsLeft = response.pvpfights.toIntOrNull() ?: 0,
+            hippyStoneBroken = response.hippystone == "1",
 
             // Ascension / mode
             roninLeft = response.roninleft.toIntOrNull() ?: 0,
             isHardcore = response.hardcore == "1",
+            kingLiberated = response.kingliberated == "1",
             limitMode = response.limitmode,
+
+            // Class-specific resources
+            fury = response.fury.toIntOrNull() ?: 0,
+            soulsauce = response.soulsauce.toIntOrNull() ?: 0,
+            thunder = response.thunder.toIntOrNull() ?: 0,
+            rain = response.rain.toIntOrNull() ?: 0,
+            lightning = response.lightning.toIntOrNull() ?: 0,
+            currentPP = response.pp.toIntOrNull() ?: 0,
+            maximumPP = response.ppmax.toIntOrNull() ?: 0,
+            youRobotEnergy = response.robonenergy.toIntOrNull() ?: 0,
+            youRobotScraps = response.robonscraps.toIntOrNull() ?: 0,
+            wildfireWater = response.wildfirewater.toIntOrNull() ?: 0,
+            minstrelLevel = response.minstrel.toIntOrNull() ?: 0,
+
+            // Social / access
+            hasStore = response.hasstore == "1",
+            hasDisplayCase = response.hasdisplaycase == "1",
+            hasClan = response.hasclan == "1",
+
+            // Campground
+            telescopeUpgrades = response.telescopelevel.toIntOrNull() ?: 0,
+
+            // Misc
+            mindControlLevel = response.mcd.toIntOrNull() ?: 0,
+            radSickness = response.radsickness.toIntOrNull() ?: 0,
+            stillsAvailable = response.stills.toIntOrNull() ?: -1,
+            arenaWins = response.arenawins.toIntOrNull() ?: 0,
 
             // Familiar
             familiarId = response.familiar.toIntOrNull() ?: 0,
             familiarName = response.familiarname,
             familiarWeight = response.familiarweight.toIntOrNull() ?: 0,
             familiarExp = response.familiarexp.toIntOrNull() ?: 0,
+            enthronedFamiliarId = response.enthroned.toIntOrNull() ?: 0,
+            enthronedFamiliarName = response.enthronedname,
+            bjornedFamiliarId = response.bjorned.toIntOrNull() ?: 0,
+            bjornedFamiliarName = response.bjornedname,
 
             // Moon
             moonPhase = response.moonphase.toIntOrNull() ?: 0,
@@ -81,8 +123,8 @@ class KoLCharacter {
         )
     }
 
-    // Merge partial updates without overwriting fields not present in the payload.
-    // Useful when only HP/MP changes (e.g. after combat) rather than a full refresh.
+    // ── Partial update helpers — avoid full API round-trips for frequent changes ──
+
     fun updateHpMp(currentHp: Int, maxHp: Int, currentMp: Int, maxMp: Int) {
         _state.value = _state.value.copy(
             currentHp = currentHp, maxHp = maxHp,
@@ -90,8 +132,12 @@ class KoLCharacter {
         )
     }
 
-    fun updateMeat(meat: Int) {
-        _state.value = _state.value.copy(meat = meat)
+    fun updateMeat(meat: Int, storageMeat: Long = _state.value.storageMeat) {
+        _state.value = _state.value.copy(meat = meat, storageMeat = storageMeat)
+    }
+
+    fun addSessionMeat(delta: Long) {
+        _state.value = _state.value.copy(sessionMeat = _state.value.sessionMeat + delta)
     }
 
     fun updateAdventuresLeft(adventures: Int) {
@@ -119,6 +165,43 @@ class KoLCharacter {
 
     fun setIntrinsics(names: List<String>) {
         _state.value = _state.value.copy(intrinsics = names)
+    }
+
+    fun updateClassResource(fury: Int? = null, soulsauce: Int? = null,
+                            discoMomentum: Int? = null, audience: Int? = null,
+                            absorbs: Int? = null) {
+        _state.value = _state.value.copy(
+            fury = fury ?: _state.value.fury,
+            soulsauce = soulsauce ?: _state.value.soulsauce,
+            discoMomentum = discoMomentum ?: _state.value.discoMomentum,
+            audience = audience ?: _state.value.audience,
+            absorbs = absorbs ?: _state.value.absorbs
+        )
+    }
+
+    fun updatePlumberResources(thunder: Int, rain: Int, lightning: Int,
+                               currentPP: Int = _state.value.currentPP,
+                               maximumPP: Int = _state.value.maximumPP) {
+        _state.value = _state.value.copy(
+            thunder = thunder, rain = rain, lightning = lightning,
+            currentPP = currentPP, maximumPP = maximumPP
+        )
+    }
+
+    fun setCampground(telescopeUpgrades: Int = _state.value.telescopeUpgrades,
+                      hasBookshelf: Boolean = _state.value.hasBookshelf) {
+        _state.value = _state.value.copy(
+            telescopeUpgrades = telescopeUpgrades,
+            hasBookshelf = hasBookshelf
+        )
+    }
+
+    fun setMindControlLevel(level: Int) {
+        _state.value = _state.value.copy(mindControlLevel = level)
+    }
+
+    fun setCurrentRun(run: Int) {
+        _state.value = _state.value.copy(currentRun = run)
     }
 
     fun reset() {

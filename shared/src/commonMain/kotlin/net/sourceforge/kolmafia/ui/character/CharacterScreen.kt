@@ -155,7 +155,7 @@ private fun StatBar(label: String, current: Int, max: Int) {
 }
 
 @Composable
-private fun StatRow(label: String, base: Int, subpoints: Int) {
+private fun StatRow(label: String, base: Int, subpoints: Long) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween
