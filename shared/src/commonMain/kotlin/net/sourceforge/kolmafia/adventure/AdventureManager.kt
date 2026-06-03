@@ -71,12 +71,15 @@ class AdventureManager(
                     val result = doOneTurn(location) ?: return@launch
 
                     characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
-                    // Recover HP/MP between turns using fresh character state
-                    recoveryManager?.recoverIfNeeded(
+                    // Recover HP/MP between turns; re-fetch state if recovery occurred
+                    val healed = recoveryManager?.recoverIfNeeded(
                         charState  = character.state.value,
                         invState   = inventory?.state?.value ?: InventoryState(),
                         skillState = skills?.state?.value ?: SkillState(),
                     )
+                    if (healed == true) {
+                        characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+                    }
                     eventBus.emit(GameEvent.TurnConsumed(location, result))
 
                     when {
