@@ -40,4 +40,20 @@ class ChoiceUtilitiesTest {
 
     @Test fun parseChoices_empty_returnsEmpty() =
         assertEquals(emptyMap(), ChoiceUtilities.parseChoices("<html></html>"))
+
+    @Test fun parseChoices_multilineHtml() {
+        val html = """
+            <input type="hidden" name="whichchoice" value="3">
+            <input type="submit" name="option" value="1">
+            Pick up the sapling
+            <input type="submit" name="option" value="2">
+            Leave it
+        """.trimIndent()
+        val choices = ChoiceUtilities.parseChoices(html)
+        // With the [^<]* pattern, text after the submit tag before the next < is captured.
+        // Note: in this HTML, the text is on the next line after the input, so [^<]* captures
+        // "\n        Pick up the sapling\n        " which trims to "Pick up the sapling".
+        assertEquals("Pick up the sapling", choices[1])
+        assertEquals("Leave it", choices[2])
+    }
 }

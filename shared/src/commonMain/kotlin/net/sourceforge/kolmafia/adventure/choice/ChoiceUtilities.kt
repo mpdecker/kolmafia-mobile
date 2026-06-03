@@ -3,12 +3,14 @@ package net.sourceforge.kolmafia.adventure.choice
 object ChoiceUtilities {
 
     private val CHOICE_ID_REGEX =
-        Regex("""<input[^>]+name="whichchoice"[^>]+value="(\d+)"""")
+        Regex("""<input[^>]+name="whichchoice"[^>]+value="(\d+)"""", RegexOption.IGNORE_CASE)
 
+    // Match an option submit/radio input and capture everything after it.
+    // Terminates at the next input tag or end of string.
     private val OPTION_REGEX =
         Regex(
-            """<input[^>]+name="option"[^>]+value="(\d+)"[^>]*>\s*(.*?)(?=\s*<input|\s*</form|\s*$)""",
-            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+            """<input[^>]+name="option"[^>]+value="(\d+)"[^>]*>([\s\S]*?)(?=<input|$)""",
+            RegexOption.IGNORE_CASE
         )
 
     fun extractChoiceId(html: String): Int? =
