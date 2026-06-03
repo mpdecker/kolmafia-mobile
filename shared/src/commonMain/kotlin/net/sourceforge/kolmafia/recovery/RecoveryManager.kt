@@ -1,13 +1,17 @@
 package net.sourceforge.kolmafia.recovery
 
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.RestoreData
+import net.sourceforge.kolmafia.data.RestoreDatabase
 import net.sourceforge.kolmafia.data.RestoreType
 import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.skill.SkillState
 
 class RecoveryManager(
     private val inventoryManager: InventoryManager,
@@ -87,5 +91,58 @@ class RecoveryManager(
                         && (skill.dailyLimit == 0 || skill.timesCast < skill.dailyLimit)
                 }
             }
+    }
+
+    suspend fun recoverIfNeeded(
+        charState: CharacterState,
+        invState: InventoryState,
+        skillState: SkillState,
+    ): Boolean {
+        var recovered = false
+        if (needsHpRecovery(charState, preferences)) {
+            recovered = recoverHp(charState, invState, skillState) || recovered
+        }
+        if (needsMpRecovery(charState, preferences)) {
+            recovered = recoverMp(charState, invState, skillState) || recovered
+        }
+        return recovered
+    }
+
+    private suspend fun recoverHp(
+        charState: CharacterState,
+        invState: InventoryState,
+        skillState: SkillState,
+    ): Boolean {
+        val nameToId: (String) -> Int? = { name -> ItemDatabase.getByName(name)?.id }
+        val item = pickHpItem(RestoreDatabase.hpRestores(), invState.items, nameToId)
+        if (item != null) {
+            inventoryManager.useItem(item)
+            return true
+        }
+        val skill = pickHpSkill(RestoreDatabase.hpRestores(), skillState.skills, charState.currentMp)
+        if (skill != null) {
+            skillManager.cast(skill)
+            return true
+        }
+        return false
+    }
+
+    private suspend fun recoverMp(
+        charState: CharacterState,
+        invState: InventoryState,
+        skillState: SkillState,
+    ): Boolean {
+        val nameToId: (String) -> Int? = { name -> ItemDatabase.getByName(name)?.id }
+        val item = pickMpItem(RestoreDatabase.mpRestores(), invState.items, nameToId)
+        if (item != null) {
+            inventoryManager.useItem(item)
+            return true
+        }
+        val skill = pickMpSkill(RestoreDatabase.mpRestores(), skillState.skills, charState.currentMp)
+        if (skill != null) {
+            skillManager.cast(skill)
+            return true
+        }
+        return false
     }
 }
