@@ -1,0 +1,218 @@
+package net.sourceforge.kolmafia.modifiers
+
+enum class DoubleModifier(val tag: String, val multiple: Boolean = false) {
+
+    // ── Familiar ─────────────────────────────────────────────────────────────
+    FAMILIAR_WEIGHT("Familiar Weight"),
+    FAMILIAR_WEIGHT_PCT("Familiar Weight Percent"),
+    FAMILIAR_WEIGHT_CAP("Familiar Weight Cap"),
+    HIDDEN_FAMILIAR_WEIGHT("Familiar Weight (hidden)"),
+    FAMILIAR_EXP("Experience (familiar)"),
+    FAMILIAR_DAMAGE("Familiar Damage"),
+    FAMILIAR_ACTION_BONUS("Familiar Action Bonus"),
+    FAMILIAR_TUNING_MUSCLE("Familiar Tuning (Muscle)"),
+    FAMILIAR_TUNING_MYSTICALITY("Familiar Tuning (Mysticality)"),
+    FAMILIAR_TUNING_MOXIE("Familiar Tuning (Moxie)"),
+
+    // ── Familiar sub-types ────────────────────────────────────────────────────
+    VOLLEYBALL_WEIGHT("Volleyball"),
+    SOMBRERO_WEIGHT("Sombrero"),
+    LEPRECHAUN_WEIGHT("Leprechaun"),
+    FAIRY_WEIGHT("Fairy"),
+    FOOD_FAIRY_WEIGHT("Food Fairy"),
+    BOOZE_FAIRY_WEIGHT("Booze Fairy"),
+    CANDY_FAIRY_WEIGHT("Candy Fairy"),
+    VOLLEYBALL_EFFECTIVENESS("Volleyball Effectiveness"),
+    SOMBRERO_EFFECTIVENESS("Sombrero Effectiveness"),
+    LEPRECHAUN_EFFECTIVENESS("Leprechaun Effectiveness"),
+    FAIRY_EFFECTIVENESS("Fairy Effectiveness"),
+    FOOD_FAIRY_EFFECTIVENESS("Food Fairy Effectiveness"),
+    BOOZE_FAIRY_EFFECTIVENESS("Booze Fairy Effectiveness"),
+    CANDY_FAIRY_EFFECTIVENESS("Candy Fairy Effectiveness"),
+    SOMBRERO_BONUS("Sombrero Bonus"),
+
+    // ── Combat ────────────────────────────────────────────────────────────────
+    MONSTER_LEVEL("Monster Level"),
+    MONSTER_LEVEL_PERCENT("Monster Level Percent"),
+    COMBAT_RATE("Combat Rate"),
+    UNDERWATER_COMBAT_RATE("Underwater Combat Rate"),
+    RAW_COMBAT_RATE("Raw Combat Rate"),
+    INITIATIVE("Initiative"),
+    INITIATIVE_PENALTY("Initiative Penalty"),
+    CRITICAL_PCT("Critical Hit Percent"),
+    SPELL_CRITICAL_PCT("Spell Critical Percent"),
+    FUMBLE("Fumble"),
+    AVOID_ATTACK("Avoid Attack"),
+    DAMAGE_ABSORPTION("Damage Absorption"),
+    DAMAGE_REDUCTION("Damage Reduction"),
+
+    // ── Damage — flat ─────────────────────────────────────────────────────────
+    WEAPON_DAMAGE("Weapon Damage"),
+    WEAPON_DAMAGE_PCT("Weapon Damage Percent"),
+    RANGED_DAMAGE("Ranged Damage"),
+    RANGED_DAMAGE_PCT("Ranged Damage Percent"),
+    SPELL_DAMAGE("Spell Damage"),
+    SPELL_DAMAGE_PCT("Spell Damage Percent"),
+    COLD_DAMAGE("Cold Damage"),
+    HOT_DAMAGE("Hot Damage"),
+    SLEAZE_DAMAGE("Sleaze Damage"),
+    SPOOKY_DAMAGE("Spooky Damage"),
+    STENCH_DAMAGE("Stench Damage"),
+    COLD_SPELL_DAMAGE("Cold Spell Damage"),
+    HOT_SPELL_DAMAGE("Hot Spell Damage"),
+    SLEAZE_SPELL_DAMAGE("Sleaze Spell Damage"),
+    SPOOKY_SPELL_DAMAGE("Spooky Spell Damage"),
+    STENCH_SPELL_DAMAGE("Stench Spell Damage"),
+    DB_COMBAT_DAMAGE("DB Combat Damage"),
+    SAUCE_SPELL_DAMAGE("Sauce Spell Damage"),
+    SIXGUN_DAMAGE("Sixgun Damage"),
+    DAMAGE_AURA("Damage Aura"),
+    SPORADIC_DAMAGE_AURA("Sporadic Damage Aura"),
+    THORNS("Thorns"),
+    SPORADIC_THORNS("Sporadic Thorns"),
+    PRISMATIC_DAMAGE("Prismatic Damage"),
+    DRIPPY_DAMAGE("Drippy Damage"),
+
+    // ── Damage vs. specific enemies ───────────────────────────────────────────
+    BUGBEAR_DAMAGE("Damage vs. Bugbears"),
+    WEREWOLF_DAMAGE("Damage vs. Werewolves"),
+    ZOMBIE_DAMAGE("Damage vs. Zombies"),
+    GHOST_DAMAGE("Damage vs. Ghosts"),
+    VAMPIRE_DAMAGE("Damage vs. Vampires"),
+    SKELETON_DAMAGE("Damage vs. Skeletons"),
+    UNDEAD_DAMAGE("Damage vs. Undead"),
+    MERKIN_DAMAGE("Damage vs. Mer-kin"),
+    ORC_DAMAGE("Damage vs. Orcs"),
+    SEAL_DAMAGE("Damage vs. Seals"),
+    COMBAT_ITEM_DAMAGE_PCT("Combat Item Damage Percent"),
+    REDUCE_ENEMY_DEFENSE("Reduce Enemy Defense"),
+
+    // ── Resistance ───────────────────────────────────────────────────────────
+    COLD_RESISTANCE("Cold Resistance"),
+    HOT_RESISTANCE("Hot Resistance"),
+    SLEAZE_RESISTANCE("Sleaze Resistance"),
+    SPOOKY_RESISTANCE("Spooky Resistance"),
+    STENCH_RESISTANCE("Stench Resistance"),
+    SLIME_RESISTANCE("Slime Resistance"),
+    SUPERCOLD_RESISTANCE("Supercold Resistance"),
+    DRIPPY_RESISTANCE("Drippy Resistance"),
+    SLIME_HATES_IT("Slime Hates It"),
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
+    MUS("Muscle"),
+    MUS_PCT("Muscle Percent"),
+    MUS_LIMIT("Muscle Limit"),
+    MYS("Mysticality"),
+    MYS_PCT("Mysticality Percent"),
+    MYS_LIMIT("Mysticality Limit"),
+    MOX("Moxie"),
+    MOX_PCT("Moxie Percent"),
+    MOX_LIMIT("Moxie Limit"),
+
+    // ── HP / MP ───────────────────────────────────────────────────────────────
+    HP("Maximum HP"),
+    HP_PCT("Maximum HP Percent"),
+    MP("Maximum MP"),
+    MP_PCT("Maximum MP Percent"),
+    HP_REGEN_MIN("HP Regen Min"),
+    HP_REGEN_MAX("HP Regen Max"),
+    MP_REGEN_MIN("MP Regen Min"),
+    MP_REGEN_MAX("MP Regen Max"),
+    BASE_RESTING_HP("Base Resting HP"),
+    RESTING_HP_PCT("Resting HP Percent"),
+    BONUS_RESTING_HP("Bonus Resting HP"),
+    BASE_RESTING_MP("Base Resting MP"),
+    RESTING_MP_PCT("Resting MP Percent"),
+    BONUS_RESTING_MP("Bonus Resting MP"),
+
+    // ── Mana ─────────────────────────────────────────────────────────────────
+    MANA_COST("Mana Cost"),
+    STACKABLE_MANA_COST("Mana Cost (stackable)"),
+    COMBAT_MANA_COST("Mana Cost (combat)"),
+
+    // ── Experience ───────────────────────────────────────────────────────────
+    EXPERIENCE("Experience"),
+    MUS_EXPERIENCE("Experience (Muscle)"),
+    MYS_EXPERIENCE("Experience (Mysticality)"),
+    MOX_EXPERIENCE("Experience (Moxie)"),
+    MUS_EXPERIENCE_PCT("Experience Percent (Muscle)"),
+    MYS_EXPERIENCE_PCT("Experience Percent (Mysticality)"),
+    MOX_EXPERIENCE_PCT("Experience Percent (Moxie)"),
+
+    // ── Item / Meat drops ─────────────────────────────────────────────────────
+    ITEMDROP("Item Drop"),
+    ITEMDROP_PENALTY("Item Drop Penalty"),
+    SPORADIC_ITEMDROP("Item Drop (sporadic)"),
+    MEATDROP("Meat Drop"),
+    MEATDROP_PENALTY("Meat Drop Penalty"),
+    SPORADIC_MEATDROP("Meat Drop (sporadic)"),
+    MEAT_BONUS("Meat Bonus"),
+    FOODDROP("Food Drop"),
+    BOOZEDROP("Booze Drop"),
+    HATDROP("Hat Drop"),
+    WEAPONDROP("Weapon Drop"),
+    OFFHANDDROP("Offhand Drop"),
+    SHIRTDROP("Shirt Drop"),
+    PANTSDROP("Pants Drop"),
+    ACCESSORYDROP("Accessory Drop"),
+    GEARDROP("Gear Drop"),
+    CANDYDROP("Candy Drop"),
+    SPRINKLES("Sprinkle Drop"),
+    RUBEE_DROP("Rubee Drop"),
+    KRUEGERAND_DROP("Kruegerand Drop"),
+    MPC_DROP("MPC Drop"),
+    PIECE_OF_TWELVE_DROP("Piece of Twelve Drop"),
+    SPLEEN_DROP("Spleen Drop"),
+    POTION_DROP("Potion Drop"),
+    PICKPOCKET_CHANCE("Pickpocket Chance"),
+
+    // ── Capacity ─────────────────────────────────────────────────────────────
+    STOMACH_CAPACITY("Stomach Capacity"),
+    LIVER_CAPACITY("Liver Capacity"),
+    SPLEEN_CAPACITY("Spleen Capacity"),
+    MAXIMUM_HOOCH("Maximum Hooch"),
+
+    // ── Effects / Songs ───────────────────────────────────────────────────────
+    EFFECT_DURATION("Effect Duration", multiple = true),
+    ROLLOVER_EFFECT_DURATION("Rollover Effect Duration", multiple = true),
+    SONG_DURATION("Song Duration"),
+    ADDITIONAL_SONG("Additional Song"),
+
+    // ── Daily resources / special ─────────────────────────────────────────────
+    ADVENTURES("Adventures"),
+    PVP_FIGHTS("PvP Fights"),
+    FREE_RESTS("Free Rests"),
+    RANDOM_MONSTER_MODIFIERS("Random Monster Modifiers"),
+    WATER_LEVEL("Water Level"),
+
+    // ── Class-specific / path resources ──────────────────────────────────────
+    HOBO_POWER("Hobo Power"),
+    SMITHSNESS("Smithsness"),
+    POOL_SKILL("Pool Skill"),
+    LUCK("Luck"),
+    OTHELLO_SKILL("Othello Skill"),
+    DISCO_STYLE("Disco Style"),
+    FISHING_SKILL("Fishing Skill"),
+    MINSTREL_LEVEL("Minstrel Level"),
+    PP("Maximum PP"),
+    PLUMBER_POWER("Plumber Power"),
+    ENERGY("Energy"),
+    SCRAP("Scrap"),
+    WATER("Water"),
+    ABSORB_ADV("Absorb Adventures"),
+    ABSORB_STAT("Absorb Stats"),
+    RAM("RAM"),
+    LEAVES("Leaves"),
+    CRIMBOT_POWER("Crimbot Outfit Power"),
+    WARBEAR_ARMOR_PENETRATION("WarBear Armor Penetration"),
+    ELF_WARFARE_EFFECTIVENESS("Elf Warfare Effectiveness"),
+    PIRATE_WARFARE_EFFECTIVENESS("Pirate Warfare Effectiveness"),
+    LANTERN("Lantern");
+
+    companion object {
+        private val byTagLower: Map<String, DoubleModifier> =
+            entries.associateBy { it.tag.lowercase() }
+
+        fun byTag(tag: String): DoubleModifier? = byTagLower[tag.lowercase()]
+    }
+}
