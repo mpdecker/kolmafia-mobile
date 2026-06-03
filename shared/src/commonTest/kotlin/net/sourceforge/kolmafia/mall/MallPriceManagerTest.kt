@@ -38,6 +38,16 @@ class MallPriceManagerTest {
     }
 
     @Test
+    fun getCachedPrice_exactlyAtTtl_returnsNull() {
+        val (mgr, clock) = setup()
+        mgr.cachePrice(itemId = 1, price = 500L, quantity = 3, shopId = 12345)
+
+        clock.nowSeconds += MallPriceManager.TTL_SECONDS
+
+        assertNull(mgr.getCachedPrice(itemId = 1))
+    }
+
+    @Test
     fun cachePrice_upsert_overwritesPrevious() {
         val (mgr, _) = setup()
         mgr.cachePrice(itemId = 1, price = 500L, quantity = 3, shopId = 12345)

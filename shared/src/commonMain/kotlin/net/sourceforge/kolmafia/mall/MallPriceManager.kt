@@ -32,7 +32,7 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
 
     fun getCachedPrice(itemId: Int): CachedPrice? {
         val entry = cache[itemId] ?: return null
-        if (clock.nowSeconds - entry.cachedAt > TTL_SECONDS) return null
+        if (clock.nowSeconds - entry.cachedAt >= TTL_SECONDS) return null
         return entry.cached
     }
 }
