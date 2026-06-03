@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -43,7 +44,7 @@ fun ChatScreen(
     chatSender: ChatSender = koinInject()
 ) {
     val channels by chatManager.knownChannels.collectAsState()
-    var activeChannel by remember { mutableStateOf("clan") }
+    var activeChannel by rememberSaveable { mutableStateOf("clan") }
     val messages by chatManager.channelFlow(activeChannel).collectAsState()
     var input by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -58,7 +59,7 @@ fun ChatScreen(
 
     // Auto-scroll to newest message
     LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
 
     Row(Modifier.fillMaxSize()) {
