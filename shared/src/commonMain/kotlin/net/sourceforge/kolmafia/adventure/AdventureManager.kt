@@ -121,9 +121,6 @@ class AdventureManager(
         questLogRequest?.syncAll()
     }
 
-    internal suspend fun testCheckQuestAdvancement(text: String) =
-        checkQuestAdvancement(text)
-
     private suspend fun doOneTurn(location: AdventureLocation): AdventureResult? {
         val (html, url) = adventureRequest.adventure(location).getOrElse {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(it)))

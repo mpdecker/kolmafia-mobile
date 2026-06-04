@@ -19,7 +19,7 @@ open class QuestLogRequest(
         syncPage(3)
     }
 
-    suspend fun syncPage(which: Int) {
+    internal suspend fun syncPage(which: Int) {
         try {
             val response = client.get("$KOL_BASE_URL/questlog.php") {
                 parameter("which", which.toString())

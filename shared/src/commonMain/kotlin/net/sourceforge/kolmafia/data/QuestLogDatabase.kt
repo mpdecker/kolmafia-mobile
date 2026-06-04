@@ -43,6 +43,7 @@ object QuestLogDatabase {
     internal fun injectForTest(entries: List<QuestLogEntry>) {
         byTitle.clear()
         entries.forEach { byTitle[it.title.lowercase().trim()] = it }
+        loaded = true
     }
 
     private fun parse(text: String): Map<String, QuestLogEntry> {

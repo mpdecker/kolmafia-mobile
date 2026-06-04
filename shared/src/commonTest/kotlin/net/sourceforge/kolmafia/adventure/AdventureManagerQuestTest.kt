@@ -49,26 +49,26 @@ class AdventureManagerQuestTest {
     @Test fun checkQuestAdvancement_signalPresent_callsSyncAll() = runTest {
         syncCallCount = 0
         val manager = minimalManager(countingSyncRequest())
-        manager.testCheckQuestAdvancement("Your quest log has been updated.")
+        manager.checkQuestAdvancement("Your quest log has been updated.")
         assertEquals(1, syncCallCount)
     }
 
     @Test fun checkQuestAdvancement_noSignal_doesNotCallSyncAll() = runTest {
         syncCallCount = 0
         val manager = minimalManager(countingSyncRequest())
-        manager.testCheckQuestAdvancement("You fought a monster and won.")
+        manager.checkQuestAdvancement("You fought a monster and won.")
         assertEquals(0, syncCallCount)
     }
 
     @Test fun checkQuestAdvancement_caseInsensitive_callsSyncAll() = runTest {
         syncCallCount = 0
         val manager = minimalManager(countingSyncRequest())
-        manager.testCheckQuestAdvancement("QUEST COMPLETED! Well done.")
+        manager.checkQuestAdvancement("QUEST COMPLETED! Well done.")
         assertEquals(1, syncCallCount)
     }
 
     @Test fun checkQuestAdvancement_nullQuestLogRequest_doesNotCrash() = runTest {
         val manager = minimalManager(null)
-        manager.testCheckQuestAdvancement("Quest Completed")  // must not throw
+        manager.checkQuestAdvancement("Quest Completed")  // must not throw
     }
 }
