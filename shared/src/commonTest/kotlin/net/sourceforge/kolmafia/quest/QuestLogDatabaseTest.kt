@@ -69,4 +69,56 @@ class QuestLogDatabaseTest {
         val entry = entries["find a larva"]!!
         assertEquals("go find the larva.", entry.steps[0].second)
     }
+
+    // ── detectStep ───────────────────────────────────────────────────────────
+
+    private fun entry(vararg steps: Pair<String, String>) = QuestLogEntry(
+        prefKey = "questTest",
+        title   = "Test Quest",
+        steps   = steps.toList(),
+    )
+
+    @Test fun detectStep_bodyMatchesStarted_returnsStarted() {
+        val e = entry("started" to "go find the larva", "finished" to "you found it")
+        assertEquals("started", QuestLogDatabase.detectStep(e, "Go find the larva."))
+    }
+
+    @Test fun detectStep_bodyMatchesFinished_returnsFinished() {
+        val e = entry("started" to "go find the larva", "finished" to "you found it")
+        assertEquals("finished", QuestLogDatabase.detectStep(e, "You found it!"))
+    }
+
+    @Test fun detectStep_bodyMatchesStep1_returnsStep1() {
+        val e = entry(
+            "started"  to "go talk to bart",
+            "step1"    to "explore the cellar",
+            "finished" to "done!"
+        )
+        assertEquals("step1", QuestLogDatabase.detectStep(e, "Explore the cellar now."))
+    }
+
+    @Test fun detectStep_noMatch_returnsStarted() {
+        val e = entry("started" to "go find", "finished" to "you found")
+        assertEquals("started", QuestLogDatabase.detectStep(e, "Something completely different."))
+    }
+
+    @Test fun detectStep_stripsHtmlBeforeMatching() {
+        val e = entry("started" to "go find the larva", "finished" to "you found it")
+        assertEquals("started", QuestLogDatabase.detectStep(e, "<b>Go</b> find <i>the larva</i>."))
+    }
+
+    @Test fun detectStep_caseInsensitive() {
+        val e = entry("started" to "go find the larva", "finished" to "you found it")
+        assertEquals("started", QuestLogDatabase.detectStep(e, "GO FIND THE LARVA NOW"))
+    }
+
+    @Test fun detectStep_prefersLaterStepWhenBodyContainsBoth() {
+        val e = entry(
+            "started"  to "go talk to bart",
+            "step1"    to "explore the cellar",
+            "finished" to "rats gone"
+        )
+        val body = "Explore the cellar. Rats gone. Quest complete!"
+        assertEquals("finished", QuestLogDatabase.detectStep(e, body))
+    }
 }
