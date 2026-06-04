@@ -112,10 +112,12 @@ class RecoveryManager(
         force: Boolean = false,
     ): Boolean {
         var recovered = false
-        if (force || needsHpRecovery(charState, preferences)) {
+        if (preferences.getBoolean(Preferences.AUTO_RECOVER_HP, true) &&
+            (force || needsHpRecovery(charState, preferences))) {
             recovered = recoverHp(charState, invState, skillState) || recovered
         }
-        if (force || needsMpRecovery(charState, preferences)) {
+        if (preferences.getBoolean(Preferences.AUTO_RECOVER_MP, false) &&
+            (force || needsMpRecovery(charState, preferences))) {
             recovered = recoverMp(charState, invState, skillState) || recovered
         }
         return recovered

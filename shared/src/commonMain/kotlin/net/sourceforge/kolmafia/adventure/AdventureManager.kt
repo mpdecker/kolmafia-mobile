@@ -84,16 +84,16 @@ class AdventureManager(
                     // Recovery loop: repeat until stop threshold met or no recovery available (max 10 iterations)
                     val rm = recoveryManager
                     if (rm != null) {
-                        var firstIter = true
                         var iter = 0
-                        while (iter++ < 10) {
+                        while (iter < 10) {
+                            val force = iter > 0  // after first recovery, bypass trigger-threshold check
                             val healed = rm.recoverIfNeeded(
                                 charState  = character.state.value,
                                 invState   = inventory?.state?.value ?: InventoryState(),
                                 skillState = skills?.state?.value ?: SkillState(),
-                                force      = !firstIter,  // after first recovery, bypass trigger-threshold check
+                                force      = force,
                             )
-                            firstIter = false
+                            iter++
                             if (!healed) break
                             characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
                             val s = character.state.value
