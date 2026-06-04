@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.quest
 import com.russhwolf.settings.MapSettings
 import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -41,5 +42,11 @@ class QuestDatabaseTest {
     @Test fun step4_isNotFinished() {
         val db = db(); db.setProgress(Quest.ARMORER, "step4")
         assertFalse(db.isQuestFinished(Quest.ARMORER))
+    }
+
+    @Test fun allQuestPrefKeysAreUnique() {
+        val keys = Quest.entries.map { it.prefKey }
+        assertEquals(keys.size, keys.distinct().size,
+            "Duplicate prefKeys: ${keys.groupBy { it }.filter { it.value.size > 1 }.keys}")
     }
 }
