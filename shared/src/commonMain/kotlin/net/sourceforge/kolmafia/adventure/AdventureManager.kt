@@ -40,7 +40,7 @@ class AdventureManager(
     private val preferences: Preferences,
     private val eventBus: GameEventBus,
     private val registry: ChoiceHandlerRegistry = ChoiceHandlerRegistry(),
-    private val goalManager: GoalManager = GoalManager(),
+    internal val goalManager: GoalManager = GoalManager(),
     private val questDatabase: QuestDatabase = QuestDatabase(preferences),
     private val solvers: ChoiceSolvers = ChoiceSolvers.NoOp,
     private val inventory: InventoryManager? = null,
@@ -56,6 +56,7 @@ class AdventureManager(
 
     private var skillUses: Int = 0
     private var lastTurnResponseText: String = ""
+    private var itemGoalMetThisTurn = false
 
     fun setSkillUses(n: Int) { skillUses = n }
 
@@ -72,6 +73,7 @@ class AdventureManager(
             try {
                 repeat(turns) {
                     if (!isActive) return@launch
+                    itemGoalMetThisTurn = false
                     // Re-buff before this adventure turn
                     moodManager?.executeActiveMood(
                         effectState = effects?.state?.value ?: EffectState(),
@@ -79,6 +81,12 @@ class AdventureManager(
                         charState   = character.state.value,
                     )
                     val result = doOneTurn(location) ?: return@launch
+
+                    if (itemGoalMetThisTurn) {
+                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("item goal met")))
+                        return@launch
+                    }
 
                     characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
                     // Recovery loop: repeat until stop threshold met or no recovery available (max 10 iterations)
@@ -195,6 +203,7 @@ class AdventureManager(
     private suspend fun emitItemEvents(items: List<String>) {
         items.forEach { name ->
             eventBus.emit(GameEvent.ItemObtained(InventoryItem(-1, name, 1, ItemType.OTHER)))
+            if (goalManager.hasItemGoalByName(name)) itemGoalMetThisTurn = true
         }
     }
 }

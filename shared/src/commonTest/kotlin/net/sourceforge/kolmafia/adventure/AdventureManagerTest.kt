@@ -3,12 +3,15 @@ package net.sourceforge.kolmafia.adventure
 import com.russhwolf.settings.MapSettings
 import io.ktor.client.*
 import io.ktor.client.engine.mock.*
+import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.cookies.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
@@ -20,6 +23,7 @@ import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 
 class AdventureManagerTest {
@@ -48,7 +52,12 @@ class AdventureManagerTest {
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
-        val client = HttpClient(engine) { install(HttpCookies) }
+        val client = HttpClient(engine) {
+            install(HttpCookies)
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
         val character = KoLCharacter()
         val prefs = Preferences(MapSettings())
         val bus = GameEventBus()
@@ -145,10 +154,59 @@ class AdventureManagerTest {
         assertIs<AdventureResult.NonCombat>(turns.first().result)
     }
 
+    @Test
+    fun runAdventures_stopsWithGoalMet_whenItemGoalSatisfied() = runTest {
+        val (manager, bus, received) = makeManager(adventureHtml = NON_COMBAT_WITH_ITEM_HTML)
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.goalManager.addItemGoalByName("rat whisker")
+        manager.runAdventures(testLocation, 10, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        val stopped = received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+        assertEquals(1, stopped.size)
+        assertIs<StopReason.GoalMet>(stopped.first().reason)
+        // TurnConsumed emitted before GoalMet, so exactly 1 turn consumed
+        assertEquals(1, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_doesNotStopForGoal_whenNoItemGoalSet() = runTest {
+        val (manager, bus, received) = makeManager(adventureHtml = NON_COMBAT_WITH_ITEM_HTML)
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.runAdventures(testLocation, 3, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        assertFalse(
+            received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+                .any { it.reason is StopReason.GoalMet }
+        )
+        assertEquals(3, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_doesNotStop_whenItemNameDoesNotMatchGoal() = runTest {
+        val (manager, bus, received) = makeManager(adventureHtml = NON_COMBAT_WITH_ITEM_HTML)
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.goalManager.addItemGoalByName("completely different item")
+        manager.runAdventures(testLocation, 2, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        assertFalse(
+            received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+                .any { it.reason is StopReason.GoalMet }
+        )
+    }
+
     companion object {
         const val NON_COMBAT_HTML = """<html><body><b>A Spooky Treehouse</b><p>You gain 10 Meat.</p></body></html>"""
         const val COMBAT_WIN_HTML = """<html><body><span id='monname'>bunny</span><p>You win the fight!</p></body></html>"""
         const val STATUS_JSON_ADVENTURES_LEFT = """{"name":"Player","playerid":"1","level":"5","class":"1","hp":"50","hpmax":"100","mp":"30","mpmax":"50","meat":"1000","adventures":"40","fullness":"0","drunk":"0","spleen":"0"}"""
         const val STATUS_JSON_NO_ADVENTURES = """{"name":"Player","playerid":"1","level":"5","class":"1","hp":"50","hpmax":"100","mp":"30","mpmax":"50","meat":"1000","adventures":"0","fullness":"0","drunk":"0","spleen":"0"}"""
+        const val NON_COMBAT_WITH_ITEM_HTML = """<html><body><b>A Spooky Treehouse</b>
+<p>You acquire an item: <b>rat whisker</b></p>
+<p>You gain 10 Meat.</p></body></html>"""
     }
 }
