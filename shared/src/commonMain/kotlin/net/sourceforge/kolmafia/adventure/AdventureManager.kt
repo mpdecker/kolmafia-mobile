@@ -81,14 +81,28 @@ class AdventureManager(
                     val result = doOneTurn(location) ?: return@launch
 
                     characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
-                    // Recover HP/MP between turns; re-fetch state if recovery occurred
-                    val healed = recoveryManager?.recoverIfNeeded(
-                        charState  = character.state.value,
-                        invState   = inventory?.state?.value ?: InventoryState(),
-                        skillState = skills?.state?.value ?: SkillState(),
-                    )
-                    if (healed == true) {
-                        characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+                    // Recovery loop: repeat until stop threshold met or no recovery available (max 10 iterations)
+                    val rm = recoveryManager
+                    if (rm != null) {
+                        var firstIter = true
+                        var iter = 0
+                        while (iter++ < 10) {
+                            val healed = rm.recoverIfNeeded(
+                                charState  = character.state.value,
+                                invState   = inventory?.state?.value ?: InventoryState(),
+                                skillState = skills?.state?.value ?: SkillState(),
+                                force      = !firstIter,  // after first recovery, bypass trigger-threshold check
+                            )
+                            firstIter = false
+                            if (!healed) break
+                            characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+                            val s = character.state.value
+                            val hpDone = !preferences.getBoolean(Preferences.AUTO_RECOVER_HP, true) ||
+                                         RecoveryManager.hpAboveStopThreshold(s, preferences)
+                            val mpDone = !preferences.getBoolean(Preferences.AUTO_RECOVER_MP, false) ||
+                                         RecoveryManager.mpAboveStopThreshold(s, preferences)
+                            if (hpDone && mpDone) break
+                        }
                     }
                     checkQuestAdvancement(lastTurnResponseText)
                     eventBus.emit(GameEvent.TurnConsumed(location, result))
