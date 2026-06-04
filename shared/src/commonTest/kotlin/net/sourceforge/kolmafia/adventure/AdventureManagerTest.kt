@@ -25,6 +25,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class AdventureManagerTest {
 
@@ -220,11 +221,79 @@ class AdventureManagerTest {
         assertIs<StopReason.CharacterDeath>(stopped.first().reason)
     }
 
+    @Test
+    fun runAdventures_stopsWithGoalMet_whenMeatGoalReached() = runTest {
+        val (manager, bus, received) = makeManager(statusJson = STATUS_JSON_HIGH_MEAT)
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.goalManager.setMeatGoal(40_000)  // 50_000 >= 40_000 → stop
+        manager.runAdventures(testLocation, 5, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        val stopped = received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+        assertEquals(1, stopped.size)
+        val reason = stopped.first().reason
+        assertIs<StopReason.GoalMet>(reason)
+        assertTrue((reason as StopReason.GoalMet).description.contains("meat", ignoreCase = true))
+        assertEquals(1, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_stopsWithGoalMet_whenLevelGoalReached() = runTest {
+        val (manager, bus, received) = makeManager(statusJson = STATUS_JSON_HIGH_LEVEL)
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.goalManager.setLevelGoal(12)  // level 15 >= 12 → stop
+        manager.runAdventures(testLocation, 5, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        val stopped = received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+        assertEquals(1, stopped.size)
+        assertIs<StopReason.GoalMet>(stopped.first().reason)
+        assertEquals(1, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_doesNotStop_whenMeatBelowGoal() = runTest {
+        // STATUS_JSON_ADVENTURES_LEFT has meat=1000
+        val (manager, bus, received) = makeManager()
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.goalManager.setMeatGoal(999_999)  // far above meat=1000
+        manager.runAdventures(testLocation, 2, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        assertFalse(
+            received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+                .any { it.reason is StopReason.GoalMet }
+        )
+        assertEquals(2, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_doesNotStop_whenLevelBelowGoal() = runTest {
+        // STATUS_JSON_ADVENTURES_LEFT has level=5
+        val (manager, bus, received) = makeManager()
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.goalManager.setLevelGoal(20)  // far above level=5
+        manager.runAdventures(testLocation, 2, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        assertFalse(
+            received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+                .any { it.reason is StopReason.GoalMet }
+        )
+        assertEquals(2, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
     companion object {
         const val NON_COMBAT_HTML = """<html><body><b>A Spooky Treehouse</b><p>You gain 10 Meat.</p></body></html>"""
         const val COMBAT_WIN_HTML = """<html><body><span id='monname'>bunny</span><p>You win the fight!</p></body></html>"""
         const val STATUS_JSON_ADVENTURES_LEFT = """{"name":"Player","playerid":"1","level":"5","class":"1","hp":"50","hpmax":"100","mp":"30","mpmax":"50","meat":"1000","adventures":"40","fullness":"0","drunk":"0","spleen":"0"}"""
         const val STATUS_JSON_NO_ADVENTURES = """{"name":"Player","playerid":"1","level":"5","class":"1","hp":"50","hpmax":"100","mp":"30","mpmax":"50","meat":"1000","adventures":"0","fullness":"0","drunk":"0","spleen":"0"}"""
+        const val STATUS_JSON_HIGH_MEAT = """{"name":"Player","playerid":"1","level":"5","class":"1","hp":"50","hpmax":"100","mp":"30","mpmax":"50","meat":"50000","adventures":"40","fullness":"0","drunk":"0","spleen":"0"}"""
+        const val STATUS_JSON_HIGH_LEVEL = """{"name":"Player","playerid":"1","level":"15","class":"1","hp":"50","hpmax":"100","mp":"30","mpmax":"50","meat":"1000","adventures":"40","fullness":"0","drunk":"0","spleen":"0"}"""
         const val NON_COMBAT_WITH_ITEM_HTML = """<html><body><b>A Spooky Treehouse</b>
 <p>You acquire an item: <b>rat whisker</b></p>
 <p>You gain 10 Meat.</p></body></html>"""

@@ -89,6 +89,20 @@ class AdventureManager(
                     }
 
                     characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+
+                    // Numeric goal checks (meat, level) — evaluated on up-to-date character state
+                    val charAfterTurn = character.state.value
+                    if (goalManager.hasMeatGoal(charAfterTurn.meat)) {
+                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("meat goal met: ${charAfterTurn.meat}")))
+                        return@launch
+                    }
+                    if (goalManager.hasLevelGoal(charAfterTurn.level)) {
+                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("level goal met: ${charAfterTurn.level}")))
+                        return@launch
+                    }
+
                     // Recovery loop: repeat until stop threshold met or no recovery available (max 10 iterations)
                     val rm = recoveryManager
                     if (rm != null) {
