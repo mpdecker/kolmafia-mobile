@@ -15,6 +15,12 @@ class QuestDatabase(private val preferences: Preferences) {
             FINISHED  ->  Int.MAX_VALUE
             else      -> step.removePrefix("step").toIntOrNull() ?: -1
         }
+
+        fun validateStep(step: String): String = when {
+            step == UNSTARTED || step == STARTED || step == FINISHED -> step
+            step.matches(Regex("step\\d+")) -> step
+            else -> UNSTARTED
+        }
     }
 
     fun getProgress(quest: Quest): String =
@@ -22,6 +28,9 @@ class QuestDatabase(private val preferences: Preferences) {
 
     fun setProgress(quest: Quest, step: String) =
         preferences.setString(quest.prefKey, step)
+
+    fun setProgressByPrefKey(prefKey: String, step: String) =
+        preferences.setString(prefKey, validateStep(step))
 
     fun isQuestLaterThan(quest: Quest, step: String): Boolean {
         val current = getProgress(quest)
