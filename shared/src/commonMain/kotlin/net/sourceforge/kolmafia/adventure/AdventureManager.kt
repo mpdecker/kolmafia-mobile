@@ -24,6 +24,7 @@ import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
+import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
@@ -47,14 +48,23 @@ class AdventureManager(
     private val skills: SkillManager? = null,
     private val recoveryManager: RecoveryManager? = null,
     private val moodManager: MoodManager? = null,
+    private val questLogRequest: QuestLogRequest? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
     private var currentJob: Job? = null
 
     private var skillUses: Int = 0
+    private var lastTurnResponseText: String = ""
 
     fun setSkillUses(n: Int) { skillUses = n }
+
+    companion object {
+        private val QUEST_ADVANCE_SIGNALS = listOf(
+            "Quest Completed", "Quest Updated",
+            "added to your Quest Log", "Your quest log has been updated",
+        )
+    }
 
     fun runAdventures(location: AdventureLocation, turns: Int, scope: CoroutineScope): Job =
         scope.launch {
@@ -80,6 +90,7 @@ class AdventureManager(
                     if (healed == true) {
                         characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
                     }
+                    checkQuestAdvancement(lastTurnResponseText)
                     eventBus.emit(GameEvent.TurnConsumed(location, result))
 
                     when {
@@ -105,11 +116,17 @@ class AdventureManager(
 
     fun stop() { currentJob?.cancel() }
 
+    internal suspend fun checkQuestAdvancement(responseText: String) {
+        if (QUEST_ADVANCE_SIGNALS.none { responseText.contains(it, ignoreCase = true) }) return
+        questLogRequest?.syncAll()
+    }
+
     private suspend fun doOneTurn(location: AdventureLocation): AdventureResult? {
         val (html, url) = adventureRequest.adventure(location).getOrElse {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(it)))
             return null
         }
+        lastTurnResponseText = html
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
             is AdventureResult.Combat -> resolveCombat(location)
             is AdventureResult.Choice -> resolveChoice(parsed.choiceId, parsed.responseText)

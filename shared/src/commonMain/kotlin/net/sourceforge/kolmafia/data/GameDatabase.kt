@@ -47,6 +47,9 @@ class GameDatabase {
         NpcStoreDatabase.load()
         DailyLimitDatabase.load()
 
+        // Quest log text patterns (for quest state detection)
+        QuestLogDatabase.load()
+
         isLoaded = true
     }
 
