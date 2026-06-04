@@ -21,6 +21,7 @@ import net.sourceforge.kolmafia.adventure.choice.handlers.StatHandlers
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
 import net.sourceforge.kolmafia.ash.ScriptManager
@@ -65,6 +66,7 @@ val sharedModule = module {
     singleOf(::ChoiceRequest)
     single { GoalManager() }
     single { QuestDatabase(get()) }
+    singleOf(::QuestLogRequest)
     single {
         ChoiceSolvers(
             safetyShelter = net.sourceforge.kolmafia.adventure.choice.solvers.SafetyShelterSolver.NoOp,
@@ -115,6 +117,7 @@ val sharedModule = module {
             skills           = get(),
             recoveryManager  = get(),
             moodManager      = get(),
+            questLogRequest  = get(),
         )
     }
     single {
@@ -127,7 +130,22 @@ val sharedModule = module {
         )
     }
     singleOf(::ScriptManager)
-    singleOf(::SessionManager)
+    single {
+        SessionManager(
+            loginRequest         = get(),
+            characterRequest     = get(),
+            character            = get(),
+            preferences          = get(),
+            inventoryManager     = get(),
+            familiarManager      = get(),
+            skillManager         = get(),
+            effectManager        = get(),
+            scriptManager        = get(),
+            gameDatabase         = get(),
+            dailyResourceTracker = get(),
+            questLogRequest      = get(),
+        )
+    }
     singleOf(::ShopRequest)
     singleOf(::CoinmasterRequest)
     singleOf(::MallSearchRequest)
