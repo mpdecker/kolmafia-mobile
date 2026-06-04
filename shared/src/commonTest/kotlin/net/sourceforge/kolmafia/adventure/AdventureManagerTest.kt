@@ -198,6 +198,26 @@ class AdventureManagerTest {
             received.filterIsInstance<GameEvent.AdventureLoopStopped>()
                 .any { it.reason is StopReason.GoalMet }
         )
+        assertEquals(2, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_stopsWithCharacterDeath_notGoalMet_whenDieWithGoalItem() = runTest {
+        // Fight that drops a goal item but the player loses
+        val (manager, bus, received) = makeManager(
+            adventureHtml = COMBAT_HTML,
+            fightHtml = COMBAT_LOSS_WITH_ITEM_HTML,
+        )
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.goalManager.addItemGoalByName("rat whisker")
+        manager.runAdventures(testLocation, 5, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        val stopped = received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+        // Only ONE stop event — CharacterDeath, not GoalMet
+        assertEquals(1, stopped.size)
+        assertIs<StopReason.CharacterDeath>(stopped.first().reason)
     }
 
     companion object {
@@ -208,5 +228,11 @@ class AdventureManagerTest {
         const val NON_COMBAT_WITH_ITEM_HTML = """<html><body><b>A Spooky Treehouse</b>
 <p>You acquire an item: <b>rat whisker</b></p>
 <p>You gain 10 Meat.</p></body></html>"""
+        // HTML that triggers combat routing (contains "You're fighting")
+        const val COMBAT_HTML = """<html><body>You're fighting a monster!</body></html>"""
+        // Fight result: player loses but drops an item
+        const val COMBAT_LOSS_WITH_ITEM_HTML = """<html><body><span id='monname'>Knob Goblin</span>
+<p>You acquire an item: <b>rat whisker</b></p>
+<p>You lose the fight.</p></body></html>"""
     }
 }

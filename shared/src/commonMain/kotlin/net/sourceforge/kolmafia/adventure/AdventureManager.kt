@@ -165,7 +165,10 @@ class AdventureManager(
         val result = AdventureParser.parseFightResult(fightHtml)
         eventBus.emit(GameEvent.CombatFinished(result.won, result.monster))
         emitItemEvents(result.itemsGained)
-        if (!result.won) eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.CharacterDeath))
+        if (!result.won) {
+            eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.CharacterDeath))
+            return null
+        }
         return result
     }
 
