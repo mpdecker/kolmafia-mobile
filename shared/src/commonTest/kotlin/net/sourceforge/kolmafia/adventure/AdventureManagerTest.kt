@@ -7,8 +7,6 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.cookies.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -81,7 +79,7 @@ class AdventureManagerTest {
         val (manager, bus, received) = makeManager()
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
-        manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default))
+        manager.runAdventures(testLocation, 1, this)
             .join()
 
         collectJob.cancel()
@@ -97,7 +95,7 @@ class AdventureManagerTest {
         )
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
-        manager.runAdventures(testLocation, 5, CoroutineScope(Dispatchers.Default))
+        manager.runAdventures(testLocation, 5, this)
             .join()
 
         collectJob.cancel()
@@ -146,7 +144,7 @@ class AdventureManagerTest {
         )
 
         val collectJob = launch { bus.events.collect { received.add(it) } }
-        manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
+        manager.runAdventures(testLocation, 1, this).join()
         collectJob.cancel()
 
         // The loop must complete without error and still emit TurnConsumed
@@ -161,7 +159,7 @@ class AdventureManagerTest {
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
         manager.goalManager.addItemGoalByName("rat whisker")
-        manager.runAdventures(testLocation, 10, CoroutineScope(Dispatchers.Default)).join()
+        manager.runAdventures(testLocation, 10, this).join()
 
         collectJob.cancel()
         val stopped = received.filterIsInstance<GameEvent.AdventureLoopStopped>()
@@ -176,7 +174,7 @@ class AdventureManagerTest {
         val (manager, bus, received) = makeManager(adventureHtml = NON_COMBAT_WITH_ITEM_HTML)
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
-        manager.runAdventures(testLocation, 3, CoroutineScope(Dispatchers.Default)).join()
+        manager.runAdventures(testLocation, 3, this).join()
 
         collectJob.cancel()
         assertFalse(
@@ -192,7 +190,7 @@ class AdventureManagerTest {
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
         manager.goalManager.addItemGoalByName("completely different item")
-        manager.runAdventures(testLocation, 2, CoroutineScope(Dispatchers.Default)).join()
+        manager.runAdventures(testLocation, 2, this).join()
 
         collectJob.cancel()
         assertFalse(
@@ -212,7 +210,7 @@ class AdventureManagerTest {
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
         manager.goalManager.addItemGoalByName("rat whisker")
-        manager.runAdventures(testLocation, 5, CoroutineScope(Dispatchers.Default)).join()
+        manager.runAdventures(testLocation, 5, this).join()
 
         collectJob.cancel()
         val stopped = received.filterIsInstance<GameEvent.AdventureLoopStopped>()
@@ -227,7 +225,7 @@ class AdventureManagerTest {
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
         manager.goalManager.setMeatGoal(40_000)  // 50_000 >= 40_000 → stop
-        manager.runAdventures(testLocation, 5, CoroutineScope(Dispatchers.Default)).join()
+        manager.runAdventures(testLocation, 5, this).join()
 
         collectJob.cancel()
         val stopped = received.filterIsInstance<GameEvent.AdventureLoopStopped>()
@@ -244,7 +242,7 @@ class AdventureManagerTest {
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
         manager.goalManager.setLevelGoal(12)  // level 15 >= 12 → stop
-        manager.runAdventures(testLocation, 5, CoroutineScope(Dispatchers.Default)).join()
+        manager.runAdventures(testLocation, 5, this).join()
 
         collectJob.cancel()
         val stopped = received.filterIsInstance<GameEvent.AdventureLoopStopped>()
@@ -260,7 +258,7 @@ class AdventureManagerTest {
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
         manager.goalManager.setMeatGoal(999_999)  // far above meat=1000
-        manager.runAdventures(testLocation, 2, CoroutineScope(Dispatchers.Default)).join()
+        manager.runAdventures(testLocation, 2, this).join()
 
         collectJob.cancel()
         assertFalse(
@@ -277,7 +275,7 @@ class AdventureManagerTest {
         val collectJob = launch { bus.events.collect { received.add(it) } }
 
         manager.goalManager.setLevelGoal(20)  // far above level=5
-        manager.runAdventures(testLocation, 2, CoroutineScope(Dispatchers.Default)).join()
+        manager.runAdventures(testLocation, 2, this).join()
 
         collectJob.cancel()
         assertFalse(
