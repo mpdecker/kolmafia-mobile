@@ -28,14 +28,20 @@ class Preferences(private val settings: Settings) {
         // HP recovery
         const val AUTO_RECOVER_HP          = "autoRecoverHp"
         const val HP_RECOVERY_TARGET_PCT   = "hpRecoveryTargetPct"   // below → start recovering
-        const val HP_RECOVERY_STOP_PCT     = "hpRecoveryStopPct"     // above → stop recovering (TODO: used when multi-use loop is implemented)
+        const val HP_RECOVERY_STOP_PCT     = "hpRecoveryStopPct"     // above → stop recovering
 
         // MP recovery
         const val AUTO_RECOVER_MP          = "autoRecoverMp"
         const val MP_RECOVERY_TARGET_PCT   = "mpRecoveryTargetPct"
-        const val MP_RECOVERY_STOP_PCT     = "mpRecoveryStopPct"     // above → stop recovering (TODO: used when multi-use loop is implemented)
+        const val MP_RECOVERY_STOP_PCT     = "mpRecoveryStopPct"     // above → stop recovering
 
         // Mood
         const val AUTO_BUFF                = "autoBuff"
+        const val ACTIVE_MOOD_NAME         = "activeMoodName"        // persisted active mood name
+        const val ACTIVE_MOOD_TRIGGERS     = "activeMoodTriggers"    // serialized trigger list
+
+        // ManaBurn
+        const val MANA_BURN_ENABLED        = "manaBurnEnabled"       // default false
+        const val MANA_BURN_BELOW_PCT      = "manaBurnBelowPct"      // burn while MP% >= this; default 90
     }
 }
