@@ -57,6 +57,7 @@ class SessionManager(
                         scriptManager.initialize()
                         questLogRequest?.syncAll()
                         moodManager?.loadActiveMood()
+                        moodManager?.loadMoodLibrary()
                         SessionState.LoggedIn
                     },
                     onFailure = { error ->
