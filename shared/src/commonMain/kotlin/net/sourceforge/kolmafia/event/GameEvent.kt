@@ -10,6 +10,7 @@ sealed class GameEvent {
     // Adventure
     data class TurnConsumed(val location: AdventureLocation, val result: AdventureResult) : GameEvent()
     data class CombatFinished(val won: Boolean, val monster: String) : GameEvent()
+    data class MonsterBanished(val monsterName: String, val banisherName: String) : GameEvent()
     data class ChoiceResolved(val choiceId: Int, val option: Int) : GameEvent()
     data class AdventureLoopStopped(val reason: StopReason) : GameEvent()
     // Inventory
