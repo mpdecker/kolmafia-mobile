@@ -35,7 +35,7 @@ class MoodManager(
         val req = uneffectRequest ?: return
         for (effect in effectState.effects) {
             if (effect.name in MalignantEffects.NAMES) {
-                req.uneffect(effect.id)
+                req.uneffect(effect.id).onFailure { /* best-effort; continue on network failure */ }
             }
         }
     }
