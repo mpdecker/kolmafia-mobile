@@ -3,8 +3,17 @@ package net.sourceforge.kolmafia.ash
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.character.CharacterApiResponse
+import net.sourceforge.kolmafia.character.KoLCharacter
 
 class GameRuntimeLibraryTest {
+
+    // Runs ASH source with a given KoLCharacter injected into the library.
+    private fun runWithCharacter(character: KoLCharacter, src: String): String {
+        val runtime = AshRuntime(GameRuntimeLibrary(character = character))
+        runtime.execute(AshParser().parse(src))
+        return runtime.output.toString().trim()
+    }
 
     // Uses a minimal stub that provides no game managers — only pure utility functions are tested here.
     private fun run(src: String): AshRuntime {
@@ -141,4 +150,25 @@ class GameRuntimeLibraryTest {
             print(to_string(count(m)));
         """.trimIndent())
     )
+
+    // --- Familiar ---
+
+    @Test
+    fun myFamiliar_noFamiliar_zeroId_returnsNone() {
+        val character = KoLCharacter()
+        character.updateFromApiResponse(
+            CharacterApiResponse(name = "PlayerName", familiar = "0", familiarname = "Ghostly Apparition")
+        )
+        assertEquals("none", runWithCharacter(character, "print(to_string(my_familiar()));"))
+    }
+
+    @Test
+    fun myFamiliar_withFamiliarId_returnsFamiliarName() {
+        val character = KoLCharacter()
+        character.updateFromApiResponse(
+            CharacterApiResponse(name = "PlayerName", familiar = "7", familiarname = "Exotic Parrot")
+        )
+        val result = runWithCharacter(character, "print(to_string(my_familiar()));")
+        assertEquals("Exotic Parrot", result)
+    }
 }
