@@ -1,13 +1,13 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-_Generated: 2026-06-03 (updated 2026-06-06 after Phase 7: Mood Persistence & ManaBurn — PR #7)_
+_Generated: 2026-06-03 (updated 2026-06-06 after Phase 8: Mood Library + Malignant Effect Clearing + BanishManager — PR #8)_
 
 ## Scale Comparison
 
 | Metric | Desktop (Java) | Mobile (Kotlin) | Coverage |
 |--------|---------------|-----------------|----------|
-| Source files | ~1,172 classes | ~190 files (commonMain) | ~16% |
-| Lines of code | ~57,000 | ~20,750 | ~36% |
+| Source files | ~1,172 classes | ~208 files (commonMain) | ~18% |
+| Lines of code | ~57,000 | ~13,000 (commonMain) | ~23% |
 | Test files | 384 | 55 | ~14% |
 | Build target | JVM 21 | Android + iOS | — |
 
@@ -45,11 +45,16 @@ file counts suggest because the desktop has massive complexity in its managers a
 | **Quest database** | `persistence/QuestDatabase.java` | `quest/QuestDatabase.kt` + `data/QuestLogDatabase.kt` | 99 quests; text-based step detection |
 | **Ascension paths** | `AscensionClass.java` + managers | `adventure/AscensionPath.kt` | 37+ paths, consumption flags, avatars |
 | **Stop conditions** | `session/` stop logic | `adventure/StopReason.kt` | NoAdventuresLeft, Death, Cancel, Network, GoalMet ✅ |
-| **Mood system** | `moods/` (9 classes, ~3,539 lines) | `mood/` (4 files — Phase 7) | Core automation path; single active mood, **persistence in PR #7** |
+| **Mood system** | `moods/` (9 classes, ~3,539 lines) | `mood/` (5 files — Phase 7+8) | Core automation path; named mood library + persistence in PR #8 |
 | **Recovery system** | `moods/RecoveryManager.java` | `recovery/RecoveryManager.kt` | HP/MP item + skill recovery; stop-threshold loop ✅ |
 | **ManaBurn** *(PR #7)* | `moods/ManaBurnManager.java` | `mood/ManaBurnManager.kt` | Post-turn MP burn into lowest-duration mood effect; enabled via pref |
 | **Mood persistence** *(PR #7)* | `username_moods.txt` | `MoodManager` + Preferences | Single active mood saved/loaded across login; pipe-delimited pref format |
 | **`my_familiar()` fix** *(PR #7)* | `RuntimeLibrary.java` | `ash/GameRuntimeLibrary.kt` | Fixed: now uses `hasFamiliar` (familiarId > 0) not player name |
+| **Auto-clear malignant effects** *(PR #8)* | `MoodManager.removeMalignantEffects()` | `mood/MalignantEffects.kt` + `MoodManager.removeMalignantEffects()` | 9 effect names (Beaten Up + 5 poisons + 3 others); fires every mood pass via `UneffectRequest`; best-effort (continues on network failure) |
+| **UneffectRequest** *(PR #8)* | `UseSkillRequest` + CLI `uneffect` | `request/UneffectRequest.kt` | HTTP wrapper for `uneffect.php`; Result-typed, status-validated |
+| **Mood library** *(PR #8)* | `MoodManager._moods` SortedListModel + `username_moods.txt` | `MoodManager.moodLibrary` + Preferences | Named mood persistence; `addMoodToLibrary`, `removeMoodFromLibrary`, `setActiveMoodByName`, `saveMoodLibrary`, `loadMoodLibrary`; restored on login. Orphaned `moodTriggers_$name` keys cleaned on removal |
+| **BanishManager (foundation)** *(PR #8)* | `session/BanishManager.java` (618 lines, 55+ banishers) | `banish/` (3 files: Banisher, BanishState, BanishManager) | 21 named banishers; turn/rollover/avatar/never reset semantics; persisted to `banishedMonsters` pref; combat banish detection via `BANISH_PATTERN`; loaded + rollover-cleared on login. **isBanished not yet wired into routing; all detected banishes recorded as UNKNOWN** |
+| **MonsterBanished event** *(PR #8)* | `BanisherUsed` KoLmafia event | `event/GameEvent.MonsterBanished` | Emitted from `AdventureManager` when combat banish detected |
 
 ---
 
@@ -57,9 +62,7 @@ file counts suggest because the desktop has massive complexity in its managers a
 
 | Feature | Desktop size/complexity | Priority |
 |---------|------------------------|----------|
-| **Multiple named moods** | `SortedListModel<Mood>` + `username_moods.txt` in `MoodManager` | **High** — only one in-memory active mood; users can't switch mood profiles |
-| **Auto-clear malignant effects** | `removeMalignantEffects()` in `MoodManager` — Beaten Up + 5 poisons | **High** — without this, adventure loops halt whenever Beaten Up accumulates |
-| **BanishManager** | `BanishManager.java` (618 lines, 55+ banishers) | **High** — no banish tracking; adventure routing is blind to banished monsters |
+| **BanishManager routing integration** | `isBanished()` called in zone-selection and combat advisor; banisher name detected from combat HTML | **High** — foundation is done (PR #8), but banishes are always recorded as `Banisher.UNKNOWN`, `isBanished` is never consulted, and `clearExpiredAndRollover` fires on every login rather than only at rollover |
 | **BreakfastManager** | `BreakfastManager.java` (1,000 lines, 20+ daily actions) | **High** — garden, VIP lounge, libram summons, pocket wishes all fire on login; entirely absent |
 | **VillainLair + Rufus solvers** | 4 choice IDs (1260, 1262, 1498, 1499) | **Medium** — TODO stubs; VillainLair is string matching (~50 lines); Rufus needs `RufusManager` (~200 lines) |
 | **Quest tracking depth** | Per-quest state machines in `QuestDatabase.java` (1,284 lines) | **Medium** — 99 quests by name; step detection text-based; NPC-visit advances missed until next login |
@@ -125,10 +128,10 @@ implementations. Without real implementations, encounters with choice IDs 486, 5
 defaulting to option 1. This causes unpredictable behavior in Dreadsylvania, Safety Shelter,
 and the Lights Out puzzle chain.
 
-### Mood / Recovery (Phase 5a + Phase 6 + Phase 7)
+### Mood / Recovery (Phase 5a + Phase 6 + Phase 7 + Phase 8)
 
-**Status: CORE WORKING + STOP-THRESHOLD LOOP + MANABURN + PERSISTENCE (in PR #7). Multiple
-named moods, inheritance, malignant-effect clearing, and AT song management absent.**
+**Status: CORE WORKING + STOP-THRESHOLD LOOP + MANABURN + PERSISTENCE + NAMED LIBRARY + MALIGNANT CLEARING (PR #8).
+Mood inheritance, AT song management, and full ManaBurn breadth absent.**
 
 `RecoveryManager.kt` picks the best available HP/MP restore item or skill from
 `RestoreDatabase`. The adventure loop in `AdventureManager` calls `recoverIfNeeded` in an
@@ -139,9 +142,11 @@ whose corresponding effect has the fewest remaining turns, until MP falls below 
 (default 90%) or no eligible skill remains. `MoodManager.kt` evaluates `missingTriggers()` against
 active effects before each turn and casts missing buffs via `SkillManager`.
 
-**What's working (after Phase 7 merges):**
+**What's working (after Phase 8 merges):**
 - Single active mood with full trigger evaluation
-- Mood persistence across login (save/load to preferences via pipe-delimited format)
+- Mood library — named mood profiles with `addMoodToLibrary`, `removeMoodFromLibrary`, `setActiveMoodByName`
+- Mood library + active mood persistence across login (save/load via `MOOD_LIBRARY_NAMES` + dynamic `moodTriggers_$name` keys)
+- Malignant effect auto-clearing — 9 effect names (Beaten Up, Tetanus, Amnesia, Cunctatitis, all 5 poison variants) uneffected before every mood pass via `UneffectRequest`; best-effort (network failures don't abort mood pass)
 - ManaBurn post-turn loop (enabled/disabled pref; threshold pref; capped at 10 iterations)
 - Recovery item/skill selection with daily-limit awareness
 - HP/MP threshold predicates (`needsHpRecovery`, `needsMpRecovery`)
@@ -149,12 +154,6 @@ active effects before each turn and casts missing buffs via `SkillManager`.
   `AUTO_RECOVER_MP`, `MP_RECOVERY_TARGET_PCT`, `MP_RECOVERY_STOP_PCT`, `AUTO_BUFF` honored
 
 **Known gaps:**
-- **No multiple named moods** — Desktop has a library of named moods (`SortedListModel<Mood>`)
-  persisted to `USERNAME_moods.txt`. Mobile: one active mood in two preference strings. No
-  mood switching, no mood library.
-- **No auto-clear malignant effects** — Desktop `MoodManager.removeMalignantEffects()` auto-`uneffect`s
-  Beaten Up and 5 poison variants every mood execution pass. Without this, a beaten-up character
-  continues adventuring at zero HP until death.
 - **No mood inheritance** — Desktop `Mood.java` parses `"moodA extends default"` and
   comma-list names to merge parent trigger lists at evaluation time.
 - **No AT song management** — Desktop auto-evicts the lowest-priority Accordion Thief song
@@ -163,6 +162,9 @@ active effects before each turn and casts missing buffs via `SkillManager`.
   (not just mood-trigger effects), respects `allowNonMoodBurning`, `allowSummonBurning`,
   `manaBurnSummonThreshold`, per-skill priority prefs, and `lastChanceBurn`/`lastChanceThreshold`.
   Mobile only burns the shortest-duration mood-trigger effect.
+- **`removeMalignantEffects` defaults to `true`** — Desktop `defaults.txt` has `removeMalignantEffects false`.
+  Mobile's default (true) means it will attempt to auto-remove effects out of the box. This may be
+  the desired mobile behavior (more beginner-friendly) but diverges from desktop; confirm intent.
 
 ### Goal Manager + Adventure Loop Stop (Phase 6 — Merged 2026-06-06)
 
@@ -192,7 +194,7 @@ enthroned/bjorned familiars, moon state, campground state, and social flags.
 **Remaining gaps:** per-quest flags, telescope monster data, detailed campground state
 (garden type/yield, mushroom plot), storage/closet item counts beyond meat totals.
 
-### Banish Tracking (Absent)
+### Banish Tracking (Foundation — PR #8)
 
 Desktop `session/BanishManager.java` (618 lines) tracks which monsters have been banished,
 by which banisher, with what turn-reset or rollover-reset semantics. 55+ named banishers,
@@ -200,8 +202,17 @@ per-banisher turn-counts, rollover/turn/avatar reset types, phylum banishing, an
 State is serialized to the `banishedMonsters` preference string. Exposes `isBanished(monster)`
 for the combat advisor and `BanisherUsed` events for daily tracking.
 
-**Mobile gap:** Completely absent. Medium-High value, Low difficulty — ~200–250 lines of Kotlin
-for a clean port.
+**Mobile status (PR #8):** Foundation implemented. `banish/` package has 3 files:
+- `Banisher.kt` — 21 named banishers with `canonicalName`, `turns`, `ResetType` (`ROLLOVER/TURNS/TURN_ROLLOVER/AVATAR/NEVER`), `isTurnFree`
+- `BanishState.kt` — `BanishedMonster` (name, banisher, turnBanished) with `isExpired()` logic
+- `BanishManager.kt` — StateFlow-backed; `banishMonster()`, `isBanished()`, `clearExpiredAndRollover()`, `save()`, `load()` via Preferences
+
+**Remaining gaps:**
+1. **`isBanished` is dead code** — Never called from `AdventureManager` or any zone-selection path. The tracking exists but doesn't influence routing.
+2. **Always `Banisher.UNKNOWN`** — `AdventureManager.resolveCombat()` always records `Banisher.UNKNOWN`. The `Banisher` enum's per-banisher turn counts and reset types are correct but unreachable since banisher identity is never extracted from combat HTML.
+3. **`clearExpiredAndRollover` fires on every login** — Not gated on actual rollover (day change). A same-day app restart clears still-valid `TURN_ROLLOVER` banishes (snokebomb, reflex hammer, etc.) that desktop would preserve.
+4. **No phylum banishing** — Desktop tracks Breathitin / Out of the Frying Pan etc. by phylum, not monster name. Mobile has no phylum concept in BanishManager.
+5. **Desktop has 55+ banishers; mobile has 21** — The 34 missing banishers are lower-frequency items/skills.
 
 ### Quest Database (Substantially Addressed)
 
@@ -294,54 +305,52 @@ subset (garden harvest, pocket wishes, VIP lounge) could be ported incrementally
 | Scripting | Full ASH + CLI (835 functions) | Partial ASH (~50 functions) | Desktop wins heavily |
 | Events | Ad-hoc listeners | GameEventBus pub/sub | Mobile is cleaner |
 | Choice automation | ~1,000 handler cases | ~80 active IDs covered | Good coverage of common paths |
-| Recovery/mood | 9 classes, full persistence + mood library | 5 files, single-mood persistence | Desktop wins on mood library |
+| Recovery/mood | 9 classes, full persistence + mood library | 6 files, named library + malignant clearing | Closing gap — inheritance/AT songs remain |
 | ManaBurn | Full — any buff, summons, per-skill priority | Partial — mood-trigger effects only | Desktop wins on coverage |
+| Banish tracking | 55+ banishers, full routing integration | 21 banishers, foundation only (no routing) | Desktop wins; mobile has the data model |
 
 ---
 
 ## Top Priorities
 
-1. **Multiple named moods + mood library** — The single-active-mood model is a significant UX
-   regression from desktop. Users expect to define named mood profiles (combat, leveling,
-   farming) and switch between them. Requires: a mood library (`List<Mood>` with names), a
-   serialization format extending current prefs (or a file), and UI to select/create/delete
-   moods. Also enables mood inheritance (`extends`) as a natural follow-on.
+1. **BanishManager routing integration** — The foundation (PR #8) is done but inert. Three
+   concrete follow-ups make it useful: (a) wire `isBanished` into `AdventureManager` / zone
+   pre-checks so banished monsters are actually avoided; (b) extract banisher identity from
+   combat HTML so banishes are recorded with correct turn counts and reset types rather than
+   always `UNKNOWN/ROLLOVER`; (c) gate `clearExpiredAndRollover` on a stored day count to
+   avoid wiping valid same-session banishes on app restart. Without (a), the tracking is
+   book-keeping with no behavioral effect.
 
-2. **Auto-clear malignant effects** — `MoodManager` should automatically `uneffect` Beaten Up
-   and 5 poison variants on every mood execution pass. Without this, a beaten-up character
-   continues adventuring at ~0 HP until death halts the loop. Requires `EffectManager.removeMalignantEffects()`.
-   Small scope — 9 fixed effect names → uneffect skill lookup → cast.
+2. **BreakfastManager / daily reset subset** — No daily-reset actions fire on mobile login.
+   Start with the three highest-value, lowest-complexity actions: garden harvest (single HTTP
+   request), pocket wishes (item use), and VIP lounge free items. Each is ~50–100 lines with
+   a preference guard. Opens the door to a full `BreakfastManager` port incrementally.
 
-3. **BanishManager** — `BanishManager` equivalent to track banished monsters with turn-reset
-   and rollover-reset semantics. 55+ banishers from the desktop enum. The data model is clean
-   (monster name → banisher enum → duration). ~200–250 lines; directly enables adventure routing
-   intelligence and unblocks the `banishers_used()` / `get_banished_monsters()` ASH functions.
-
-4. **VillainLair + Rufus solvers** — Complete the four TODO stubs in `SolverHandlers.kt`:
+3. **VillainLair + Rufus solvers** — Complete the four TODO stubs in `SolverHandlers.kt`:
    - Choices 1260/1262: pure string matching against `_villainLairColor` pref and response
      text (~50 lines). No HTTP side effects.
    - Choices 1498/1499: requires a `RufusManager` to parse phone call HTML and store quest
      type/target in preferences (~200 lines total).
 
-5. **Six choice solver implementations** — All 6 solver stubs (`ArcadeGameSolver`, `GameproSolver`,
+4. **Six choice solver implementations** — All 6 solver stubs (`ArcadeGameSolver`, `GameproSolver`,
    `LightsOutSolver`, `LostKeySolver`, `SafetyShelterSolver`, `VampOutSolver`) are `NoOp`.
    Without real implementations, choice IDs 486, 535, 536, 546, 594, 665, 890–903 fall
    through to option 1, breaking Dreadsylvania, Safety Shelter, and the Lights Out chain.
    `LightsOut` and `SafetyShelter` are the highest-value starting points.
 
-6. **ASH function batch — core scripting primitives** — The 94% gap means no real KoLmafia
+5. **ASH function batch — core scripting primitives** — The 94% gap means no real KoLmafia
    script is portable to mobile. Highest-value batch: `my_class`, `my_path`, `in_run`,
    `ascension_number` (character queries); `get_inventory` (map return); `numeric_modifier`,
    `string_modifier` (modifier queries); `to_location`, `to_monster`, `to_familiar` (type
    conversions); `add_item_condition`, `goal_exists` (goal management). This batch alone would
    make the top ~20 community scripts runnable.
 
-7. **BreakfastManager / daily reset subset** — No daily-reset actions fire on mobile login.
-   Start with the three highest-value, lowest-complexity actions: garden harvest (single HTTP
-   request), pocket wishes (item use), and VIP lounge free items. Each is ~50–100 lines with
-   a preference guard. Opens the door to a full `BreakfastManager` port incrementally.
-
-8. **`cli_execute` real dispatch** — Currently prints and returns true. Minimal real dispatch
+6. **`cli_execute` real dispatch** — Currently prints and returns true. Minimal real dispatch
    should handle: `mood execute`, `mood [name]`, `set key=value`, `get key` — the four
    most-called patterns in community scripts. This directly unblocks mood-using scripts and
    gives ASH scripts a path to preference management.
+
+7. **Mood system refinements** — Three remaining gaps in approximate value order:
+   (a) AT song slot tracking + auto-evict lowest-priority song when full (unblocks AT class players);
+   (b) `removeMalignantEffects` default alignment with desktop (currently `true`, desktop is `false` — resolve intentional divergence);
+   (c) mood inheritance (`extends` keyword parsing in mood names) — enables the "default" base mood pattern used by most power users.
