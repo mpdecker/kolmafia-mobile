@@ -144,6 +144,7 @@ val sharedModule = module {
             gameDatabase         = get(),
             dailyResourceTracker = get(),
             questLogRequest      = get(),
+            moodManager          = get(),
         )
     }
     singleOf(::ShopRequest)
