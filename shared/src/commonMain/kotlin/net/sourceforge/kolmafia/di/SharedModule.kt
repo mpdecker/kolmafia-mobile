@@ -49,6 +49,7 @@ import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
+import net.sourceforge.kolmafia.request.UneffectRequest
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -98,7 +99,8 @@ val sharedModule = module {
     singleOf(::SkillCastRequest)
     singleOf(::SkillManager)
     singleOf(::RecoveryManager)
-    singleOf(::MoodManager)
+    singleOf(::UneffectRequest)
+    single { MoodManager(skillManager = get(), preferences = get(), uneffectRequest = get()) }
     singleOf(::ManaBurnManager)
     singleOf(::EffectManager)
     single {

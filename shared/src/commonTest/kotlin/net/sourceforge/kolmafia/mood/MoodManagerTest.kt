@@ -204,7 +204,82 @@ class MoodManagerTest {
         assertEquals("", p.getString(Preferences.ACTIVE_MOOD_TRIGGERS))
     }
 
+    // ── removeMalignantEffects ────────────────────────────────────────────────
+
+    @Test fun removeMalignantEffects_noMalignantEffects_doesNotCallUneffect() {
+        val uneffected = mutableListOf<Int>()
+        val manager = managerWithUneffect(uneffected, prefs())
+        runBlocking {
+            manager.removeMalignantEffects(effectState(effect(10, 3)))
+        }
+        assertTrue(uneffected.isEmpty())
+    }
+
+    @Test fun removeMalignantEffects_beatenUpPresent_callsUneffect() {
+        val uneffected = mutableListOf<Int>()
+        val manager = managerWithUneffect(uneffected, prefs())
+        val beatenUp = EffectData(id = 4, name = "Beaten Up", duration = 5)
+        runBlocking {
+            manager.removeMalignantEffects(effectState(beatenUp))
+        }
+        assertEquals(listOf(4), uneffected)
+    }
+
+    @Test fun removeMalignantEffects_disabledByPref_doesNotUneffect() {
+        val uneffected = mutableListOf<Int>()
+        val s = MapSettings()
+        s.putBoolean(Preferences.REMOVE_MALIGNANT_EFFECTS, false)
+        val p = Preferences(s)
+        val manager = managerWithUneffect(uneffected, p)
+        val beatenUp = EffectData(id = 4, name = "Beaten Up", duration = 5)
+        runBlocking {
+            manager.removeMalignantEffects(effectState(beatenUp))
+        }
+        assertTrue(uneffected.isEmpty())
+    }
+
+    @Test fun removeMalignantEffects_multipleMalignantEffects_uneffectsAll() {
+        val uneffected = mutableListOf<Int>()
+        val manager = managerWithUneffect(uneffected, prefs())
+        val effects = effectState(
+            EffectData(id = 4,  name = "Beaten Up",              duration = 3),
+            EffectData(id = 37, name = "Hardly Poisoned at All", duration = 1),
+        )
+        runBlocking { manager.removeMalignantEffects(effects) }
+        assertEquals(setOf(4, 37), uneffected.toSet())
+    }
+
+    @Test fun executeActiveMood_clearsBeatenUp_evenWhenNoActiveMood() {
+        val uneffected = mutableListOf<Int>()
+        val manager = managerWithUneffect(uneffected, prefs())
+        manager.activeMood = null
+        val beatenUp = EffectData(id = 4, name = "Beaten Up", duration = 2)
+        runBlocking {
+            manager.executeActiveMood(effectState(beatenUp), SkillState(), CharacterState())
+        }
+        assertEquals(listOf(4), uneffected)
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private fun managerWithUneffect(
+        uneffected: MutableList<Int>,
+        prefs: Preferences,
+    ): MoodManager {
+        val fakeUneffect = object : net.sourceforge.kolmafia.request.UneffectRequest(
+            io.ktor.client.HttpClient(MockEngine { respond("") })
+        ) {
+            override suspend fun uneffect(effectId: Int): Result<Unit> {
+                uneffected.add(effectId)
+                return Result.success(Unit)
+            }
+        }
+        return MoodManager(
+            skillManager    = fakeCastSkillManager(mutableListOf()),
+            preferences     = prefs,
+            uneffectRequest = fakeUneffect,
+        )
+    }
 
     private fun skillData(
         id: Int,

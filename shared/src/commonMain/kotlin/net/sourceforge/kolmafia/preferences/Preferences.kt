@@ -37,6 +37,7 @@ class Preferences(private val settings: Settings) {
 
         // Mood
         const val AUTO_BUFF                = "autoBuff"
+        const val REMOVE_MALIGNANT_EFFECTS = "removeMalignantEffects"  // default true
         const val ACTIVE_MOOD_NAME         = "activeMoodName"        // persisted active mood name
         const val ACTIVE_MOOD_TRIGGERS     = "activeMoodTriggers"    // serialized trigger list
 

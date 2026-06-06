@@ -3,12 +3,14 @@ package net.sourceforge.kolmafia.mood
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.UneffectRequest
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
 
 class MoodManager(
     private val skillManager: SkillManager,
     private val preferences: Preferences,
+    private val uneffectRequest: UneffectRequest? = null,
 ) {
     var activeMood: Mood? = null
 
@@ -21,6 +23,42 @@ class MoodManager(
                 remaining < trigger.minimumTurns
             }
     }
+
+    // ── Malignant effect removal ──────────────────────────────────────────────
+
+    /**
+     * Removes any effect from [MalignantEffects.NAMES] currently active on the character.
+     * No-op when [Preferences.REMOVE_MALIGNANT_EFFECTS] is false or [uneffectRequest] is null.
+     */
+    suspend fun removeMalignantEffects(effectState: EffectState) {
+        if (!preferences.getBoolean(Preferences.REMOVE_MALIGNANT_EFFECTS, true)) return
+        val req = uneffectRequest ?: return
+        for (effect in effectState.effects) {
+            if (effect.name in MalignantEffects.NAMES) {
+                req.uneffect(effect.id)
+            }
+        }
+    }
+
+    // ── Mood execution ────────────────────────────────────────────────────────
+
+    suspend fun executeActiveMood(
+        effectState: EffectState,
+        skillState: SkillState,
+        charState: CharacterState,
+    ) {
+        removeMalignantEffects(effectState)
+        val mood = activeMood ?: return
+        if (!preferences.getBoolean(Preferences.AUTO_BUFF, true)) return
+        for (trigger in missingTriggers(mood, effectState)) {
+            val skill = skillState.skills.firstOrNull { it.id == trigger.skillId } ?: continue
+            if (skill.mpCost > charState.currentMp) continue
+            if (skill.dailyLimit > 0 && skill.timesCast >= skill.dailyLimit) continue
+            skillManager.cast(skill)
+        }
+    }
+
+    // ── Active mood persistence ───────────────────────────────────────────────
 
     /** Writes the current [activeMood] to preferences. Call whenever the mood changes. */
     fun saveActiveMood() {
@@ -47,12 +85,12 @@ class MoodManager(
 
     // ── Serialization helpers ─────────────────────────────────────────────────
 
-    private fun serializeTriggers(triggers: List<MoodTrigger>): String =
+    internal fun serializeTriggers(triggers: List<MoodTrigger>): String =
         triggers.joinToString("|") { t ->
             "${t.effectId}:${t.effectName}:${t.skillId}:${t.skillName}:${t.minimumTurns}"
         }
 
-    private fun parseTriggers(raw: String): List<MoodTrigger> {
+    internal fun parseTriggers(raw: String): List<MoodTrigger> {
         if (raw.isBlank()) return emptyList()
         return raw.split("|").mapNotNull { entry ->
             val parts = entry.split(":", limit = 5)
@@ -64,21 +102,6 @@ class MoodManager(
                 skillName    = parts[3],
                 minimumTurns = parts[4].toIntOrNull() ?: return@mapNotNull null,
             )
-        }
-    }
-
-    suspend fun executeActiveMood(
-        effectState: EffectState,
-        skillState: SkillState,
-        charState: CharacterState,
-    ) {
-        val mood = activeMood ?: return
-        if (!preferences.getBoolean(Preferences.AUTO_BUFF, true)) return
-        for (trigger in missingTriggers(mood, effectState)) {
-            val skill = skillState.skills.firstOrNull { it.id == trigger.skillId } ?: continue
-            if (skill.mpCost > charState.currentMp) continue
-            if (skill.dailyLimit > 0 && skill.timesCast >= skill.dailyLimit) continue
-            skillManager.cast(skill)
         }
     }
 }

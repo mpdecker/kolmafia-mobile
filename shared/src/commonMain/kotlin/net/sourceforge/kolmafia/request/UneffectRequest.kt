@@ -5,10 +5,10 @@ import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
-class UneffectRequest(private val client: HttpClient) {
+open class UneffectRequest(private val client: HttpClient) {
 
     /** POSTs to uneffect.php to remove the effect with the given server ID. */
-    suspend fun uneffect(effectId: Int): Result<Unit> = try {
+    open suspend fun uneffect(effectId: Int): Result<Unit> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/uneffect.php",
             formParameters = parameters {
