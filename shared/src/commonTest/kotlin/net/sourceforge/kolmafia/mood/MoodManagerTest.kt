@@ -146,6 +146,64 @@ class MoodManagerTest {
         assertTrue(cast.isEmpty())
     }
 
+    // ── Persistence ───────────────────────────────────────────────────────────
+
+    @Test fun saveAndLoad_roundtrips_activeMood() {
+        val settings = com.russhwolf.settings.MapSettings()
+        val p = Preferences(settings)
+        val manager = MoodManager(fakeCastSkillManager(mutableListOf()), p)
+
+        val mood = Mood("combat", listOf(
+            MoodTrigger(100, "Butt-Rock Hair", 4055, "Disco Nap", 3),
+            MoodTrigger(200, "Strength of the Grizzly", 4095, "Musk of the Moose", 1),
+        ))
+        manager.activeMood = mood
+        manager.saveActiveMood()
+
+        manager.activeMood = null           // clear in-memory
+        manager.loadActiveMood()
+
+        assertEquals(mood, manager.activeMood)
+    }
+
+    @Test fun saveAndLoad_emptyTriggerList_roundtrips() {
+        val settings = com.russhwolf.settings.MapSettings()
+        val p = Preferences(settings)
+        val manager = MoodManager(fakeCastSkillManager(mutableListOf()), p)
+
+        manager.activeMood = Mood("empty", emptyList())
+        manager.saveActiveMood()
+        manager.activeMood = null
+        manager.loadActiveMood()
+
+        assertEquals(Mood("empty", emptyList()), manager.activeMood)
+    }
+
+    @Test fun loadActiveMood_noPrefsData_setsNull() {
+        val settings = com.russhwolf.settings.MapSettings()  // empty prefs
+        val p = Preferences(settings)
+        val manager = MoodManager(fakeCastSkillManager(mutableListOf()), p)
+        manager.activeMood = Mood("x", emptyList())  // set something first
+
+        manager.loadActiveMood()
+
+        kotlin.test.assertNull(manager.activeMood)
+    }
+
+    @Test fun saveActiveMood_nullMood_clearsPrefs() {
+        val settings = com.russhwolf.settings.MapSettings()
+        settings.putString(Preferences.ACTIVE_MOOD_NAME, "old")
+        settings.putString(Preferences.ACTIVE_MOOD_TRIGGERS, "100:EffectName:200:SkillName:1")
+        val p = Preferences(settings)
+        val manager = MoodManager(fakeCastSkillManager(mutableListOf()), p)
+
+        manager.activeMood = null
+        manager.saveActiveMood()
+
+        assertEquals("", p.getString(Preferences.ACTIVE_MOOD_NAME))
+        assertEquals("", p.getString(Preferences.ACTIVE_MOOD_TRIGGERS))
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private fun skillData(

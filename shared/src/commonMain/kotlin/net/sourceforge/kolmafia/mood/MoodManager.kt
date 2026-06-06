@@ -22,6 +22,51 @@ class MoodManager(
             }
     }
 
+    /** Writes the current [activeMood] to preferences. Call whenever the mood changes. */
+    fun saveActiveMood() {
+        val mood = activeMood
+        if (mood == null) {
+            preferences.setString(Preferences.ACTIVE_MOOD_NAME, "")
+            preferences.setString(Preferences.ACTIVE_MOOD_TRIGGERS, "")
+            return
+        }
+        preferences.setString(Preferences.ACTIVE_MOOD_NAME, mood.name)
+        preferences.setString(Preferences.ACTIVE_MOOD_TRIGGERS, serializeTriggers(mood.triggers))
+    }
+
+    /** Restores [activeMood] from preferences. Call once after login. */
+    fun loadActiveMood() {
+        val name = preferences.getString(Preferences.ACTIVE_MOOD_NAME)
+        if (name.isBlank()) {
+            activeMood = null
+            return
+        }
+        val raw = preferences.getString(Preferences.ACTIVE_MOOD_TRIGGERS)
+        activeMood = Mood(name, parseTriggers(raw))
+    }
+
+    // ── Serialization helpers ─────────────────────────────────────────────────
+
+    private fun serializeTriggers(triggers: List<MoodTrigger>): String =
+        triggers.joinToString("|") { t ->
+            "${t.effectId}:${t.effectName}:${t.skillId}:${t.skillName}:${t.minimumTurns}"
+        }
+
+    private fun parseTriggers(raw: String): List<MoodTrigger> {
+        if (raw.isBlank()) return emptyList()
+        return raw.split("|").mapNotNull { entry ->
+            val parts = entry.split(":", limit = 5)
+            if (parts.size < 5) return@mapNotNull null
+            MoodTrigger(
+                effectId     = parts[0].toIntOrNull() ?: return@mapNotNull null,
+                effectName   = parts[1],
+                skillId      = parts[2].toIntOrNull() ?: return@mapNotNull null,
+                skillName    = parts[3],
+                minimumTurns = parts[4].toIntOrNull() ?: 1,
+            )
+        }
+    }
+
     suspend fun executeActiveMood(
         effectState: EffectState,
         skillState: SkillState,
