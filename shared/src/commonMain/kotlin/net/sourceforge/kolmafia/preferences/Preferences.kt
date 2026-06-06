@@ -43,6 +43,9 @@ class Preferences(private val settings: Settings) {
         const val MOOD_LIBRARY_NAMES       = "moodLibraryNames"      // |-separated saved mood names
         // Per-mood data stored under "moodTriggers_${name}" (dynamic key, not a constant)
 
+        // Banish tracking
+        const val BANISHED_MONSTERS = "banishedMonsters"   // serialized banish list (same key as desktop)
+
         // ManaBurn
         const val MANA_BURN_ENABLED        = "manaBurnEnabled"       // default false
         const val MANA_BURN_MIN_MP_PCT     = "manaBurnMinMpPct"      // burn when MP% >= this; default 90
