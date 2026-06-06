@@ -210,6 +210,7 @@ class AdventureManager(
                 banisher    = Banisher.UNKNOWN,
                 currentTurn = character.state.value.currentRun,
             )
+            return result  // banish is a successful combat resolution — don't treat as death
         }
         if (!result.won) {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.CharacterDeath))

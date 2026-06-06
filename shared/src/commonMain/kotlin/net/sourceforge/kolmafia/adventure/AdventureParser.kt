@@ -10,7 +10,7 @@ object AdventureParser {
     private val MONSTER_NAME = Regex("""<span id='monname'>(.*?)</span>""")
     private val ENCOUNTER_NAME = Regex("""<b>([^<]{3,60})</b>""")
     private val BANISH_PATTERN = Regex(
-        """(?:flees? in terror|banished? from|gone somewhere else|flees? the (?:area|field)|flee[sd]? the (?:area|field))""",
+        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field))""",
         RegexOption.IGNORE_CASE
     )
 

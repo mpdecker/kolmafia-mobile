@@ -138,4 +138,13 @@ class AdventureParserTest {
         val result = AdventureParser.parseFightResult(html)
         assertTrue(result.banished)
     }
+
+    @Test fun parseFightResult_fledTheArea_banishedTrue() {
+        val html = """
+            <span id='monname'>Ninja Snowman</span>
+            It fled the area.
+        """.trimIndent()
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+    }
 }
