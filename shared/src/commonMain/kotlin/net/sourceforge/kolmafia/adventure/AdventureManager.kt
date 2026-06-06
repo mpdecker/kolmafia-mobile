@@ -26,6 +26,7 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -49,6 +50,7 @@ class AdventureManager(
     private val recoveryManager: RecoveryManager? = null,
     private val moodManager: MoodManager? = null,
     private val questLogRequest: QuestLogRequest? = null,
+    private val manaBurnManager: ManaBurnManager? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -124,6 +126,22 @@ class AdventureManager(
                             val mpDone = !preferences.getBoolean(Preferences.AUTO_RECOVER_MP, false) ||
                                          RecoveryManager.mpAboveStopThreshold(s, preferences)
                             if (hpDone && mpDone) break
+                        }
+                    }
+                    // ManaBurn: cast lowest-duration effect skill while MP is above burn threshold
+                    val mbm = manaBurnManager
+                    if (mbm != null) {
+                        var burnIter = 0
+                        while (burnIter < 10) {
+                            val burned = mbm.burnIfEnabled(
+                                mood        = moodManager?.activeMood,
+                                effectState = effects?.state?.value ?: EffectState(),
+                                skillState  = skills?.state?.value ?: SkillState(),
+                                charState   = character.state.value,
+                            )
+                            burnIter++
+                            if (!burned) break
+                            characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
                         }
                     }
                     checkQuestAdvancement(lastTurnResponseText)
