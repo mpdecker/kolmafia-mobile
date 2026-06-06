@@ -83,6 +83,52 @@ class MoodManager(
         activeMood = Mood(name, parseTriggers(raw))
     }
 
+    // ── Mood library ──────────────────────────────────────────────────────────
+
+    var moodLibrary: Map<String, Mood> = emptyMap()
+        private set
+
+    /** Adds or replaces the mood in the library by [Mood.name]. */
+    fun addMoodToLibrary(mood: Mood) {
+        moodLibrary = moodLibrary + (mood.name to mood)
+    }
+
+    /** Removes the mood with the given [name] from the library. No-op if absent. */
+    fun removeMoodFromLibrary(name: String) {
+        moodLibrary = moodLibrary - name
+    }
+
+    /**
+     * Sets [activeMood] to the library entry named [name] and persists via [saveActiveMood].
+     * Returns true on success, false if [name] is not in the library.
+     */
+    fun setActiveMoodByName(name: String): Boolean {
+        val mood = moodLibrary[name] ?: return false
+        activeMood = mood
+        saveActiveMood()
+        return true
+    }
+
+    /** Persists the current [moodLibrary] to preferences. */
+    fun saveMoodLibrary() {
+        val names = moodLibrary.keys.joinToString("|")
+        preferences.setString(Preferences.MOOD_LIBRARY_NAMES, names)
+        for ((name, mood) in moodLibrary) {
+            preferences.setString("moodTriggers_$name", serializeTriggers(mood.triggers))
+        }
+    }
+
+    /** Restores [moodLibrary] from preferences. Call once after login. */
+    fun loadMoodLibrary() {
+        val namesRaw = preferences.getString(Preferences.MOOD_LIBRARY_NAMES)
+        if (namesRaw.isBlank()) { moodLibrary = emptyMap(); return }
+        val names = namesRaw.split("|").filter { it.isNotBlank() }
+        moodLibrary = names.associate { name ->
+            val raw = preferences.getString("moodTriggers_$name")
+            name to Mood(name, parseTriggers(raw))
+        }
+    }
+
     // ── Serialization helpers ─────────────────────────────────────────────────
 
     internal fun serializeTriggers(triggers: List<MoodTrigger>): String =
