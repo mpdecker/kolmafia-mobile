@@ -42,6 +42,6 @@ class Preferences(private val settings: Settings) {
 
         // ManaBurn
         const val MANA_BURN_ENABLED        = "manaBurnEnabled"       // default false
-        const val MANA_BURN_BELOW_PCT      = "manaBurnBelowPct"      // burn while MP% >= this; default 90
+        const val MANA_BURN_MIN_MP_PCT     = "manaBurnMinMpPct"      // burn when MP% >= this; default 90
     }
 }

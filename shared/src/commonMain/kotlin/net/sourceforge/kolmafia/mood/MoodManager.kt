@@ -62,7 +62,7 @@ class MoodManager(
                 effectName   = parts[1],
                 skillId      = parts[2].toIntOrNull() ?: return@mapNotNull null,
                 skillName    = parts[3],
-                minimumTurns = parts[4].toIntOrNull() ?: 1,
+                minimumTurns = parts[4].toIntOrNull() ?: return@mapNotNull null,
             )
         }
     }

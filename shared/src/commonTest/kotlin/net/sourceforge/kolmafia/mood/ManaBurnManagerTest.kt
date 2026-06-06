@@ -185,7 +185,7 @@ class ManaBurnManagerTest {
     private fun prefs(enabled: Boolean, belowPct: Int = 90): Preferences {
         val s = MapSettings()
         s.putBoolean(Preferences.MANA_BURN_ENABLED, enabled)
-        s.putInt(Preferences.MANA_BURN_BELOW_PCT, belowPct)
+        s.putInt(Preferences.MANA_BURN_MIN_MP_PCT, belowPct)
         return Preferences(s)
     }
 

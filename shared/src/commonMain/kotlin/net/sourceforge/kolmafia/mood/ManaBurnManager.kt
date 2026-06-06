@@ -14,12 +14,12 @@ class ManaBurnManager(
     companion object {
         /**
          * Returns true when mana burn should fire: enabled preference is set AND
-         * current MP is at or above [MANA_BURN_BELOW_PCT] percent of max MP.
+         * current MP is at or above [MANA_BURN_MIN_MP_PCT] percent of max MP.
          */
         fun shouldBurn(charState: CharacterState, prefs: Preferences): Boolean {
             if (!prefs.getBoolean(Preferences.MANA_BURN_ENABLED, false)) return false
             if (charState.maxMp <= 0) return false
-            val belowPct = prefs.getInt(Preferences.MANA_BURN_BELOW_PCT, 90)
+            val belowPct = prefs.getInt(Preferences.MANA_BURN_MIN_MP_PCT, 90)
             return charState.currentMp * 100 / charState.maxMp >= belowPct
         }
 

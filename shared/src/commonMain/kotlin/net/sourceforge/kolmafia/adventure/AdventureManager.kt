@@ -128,7 +128,10 @@ class AdventureManager(
                             if (hpDone && mpDone) break
                         }
                     }
-                    // ManaBurn: cast lowest-duration effect skill while MP is above burn threshold
+                    // ManaBurn: cast lowest-duration effect skill while MP is above burn threshold.
+                    // skillState is re-read from SkillManager.state each iteration; correctness
+                    // requires that SkillManager.cast() updates timesCast in that StateFlow
+                    // synchronously before returning, so daily-limit checks stay accurate.
                     val mbm = manaBurnManager
                     if (mbm != null) {
                         var burnIter = 0
