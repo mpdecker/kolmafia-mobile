@@ -96,6 +96,7 @@ class MoodManager(
     /** Removes the mood with the given [name] from the library. No-op if absent. */
     fun removeMoodFromLibrary(name: String) {
         moodLibrary = moodLibrary - name
+        preferences.setString("moodTriggers_$name", "")  // clear orphaned trigger key
     }
 
     /**

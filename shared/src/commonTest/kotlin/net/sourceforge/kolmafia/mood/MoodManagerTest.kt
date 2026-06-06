@@ -325,6 +325,20 @@ class MoodManagerTest {
         assertTrue(manager.moodLibrary.isEmpty())
     }
 
+    @Test fun removeMoodFromLibrary_clearsOrphanedPreferenceKey() {
+        val s = MapSettings()
+        val p = Preferences(s)
+        val manager = MoodManager(fakeCastSkillManager(mutableListOf()), p)
+        manager.addMoodToLibrary(Mood("farming", listOf(trigger(10, 200))))
+        manager.saveMoodLibrary()
+        // Confirm key was written
+        assertTrue(s.getString("moodTriggers_farming", "").isNotBlank())
+        // Remove the mood
+        manager.removeMoodFromLibrary("farming")
+        // Key should be cleared
+        assertTrue(s.getString("moodTriggers_farming", "").isBlank())
+    }
+
     @Test fun setActiveMoodByName_knownName_setsActiveMoodAndReturnsTrue() {
         val s = MapSettings()
         val p = Preferences(s)
