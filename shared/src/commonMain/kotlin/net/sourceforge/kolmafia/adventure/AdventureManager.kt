@@ -26,6 +26,7 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -40,7 +41,7 @@ class AdventureManager(
     private val preferences: Preferences,
     private val eventBus: GameEventBus,
     private val registry: ChoiceHandlerRegistry = ChoiceHandlerRegistry(),
-    private val goalManager: GoalManager = GoalManager(),
+    internal val goalManager: GoalManager = GoalManager(),
     private val questDatabase: QuestDatabase = QuestDatabase(preferences),
     private val solvers: ChoiceSolvers = ChoiceSolvers.NoOp,
     private val inventory: InventoryManager? = null,
@@ -49,6 +50,7 @@ class AdventureManager(
     private val recoveryManager: RecoveryManager? = null,
     private val moodManager: MoodManager? = null,
     private val questLogRequest: QuestLogRequest? = null,
+    private val manaBurnManager: ManaBurnManager? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -56,6 +58,7 @@ class AdventureManager(
 
     private var skillUses: Int = 0
     private var lastTurnResponseText: String = ""
+    private var itemGoalMetThisTurn = false
 
     fun setSkillUses(n: Int) { skillUses = n }
 
@@ -72,6 +75,7 @@ class AdventureManager(
             try {
                 repeat(turns) {
                     if (!isActive) return@launch
+                    itemGoalMetThisTurn = false
                     // Re-buff before this adventure turn
                     moodManager?.executeActiveMood(
                         effectState = effects?.state?.value ?: EffectState(),
@@ -80,15 +84,68 @@ class AdventureManager(
                     )
                     val result = doOneTurn(location) ?: return@launch
 
+                    if (itemGoalMetThisTurn) {
+                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("item goal met")))
+                        return@launch
+                    }
+
                     characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
-                    // Recover HP/MP between turns; re-fetch state if recovery occurred
-                    val healed = recoveryManager?.recoverIfNeeded(
-                        charState  = character.state.value,
-                        invState   = inventory?.state?.value ?: InventoryState(),
-                        skillState = skills?.state?.value ?: SkillState(),
-                    )
-                    if (healed == true) {
-                        characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+
+                    // Numeric goal checks (meat, level) — evaluated on up-to-date character state
+                    val charAfterTurn = character.state.value
+                    if (goalManager.hasMeatGoal(charAfterTurn.meat)) {
+                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("meat goal met: ${charAfterTurn.meat}")))
+                        return@launch
+                    }
+                    if (goalManager.hasLevelGoal(charAfterTurn.level)) {
+                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("level goal met: ${charAfterTurn.level}")))
+                        return@launch
+                    }
+
+                    // Recovery loop: repeat until stop threshold met or no recovery available (max 10 iterations)
+                    val rm = recoveryManager
+                    if (rm != null) {
+                        var iter = 0
+                        while (iter < 10) {
+                            val force = iter > 0  // after first recovery, bypass trigger-threshold check
+                            val healed = rm.recoverIfNeeded(
+                                charState  = character.state.value,
+                                invState   = inventory?.state?.value ?: InventoryState(),
+                                skillState = skills?.state?.value ?: SkillState(),
+                                force      = force,
+                            )
+                            iter++
+                            if (!healed) break
+                            characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+                            val s = character.state.value
+                            val hpDone = !preferences.getBoolean(Preferences.AUTO_RECOVER_HP, true) ||
+                                         RecoveryManager.hpAboveStopThreshold(s, preferences)
+                            val mpDone = !preferences.getBoolean(Preferences.AUTO_RECOVER_MP, false) ||
+                                         RecoveryManager.mpAboveStopThreshold(s, preferences)
+                            if (hpDone && mpDone) break
+                        }
+                    }
+                    // ManaBurn: cast lowest-duration effect skill while MP is above burn threshold.
+                    // skillState is re-read from SkillManager.state each iteration; correctness
+                    // requires that SkillManager.cast() updates timesCast in that StateFlow
+                    // synchronously before returning, so daily-limit checks stay accurate.
+                    val mbm = manaBurnManager
+                    if (mbm != null) {
+                        var burnIter = 0
+                        while (burnIter < 10) {
+                            val burned = mbm.burnIfEnabled(
+                                mood        = moodManager?.activeMood,
+                                effectState = effects?.state?.value ?: EffectState(),
+                                skillState  = skills?.state?.value ?: SkillState(),
+                                charState   = character.state.value,
+                            )
+                            burnIter++
+                            if (!burned) break
+                            characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+                        }
                     }
                     checkQuestAdvancement(lastTurnResponseText)
                     eventBus.emit(GameEvent.TurnConsumed(location, result))
@@ -143,7 +200,10 @@ class AdventureManager(
         val result = AdventureParser.parseFightResult(fightHtml)
         eventBus.emit(GameEvent.CombatFinished(result.won, result.monster))
         emitItemEvents(result.itemsGained)
-        if (!result.won) eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.CharacterDeath))
+        if (!result.won) {
+            eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.CharacterDeath))
+            return null
+        }
         return result
     }
 
@@ -181,6 +241,7 @@ class AdventureManager(
     private suspend fun emitItemEvents(items: List<String>) {
         items.forEach { name ->
             eventBus.emit(GameEvent.ItemObtained(InventoryItem(-1, name, 1, ItemType.OTHER)))
+            if (goalManager.hasItemGoalByName(name)) itemGoalMetThisTurn = true
         }
     }
 }

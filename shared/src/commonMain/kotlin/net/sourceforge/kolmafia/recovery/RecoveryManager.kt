@@ -35,6 +35,18 @@ class RecoveryManager(
             return ratioPct < targetPct
         }
 
+        fun hpAboveStopThreshold(state: CharacterState, prefs: Preferences): Boolean {
+            if (state.maxHp <= 0) return true
+            val stopPct = prefs.getInt(Preferences.HP_RECOVERY_STOP_PCT, 90)
+            return state.currentHp * 100 / state.maxHp >= stopPct
+        }
+
+        fun mpAboveStopThreshold(state: CharacterState, prefs: Preferences): Boolean {
+            if (state.maxMp <= 0) return true
+            val stopPct = prefs.getInt(Preferences.MP_RECOVERY_STOP_PCT, 90)
+            return state.currentMp * 100 / state.maxMp >= stopPct
+        }
+
         internal fun isFullRestore(restoreData: RestoreData): Boolean =
             restoreData.hpMaxExpr.contains("[") || restoreData.mpMaxExpr.contains("[")
 
@@ -97,12 +109,15 @@ class RecoveryManager(
         charState: CharacterState,
         invState: InventoryState,
         skillState: SkillState,
+        force: Boolean = false,
     ): Boolean {
         var recovered = false
-        if (needsHpRecovery(charState, preferences)) {
+        if (preferences.getBoolean(Preferences.AUTO_RECOVER_HP, true) &&
+            (force || needsHpRecovery(charState, preferences))) {
             recovered = recoverHp(charState, invState, skillState) || recovered
         }
-        if (needsMpRecovery(charState, preferences)) {
+        if (preferences.getBoolean(Preferences.AUTO_RECOVER_MP, false) &&
+            (force || needsMpRecovery(charState, preferences))) {
             recovered = recoverMp(charState, invState, skillState) || recovered
         }
         return recovered

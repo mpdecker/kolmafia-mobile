@@ -230,4 +230,47 @@ class RecoveryManagerTest {
         type = net.sourceforge.kolmafia.skill.SkillType.PASSIVE,
         mpCost = mpCost, dailyLimit = dailyLimit, timesCast = timesCast,
     )
+
+    // ── Stop-threshold helpers ───────────────────────────────────────────────
+
+    @Test fun hpAboveStop_belowStopPct_returnsFalse() {
+        val p = prefs(Preferences.AUTO_RECOVER_HP to true, Preferences.HP_RECOVERY_STOP_PCT to 90)
+        assertFalse(RecoveryManager.hpAboveStopThreshold(state(70, 100), p))
+    }
+
+    @Test fun hpAboveStop_atStopPct_returnsTrue() {
+        val p = prefs(Preferences.AUTO_RECOVER_HP to true, Preferences.HP_RECOVERY_STOP_PCT to 90)
+        assertTrue(RecoveryManager.hpAboveStopThreshold(state(90, 100), p))
+    }
+
+    @Test fun hpAboveStop_aboveStopPct_returnsTrue() {
+        val p = prefs(Preferences.AUTO_RECOVER_HP to true, Preferences.HP_RECOVERY_STOP_PCT to 90)
+        assertTrue(RecoveryManager.hpAboveStopThreshold(state(95, 100), p))
+    }
+
+    @Test fun hpAboveStop_zeroMaxHp_returnsTrue() {
+        val p = prefs(Preferences.AUTO_RECOVER_HP to true, Preferences.HP_RECOVERY_STOP_PCT to 90)
+        assertTrue(RecoveryManager.hpAboveStopThreshold(state(0, 0), p))
+    }
+
+    @Test fun hpAboveStop_defaultStopPctIs90() {
+        val p = prefs(Preferences.AUTO_RECOVER_HP to true)
+        assertFalse(RecoveryManager.hpAboveStopThreshold(state(89, 100), p))
+        assertTrue(RecoveryManager.hpAboveStopThreshold(state(90, 100), p))
+    }
+
+    @Test fun mpAboveStop_belowStopPct_returnsFalse() {
+        val p = prefs(Preferences.AUTO_RECOVER_MP to true, Preferences.MP_RECOVERY_STOP_PCT to 80)
+        assertFalse(RecoveryManager.mpAboveStopThreshold(state(0, 0, 50, 100), p))
+    }
+
+    @Test fun mpAboveStop_atStopPct_returnsTrue() {
+        val p = prefs(Preferences.AUTO_RECOVER_MP to true, Preferences.MP_RECOVERY_STOP_PCT to 80)
+        assertTrue(RecoveryManager.mpAboveStopThreshold(state(0, 0, 80, 100), p))
+    }
+
+    @Test fun mpAboveStop_zeroMaxMp_returnsTrue() {
+        val p = prefs(Preferences.AUTO_RECOVER_MP to true, Preferences.MP_RECOVERY_STOP_PCT to 80)
+        assertTrue(RecoveryManager.mpAboveStopThreshold(state(0, 0, 0, 0), p))
+    }
 }
