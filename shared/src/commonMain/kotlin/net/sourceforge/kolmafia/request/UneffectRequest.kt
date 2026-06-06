@@ -9,14 +9,18 @@ class UneffectRequest(private val client: HttpClient) {
 
     /** POSTs to uneffect.php to remove the effect with the given server ID. */
     suspend fun uneffect(effectId: Int): Result<Unit> = try {
-        client.submitForm(
+        val response = client.submitForm(
             url = "$KOL_BASE_URL/uneffect.php",
             formParameters = parameters {
                 append("using", "Yep.")
                 append("whicheffect", effectId.toString())
             }
         )
-        Result.success(Unit)
+        if (!response.status.isSuccess()) {
+            Result.failure(Exception("HTTP ${response.status.value}"))
+        } else {
+            Result.success(Unit)
+        }
     } catch (e: Exception) {
         Result.failure(e)
     }
