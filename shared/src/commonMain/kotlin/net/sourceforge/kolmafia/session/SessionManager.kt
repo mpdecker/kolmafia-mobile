@@ -14,6 +14,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.LoginResult
+import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -38,6 +39,7 @@ class SessionManager(
     private val dailyResourceTracker: DailyResourceTracker,
     private val questLogRequest: QuestLogRequest? = null,
     private val moodManager: MoodManager? = null,
+    private val banishManager: BanishManager? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -57,6 +59,9 @@ class SessionManager(
                         scriptManager.initialize()
                         questLogRequest?.syncAll()
                         moodManager?.loadActiveMood()
+                        moodManager?.loadMoodLibrary()
+                        banishManager?.load()
+                        banishManager?.clearExpiredAndRollover(character.state.value.currentRun)
                         SessionState.LoggedIn
                     },
                     onFailure = { error ->

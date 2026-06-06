@@ -26,6 +26,8 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
@@ -51,6 +53,7 @@ class AdventureManager(
     private val moodManager: MoodManager? = null,
     private val questLogRequest: QuestLogRequest? = null,
     private val manaBurnManager: ManaBurnManager? = null,
+    private val banishManager: BanishManager? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -200,6 +203,15 @@ class AdventureManager(
         val result = AdventureParser.parseFightResult(fightHtml)
         eventBus.emit(GameEvent.CombatFinished(result.won, result.monster))
         emitItemEvents(result.itemsGained)
+        if (result.banished) {
+            eventBus.emit(GameEvent.MonsterBanished(result.monster, Banisher.UNKNOWN.canonicalName))
+            banishManager?.banishMonster(
+                monsterName = result.monster,
+                banisher    = Banisher.UNKNOWN,
+                currentTurn = character.state.value.currentRun,
+            )
+            return result  // banish is a successful combat resolution — don't treat as death
+        }
         if (!result.won) {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.CharacterDeath))
             return null

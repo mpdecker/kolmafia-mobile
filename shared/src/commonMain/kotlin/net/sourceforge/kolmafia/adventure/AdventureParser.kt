@@ -9,6 +9,10 @@ object AdventureParser {
     private val CHOICE_OPTION = Regex("""option=(\d+)">(.*?)</a>""")
     private val MONSTER_NAME = Regex("""<span id='monname'>(.*?)</span>""")
     private val ENCOUNTER_NAME = Regex("""<b>([^<]{3,60})</b>""")
+    private val BANISH_PATTERN = Regex(
+        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field))""",
+        RegexOption.IGNORE_CASE
+    )
 
     fun parseAdventureResponse(html: String, finalUrl: String): AdventureResult = when {
         finalUrl.contains("fight.php") || html.contains("You're fighting") -> parseCombatStart(html)
@@ -22,7 +26,8 @@ object AdventureParser {
         val items = ITEM_GAINED.findAll(html).map { it.groupValues[1].trim() }.toList()
         val meat = parseMeat(html)
         val stats = parseStats(html)
-        return AdventureResult.Combat(monster, won, items, meat, stats)
+        val banished = BANISH_PATTERN.containsMatchIn(html)
+        return AdventureResult.Combat(monster, won, items, meat, stats, banished = banished)
     }
 
     private fun parseCombatStart(html: String): AdventureResult.Combat {

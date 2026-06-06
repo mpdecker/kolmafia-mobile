@@ -5,7 +5,8 @@ sealed class AdventureResult {
         val monster: String, val won: Boolean,
         val itemsGained: List<String> = emptyList(),
         val meatGained: Int = 0,
-        val statsGained: Map<String, Int> = emptyMap()
+        val statsGained: Map<String, Int> = emptyMap(),
+        val banished: Boolean = false,
     ) : AdventureResult()
     data class NonCombat(
         val encounterName: String, val text: String,
