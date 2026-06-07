@@ -14,8 +14,10 @@ class UseItemRequestTest {
     @Test
     fun use_sendsCorrectItemId() = runTest {
         val capturedPaths = mutableListOf<String>()
+        val capturedEncodedPaths = mutableListOf<String>()
         val client = makeClient { request ->
             capturedPaths += request.url.fullPath
+            capturedEncodedPaths += request.url.encodedPath
             respond(
                 content = "<html>You use the item.</html>",
                 status = HttpStatusCode.OK,
@@ -26,6 +28,10 @@ class UseItemRequestTest {
         assertTrue(
             capturedPaths.any { it.contains("whichitem=2") },
             "Expected whichitem=2 in request path but got: $capturedPaths"
+        )
+        assertTrue(
+            capturedEncodedPaths.any { it == "/inv_use.php" },
+            "Expected endpoint /inv_use.php but got: $capturedEncodedPaths"
         )
     }
 

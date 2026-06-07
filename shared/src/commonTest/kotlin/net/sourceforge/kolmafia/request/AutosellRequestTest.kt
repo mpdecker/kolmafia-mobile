@@ -14,8 +14,10 @@ class AutosellRequestTest {
     @Test
     fun autosell_sendsItemIdAndQuantity() = runTest {
         val capturedPaths = mutableListOf<String>()
+        val capturedEncodedPaths = mutableListOf<String>()
         val client = makeClient { request ->
             capturedPaths += request.url.fullPath
+            capturedEncodedPaths += request.url.encodedPath
             respond(
                 content = "<html>You sell the item.</html>",
                 status = HttpStatusCode.OK,
@@ -26,6 +28,10 @@ class AutosellRequestTest {
         assertTrue(
             capturedPaths.any { it.contains("whichitem=2") },
             "Expected item ID in request but got: $capturedPaths"
+        )
+        assertTrue(
+            capturedEncodedPaths.any { it == "/sellstuff_ugly.php" },
+            "Expected endpoint /sellstuff_ugly.php but got: $capturedEncodedPaths"
         )
     }
 
