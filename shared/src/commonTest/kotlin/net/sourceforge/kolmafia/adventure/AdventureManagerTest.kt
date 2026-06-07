@@ -10,7 +10,12 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.MonsterWeight
+import net.sourceforge.kolmafia.data.ZoneCombatData
+import net.sourceforge.kolmafia.data.ZoneLookup
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.inventory.InventoryManager
@@ -283,6 +288,190 @@ class AdventureManagerTest {
                 .any { it.reason is StopReason.GoalMet }
         )
         assertEquals(2, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    // ---- Zone pre-flight / all-banished tests ----
+
+    /** Fake ZoneLookup that returns a fixed ZoneCombatData for any location. */
+    private class FakeZoneLookup(private val data: ZoneCombatData?) : ZoneLookup {
+        override fun getByLocation(name: String): ZoneCombatData? = data
+    }
+
+    private fun makeManagerWithBanish(
+        adventureHtml: String = NON_COMBAT_HTML,
+        statusJson: String = STATUS_JSON_ADVENTURES_LEFT,
+        banishManager: BanishManager? = null,
+        zoneLookup: ZoneLookup? = null,
+    ): Triple<AdventureManager, GameEventBus, MutableList<GameEvent>> {
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("adventure.php") ->
+                    respond(adventureHtml, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "text/html"))
+                request.url.encodedPath.contains("api.php") ->
+                    respond(statusJson, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"))
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val client = HttpClient(engine) {
+            install(HttpCookies)
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+        val character = KoLCharacter()
+        val prefs = Preferences(MapSettings())
+        val bus = GameEventBus()
+        val received = mutableListOf<GameEvent>()
+        val manager = AdventureManager(
+            AdventureRequest(client),
+            FightRequest(client),
+            ChoiceRequest(client),
+            CharacterRequest(client),
+            character,
+            prefs,
+            bus,
+            banishManager = banishManager,
+            combatDatabase = zoneLookup,
+        )
+        return Triple(manager, bus, received)
+    }
+
+    @Test
+    fun runAdventures_stopsWithAllMonstersBanished_whenAllZoneMonstersBanished() = runTest {
+        val bm = BanishManager()
+        // Banish the only monster in the zone using a rollover banish (treated as active)
+        bm.banishMonster("angry tourist", Banisher.BEANCANNON, turn = 0)
+
+        val zoneData = ZoneCombatData(
+            locationName = "Spooky Forest",
+            combatPercent = 100,
+            monsters = listOf(MonsterWeight("angry tourist", 1)),
+        )
+        val (manager, bus, received) = makeManagerWithBanish(
+            banishManager = bm,
+            zoneLookup = FakeZoneLookup(zoneData),
+        )
+        // Start collector with Unconfined dispatcher so it registers before the adventure job starts.
+        // The pre-flight fires before any HTTP request, so the collector must be subscribed first.
+        val collectJob = launch(kotlinx.coroutines.Dispatchers.Unconfined) {
+            bus.events.collect { received.add(it) }
+        }
+
+        manager.runAdventures(testLocation, 5, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        val stopped = received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+        assertEquals(1, stopped.size, "Expected exactly one stop event")
+        assertIs<StopReason.AllMonstersBanished>(stopped.first().reason)
+        // No turns should have been consumed — stopped before first adventure
+        assertEquals(0, received.filterIsInstance<GameEvent.TurnConsumed>().size,
+            "Expected zero turns consumed when pre-flight fires")
+    }
+
+    @Test
+    fun runAdventures_doesNotStop_whenOnlySomeMonstersBanished() = runTest {
+        val bm = BanishManager()
+        bm.banishMonster("angry tourist", Banisher.BEANCANNON, turn = 0)
+        // "ghost" is NOT banished
+
+        val zoneData = ZoneCombatData(
+            locationName = "Spooky Forest",
+            combatPercent = 100,
+            monsters = listOf(
+                MonsterWeight("angry tourist", 1),
+                MonsterWeight("ghost", 1),
+            ),
+        )
+        val (manager, bus, received) = makeManagerWithBanish(
+            banishManager = bm,
+            zoneLookup = FakeZoneLookup(zoneData),
+        )
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        // Should NOT stop with AllMonstersBanished
+        assertFalse(
+            received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+                .any { it.reason is StopReason.AllMonstersBanished },
+            "Should not stop when only some monsters are banished",
+        )
+        // Should still adventure normally
+        assertEquals(1, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_doesNotStop_whenNoBanishManagerProvided() = runTest {
+        val zoneData = ZoneCombatData(
+            locationName = "Spooky Forest",
+            combatPercent = 100,
+            monsters = listOf(MonsterWeight("angry tourist", 1)),
+        )
+        // No BanishManager — pre-flight check should be skipped entirely
+        val (manager, bus, received) = makeManagerWithBanish(
+            banishManager = null,
+            zoneLookup = FakeZoneLookup(zoneData),
+        )
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        assertFalse(
+            received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+                .any { it.reason is StopReason.AllMonstersBanished },
+        )
+        assertEquals(1, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_doesNotStop_whenNoCombatDatabaseProvided() = runTest {
+        val bm = BanishManager()
+        bm.banishMonster("anything", Banisher.BEANCANNON, turn = 0)
+        // No combatDatabase — pre-flight check should be skipped entirely
+        val (manager, bus, received) = makeManagerWithBanish(
+            banishManager = bm,
+            zoneLookup = null,
+        )
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        assertFalse(
+            received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+                .any { it.reason is StopReason.AllMonstersBanished },
+        )
+        assertEquals(1, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_doesNotStop_whenZoneHasNoPositiveWeightMonsters() = runTest {
+        val bm = BanishManager()
+        // Zone data with only zero/negative weight monsters (e.g. disabled by quest)
+        val zoneData = ZoneCombatData(
+            locationName = "Spooky Forest",
+            combatPercent = 100,
+            monsters = listOf(MonsterWeight("angry tourist", 0)),
+        )
+        val (manager, bus, received) = makeManagerWithBanish(
+            banishManager = bm,
+            zoneLookup = FakeZoneLookup(zoneData),
+        )
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
+
+        collectJob.cancel()
+        // positiveWeightMonsters is empty → condition skipped → normal adventure
+        assertFalse(
+            received.filterIsInstance<GameEvent.AdventureLoopStopped>()
+                .any { it.reason is StopReason.AllMonstersBanished },
+        )
+        assertEquals(1, received.filterIsInstance<GameEvent.TurnConsumed>().size)
     }
 
     companion object {

@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.banish.Banisher
 
 class AdventureParserTest {
 
@@ -78,6 +79,46 @@ class AdventureParserTest {
         val html = "<html><body><p>You lose the fight.</p></body></html>"
         val result = AdventureParser.parseFightResult(html)
         assertTrue(!result.won)
+    }
+
+    @Test fun parseFightResult_snokebomb_detectsBanisher() {
+        val html = "<span id='monname'>Goblin</span>\nYou throw the smokebomb at your feet and your foe flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.SNOKEBOMB, result.banisher)
+    }
+
+    @Test fun parseFightResult_kgbDart_detectsBanisher() {
+        val html = "<span id='monname'>Pirate</span>\nYou press the secret switch and your foe flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.KGB_TRANQUILIZER_DART, result.banisher)
+    }
+
+    @Test fun parseFightResult_mafiaMFR_detectsBanisher() {
+        val html = "<span id='monname'>Ninja</span>\n\"Well, I never,\" the monster exclaims. It flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertEquals(Banisher.MAFIA_MIDDLEFINGER_RING, result.banisher)
+    }
+
+    @Test fun parseFightResult_latte_detectsBanisher() {
+        val html = "<span id='monname'>Goblin</span>\nThey run off, covered in delicious latte. It flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertEquals(Banisher.THROW_LATTE_ON_OPPONENT, result.banisher)
+    }
+
+    @Test fun parseFightResult_banishedNoPattern_returnsUnknown() {
+        val html = "<span id='monname'>Goblin</span>\nIt flees in terror from some mysterious force."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.UNKNOWN, result.banisher)
+    }
+
+    @Test fun parseFightResult_notBanished_returnsUnknown() {
+        val html = "<span id='monname'>Goblin</span>\nYou win the fight!"
+        val result = AdventureParser.parseFightResult(html)
+        assertFalse(result.banished)
+        assertEquals(Banisher.UNKNOWN, result.banisher)
     }
 
     @Test

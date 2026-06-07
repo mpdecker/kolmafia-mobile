@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.adventure
 
+import net.sourceforge.kolmafia.banish.Banisher
+
 sealed class AdventureResult {
     data class Combat(
         val monster: String, val won: Boolean,
@@ -7,6 +9,7 @@ sealed class AdventureResult {
         val meatGained: Int = 0,
         val statsGained: Map<String, Int> = emptyMap(),
         val banished: Boolean = false,
+        val banisher: Banisher = Banisher.UNKNOWN,
     ) : AdventureResult()
     data class NonCombat(
         val encounterName: String, val text: String,

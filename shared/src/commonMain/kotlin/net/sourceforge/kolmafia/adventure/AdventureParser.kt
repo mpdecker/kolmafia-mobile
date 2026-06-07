@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.adventure
 
+import net.sourceforge.kolmafia.banish.Banisher
+
 object AdventureParser {
     private val ITEM_GAINED = Regex("""You acquire an item:\s*<b>(.*?)</b>""")
     private val MEAT_GAINED = Regex("""You gain ([\d,]+) Meat""")
@@ -12,6 +14,33 @@ object AdventureParser {
     private val BANISH_PATTERN = Regex(
         """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field))""",
         RegexOption.IGNORE_CASE
+    )
+
+    /**
+     * Ordered list of (distinctive substring → Banisher). Checked only when BANISH_PATTERN fires.
+     * First match wins. Sourced from desktop FightRequest.java.
+     */
+    private val BANISHER_PATTERNS: List<Pair<String, Banisher>> = listOf(
+        "throw the smokebomb at your feet"                    to Banisher.SNOKEBOMB,
+        "press the secret switch"                             to Banisher.KGB_TRANQUILIZER_DART,
+        "Well, I never"                                       to Banisher.MAFIA_MIDDLEFINGER_RING,
+        "They run off"                                        to Banisher.THROW_LATTE_ON_OPPONENT,
+        "short distance into the future"                      to Banisher.REFLEX_HAMMER,
+        "walk away and decide not to see this creature again" to Banisher.FEEL_HATRED,
+        "before flying out of sight"                          to Banisher.SPRING_LOADED_FRONT_BUMPER,
+        "tide of beans"                                       to Banisher.BEANCANNON,
+        "residual hot jelly heat"                             to Banisher.BREATHE_OUT,
+        "into the ball return system"                         to Banisher.BOWL_A_CURVEBALL,
+        "won't be seeing"                                     to Banisher.PANTSGIVING,
+        "nowhere to be seen"                                  to Banisher.LOUDER_THAN_BOMB,
+        "busy getting the cheese off"                         to Banisher.STUFFED_YAM_STINKBOMB,
+        "unfurls outward in a blast"                          to Banisher.ANCHOR_BOMB,
+        "toss the ice house"                                  to Banisher.ICE_HOUSE,
+        "Your nanites remember the molecular structure"       to Banisher.SYSTEM_SWEEP,
+        "You give a tremendous shout"                         to Banisher.BANISHING_SHOUT,
+        "The Force"                                           to Banisher.SABER_FORCE,
+        "champagne"                                           to Banisher.DIVINE_CHAMPAGNE_POPPER,
+        "chatterbox"                                          to Banisher.CHATTERBOXING,
     )
 
     fun parseAdventureResponse(html: String, finalUrl: String): AdventureResult = when {
@@ -27,7 +56,12 @@ object AdventureParser {
         val meat = parseMeat(html)
         val stats = parseStats(html)
         val banished = BANISH_PATTERN.containsMatchIn(html)
-        return AdventureResult.Combat(monster, won, items, meat, stats, banished = banished)
+        val banisher = if (banished) {
+            BANISHER_PATTERNS.firstOrNull { (text, _) -> html.contains(text) }?.second
+                ?: Banisher.UNKNOWN
+        } else Banisher.UNKNOWN
+        return AdventureResult.Combat(monster, won, items, meat, stats,
+            banished = banished, banisher = banisher)
     }
 
     private fun parseCombatStart(html: String): AdventureResult.Combat {

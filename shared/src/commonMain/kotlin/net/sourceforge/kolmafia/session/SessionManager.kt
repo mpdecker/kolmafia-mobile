@@ -4,18 +4,18 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import net.sourceforge.kolmafia.ash.ScriptManager
+import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
-import net.sourceforge.kolmafia.character.DailyResourceTracker
-import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.LoginResult
-import net.sourceforge.kolmafia.banish.BanishManager
-import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.skill.SkillManager
 
@@ -40,6 +40,7 @@ class SessionManager(
     private val questLogRequest: QuestLogRequest? = null,
     private val moodManager: MoodManager? = null,
     private val banishManager: BanishManager? = null,
+    private val breakfastManager: BreakfastManager? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -51,7 +52,17 @@ class SessionManager(
                 characterRequest.fetchCharacterState().fold(
                     onSuccess = { apiResponse ->
                         character.updateFromApiResponse(apiResponse)
-                        dailyResourceTracker.syncDay(character.state.value.dayCount)
+                        val charState = character.state.value
+                        dailyResourceTracker.syncDay(charState.dayCount)
+
+                        // Gate rollover clear on actual day change
+                        val lastDay = preferences.getInt(Preferences.LAST_DAYCOUNT, -1)
+                        if (charState.dayCount != lastDay) {
+                            banishManager?.clearExpiredAndRollover(charState.currentRun)
+                            breakfastManager?.clearBreakfastPrefs()
+                            preferences.setInt(Preferences.LAST_DAYCOUNT, charState.dayCount)
+                        }
+
                         inventoryManager.initialize(appScope)
                         familiarManager.initialize(appScope)
                         skillManager.initialize(appScope)
@@ -61,7 +72,13 @@ class SessionManager(
                         moodManager?.loadActiveMood()
                         moodManager?.loadMoodLibrary()
                         banishManager?.load()
-                        banishManager?.clearExpiredAndRollover(character.state.value.currentRun)
+
+                        // Run breakfast actions
+                        breakfastManager?.runBreakfast(
+                            charState = charState,
+                            inventoryState = inventoryManager.state.value,
+                        )
+
                         SessionState.LoggedIn
                     },
                     onFailure = { error ->
