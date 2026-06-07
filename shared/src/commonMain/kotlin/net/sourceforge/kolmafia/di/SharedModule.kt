@@ -161,6 +161,7 @@ val sharedModule = module {
             autosellRequest  = get(),
             closetRequest    = get(),
             storageRequest   = get(),
+            banishManager    = get(),
         )
     }
     singleOf(::ScriptManager)

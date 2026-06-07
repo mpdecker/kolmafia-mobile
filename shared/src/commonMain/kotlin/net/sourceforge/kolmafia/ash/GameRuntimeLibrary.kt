@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
+import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
@@ -45,6 +46,7 @@ class GameRuntimeLibrary(
     internal val autosellRequest: AutosellRequest? = null,
     internal val closetRequest: ClosetRequest? = null,
     internal val storageRequest: StorageRequest? = null,
+    internal val banishManager: BanishManager? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -85,6 +87,7 @@ class GameRuntimeLibrary(
         registerPreferenceAccess(scope)
         registerCombatStubs(scope)
         registerItemActions(scope)
+        registerBanishQueries(scope)
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -484,6 +487,41 @@ class GameRuntimeLibrary(
             // Full KoLmafia CLI dispatch is out of scope for Phase 5.
             runtime.print("[cli] ${args[0]}")
             AshValue.of(true)
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Banish queries
+    // ──────────────────────────────────────────────────────────────
+
+    private fun registerBanishQueries(scope: AshScope) {
+        // to_monster(string) → monster
+        register(scope, "to_monster", AshType.MONSTER, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.MONSTER, args[0].toString())
+        }
+
+        // is_banished(monster) → boolean — accepts both monster type and string
+        register(scope, "is_banished", AshType.BOOLEAN, listOf("monster" to AshType.MONSTER)) { _, args ->
+            val name = args[0].toString()
+            val currentTurn = character?.state?.value?.currentRun ?: 0
+            AshValue.of(banishManager?.isBanished(name, currentTurn) ?: false)
+        }
+        register(scope, "is_banished", AshType.BOOLEAN, listOf("monster" to AshType.STRING)) { _, args ->
+            val name = args[0].toString()
+            val currentTurn = character?.state?.value?.currentRun ?: 0
+            AshValue.of(banishManager?.isBanished(name, currentTurn) ?: false)
+        }
+
+        // banishers_used() → string[monster]
+        val returnType = AggregateType(AshType.MONSTER, AshType.STRING)
+        register(scope, "banishers_used", returnType, emptyList()) { _, _ ->
+            val result = AggregateValue(returnType)
+            val currentTurn = character?.state?.value?.currentRun ?: 0
+            banishManager?.getActiveBanishes(currentTurn)
+                ?.forEach { (monsterName, banisher) ->
+                    result[AshValue(AshType.MONSTER, monsterName)] = AshValue.of(banisher.canonicalName)
+                }
+            result
         }
     }
 }

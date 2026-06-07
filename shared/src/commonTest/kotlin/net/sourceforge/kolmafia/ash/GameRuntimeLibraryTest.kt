@@ -1,5 +1,9 @@
 package net.sourceforge.kolmafia.ash
 
+import com.russhwolf.settings.MapSettings
+import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.banish.Banisher
+import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -19,6 +23,8 @@ class GameRuntimeLibraryTest {
     private fun run(src: String): AshRuntime = runLib(GameRuntimeLibrary.forTesting(), src)
 
     private fun output(src: String): String = outputLib(GameRuntimeLibrary.forTesting(), src)
+
+    private fun prefs(): Preferences = Preferences(MapSettings())
 
     // --- Type conversion ---
 
@@ -166,5 +172,59 @@ class GameRuntimeLibraryTest {
         )
         val result = runWithCharacter(character, "print(to_string(my_familiar()));")
         assertEquals("Exotic Parrot", result)
+    }
+
+    // --- Banish queries ---
+
+    private fun runWithBanishManager(banishManager: BanishManager?, src: String): AshRuntime {
+        val lib = GameRuntimeLibrary(banishManager = banishManager)
+        val runtime = AshRuntime(lib)
+        runtime.execute(AshParser().parse(src))
+        return runtime
+    }
+
+    private fun outputWithBanishManager(banishManager: BanishManager?, src: String) =
+        runWithBanishManager(banishManager, src).output.toString().trim()
+
+    @Test
+    fun isBanished_banishedMonster_returnsTrue() {
+        val mgr = BanishManager(prefs())
+        mgr.banishMonster("Goblin", Banisher.SNOKEBOMB, 0)
+        val result = outputWithBanishManager(mgr, """print(to_string(is_banished("Goblin")));""")
+        assertEquals("true", result)
+    }
+
+    @Test
+    fun isBanished_unknownMonster_returnsFalse() {
+        val mgr = BanishManager(prefs())
+        val result = outputWithBanishManager(mgr, """print(to_string(is_banished("Goblin")));""")
+        assertEquals("false", result)
+    }
+
+    @Test
+    fun isBanished_noManager_returnsFalse() {
+        val result = outputWithBanishManager(null, """print(to_string(is_banished("Goblin")));""")
+        assertEquals("false", result)
+    }
+
+    @Test
+    fun banishersUsed_returnsBanishedMonsters() {
+        val mgr = BanishManager(prefs())
+        mgr.banishMonster("goblin", Banisher.SNOKEBOMB, 0)
+        val result = outputWithBanishManager(mgr, """
+            string[monster] b = banishers_used();
+            monster g = to_monster("goblin");
+            print(b[g]);
+        """.trimIndent())
+        assertEquals(Banisher.SNOKEBOMB.canonicalName, result)
+    }
+
+    @Test
+    fun banishersUsed_noManager_returnsEmpty() {
+        val result = outputWithBanishManager(null, """
+            string[monster] b = banishers_used();
+            print(to_string(count(b)));
+        """.trimIndent())
+        assertEquals("0", result)
     }
 }
