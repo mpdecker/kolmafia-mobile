@@ -114,6 +114,16 @@ class GameRuntimeLibraryItemActionsTest {
             outputLib(lib, """print(to_string(eat(1, to_item("test item"))));"""))
     }
 
+    @Test
+    fun eat_returnsFalseForUnknownItem() {
+        val lib = GameRuntimeLibrary(
+            gameDatabase = stubDb(),
+            eatFoodRequest = EatFoodRequest(okClient())
+        )
+        assertEquals("false",
+            outputLib(lib, """print(to_string(eat(1, to_item("no such item"))));"""))
+    }
+
     // ── drink() ────────────────────────────────────────────────────
 
     @Test
@@ -126,6 +136,16 @@ class GameRuntimeLibraryItemActionsTest {
             outputLib(lib, """print(to_string(drink(1, to_item("test item"))));"""))
     }
 
+    @Test
+    fun drink_returnsFalseWithNullRequest() {
+        val lib = GameRuntimeLibrary(
+            gameDatabase = stubDb(),
+            drinkBoozeRequest = null
+        )
+        assertEquals("false",
+            outputLib(lib, """print(to_string(drink(1, to_item("test item"))));"""))
+    }
+
     // ── chew() ─────────────────────────────────────────────────────
 
     @Test
@@ -135,6 +155,16 @@ class GameRuntimeLibraryItemActionsTest {
             chewRequest = ChewRequest(okClient())
         )
         assertEquals("true",
+            outputLib(lib, """print(to_string(chew(1, to_item("test item"))));"""))
+    }
+
+    @Test
+    fun chew_returnsFalseWithNullRequest() {
+        val lib = GameRuntimeLibrary(
+            gameDatabase = stubDb(),
+            chewRequest = null
+        )
+        assertEquals("false",
             outputLib(lib, """print(to_string(chew(1, to_item("test item"))));"""))
     }
 
@@ -172,6 +202,16 @@ class GameRuntimeLibraryItemActionsTest {
             outputLib(lib, """print(to_string(put_closet(2, to_item("test item"))));"""))
     }
 
+    @Test
+    fun putCloset_returnsFalseWithNullRequest() {
+        val lib = GameRuntimeLibrary(
+            gameDatabase = stubDb(),
+            closetRequest = null
+        )
+        assertEquals("false",
+            outputLib(lib, """print(to_string(put_closet(1, to_item("test item"))));"""))
+    }
+
     // ── take_closet() ──────────────────────────────────────────────
 
     @Test
@@ -181,6 +221,16 @@ class GameRuntimeLibraryItemActionsTest {
             closetRequest = ClosetRequest(okClient())
         )
         assertEquals("true",
+            outputLib(lib, """print(to_string(take_closet(1, to_item("test item"))));"""))
+    }
+
+    @Test
+    fun takeCloset_returnsFalseWithNullRequest() {
+        val lib = GameRuntimeLibrary(
+            gameDatabase = stubDb(),
+            closetRequest = null
+        )
+        assertEquals("false",
             outputLib(lib, """print(to_string(take_closet(1, to_item("test item"))));"""))
     }
 
