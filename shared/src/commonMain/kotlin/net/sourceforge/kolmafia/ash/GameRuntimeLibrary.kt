@@ -9,6 +9,13 @@ import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.AutosellRequest
+import net.sourceforge.kolmafia.request.ChewRequest
+import net.sourceforge.kolmafia.request.ClosetRequest
+import net.sourceforge.kolmafia.request.DrinkBoozeRequest
+import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.StorageRequest
+import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.skill.SkillManager
 import kotlin.math.abs
@@ -31,6 +38,13 @@ class GameRuntimeLibrary(
     internal val moodManager: MoodManager? = null,
     internal val preferences: Preferences? = null,
     internal val gameDatabase: GameDatabase? = null,
+    internal val useItemRequest: UseItemRequest? = null,
+    internal val eatFoodRequest: EatFoodRequest? = null,
+    internal val drinkBoozeRequest: DrinkBoozeRequest? = null,
+    internal val chewRequest: ChewRequest? = null,
+    internal val autosellRequest: AutosellRequest? = null,
+    internal val closetRequest: ClosetRequest? = null,
+    internal val storageRequest: StorageRequest? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -70,7 +84,7 @@ class GameRuntimeLibrary(
         registerMoodQueries(scope)
         registerPreferenceAccess(scope)
         registerCombatStubs(scope)
-        // registerItemActions(scope)
+        registerItemActions(scope)
     }
 
     // ──────────────────────────────────────────────────────────────
