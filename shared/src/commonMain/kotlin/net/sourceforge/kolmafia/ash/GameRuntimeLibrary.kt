@@ -3,8 +3,13 @@ package net.sourceforge.kolmafia.ash
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.mood.MoodManager
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.skill.SkillManager
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -15,17 +20,32 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 class GameRuntimeLibrary(
-    private val character: KoLCharacter? = null,
-    private val inventoryManager: InventoryManager? = null,
-    private val skillManager: SkillManager? = null,
-    private val effectManager: EffectManager? = null,
-    private val adventureManager: AdventureManager? = null
+    internal val character: KoLCharacter? = null,
+    internal val inventoryManager: InventoryManager? = null,
+    internal val skillManager: SkillManager? = null,
+    internal val effectManager: EffectManager? = null,
+    internal val adventureManager: AdventureManager? = null,
+    // new params — all nullable so forTesting() and existing tests still compile
+    internal val familiarManager: FamiliarManager? = null,
+    internal val goalManager: GoalManager? = null,
+    internal val moodManager: MoodManager? = null,
+    internal val preferences: Preferences? = null,
+    internal val gameDatabase: GameDatabase? = null,
 ) : RuntimeLibrary() {
 
     companion object {
         /** Used in tests where no game managers are needed. */
         fun forTesting() = GameRuntimeLibrary()
     }
+
+    /** Bridges the protected [register] so extension functions in this module can call it. */
+    internal fun regFn(
+        scope: AshScope,
+        name: String,
+        returnType: AshType,
+        params: List<Pair<String, AshType>>,
+        impl: (AshRuntimeContext, List<AshValue>) -> AshValue
+    ) = register(scope, name, returnType, params, impl)
 
     override fun registerAll(scope: AshScope) {
         super.registerAll(scope) // registers print() and to_string() overloads from stub
@@ -39,6 +59,18 @@ class GameRuntimeLibrary(
         registerSkillQueries(scope)
         registerEffectQueries(scope)
         registerGameActions(scope)
+        // new extension calls (added as tasks T4–T13 are implemented):
+        // registerCharacterExtensions(scope)
+        // registerFamiliarQueries(scope)
+        // registerEquipmentQueries(scope)
+        // registerModifierQueries(scope)
+        // registerCollectionQueries(scope)
+        // registerDateTimeQueries(scope)
+        // registerGoalQueries(scope)
+        // registerMoodQueries(scope)
+        // registerPreferenceAccess(scope)
+        // registerCombatStubs(scope)
+        // registerItemActions(scope)
     }
 
     // ──────────────────────────────────────────────────────────────
