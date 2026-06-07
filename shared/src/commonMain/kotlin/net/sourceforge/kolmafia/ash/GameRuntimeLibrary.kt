@@ -345,9 +345,10 @@ class GameRuntimeLibrary(
             AshValue.of(character?.state?.value?.isHardcore ?: false)
         }
         register(scope, "my_familiar", AshType.FAMILIAR, emptyList()) { _, _ ->
-            val state = character?.state?.value
-            val name = if (state?.hasFamiliar == true) state.familiarName else "none"
-            AshValue.familiar(name)
+            AshValue.familiar(
+                familiarManager?.state?.value?.activeFamiliar?.race
+                    ?.takeIf { it.isNotBlank() } ?: "none"
+            )
         }
     }
 

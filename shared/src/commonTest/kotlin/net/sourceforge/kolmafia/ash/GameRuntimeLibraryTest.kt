@@ -1,14 +1,21 @@
 package net.sourceforge.kolmafia.ash
 
 import com.russhwolf.settings.MapSettings
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.banish.Banisher
+import net.sourceforge.kolmafia.character.CharacterApiResponse
+import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.familiar.FamiliarData
+import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.familiar.FamiliarState
 import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import net.sourceforge.kolmafia.character.CharacterApiResponse
-import net.sourceforge.kolmafia.character.KoLCharacter
 
 class GameRuntimeLibraryTest {
 
@@ -165,13 +172,16 @@ class GameRuntimeLibraryTest {
     }
 
     @Test
-    fun myFamiliar_withFamiliarId_returnsFamiliarName() {
-        val character = KoLCharacter()
-        character.updateFromApiResponse(
-            CharacterApiResponse(name = "PlayerName", familiar = "7", familiarname = "Exotic Parrot")
+    fun myFamiliar_withActiveFamiliar_returnsRace() {
+        val parrot = FamiliarData(
+            id = 7, name = "Polly", race = "Exotic Parrot",
+            weight = 5, experience = 0, kills = 0
         )
-        val result = runWithCharacter(character, "print(to_string(my_familiar()));")
-        assertEquals("Exotic Parrot", result)
+        val fm = FamiliarManager(HttpClient(MockEngine { respond("") }), GameEventBus())
+        fm.testSetState(FamiliarState(activeFamiliar = parrot))
+        val runtime = AshRuntime(GameRuntimeLibrary(familiarManager = fm))
+        runtime.execute(AshParser().parse("print(to_string(my_familiar()));"))
+        assertEquals("Exotic Parrot", runtime.output.toString().trim())
     }
 
     // --- Banish queries ---
