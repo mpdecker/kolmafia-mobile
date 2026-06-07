@@ -84,14 +84,17 @@ class BreakfastManagerTest {
 
     @Test fun runBreakfast_gardenSkippedWhenSentinelSet() = runBlocking {
         val calls = mutableListOf<Unit>()
-        val p = prefs { putBoolean(Preferences.GARDEN_HARVESTED, true) }
+        val p = prefs {
+            putString(Preferences.HARVEST_GARDEN_SOFTCORE, "any")
+            putBoolean(Preferences.GARDEN_HARVESTED, true)
+        }
         manager(prefs = p, gardenCalls = calls).runBreakfast(charState(), InventoryState())
         assertTrue(calls.isEmpty())
     }
 
     @Test fun runBreakfast_gardenCalled_andSentinelSet() = runBlocking {
         val calls = mutableListOf<Unit>()
-        val p = prefs()
+        val p = prefs { putString(Preferences.HARVEST_GARDEN_SOFTCORE, "any") }  // explicitly opt in
         val mgr = manager(prefs = p, gardenCalls = calls)
         mgr.runBreakfast(charState(), InventoryState())
         assertEquals(1, calls.size)
@@ -101,7 +104,7 @@ class BreakfastManagerTest {
     @Test fun runBreakfast_gardenNetworkFailure_continuesAndDoesNotSetSentinel() = runBlocking {
         var gardenCalled = false
         var rumbusCalled = false
-        val p = prefs()
+        val p = prefs { putString(Preferences.HARVEST_GARDEN_SOFTCORE, "any") }
         val campground = object : CampgroundRequest(mockClient) {
             override suspend fun harvestGarden(): Result<Unit> { gardenCalled = true; return Result.failure(Exception("net")) }
         }
@@ -173,7 +176,7 @@ class BreakfastManagerTest {
             putInt(Preferences.DELUXE_KLAW_SUMMONS, 3)
             putBoolean(Preferences.LOOKING_GLASS, true)
             putBoolean(Preferences.FIREWORKS_SHOP, true)
-            putString(Preferences.POOL_GAME_RESULT, "done")
+            putInt(Preferences.POOL_GAME_RESULT, 1)
         }
         manager(prefs = p).clearBreakfastPrefs()
         assertFalse(p.getBoolean(Preferences.BREAKFAST_COMPLETED))
@@ -183,6 +186,6 @@ class BreakfastManagerTest {
         assertEquals(0, p.getInt(Preferences.DELUXE_KLAW_SUMMONS))
         assertFalse(p.getBoolean(Preferences.LOOKING_GLASS))
         assertFalse(p.getBoolean(Preferences.FIREWORKS_SHOP))
-        assertEquals("", p.getString(Preferences.POOL_GAME_RESULT))
+        assertEquals(0, p.getInt(Preferences.POOL_GAME_RESULT))
     }
 }

@@ -43,13 +43,12 @@ open class BreakfastManager(
         preferences.setInt(Preferences.DELUXE_KLAW_SUMMONS, 0)
         preferences.setBoolean(Preferences.LOOKING_GLASS, false)
         preferences.setBoolean(Preferences.FIREWORKS_SHOP, false)
-        preferences.setString(Preferences.POOL_GAME_RESULT, "")
+        preferences.setInt(Preferences.POOL_GAME_RESULT, 0)
     }
 
     private suspend fun harvestGarden(suffix: String) {
         val harvestPrefKey = if (suffix == "Softcore") Preferences.HARVEST_GARDEN_SOFTCORE else Preferences.HARVEST_GARDEN_HARDCORE
-        val defaultCrop = if (suffix == "Softcore") "any" else "none"
-        val crop = preferences.getString(harvestPrefKey, defaultCrop)
+        val crop = preferences.getString(harvestPrefKey, "none")
         if (crop.equals("none", ignoreCase = true)) return
         if (preferences.getBoolean(Preferences.GARDEN_HARVESTED, false)) return
         campgroundRequest.harvestGarden().onSuccess {
@@ -91,9 +90,9 @@ open class BreakfastManager(
             }
         }
 
-        if (preferences.getString(Preferences.POOL_GAME_RESULT).isBlank()) {
+        if (preferences.getInt(Preferences.POOL_GAME_RESULT, 0) < 1) {
             clanLoungeRequest.playPoolGame().onSuccess {
-                preferences.setString(Preferences.POOL_GAME_RESULT, "done")
+                preferences.setInt(Preferences.POOL_GAME_RESULT, 1)
             }
         }
     }
@@ -112,10 +111,9 @@ open class BreakfastManager(
             else                                        -> MOX_MANUAL_ID
         }
         if (!inventoryState.items.containsKey(manualId)) return
-        // Mark sentinel to prevent repeated daily attempts.
-        // The actual inv_use.php call is deferred — the item will be consumed
-        // automatically when the adventure loop encounters it, or in a follow-up implementation.
-        preferences.setBoolean(Preferences.GUILD_MANUAL_USED, true)
+        // Guild manual item is in inventory but HTTP use is not yet implemented.
+        // Sentinel will be set once the actual inv_use.php call is implemented.
+        // For now, this is a detection-only stub.
     }
 
     private suspend fun makePocketWishes(inventoryState: InventoryState) {

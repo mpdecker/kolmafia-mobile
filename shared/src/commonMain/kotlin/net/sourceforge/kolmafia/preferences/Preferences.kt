@@ -51,7 +51,7 @@ class Preferences(private val settings: Settings) {
         const val MANA_BURN_MIN_MP_PCT     = "manaBurnMinMpPct"      // burn when MP% >= this; default 90
 
         // Breakfast — user-controlled guard prefs (match desktop names exactly)
-        const val HARVEST_GARDEN_SOFTCORE   = "harvestGardenSoftcore"   // "none"|"any"; default "any"
+        const val HARVEST_GARDEN_SOFTCORE   = "harvestGardenSoftcore"   // "none"|"any"; default "none" (matches desktop)
         const val HARVEST_GARDEN_HARDCORE   = "harvestGardenHardcore"   // "none"|"any"; default "none"
         const val VISIT_RUMPUS_SOFTCORE     = "visitRumpusSoftcore"     // boolean; default true
         const val VISIT_RUMPUS_HARDCORE     = "visitRumpusHardcore"     // boolean; default true
@@ -68,7 +68,7 @@ class Preferences(private val settings: Settings) {
         const val DELUXE_KLAW_SUMMONS       = "_deluxeKlawSummons"      // int 0–3
         const val LOOKING_GLASS             = "_lookingGlass"           // boolean
         const val FIREWORKS_SHOP            = "_fireworksShop"          // boolean
-        const val POOL_GAME_RESULT          = "_poolGameResult"         // string; "" = not done
+        const val POOL_GAME_RESULT          = "_poolGames"              // int; 0 = not played, 1+ = played
 
         // Rollover gating
         const val LAST_DAYCOUNT             = "lastBreakfastDaycount"   // int; -1 = never stored
