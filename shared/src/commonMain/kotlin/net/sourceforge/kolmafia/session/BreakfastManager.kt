@@ -71,13 +71,12 @@ open class BreakfastManager(
         if (!preferences.getBoolean(loungePrefKey, true)) return
         if (!inventoryState.items.containsKey(VIP_LOUNGE_KEY_ID)) return
 
-        while (preferences.getInt(Preferences.DELUXE_KLAW_SUMMONS, 0) < 3) {
+        while (true) {
+            val current = preferences.getInt(Preferences.DELUXE_KLAW_SUMMONS, 0)
+            if (current >= 3) break
             val result = clanLoungeRequest.useKlaw()
             if (result.isFailure) break
-            preferences.setInt(
-                Preferences.DELUXE_KLAW_SUMMONS,
-                preferences.getInt(Preferences.DELUXE_KLAW_SUMMONS, 0) + 1
-            )
+            preferences.setInt(Preferences.DELUXE_KLAW_SUMMONS, current + 1)
         }
 
         if (!preferences.getBoolean(Preferences.LOOKING_GLASS, false)) {
@@ -113,12 +112,14 @@ open class BreakfastManager(
             else                                        -> MOX_MANUAL_ID
         }
         if (!inventoryState.items.containsKey(manualId)) return
+        // Mark sentinel to prevent repeated daily attempts.
+        // The actual inv_use.php call is deferred — the item will be consumed
+        // automatically when the adventure loop encounters it, or in a follow-up implementation.
         preferences.setBoolean(Preferences.GUILD_MANUAL_USED, true)
     }
 
-    @Suppress("UnusedParameter")
     private suspend fun makePocketWishes(inventoryState: InventoryState) {
-        // Pocket wish opens a choice adventure; handled in the adventure loop
+        // Stub: pocket wish choice handling deferred to adventure loop.
         if (!inventoryState.items.containsKey(POCKET_WISH_ITEM_ID)) return
     }
 }
