@@ -42,6 +42,15 @@ class BanishManager(private val preferences: Preferences) {
         }
 
     /**
+     * Returns a map of monster name to [Banisher] for all currently active banishes.
+     * Used by the ASH `banishers_used()` function.
+     */
+    fun getActiveBanishes(currentTurn: Int): Map<String, Banisher> =
+        _state.value.monsters
+            .filter { !it.isExpired(currentTurn) }
+            .associate { it.monsterName to it.banisher }
+
+    /**
      * Removes all [ResetType.ROLLOVER], [ResetType.AVATAR], and [ResetType.TURN_ROLLOVER] banishes
      * (they reset every rollover), and also removes expired [ResetType.TURNS] banishes.
      * [ResetType.NEVER] banishes (Ice House) are kept.

@@ -50,4 +50,14 @@ class PreferencesTest {
     fun getInt_returnsZero_byDefault() {
         assertEquals(0, prefs().getInt("missing"))
     }
+
+    @Test
+    fun rufusQuestType_constant_hasCorrectValue() {
+        assertEquals("_rufusQuestType", Preferences.RUFUS_QUEST_TYPE)
+    }
+
+    @Test
+    fun rufusQuestTarget_constant_hasCorrectValue() {
+        assertEquals("_rufusQuestTarget", Preferences.RUFUS_QUEST_TARGET)
+    }
 }

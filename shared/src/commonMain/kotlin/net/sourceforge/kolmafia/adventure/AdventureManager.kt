@@ -12,7 +12,10 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceContext
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
 import net.sourceforge.kolmafia.adventure.choice.ChoiceSolvers
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
+import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.ZoneLookup
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.event.GameEvent
@@ -26,8 +29,6 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.GoalManager
-import net.sourceforge.kolmafia.banish.BanishManager
-import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
@@ -54,6 +55,7 @@ class AdventureManager(
     private val questLogRequest: QuestLogRequest? = null,
     private val manaBurnManager: ManaBurnManager? = null,
     private val banishManager: BanishManager? = null,
+    private val combatDatabase: ZoneLookup? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -79,6 +81,20 @@ class AdventureManager(
                 repeat(turns) {
                     if (!isActive) return@launch
                     itemGoalMetThisTurn = false
+
+                    // Zone pre-flight: if all monsters in the zone are banished, stop immediately
+                    val bm = banishManager
+                    val zoneData = combatDatabase?.getByLocation(location.name)
+                    if (bm != null && zoneData != null) {
+                        val currentTurn = character.state.value.currentRun
+                        val positiveWeightMonsters = zoneData.monsters.filter { it.weight > 0 }
+                        if (positiveWeightMonsters.isNotEmpty() &&
+                            positiveWeightMonsters.all { bm.isBanished(it.name, currentTurn) }) {
+                            eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.AllMonstersBanished))
+                            return@launch
+                        }
+                    }
+
                     // Re-buff before this adventure turn
                     moodManager?.executeActiveMood(
                         effectState = effects?.state?.value ?: EffectState(),
@@ -207,13 +223,13 @@ class AdventureManager(
         }
         emitItemEvents(result.itemsGained)
         if (result.banished) {
-            eventBus.emit(GameEvent.MonsterBanished(result.monster, Banisher.UNKNOWN.canonicalName))
+            eventBus.emit(GameEvent.MonsterBanished(result.monster, result.banisher.canonicalName))
             banishManager?.banishMonster(
                 monsterName = result.monster,
-                banisher    = Banisher.UNKNOWN,
+                banisher    = result.banisher,
                 currentTurn = character.state.value.currentRun,
             )
-            return result  // banish is a successful combat resolution — don't treat as death
+            return result  // banish is a successful combat resolution -- do not treat as death
         }
         if (!result.won) {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.CharacterDeath))

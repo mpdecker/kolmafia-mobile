@@ -52,5 +52,35 @@ class Preferences(private val settings: Settings) {
         // ManaBurn
         const val MANA_BURN_ENABLED        = "manaBurnEnabled"       // default false
         const val MANA_BURN_MIN_MP_PCT     = "manaBurnMinMpPct"      // burn when MP% >= this; default 90
+
+        // Breakfast — user-controlled guard prefs (match desktop names exactly)
+        const val HARVEST_GARDEN_SOFTCORE   = "harvestGardenSoftcore"   // "none"|"any"; default "none" (matches desktop)
+        const val HARVEST_GARDEN_HARDCORE   = "harvestGardenHardcore"   // "none"|"any"; default "none"
+        const val VISIT_RUMPUS_SOFTCORE     = "visitRumpusSoftcore"     // boolean; default true
+        const val VISIT_RUMPUS_HARDCORE     = "visitRumpusHardcore"     // boolean; default true
+        const val VISIT_LOUNGE_SOFTCORE     = "visitLoungeSoftcore"     // boolean; default true
+        const val VISIT_LOUNGE_HARDCORE     = "visitLoungeHardcore"     // boolean; default true
+        const val READ_MANUAL_SOFTCORE      = "readManualSoftcore"      // boolean; default true
+        const val READ_MANUAL_HARDCORE      = "readManualHardcore"      // boolean; default true
+
+        // Breakfast — done-today sentinels (cleared at rollover)
+        const val BREAKFAST_COMPLETED       = "breakfastCompleted"      // boolean
+        const val GARDEN_HARVESTED          = "_gardenHarvested"        // boolean
+        const val BREAKFAST_RUMPUS          = "_breakfastRumpus"        // boolean
+        const val GUILD_MANUAL_USED         = "_guildManualUsed"        // boolean
+        const val DELUXE_KLAW_SUMMONS       = "_deluxeKlawSummons"      // int 0–3
+        const val LOOKING_GLASS             = "_lookingGlass"           // boolean
+        const val FIREWORKS_SHOP            = "_fireworksShop"          // boolean
+        const val POOL_GAME_RESULT          = "_poolGames"              // int; 0 = not played, 1+ = played
+
+        // Rollover gating
+        const val LAST_DAYCOUNT             = "lastBreakfastDaycount"   // int; -1 = never stored
+
+        // Rufus / Shadow Rift
+        const val RUFUS_QUEST_TYPE          = "_rufusQuestType"         // string: "entity"|"artifact"|"monument"
+        const val RUFUS_QUEST_TARGET        = "_rufusQuestTarget"       // string: target name after quest accepted
+
+        // Villain Lair / Shadow Rifts
+        const val VILLAIN_LAIR_COLOR        = "_villainLairColor"       // string: door color to pick
     }
 }
