@@ -63,7 +63,7 @@ class GameRuntimeLibrary(
         registerCharacterExtensions(scope)
         registerFamiliarQueries(scope)
         registerEquipmentQueries(scope)
-        // registerModifierQueries(scope)
+        registerModifierQueries(scope)
         // registerCollectionQueries(scope)
         registerDateTimeQueries(scope)
         // registerGoalQueries(scope)
