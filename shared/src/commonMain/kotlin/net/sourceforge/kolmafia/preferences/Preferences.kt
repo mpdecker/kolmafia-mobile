@@ -82,5 +82,10 @@ class Preferences(private val settings: Settings) {
 
         // Villain Lair / Shadow Rifts
         const val VILLAIN_LAIR_COLOR        = "_villainLairColor"       // string: door color to pick
+
+        // VampOut / Interview With You (a Vampire) — daily tracking
+        const val INTERVIEW_VLAD        = "_interviewVlad"        // boolean; true = visited
+        const val INTERVIEW_ISABELLA    = "_interviewIsabella"     // boolean; true = visited
+        const val INTERVIEW_MASQUERADE  = "_interviewMasquerade"   // boolean; true = visited
     }
 }
