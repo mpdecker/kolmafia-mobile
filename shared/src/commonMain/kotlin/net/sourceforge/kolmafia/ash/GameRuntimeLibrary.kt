@@ -136,7 +136,7 @@ class GameRuntimeLibrary(
         registerItemActions(scope)
         registerPricingQueries(scope)
         registerBanishQueries(scope)
-        // registerWebRequests(scope)  // TODO: uncomment in Task 6 when GameRuntimeLibrary.WebRequest.kt is added
+        registerWebRequests(scope)
     }
 
     // ──────────────────────────────────────────────────────────────
