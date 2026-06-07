@@ -63,4 +63,20 @@ class GameRuntimeLibraryFamiliarTest {
         )
         assertEquals("12", outputLib(lib, "print(to_string(my_familiar_weight()));"))
     }
+
+    @Test
+    fun useFamiliar_returnsTrueWhenOwned() {
+        // libWithGoat() has the goat registered and mock returns success
+        assertEquals("true",
+            outputLib(libWithGoat(),
+                """print(to_string(use_familiar(to_familiar("Angry Goat"))));"""))
+    }
+
+    @Test
+    fun useFamiliar_returnsFalseWithNoManager() {
+        // no familiarManager injected → returns false immediately
+        assertEquals("false",
+            outputLib(GameRuntimeLibrary.forTesting(),
+                """print(to_string(use_familiar(to_familiar("Angry Goat"))));"""))
+    }
 }
