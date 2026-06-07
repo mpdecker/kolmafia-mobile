@@ -1,14 +1,14 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-_Generated: 2026-06-03 (updated 2026-06-06 after Phase 8: Mood Library + Malignant Effect Clearing + BanishManager — PR #8)_
+_Generated: 2026-06-03 (updated 2026-06-06 after Phase 9: Breakfast Automation + BanishManager Completion — PR #10)_
 
 ## Scale Comparison
 
 | Metric | Desktop (Java) | Mobile (Kotlin) | Coverage |
 |--------|---------------|-----------------|----------|
-| Source files | ~1,172 classes | ~208 files (commonMain) | ~18% |
-| Lines of code | ~57,000 | ~13,000 (commonMain) | ~23% |
-| Test files | 384 | 55 | ~14% |
+| Source files | ~1,172 classes | ~213 files (commonMain) | ~18% |
+| Lines of code | ~57,000 | ~13,500 (commonMain) | ~24% |
+| Test files | 384 | 60 | ~16% |
 | Build target | JVM 21 | Android + iOS | — |
 
 The mobile app is a focused reimplementation, not a line-for-line port. The gap is wider than raw
@@ -24,7 +24,7 @@ file counts suggest because the desktop has massive complexity in its managers a
 |---------|-----------------|-----------------|-------|
 | Login / session | `request/LoginRequest.java` | `request/LoginRequest.kt` | Parity solid |
 | Character stats | `KoLCharacter.java` (6,201 lines) | `character/KoLCharacter.kt` | 70+ fields — see below |
-| Adventure loop | `KoLAdventure.java` (4,608 lines) | `adventure/AdventureManager.kt` | N-turn loop; mood + recovery + ManaBurn + goal checks wired |
+| Adventure loop | `KoLAdventure.java` (4,608 lines) | `adventure/AdventureManager.kt` | N-turn loop; mood + recovery + ManaBurn + goal + banish checks wired |
 | Combat macros | `combat/Macrofier.java` | `adventure/MacroStrategy.kt` | Desktop language is richer |
 | **Choice adventure handlers** | `session/ChoiceManager.java` | `adventure/choice/` (25 files) | **~80 choice IDs implemented** — see below |
 | Inventory | `session/InventoryManager.java` | `inventory/InventoryManager.kt` | Basic use/equip; craft submits but unparsed |
@@ -34,7 +34,7 @@ file counts suggest because the desktop has massive complexity in its managers a
 | Chat (clan/PM) | `chat/ChatManager.java` | `chat/ChatManager.kt` | Polling parity |
 | Coinmaster shops | `request/coinmaster/` (19 classes) | `shop/CoinmasterRegistry.kt` | 30+ coinmasters |
 | Mall search/buy | `request/MallSearchRequest.java` | `mall/MallPriceManager.kt` | TTL cache; `mallSearch()` returns empty (HTML parser TODO) |
-| ASH interpreter | `textui/` (366 classes) | `ash/` (14 files) | ~50 functions — see ASH section |
+| ASH interpreter | `textui/` (366 classes) | `ash/` (14 files) | ~54 functions — see ASH section |
 | **Data layer** | `data/*.txt` (51 files, 64K lines) | `composeResources/files/data/` | **50 files bundled; questslog.txt now parsed** |
 | **Modifier system** | `Modifiers.java` + 16-class package | `modifiers/` (10 files) | Full passive prediction with class multipliers, path overrides |
 | **BuffBot** | `BuffBotManager.java` | `buffbot/` (3 files) | Database + management |
@@ -44,7 +44,7 @@ file counts suggest because the desktop has massive complexity in its managers a
 | **Goal manager** | `session/GoalManager.java` | `session/GoalManager.kt` | Item (by ID + name), meat, level goals; checked mid-run ✅ |
 | **Quest database** | `persistence/QuestDatabase.java` | `quest/QuestDatabase.kt` + `data/QuestLogDatabase.kt` | 99 quests; text-based step detection |
 | **Ascension paths** | `AscensionClass.java` + managers | `adventure/AscensionPath.kt` | 37+ paths, consumption flags, avatars |
-| **Stop conditions** | `session/` stop logic | `adventure/StopReason.kt` | NoAdventuresLeft, Death, Cancel, Network, GoalMet ✅ |
+| **Stop conditions** | `session/` stop logic | `adventure/StopReason.kt` | NoAdventuresLeft, Death, Cancel, Network, GoalMet, **AllMonstersBanished** ✅ |
 | **Mood system** | `moods/` (9 classes, ~3,539 lines) | `mood/` (5 files — Phase 7+8) | Core automation path; named mood library + persistence in PR #8 |
 | **Recovery system** | `moods/RecoveryManager.java` | `recovery/RecoveryManager.kt` | HP/MP item + skill recovery; stop-threshold loop ✅ |
 | **ManaBurn** *(PR #7)* | `moods/ManaBurnManager.java` | `mood/ManaBurnManager.kt` | Post-turn MP burn into lowest-duration mood effect; enabled via pref |
@@ -53,8 +53,14 @@ file counts suggest because the desktop has massive complexity in its managers a
 | **Auto-clear malignant effects** *(PR #8)* | `MoodManager.removeMalignantEffects()` | `mood/MalignantEffects.kt` + `MoodManager.removeMalignantEffects()` | 9 effect names (Beaten Up + 5 poisons + 3 others); fires every mood pass via `UneffectRequest`; best-effort (continues on network failure) |
 | **UneffectRequest** *(PR #8)* | `UseSkillRequest` + CLI `uneffect` | `request/UneffectRequest.kt` | HTTP wrapper for `uneffect.php`; Result-typed, status-validated |
 | **Mood library** *(PR #8)* | `MoodManager._moods` SortedListModel + `username_moods.txt` | `MoodManager.moodLibrary` + Preferences | Named mood persistence; `addMoodToLibrary`, `removeMoodFromLibrary`, `setActiveMoodByName`, `saveMoodLibrary`, `loadMoodLibrary`; restored on login. Orphaned `moodTriggers_$name` keys cleaned on removal |
-| **BanishManager (foundation)** *(PR #8)* | `session/BanishManager.java` (618 lines, 55+ banishers) | `banish/` (3 files: Banisher, BanishState, BanishManager) | 21 named banishers; turn/rollover/avatar/never reset semantics; persisted to `banishedMonsters` pref; combat banish detection via `BANISH_PATTERN`; loaded + rollover-cleared on login. **isBanished not yet wired into routing; all detected banishes recorded as UNKNOWN** |
-| **MonsterBanished event** *(PR #8)* | `BanisherUsed` KoLmafia event | `event/GameEvent.MonsterBanished` | Emitted from `AdventureManager` when combat banish detected |
+| **BanishManager** *(PR #8 + PR #10)* | `session/BanishManager.java` (618 lines, 55+ banishers) | `banish/` (3 files: Banisher, BanishState, BanishManager) | 20 named banishers; identity detected from combat HTML (20 patterns); zone pre-flight routing wired; daycount-gated rollover; `getActiveBanishes()` for ASH; `isBanished` drives `AllMonstersBanished` stop |
+| **MonsterBanished event** *(PR #8)* | `BanisherUsed` KoLmafia event | `event/GameEvent.MonsterBanished` | Emitted from `AdventureManager` when combat banish detected; now includes banisher identity |
+| **BreakfastManager** *(PR #10)* | `BreakfastManager.java` (1,000 lines, 20+ actions) | `session/BreakfastManager.kt` | Garden harvest, clan rumpus, VIP lounge (Klaw ×3, pool, looking glass, fireworks), guild manual detection; daycount-gated via `LAST_DAYCOUNT`; idempotent via per-action boolean prefs |
+| **CampgroundRequest** *(PR #10)* | `request/CampgroundRequest.java` | `request/CampgroundRequest.kt` | `harvestGarden()` HTTP wrapper |
+| **ClanRumpusRequest** *(PR #10)* | `request/ClanRumpusRequest.java` | `request/ClanRumpusRequest.kt` | `visit()` HTTP wrapper |
+| **ClanLoungeRequest** *(PR #10)* | `request/ClanLoungeRequest.java` | `request/ClanLoungeRequest.kt` | `useKlaw()`, `useLookingGlass()`, `visitFireworks()`, `playPoolGame()` |
+| **CombatDatabase / ZoneLookup** *(PR #10)* | `AdventureDatabase.java` monster weights | `data/ZoneLookup.kt` + `data/CombatDatabase.kt` | Zone→monster list lookup used by banish zone pre-flight |
+| **`is_banished()` + `banishers_used()`** *(PR #10)* | `RuntimeLibrary.java` banish queries | `ash/GameRuntimeLibrary.kt` `registerBanishQueries()` | `is_banished(monster)`, `is_banished(string)`, `banishers_used() → string[monster]`, `to_monster(string)` |
 
 ---
 
@@ -62,8 +68,8 @@ file counts suggest because the desktop has massive complexity in its managers a
 
 | Feature | Desktop size/complexity | Priority |
 |---------|------------------------|----------|
-| **BanishManager routing integration** | `isBanished()` called in zone-selection and combat advisor; banisher name detected from combat HTML | **High** — foundation is done (PR #8), but banishes are always recorded as `Banisher.UNKNOWN`, `isBanished` is never consulted, and `clearExpiredAndRollover` fires on every login rather than only at rollover |
-| **BreakfastManager** | `BreakfastManager.java` (1,000 lines, 20+ daily actions) | **High** — garden, VIP lounge, libram summons, pocket wishes all fire on login; entirely absent |
+| **BreakfastManager completion** | Guild manual HTTP use (detection-only stub); pocket wishes (choice handling deferred); hermit clovers, hardwood, Mr Store, boxing daydream, toy uses, batteries, skill books, outfit checkpoint | **High** — core is in (PR #10), gaps are the long tail |
+| **BanishManager coverage** | Desktop has 55+ banishers; mobile has 20 from combat HTML patterns. Also: no phylum banishing (Breathitin, Out of the Frying Pan); no queue model | **Medium** — routing is wired; adding banishers is incremental work |
 | **VillainLair + Rufus solvers** | 4 choice IDs (1260, 1262, 1498, 1499) | **Medium** — TODO stubs; VillainLair is string matching (~50 lines); Rufus needs `RufusManager` (~200 lines) |
 | **Quest tracking depth** | Per-quest state machines in `QuestDatabase.java` (1,284 lines) | **Medium** — 99 quests by name; step detection text-based; NPC-visit advances missed until next login |
 | **KoLCharacter depth** | 200+ fields in desktop | **Medium** — 70+ fields; quest flags, campground detail, storage absent |
@@ -75,9 +81,9 @@ file counts suggest because the desktop has massive complexity in its managers a
 | **ManaBurn sophistication gap** | Desktop burns *any* castable buff, not just mood effects; respects `allowNonMoodBurning`, `allowSummonBurning`, `manaBurnSummonThreshold`, per-skill priority prefs, `lastChanceBurn` | **Medium** — mobile ManaBurn covers the core case (mood effects); advanced pref-driven burning absent |
 | **Mood inheritance** | `Mood.java` parses `"moodA extends default"` and comma-list multi-mood names | **Medium** — mobile `Mood` is a flat data class; no parent concept |
 | **AT song limit management** | MoodManager auto-`uneffect`s lowest-priority AT song when slot is full | **Medium** — no song tracking in mobile |
-| **GoalManager special stops** | `GOAL_CHOICE`, `GOAL_AUTOSTOP`, `GOAL_FACTOID`, `GOAL_FLOUNDRY`, `GOAL_LEPRECONDO`, `GOAL_SUBSTATS` | **Low-Medium** — mobile only has item/meat/level goals |
+| **GoalManager special stops** | `GOAL_CHOICE`, `GOAL_AUTOSTOP`, `GOAL_FACTOID`, `GOAL_FLOUNDRY`, `GOAL_LEPRECONDO`, `GOAL_SUBSTATS` | **Low-Medium** — mobile only has item/meat/level/banished goals |
 | **`AdventureManager` step count** | Zone turn count for choice context | **Low-Medium** — always 0; puzzle handlers that track zone turns broken |
-| **Pre-adventure zone checks** | `KoLAdventure.java` validates limit mode, outfit requirements, familiar requirements, zone-specific pre-flight (Tavern, Pyramid, Bat Hole, etc.) | **Low-Medium** — mobile sends raw adventure request with no zone pre-checks |
+| **Pre-adventure zone checks** | `KoLAdventure.java` validates limit mode, outfit requirements, familiar requirements, zone-specific pre-flight (Tavern, Pyramid, Bat Hole, etc.) | **Low-Medium** — mobile sends raw adventure request with no zone pre-checks (banish pre-flight is now wired, but outfit/familiar/limit-mode checks absent) |
 | **Mood auto-fill** | `minimalSet()` and `maximalSet()` in `MoodManager` | **Low** — no way to populate a mood from currently-active effects or available skills |
 | **`cli_execute()` real dispatch** | Full CLI command parsing | **Low** — ASH stub echoes but does nothing; `mood execute`, `set key=value`, `get key` patterns call-sites fail silently |
 | **`craft()` response parsing** | Parse `craft.php` response | **Low** — returns placeholder; `ItemCrafted` event has id=-1 |
@@ -194,7 +200,7 @@ enthroned/bjorned familiars, moon state, campground state, and social flags.
 **Remaining gaps:** per-quest flags, telescope monster data, detailed campground state
 (garden type/yield, mushroom plot), storage/closet item counts beyond meat totals.
 
-### Banish Tracking (Foundation — PR #8)
+### Banish Tracking (PR #8 foundation + PR #10 completion)
 
 Desktop `session/BanishManager.java` (618 lines) tracks which monsters have been banished,
 by which banisher, with what turn-reset or rollover-reset semantics. 55+ named banishers,
@@ -202,17 +208,23 @@ per-banisher turn-counts, rollover/turn/avatar reset types, phylum banishing, an
 State is serialized to the `banishedMonsters` preference string. Exposes `isBanished(monster)`
 for the combat advisor and `BanisherUsed` events for daily tracking.
 
-**Mobile status (PR #8):** Foundation implemented. `banish/` package has 3 files:
-- `Banisher.kt` — 21 named banishers with `canonicalName`, `turns`, `ResetType` (`ROLLOVER/TURNS/TURN_ROLLOVER/AVATAR/NEVER`), `isTurnFree`
+**Mobile status (PR #8 + PR #10): Substantially complete — routing wired, identity detected, daycount gated.**
+
+`banish/` package (3 files):
+- `Banisher.kt` — 20 named banishers with `canonicalName`, `turns`, `ResetType` (`ROLLOVER/TURNS/TURN_ROLLOVER/AVATAR/NEVER`), `isTurnFree`
 - `BanishState.kt` — `BanishedMonster` (name, banisher, turnBanished) with `isExpired()` logic
-- `BanishManager.kt` — StateFlow-backed; `banishMonster()`, `isBanished()`, `clearExpiredAndRollover()`, `save()`, `load()` via Preferences
+- `BanishManager.kt` — StateFlow-backed; `banishMonster()`, `isBanished()`, `getActiveBanishes()`, `clearExpiredAndRollover()`, `save()`, `load()` via Preferences
+
+**What PR #10 added:**
+- `AdventureParser` detects banisher identity from combat HTML via 20 `BANISHER_PATTERNS` (text substring → Banisher); `AdventureResult.Combat` carries `banisher` field
+- `AdventureManager` zone pre-flight: before each turn, if all positive-weight monsters in zone are banished, emits `StopReason.AllMonstersBanished` and halts
+- `SessionManager` now daycount-gates rollover: `clearExpiredAndRollover` only fires when `dayCount != LAST_DAYCOUNT` — same-day app restarts no longer wipe valid TURN_ROLLOVER banishes
+- `getActiveBanishes(currentTurn)` method enables the `banishers_used()` ASH function
 
 **Remaining gaps:**
-1. **`isBanished` is dead code** — Never called from `AdventureManager` or any zone-selection path. The tracking exists but doesn't influence routing.
-2. **Always `Banisher.UNKNOWN`** — `AdventureManager.resolveCombat()` always records `Banisher.UNKNOWN`. The `Banisher` enum's per-banisher turn counts and reset types are correct but unreachable since banisher identity is never extracted from combat HTML.
-3. **`clearExpiredAndRollover` fires on every login** — Not gated on actual rollover (day change). A same-day app restart clears still-valid `TURN_ROLLOVER` banishes (snokebomb, reflex hammer, etc.) that desktop would preserve.
-4. **No phylum banishing** — Desktop tracks Breathitin / Out of the Frying Pan etc. by phylum, not monster name. Mobile has no phylum concept in BanishManager.
-5. **Desktop has 55+ banishers; mobile has 21** — The 34 missing banishers are lower-frequency items/skills.
+1. **35 missing banishers** — Desktop has 55+; mobile covers 20 from combat HTML patterns. The 35 missing are lower-frequency items/skills (e.g., Feel Hatred, Monkey Slap, Show your Work, etc.)
+2. **No phylum banishing** — Desktop tracks Breathitin / Out of the Frying Pan etc. by phylum, not monster name. Mobile has no phylum concept in BanishManager.
+3. **No queue model** — Desktop allows multiple simultaneous banishes of the same monster (e.g., snokebomb + ice house); mobile replaces the entry. Edge case only.
 
 ### Quest Database (Substantially Addressed)
 
@@ -233,18 +245,18 @@ Desktop ships 51 data files (64,700+ lines). Mobile bundles **50 `.txt` files** 
 `shared/src/commonMain/composeResources/files/data/`. Kotlin parser classes exist for the
 high-priority files, including `questslog.txt` (now parsed by `QuestLogDatabase`).
 
-### ASH Interpreter (~50 Functions — 94% Gap)
+### ASH Interpreter (~54 Functions — 93% Gap)
 
 Desktop `textui/RuntimeLibrary.java` registers **835 `LibraryFunction` instances**. Mobile
-`ash/GameRuntimeLibrary.kt` registers approximately **50 distinct function overloads** — roughly
+`ash/GameRuntimeLibrary.kt` registers approximately **54 distinct function overloads** — roughly
 6% coverage. The gap is the single largest remaining feature deficit.
 
-**What's working:** type conversions, string ops, math, aggregate ops, print variants, character
-queries (my_name, my_level, my_hp, my_maxhp, my_mp, my_maxmp, my_meat, my_adventures,
+**What's working (after Phase 9):** type conversions, string ops, math, aggregate ops, print variants,
+character queries (my_name, my_level, my_hp, my_maxhp, my_mp, my_maxmp, my_meat, my_adventures,
 my_fullness, my_inebriety, my_spleen_use, my_basestat, in_hardcore, my_familiar ✅ fixed),
 item queries (item_amount, available_amount, to_item, have_item), skill queries (have_skill,
 mp_cost, to_skill, daily_limit, times_cast), effect queries (have_effect, to_effect), game
-actions (adventure, use_skill, cli_execute stub).
+actions (adventure, use_skill, cli_execute stub), **banish queries (to_monster, is_banished ×2 overloads, banishers_used) ✅ new in PR #10**.
 
 **Missing by category:**
 
@@ -263,9 +275,34 @@ actions (adventure, use_skill, cli_execute stub).
 | Familiar queries | `my_familiar_weight`, `familiar_weight`, `have_familiar`, `to_familiar`, `use_familiar` |
 | Equipment queries | `equipped_item`, `have_equipped`, `outfit`, `have_outfit`, `retrieve_outfit` |
 | Modifier queries | `numeric_modifier`, `boolean_modifier`, `string_modifier` |
-| Combat helpers | `in_multi_fight`, `fight_follows_choice`, `last_monster`, `copiers_used`, `banishers_used` |
-| Type conversions | `to_location`, `to_monster`, `to_familiar`, `to_modifier`, `to_path`, `to_vykea` |
+| Combat helpers | `in_multi_fight`, `fight_follows_choice`, `last_monster`, `copiers_used` |
+| Type conversions | `to_location`, `to_familiar`, `to_modifier`, `to_path`, `to_vykea` |
 | CLI | `cli_execute` (stub only — echoes, no real dispatch) |
+
+### Breakfast / Daily Automation (PR #10 — Partial)
+
+Desktop `session/BreakfastManager.java` (1,000 lines) automates ~20 one-time-per-day actions:
+clan rumpus room, VIP lounge, guild manual, hermit clovers, garden harvest, hardwood
+collection, Mr Store credits, pocket wishes, boxing daydream, toy uses, batteries, skill books,
+and more. Each action checks whether it has already been done today (via preferences), issues
+the appropriate HTTP requests, and handles outfit checkpointing.
+
+**Mobile status (PR #10): Core actions implemented; long tail absent.**
+
+`session/BreakfastManager.kt` implements:
+- **Garden harvest** — reads `harvestGarden{Softcore,Hardcore}` pref (crop name, default "none"); calls `CampgroundRequest.harvestGarden()`; guarded by `GARDEN_HARVESTED` bool
+- **Clan rumpus room** — reads `visitRumpus{Softcore,Hardcore}` pref (default true); calls `ClanRumpusRequest.visit()`; guarded by `BREAKFAST_RUMPUS` bool
+- **VIP lounge** — gated on VIP Lounge Key in inventory; runs Deluxe Klaw up to 3 times (guarded by `DELUXE_KLAW_SUMMONS` int), Looking Glass (bool), Fireworks Shop (bool), Pool Table (int ≥ 1)
+- **Guild manual detection** — checks character class → manual item ID → presence in inventory; HTTP use request not yet implemented (detection-only stub)
+- **Pocket wishes** — detects pocket wish in inventory; choice handling deferred to adventure loop (stub)
+- **Daycount gating** — `SessionManager` stores `LAST_DAYCOUNT`; rollover + breakfast prefs cleared only when `dayCount` changes
+
+**Remaining gaps:**
+- Guild manual HTTP use (`inv_use.php` call) — detection is present, activation is not
+- Pocket wish choice handling — requires adventure loop integration
+- Hermit clovers, hardwood planks, Mr Store monthly credits
+- Boxing daydream, toy uses, batteries, ancient saucehelm, skill books
+- Outfit checkpoint (save/restore equipped outfit around breakfast HTTP requests)
 
 ### Modifier System (Present, Substantial)
 
@@ -278,18 +315,6 @@ stat limits, HP/MP class multipliers, buffed-stat floor, and path-specific HP/MP
 **Remaining gaps:** conditional outfit set bonuses (half-set bonuses), modifier lookup by
 item ID (currently name-only), Synergy modifier type.
 
-### Breakfast / Daily Automation (Absent)
-
-Desktop `session/BreakfastManager.java` (1,000 lines) automates ~20 one-time-per-day actions:
-clan rumpus room, VIP lounge, guild manual, hermit clovers, garden harvest, hardwood
-collection, Mr Store credits, pocket wishes, boxing daydream, toy uses, batteries, skill books,
-and more. Each action checks whether it has already been done today (via preferences), issues
-the appropriate HTTP requests, and handles outfit checkpointing.
-
-**Mobile gap:** Completely absent. High value — this is the most impactful daily automation
-for most players. High complexity — each action requires its own HTTP request handler. A useful
-subset (garden harvest, pocket wishes, VIP lounge) could be ported incrementally.
-
 ---
 
 ## Architecture Comparison
@@ -301,54 +326,56 @@ subset (garden harvest, pocket wishes, VIP lounge) could be ported incrementally
 | UI | Swing (aging) | Compose Multiplatform | Mobile is modern |
 | Concurrency | Manual threading | Coroutines | Mobile is cleaner |
 | Data | 51 `.txt` files parsed at startup | 50 bundled `.txt` files | Parity |
-| Testing | 384 test classes, many integration | 55 unit test files | Desktop wins |
-| Scripting | Full ASH + CLI (835 functions) | Partial ASH (~50 functions) | Desktop wins heavily |
+| Testing | 384 test classes, many integration | 60 unit test files | Desktop wins |
+| Scripting | Full ASH + CLI (835 functions) | Partial ASH (~54 functions) | Desktop wins heavily |
 | Events | Ad-hoc listeners | GameEventBus pub/sub | Mobile is cleaner |
 | Choice automation | ~1,000 handler cases | ~80 active IDs covered | Good coverage of common paths |
 | Recovery/mood | 9 classes, full persistence + mood library | 6 files, named library + malignant clearing | Closing gap — inheritance/AT songs remain |
 | ManaBurn | Full — any buff, summons, per-skill priority | Partial — mood-trigger effects only | Desktop wins on coverage |
-| Banish tracking | 55+ banishers, full routing integration | 21 banishers, foundation only (no routing) | Desktop wins; mobile has the data model |
+| Banish tracking | 55+ banishers, full routing integration, phylum | 20 banishers, zone pre-flight wired, identity detected, daycount-gated rollover | Substantially closed; 35 banishers + phylum remain |
+| Breakfast / daily actions | ~20 actions, outfit checkpointing | Garden, rumpus, VIP lounge core, guild manual detection | Core in; long tail absent |
 
 ---
 
 ## Top Priorities
 
-1. **BanishManager routing integration** — The foundation (PR #8) is done but inert. Three
-   concrete follow-ups make it useful: (a) wire `isBanished` into `AdventureManager` / zone
-   pre-checks so banished monsters are actually avoided; (b) extract banisher identity from
-   combat HTML so banishes are recorded with correct turn counts and reset types rather than
-   always `UNKNOWN/ROLLOVER`; (c) gate `clearExpiredAndRollover` on a stored day count to
-   avoid wiping valid same-session banishes on app restart. Without (a), the tracking is
-   book-keeping with no behavioral effect.
+1. **ASH function batch — core scripting primitives** — At ~54/835 (6%) coverage, the ASH gap
+   is the single largest feature deficit. No real community KoLmafia script is portable to mobile
+   until this improves. Highest-value batch:
+   - **Character queries:** `my_class`, `my_path`, `in_run`, `ascension_number`, `my_primestat`, `my_sign`
+   - **Collection accessor:** `get_inventory` (returns `int[item]` map; unlocks most inventory-checking scripts)
+   - **Modifier queries:** `numeric_modifier`, `boolean_modifier`, `string_modifier` (enables gear planning scripts)
+   - **Type conversions:** `to_location`, `to_familiar` (needed by nearly every automation script)
+   - **Goal management:** `add_item_condition`, `goal_exists`, `get_goals` (scripts that set their own stop conditions)
+   - **Date/time:** `today_to_string`, `now_to_string`, `rollover` (daily automation scripts need these)
+   - This batch alone would make the top ~20 community scripts runnable.
 
-2. **BreakfastManager / daily reset subset** — No daily-reset actions fire on mobile login.
-   Start with the three highest-value, lowest-complexity actions: garden harvest (single HTTP
-   request), pocket wishes (item use), and VIP lounge free items. Each is ~50–100 lines with
-   a preference guard. Opens the door to a full `BreakfastManager` port incrementally.
-
-3. **VillainLair + Rufus solvers** — Complete the four TODO stubs in `SolverHandlers.kt`:
+2. **VillainLair + Rufus solvers** — Complete the four TODO stubs in `SolverHandlers.kt`:
    - Choices 1260/1262: pure string matching against `_villainLairColor` pref and response
      text (~50 lines). No HTTP side effects.
    - Choices 1498/1499: requires a `RufusManager` to parse phone call HTML and store quest
      type/target in preferences (~200 lines total).
 
-4. **Six choice solver implementations** — All 6 solver stubs (`ArcadeGameSolver`, `GameproSolver`,
+3. **Six choice solver implementations** — All 6 solver stubs (`ArcadeGameSolver`, `GameproSolver`,
    `LightsOutSolver`, `LostKeySolver`, `SafetyShelterSolver`, `VampOutSolver`) are `NoOp`.
    Without real implementations, choice IDs 486, 535, 536, 546, 594, 665, 890–903 fall
    through to option 1, breaking Dreadsylvania, Safety Shelter, and the Lights Out chain.
    `LightsOut` and `SafetyShelter` are the highest-value starting points.
 
-5. **ASH function batch — core scripting primitives** — The 94% gap means no real KoLmafia
-   script is portable to mobile. Highest-value batch: `my_class`, `my_path`, `in_run`,
-   `ascension_number` (character queries); `get_inventory` (map return); `numeric_modifier`,
-   `string_modifier` (modifier queries); `to_location`, `to_monster`, `to_familiar` (type
-   conversions); `add_item_condition`, `goal_exists` (goal management). This batch alone would
-   make the top ~20 community scripts runnable.
+4. **BreakfastManager completion** — The high-value core actions are in (PR #10). Remaining:
+   - Guild manual activation (`inv_use.php` call; detection already works)
+   - Pocket wish choice handling (requires adventure loop integration)
+   - Hermit clovers, hardwood, Mr Store monthly credits
+   - Outfit checkpoint (save/restore around HTTP requests)
+
+5. **BanishManager — missing banishers** — Adding the 35 missing banishers is incremental
+   (each is a one-liner in `Banisher.kt` + corresponding HTML pattern in `BANISHER_PATTERNS`).
+   High-value gaps: Feel Hatred (25 turns), Monkey Slap (30 turns), Show your Work (30 turns),
+   Spring-Loaded Front Bumper (30 turns).
 
 6. **`cli_execute` real dispatch** — Currently prints and returns true. Minimal real dispatch
    should handle: `mood execute`, `mood [name]`, `set key=value`, `get key` — the four
-   most-called patterns in community scripts. This directly unblocks mood-using scripts and
-   gives ASH scripts a path to preference management.
+   most-called patterns in community scripts. Directly unblocks mood-using scripts.
 
 7. **Mood system refinements** — Three remaining gaps in approximate value order:
    (a) AT song slot tracking + auto-evict lowest-priority song when full (unblocks AT class players);
