@@ -61,8 +61,8 @@ class GameRuntimeLibrary(
         registerGameActions(scope)
         // new extension calls (added as tasks T4–T13 are implemented):
         registerCharacterExtensions(scope)
-        // registerFamiliarQueries(scope)
-        // registerEquipmentQueries(scope)
+        registerFamiliarQueries(scope)
+        registerEquipmentQueries(scope)
         // registerModifierQueries(scope)
         // registerCollectionQueries(scope)
         // registerDateTimeQueries(scope)
