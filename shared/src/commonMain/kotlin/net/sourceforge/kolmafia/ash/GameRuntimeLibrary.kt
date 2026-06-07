@@ -1,11 +1,14 @@
 package net.sourceforge.kolmafia.ash
 
+import io.ktor.client.HttpClient
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
+import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.mood.MoodManager
@@ -19,6 +22,7 @@ import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.skill.SkillState
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -47,12 +51,55 @@ class GameRuntimeLibrary(
     internal val closetRequest: ClosetRequest? = null,
     internal val storageRequest: StorageRequest? = null,
     internal val banishManager: BanishManager? = null,
+    internal val httpClient: HttpClient? = null,
 ) : RuntimeLibrary() {
 
     companion object {
         /** Used in tests where no game managers are needed. */
         fun forTesting() = GameRuntimeLibrary()
     }
+
+    private val cliDispatch: List<Pair<Regex, (MatchResult, AshRuntimeContext) -> Unit>> = listOf(
+
+        // "mood execute" — run missing triggers for active mood
+        Regex("^mood\\s+execute$", RegexOption.IGNORE_CASE) to { _, _ ->
+            moodManager?.let { mood ->
+                kotlinx.coroutines.runBlocking {
+                    mood.executeActiveMood(
+                        effectState = effectManager?.state?.value ?: EffectState(),
+                        skillState  = skillManager?.state?.value  ?: SkillState(),
+                        charState   = character?.state?.value     ?: CharacterState(),
+                    )
+                }
+            }
+        },
+
+        // "mood <name>" — set active mood by name, then execute
+        Regex("^mood\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val name = m.groupValues[1].trim()
+            moodManager?.setActiveMoodByName(name)
+            moodManager?.let { mood ->
+                kotlinx.coroutines.runBlocking {
+                    mood.executeActiveMood(
+                        effectState = effectManager?.state?.value ?: EffectState(),
+                        skillState  = skillManager?.state?.value  ?: SkillState(),
+                        charState   = character?.state?.value     ?: CharacterState(),
+                    )
+                }
+            }
+        },
+
+        // "set key=value" — write a preference string
+        Regex("^set\\s+(.+?)\\s*=\\s*(.*)$") to { m, _ ->
+            preferences?.setString(m.groupValues[1].trim(), m.groupValues[2])
+        },
+
+        // "get key" — read and print a preference string
+        Regex("^get\\s+(.+)$") to { m, rt ->
+            val value = preferences?.getString(m.groupValues[1].trim(), "") ?: ""
+            rt.print(value)
+        },
+    )
 
     /** Bridges the protected [register] so extension functions in this module can call it. */
     internal fun regFn(
@@ -89,6 +136,7 @@ class GameRuntimeLibrary(
         registerItemActions(scope)
         registerPricingQueries(scope)
         registerBanishQueries(scope)
+        // registerWebRequests(scope)  // TODO: uncomment in Task 6 when GameRuntimeLibrary.WebRequest.kt is added
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -485,11 +533,16 @@ class GameRuntimeLibrary(
         }
 
         register(scope, "cli_execute", AshType.BOOLEAN, listOf("cmd" to AshType.STRING)) { runtime, args ->
-            // Minimal: echo the command to output.
-            // Full KoLmafia CLI dispatch is out of scope for Phase 5.
-            runtime.print("[cli] ${args[0]}")
+            val cmd = args[0].toString()
+            val matched = cliDispatch.firstOrNull { (regex, _) -> regex.matches(cmd) }
+            if (matched != null) {
+                matched.second(matched.first.find(cmd)!!, runtime)
+            } else {
+                runtime.print("[cli] $cmd")   // unknown command: echo fallback
+            }
             AshValue.of(true)
         }
+
     }
 
     // ──────────────────────────────────────────────────────────────
