@@ -37,6 +37,28 @@ class GoalManager {
     /** Returns true when [currentLevel] meets or exceeds the configured level goal. */
     fun hasLevelGoal(currentLevel: Int): Boolean = levelGoal?.let { currentLevel >= it } ?: false
 
+    // ── Phase 10 ASH helpers ──────────────────────────────────────────────────
+
+    /** True if any item goal (by ID or name) is active. */
+    fun hasItemGoals(): Boolean = _itemGoalIds.isNotEmpty() || _itemGoalNames.isNotEmpty()
+
+    /** True if a meat goal has been set (regardless of current meat). */
+    fun hasMeatGoalSet(): Boolean = meatGoal != null
+
+    /** True if a level goal has been set (regardless of current level). */
+    fun hasLevelGoalSet(): Boolean = levelGoal != null
+
+    /** Remove the first item goal matching [itemName] (case-insensitive). */
+    fun removeGoal(itemName: String) { removeItemGoalByName(itemName) }
+
+    /** Serialize all active goals as human-readable strings. */
+    fun allGoalsAsStrings(): List<String> = buildList {
+        _itemGoalIds.forEach  { add("item id:$it") }
+        _itemGoalNames.forEach { add("item name:$it") }
+        meatGoal?.let  { add("meat:$it") }
+        levelGoal?.let { add("level:$it") }
+    }
+
     // ── Clear all ─────────────────────────────────────────────────────────────
 
     fun clearGoals() {

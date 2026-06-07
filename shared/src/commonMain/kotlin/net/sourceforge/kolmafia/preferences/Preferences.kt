@@ -35,6 +35,9 @@ class Preferences(private val settings: Settings) {
         const val MP_RECOVERY_TARGET_PCT   = "mpRecoveryTargetPct"
         const val MP_RECOVERY_STOP_PCT     = "mpRecoveryStopPct"     // above → stop recovering
 
+        // Combat tracking
+        const val LAST_MONSTER             = "_lastMonster"   // string; last monster fought
+
         // Mood
         const val AUTO_BUFF                = "autoBuff"
         const val REMOVE_MALIGNANT_EFFECTS = "removeMalignantEffects"  // default true

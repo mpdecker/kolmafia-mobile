@@ -16,13 +16,9 @@ class GameRuntimeLibraryTest {
     }
 
     // Uses a minimal stub that provides no game managers — only pure utility functions are tested here.
-    private fun run(src: String): AshRuntime {
-        val runtime = AshRuntime(GameRuntimeLibrary.forTesting())
-        runtime.execute(AshParser().parse(src))
-        return runtime
-    }
+    private fun run(src: String): AshRuntime = runLib(GameRuntimeLibrary.forTesting(), src)
 
-    private fun output(src: String) = run(src).output.toString().trim()
+    private fun output(src: String): String = outputLib(GameRuntimeLibrary.forTesting(), src)
 
     // --- Type conversion ---
 

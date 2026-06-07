@@ -43,6 +43,13 @@ import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.mall.MallPriceManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
+import net.sourceforge.kolmafia.request.AutosellRequest
+import net.sourceforge.kolmafia.request.ChewRequest
+import net.sourceforge.kolmafia.request.ClosetRequest
+import net.sourceforge.kolmafia.request.DrinkBoozeRequest
+import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.StorageRequest
+import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.shop.CoinmasterRequest
 import net.sourceforge.kolmafia.shop.ShopRequest
 import net.sourceforge.kolmafia.skill.SkillCastRequest
@@ -95,6 +102,13 @@ val sharedModule = module {
             SolverHandlers.registerAll(r)
         }
     }
+    singleOf(::UseItemRequest)
+    singleOf(::EatFoodRequest)
+    singleOf(::DrinkBoozeRequest)
+    singleOf(::ChewRequest)
+    singleOf(::AutosellRequest)
+    singleOf(::ClosetRequest)
+    singleOf(::StorageRequest)
     singleOf(::InventoryManager)
     singleOf(::FamiliarManager)
     singleOf(::SkillCastRequest)
@@ -130,11 +144,23 @@ val sharedModule = module {
     }
     single {
         GameRuntimeLibrary(
-            character = get(),
+            character        = get(),
             inventoryManager = get(),
-            skillManager = get(),
-            effectManager = get(),
-            adventureManager = get()
+            skillManager     = get(),
+            effectManager    = get(),
+            adventureManager = get(),
+            familiarManager  = get(),
+            goalManager      = get(),
+            moodManager      = get(),
+            preferences      = get(),
+            gameDatabase     = get(),
+            useItemRequest   = get(),
+            eatFoodRequest   = get(),
+            drinkBoozeRequest = get(),
+            chewRequest      = get(),
+            autosellRequest  = get(),
+            closetRequest    = get(),
+            storageRequest   = get(),
         )
     }
     singleOf(::ScriptManager)

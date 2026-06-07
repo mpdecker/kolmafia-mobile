@@ -12,6 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class FamiliarManagerTest {
 
@@ -61,5 +62,46 @@ class FamiliarManagerTest {
     fun initialState_hasNoActiveFamiliar() {
         val manager = makeManager()
         assertNull(manager.state.value.activeFamiliar)
+    }
+
+    // ── Phase 10: setFamiliar + testSetState ──────────────────────────────────
+
+    @Test
+    fun setFamiliar_byName_switchesToCorrectFamiliar() = runTest {
+        val requestedPaths = mutableListOf<String>()
+        val requestedBodies = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            requestedPaths += request.url.fullPath
+            requestedBodies += request.body.toByteArray().decodeToString()
+            respond("", HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "text/html"))
+        }
+        val client = HttpClient(engine) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val mgr = FamiliarManager(client, GameEventBus())
+        mgr.testSetState(FamiliarState(
+            activeFamiliar = null,
+            ownedFamiliars = listOf(FamiliarData(id = 3, name = "Biscuit", race = "Angry Goat", weight = 10, experience = 0, kills = 0))
+        ))
+        val result = mgr.setFamiliar("Angry Goat")
+        assertTrue(result.isSuccess)
+        val allContent = requestedPaths + requestedBodies
+        assertTrue(
+            allContent.any { it.contains("whichfam") && it.contains("3") },
+            "Expected whichfam=3 in paths=$requestedPaths bodies=$requestedBodies"
+        )
+    }
+
+    @Test
+    fun setFamiliar_notFound_returnsFailure() = runTest {
+        val engine = MockEngine { respond("", HttpStatusCode.OK) }
+        val client = HttpClient(engine) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val mgr = FamiliarManager(client, GameEventBus())
+        mgr.testSetState(FamiliarState())
+        val result = mgr.setFamiliar("No Such Familiar")
+        assertTrue(result.isFailure)
     }
 }

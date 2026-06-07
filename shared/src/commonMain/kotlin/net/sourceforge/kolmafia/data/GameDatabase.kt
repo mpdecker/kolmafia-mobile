@@ -3,7 +3,7 @@ package net.sourceforge.kolmafia.data
 // Coordinates loading of all bundled game data files.
 // Inject this singleton via Koin and call load() once at session start.
 // Individual databases are also accessible as object singletons for direct use.
-class GameDatabase {
+open class GameDatabase {
 
     var isLoaded = false
         private set
@@ -54,8 +54,8 @@ class GameDatabase {
     }
 
     // Convenience accessors — delegates to the respective object singletons.
-    fun item(id: Int) = ItemDatabase.getById(id)
-    fun item(name: String) = ItemDatabase.getByName(name)
+    open fun item(id: Int): ItemData? = ItemDatabase.getById(id)
+    open fun item(name: String): ItemData? = ItemDatabase.getByName(name)
     fun effect(id: Int) = EffectDatabase.getById(id)
     fun effect(name: String) = EffectDatabase.getByName(name)
     fun equipment(name: String) = EquipmentDatabase.getByName(name)
