@@ -3,11 +3,12 @@ package net.sourceforge.kolmafia.adventure.choice.handlers
 import net.sourceforge.kolmafia.adventure.choice.ChoiceContext
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandler
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
+import net.sourceforge.kolmafia.preferences.Preferences
 
 object VillainLairHandlers {
 
     private fun colorDecide(ctx: ChoiceContext): Int? {
-        val color = ctx.preferences.getString("_villainLairColor", "").lowercase()
+        val color = ctx.preferences.getString(Preferences.VILLAIN_LAIR_COLOR, "").lowercase()
         if (color.isEmpty()) return null
         // Scan options 1–6; find the one whose surrounding HTML fragment mentions the color
         return (1..6).firstOrNull { option ->

@@ -39,7 +39,7 @@ class SessionManagerBreakfastTest {
             override suspend fun useKlaw() = Result.success("ok")
         }
         val breakfastMgr = object : BreakfastManager(campground, rumpus, lounge, p, UseItemRequest(mockClient)) {
-            override suspend fun runBreakfast(cs: CharacterState, inv: InventoryState) {
+            override suspend fun runBreakfast(charState: CharacterState, inventoryState: InventoryState) {
                 breakfastCalled = true
             }
             override fun clearBreakfastPrefs() { clearCalled = true }

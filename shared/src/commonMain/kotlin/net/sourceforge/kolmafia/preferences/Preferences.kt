@@ -79,5 +79,8 @@ class Preferences(private val settings: Settings) {
         // Rufus / Shadow Rift
         const val RUFUS_QUEST_TYPE          = "_rufusQuestType"         // string: "entity"|"artifact"|"monument"
         const val RUFUS_QUEST_TARGET        = "_rufusQuestTarget"       // string: target name after quest accepted
+
+        // Villain Lair / Shadow Rifts
+        const val VILLAIN_LAIR_COLOR        = "_villainLairColor"       // string: door color to pick
     }
 }

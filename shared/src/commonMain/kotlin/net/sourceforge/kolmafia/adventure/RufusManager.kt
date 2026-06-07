@@ -29,7 +29,10 @@ class RufusManager(private val preferences: Preferences) {
     /** Choice 1499: always confirm (option 1). */
     fun confirmChoice(): Int = 1
 
-    /** Store the target name after quest is accepted (extracted from post-choice response). */
+    /**
+     * Store the target name after quest is accepted (extracted from post-choice response).
+     * Called by the quest-completion detection once implemented (deferred to a future phase).
+     */
     fun recordQuestTarget(target: String) {
         preferences.setString(Preferences.RUFUS_QUEST_TARGET, target)
     }
