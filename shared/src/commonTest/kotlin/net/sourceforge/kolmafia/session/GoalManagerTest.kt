@@ -125,6 +125,44 @@ class GoalManagerTest {
         assertFalse(gm.hasLevelGoal(99))
     }
 
+    // ── Phase 10 helper predicates ───────────────────────────────────────
+
+    @Test
+    fun hasItemGoals_trueAfterAddingByName() {
+        val gm = GoalManager()
+        assertFalse(gm.hasItemGoals())
+        gm.addItemGoalByName("seal tooth")
+        assertTrue(gm.hasItemGoals())
+    }
+
+    @Test
+    fun removeGoal_removesNameGoal() {
+        val gm = GoalManager()
+        gm.addItemGoalByName("seal tooth")
+        gm.removeGoal("seal tooth")
+        assertFalse(gm.hasItemGoals())
+    }
+
+    @Test
+    fun hasMeatGoalSet_trueAfterSetMeatGoal() {
+        val gm = GoalManager()
+        assertFalse(gm.hasMeatGoalSet())
+        gm.setMeatGoal(5000)
+        assertTrue(gm.hasMeatGoalSet())
+    }
+
+    @Test
+    fun allGoalsAsStrings_listsAllGoals() {
+        val gm = GoalManager()
+        gm.addItemGoalByName("seal tooth")
+        gm.setMeatGoal(1000)
+        gm.setLevelGoal(10)
+        val goals = gm.allGoalsAsStrings()
+        assertTrue(goals.any { it.contains("seal tooth") })
+        assertTrue(goals.any { it.contains("meat") })
+        assertTrue(goals.any { it.contains("level") })
+    }
+
     // ── clearGoals clears everything ─────────────────────────────────────
 
     @Test fun clearGoals_clearsNameGoalsAndNumericGoals() {

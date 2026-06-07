@@ -101,4 +101,17 @@ class FamiliarManager(
 
     suspend fun performAction(action: FamiliarAction): Result<Unit> =
         actionRequest.perform(action)
+
+    // ── Phase 10 ASH helpers ──────────────────────────────────────────────────
+
+    /** Sets the active familiar by species name (race). Returns failure if not owned. */
+    suspend fun setFamiliar(name: String): Result<Unit> {
+        val familiar = state.value.ownedFamiliars
+            .find { it.race.equals(name, ignoreCase = true) }
+            ?: return Result.failure(Exception("Familiar not owned: $name"))
+        return switchFamiliar(familiar)
+    }
+
+    /** Test hook — sets internal state without going through the network. */
+    internal fun testSetState(state: FamiliarState) { _state.value = state }
 }
