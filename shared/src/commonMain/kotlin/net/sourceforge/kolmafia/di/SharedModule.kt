@@ -91,6 +91,7 @@ val sharedModule = module {
             lightsOut     = net.sourceforge.kolmafia.adventure.choice.solvers.LightsOutSolver.NoOp,
         )
     }
+    singleOf(::RufusManager)
     single {
         ChoiceHandlerRegistry().also { r ->
             InventoryHandlers.registerAll(r)
@@ -125,7 +126,6 @@ val sharedModule = module {
     single { MoodManager(skillManager = get(), preferences = get(), uneffectRequest = get()) }
     singleOf(::ManaBurnManager)
     singleOf(::BanishManager)
-    singleOf(::RufusManager)
     singleOf(::EffectManager)
     single {
         AdventureManager(
