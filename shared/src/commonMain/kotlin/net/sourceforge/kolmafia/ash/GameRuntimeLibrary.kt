@@ -66,10 +66,10 @@ class GameRuntimeLibrary(
         registerModifierQueries(scope)
         registerCollectionQueries(scope)
         registerDateTimeQueries(scope)
-        // registerGoalQueries(scope)
-        // registerMoodQueries(scope)
-        // registerPreferenceAccess(scope)
-        // registerCombatStubs(scope)
+        registerGoalQueries(scope)
+        registerMoodQueries(scope)
+        registerPreferenceAccess(scope)
+        registerCombatStubs(scope)
         // registerItemActions(scope)
     }
 
