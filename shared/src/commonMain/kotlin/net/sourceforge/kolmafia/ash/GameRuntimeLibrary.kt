@@ -87,6 +87,7 @@ class GameRuntimeLibrary(
         registerPreferenceAccess(scope)
         registerCombatStubs(scope)
         registerItemActions(scope)
+        registerPricingQueries(scope)
         registerBanishQueries(scope)
     }
 
