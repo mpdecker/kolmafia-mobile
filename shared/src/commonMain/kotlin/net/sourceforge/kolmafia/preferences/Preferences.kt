@@ -75,5 +75,9 @@ class Preferences(private val settings: Settings) {
 
         // Rollover gating
         const val LAST_DAYCOUNT             = "lastBreakfastDaycount"   // int; -1 = never stored
+
+        // Rufus / Shadow Rift
+        const val RUFUS_QUEST_TYPE          = "_rufusQuestType"         // string: "entity"|"artifact"|"monument"
+        const val RUFUS_QUEST_TARGET        = "_rufusQuestTarget"       // string: target name after quest accepted
     }
 }
