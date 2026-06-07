@@ -238,35 +238,54 @@ class AdventureManager(
         return result
     }
 
-    private suspend fun resolveChoice(
+    internal suspend fun resolveChoice(
         choiceId: Int,
-        responseText: String,
+        initialResponseText: String,
     ): AdventureResult.Choice {
-        val ctx = ChoiceContext(
-            choiceId       = choiceId,
-            options        = ChoiceUtilities.parseChoices(responseText),
-            responseText   = responseText,
-            characterState = character.state.value,
-            inventoryState = inventory?.state?.value ?: InventoryState(),
-            effectState    = effects?.state?.value ?: EffectState(),
-            skillState     = skills?.state?.value ?: SkillState(),
-            preferences    = preferences,
-            goalManager    = goalManager,
-            questDatabase  = questDatabase,
-            solvers        = solvers,
-            preference     = preferences.getInt("choiceAdventure$choiceId", 0),
-            // TODO: track step count across the adventure loop and pass it here
-            stepCount      = 0,
-            skillUses      = skillUses,
-        )
-        val option = registry.dispatch(ctx) ?: preferences.getString("choiceAdventure$choiceId").toIntOrNull() ?: 1
-        if (option > 0 && skillUses > 0) {
-            skillUses--
+        var currentChoiceId     = choiceId
+        var currentResponseText = initialResponseText
+        var stepCount           = 0
+        var lastChosenOption    = 1
+
+        while (true) {
+            val ctx = ChoiceContext(
+                choiceId       = currentChoiceId,
+                options        = ChoiceUtilities.parseChoices(currentResponseText),
+                responseText   = currentResponseText,
+                characterState = character.state.value,
+                inventoryState = inventory?.state?.value ?: InventoryState(),
+                effectState    = effects?.state?.value ?: EffectState(),
+                skillState     = skills?.state?.value ?: SkillState(),
+                preferences    = preferences,
+                goalManager    = goalManager,
+                questDatabase  = questDatabase,
+                solvers        = solvers,
+                preference     = preferences.getInt("choiceAdventure$currentChoiceId", 0),
+                stepCount      = stepCount,
+                skillUses      = skillUses,
+            )
+            val option = registry.dispatch(ctx)
+                ?: preferences.getString("choiceAdventure$currentChoiceId").toIntOrNull()
+                ?: 1
+            if (option > 0 && skillUses > 0) skillUses--
+            lastChosenOption = option
+
+            val html = choiceRequest.choose(currentChoiceId, option).getOrElse { e ->
+                eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(e)))
+                return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
+            }
+            eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
+
+            val next = AdventureParser.parseAdventureResponse(html, "")
+            if (next is AdventureResult.Choice) {
+                currentChoiceId     = next.choiceId
+                currentResponseText = next.responseText
+                stepCount++
+            } else {
+                break
+            }
         }
-        choiceRequest.choose(choiceId, option)
-        val resolved = AdventureResult.Choice(choiceId, "Choice Adventure", chosenOption = option)
-        eventBus.emit(GameEvent.ChoiceResolved(choiceId, option))
-        return resolved
+        return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = lastChosenOption)
     }
 
     private suspend fun emitItemEvents(items: List<String>) {

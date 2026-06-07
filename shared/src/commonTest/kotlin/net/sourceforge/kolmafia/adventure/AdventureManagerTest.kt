@@ -518,6 +518,51 @@ class AdventureManagerTest {
         assertEquals(1, received.filterIsInstance<GameEvent.TurnConsumed>().size)
     }
 
+    @Test
+    fun resolveChoice_loopsThroughMultiStepSequence() = runTest {
+        // choice.php returns a choice page on call 1, then a non-combat page on call 2
+        val choiceHtml = """<form><input type="hidden" name="whichchoice" value="535">
+            <input type="hidden" name="option" value=""><a href="choice.php?option=1">Option 1</a></form>"""
+        var choiceCallCount = 0
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("adventure.php") ->
+                    respond(choiceHtml, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "text/html"))
+                request.url.encodedPath.contains("choice.php") ->
+                    if (++choiceCallCount == 1)
+                        respond(choiceHtml, HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentType, "text/html"))
+                    else
+                        respond(NON_COMBAT_HTML, HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentType, "text/html"))
+                request.url.encodedPath.contains("api.php") ->
+                    respond(STATUS_JSON_ADVENTURES_LEFT, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"))
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val client = HttpClient(engine) {
+            install(HttpCookies)
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+        val bus = GameEventBus()
+        val received = mutableListOf<GameEvent>()
+        val manager = AdventureManager(
+            AdventureRequest(client), FightRequest(client), ChoiceRequest(client),
+            CharacterRequest(client), KoLCharacter(), Preferences(MapSettings()), bus,
+        )
+        val collectJob = launch { bus.events.collect { received.add(it) } }
+
+        manager.runAdventures(testLocation, 1, this).join()
+        collectJob.cancel()
+
+        val choiceEvents = received.filterIsInstance<GameEvent.ChoiceResolved>()
+        assertEquals(2, choiceEvents.size, "Expected two ChoiceResolved events (step 0 and step 1)")
+    }
+
     companion object {
         const val NON_COMBAT_HTML = """<html><body><b>A Spooky Treehouse</b><p>You gain 10 Meat.</p></body></html>"""
         const val COMBAT_WIN_HTML = """<html><body><span id='monname'>bunny</span><p>You win the fight!</p></body></html>"""
