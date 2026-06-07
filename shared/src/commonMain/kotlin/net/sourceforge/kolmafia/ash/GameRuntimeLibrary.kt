@@ -65,7 +65,7 @@ class GameRuntimeLibrary(
         registerEquipmentQueries(scope)
         // registerModifierQueries(scope)
         // registerCollectionQueries(scope)
-        // registerDateTimeQueries(scope)
+        registerDateTimeQueries(scope)
         // registerGoalQueries(scope)
         // registerMoodQueries(scope)
         // registerPreferenceAccess(scope)
