@@ -1,14 +1,14 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-_Generated: 2026-06-03 (updated 2026-06-06 after Phase 9: Breakfast Automation + BanishManager Completion — PR #10)_
+_Generated: 2026-06-03 (updated 2026-06-07 after Phase 10: ASH Function Expansion — PR #11)_
 
 ## Scale Comparison
 
 | Metric | Desktop (Java) | Mobile (Kotlin) | Coverage |
 |--------|---------------|-----------------|----------|
-| Source files | ~1,172 classes | ~213 files (commonMain) | ~18% |
-| Lines of code | ~57,000 | ~13,500 (commonMain) | ~24% |
-| Test files | 384 | 60 | ~16% |
+| Source files | ~1,172 classes | ~220 files (commonMain) | ~19% |
+| Lines of code | ~57,000 | ~12,570 (commonMain) | ~22% |
+| Test files | 384 | 70 | ~18% |
 | Build target | JVM 21 | Android + iOS | — |
 
 The mobile app is a focused reimplementation, not a line-for-line port. The gap is wider than raw
@@ -34,7 +34,7 @@ file counts suggest because the desktop has massive complexity in its managers a
 | Chat (clan/PM) | `chat/ChatManager.java` | `chat/ChatManager.kt` | Polling parity |
 | Coinmaster shops | `request/coinmaster/` (19 classes) | `shop/CoinmasterRegistry.kt` | 30+ coinmasters |
 | Mall search/buy | `request/MallSearchRequest.java` | `mall/MallPriceManager.kt` | TTL cache; `mallSearch()` returns empty (HTML parser TODO) |
-| ASH interpreter | `textui/` (366 classes) | `ash/` (14 files) | ~54 functions — see ASH section |
+| ASH interpreter | `textui/` (366 classes) | `ash/` (25 files) | **~125 function overloads** — see ASH section |
 | **Data layer** | `data/*.txt` (51 files, 64K lines) | `composeResources/files/data/` | **50 files bundled; questslog.txt now parsed** |
 | **Modifier system** | `Modifiers.java` + 16-class package | `modifiers/` (10 files) | Full passive prediction with class multipliers, path overrides |
 | **BuffBot** | `BuffBotManager.java` | `buffbot/` (3 files) | Database + management |
@@ -61,6 +61,13 @@ file counts suggest because the desktop has massive complexity in its managers a
 | **ClanLoungeRequest** *(PR #10)* | `request/ClanLoungeRequest.java` | `request/ClanLoungeRequest.kt` | `useKlaw()`, `useLookingGlass()`, `visitFireworks()`, `playPoolGame()` |
 | **CombatDatabase / ZoneLookup** *(PR #10)* | `AdventureDatabase.java` monster weights | `data/ZoneLookup.kt` + `data/CombatDatabase.kt` | Zone→monster list lookup used by banish zone pre-flight |
 | **`is_banished()` + `banishers_used()`** *(PR #10)* | `RuntimeLibrary.java` banish queries | `ash/GameRuntimeLibrary.kt` `registerBanishQueries()` | `is_banished(monster)`, `is_banished(string)`, `banishers_used() → string[monster]`, `to_monster(string)` |
+| **ASH character/familiar/equipment extensions** *(PR #11)* | `RuntimeLibrary.java` | `ash/GameRuntimeLibrary.Character.kt`, `.Familiar.kt`, `.Equipment.kt` | `my_class`, `my_path`, `my_sign`, `my_primestat`, `my_thrall`, `in_run`, `under_standard`, `ascension_number`, `can_interact`, `have_familiar`, `use_familiar`, `my_familiar_weight`, `to_familiar`, `equipped_item`, `have_equipped`, `to_slot`, `slot_to_item` |
+| **ASH date/time extensions** *(PR #11)* | `RuntimeLibrary.java` | `ash/GameRuntimeLibrary.DateTime.kt` | `today_to_string`, `now_to_string`, `gameday_to_string`, `rollover`, `moon_phase`; platform expect/actual for jvm/android/ios |
+| **ASH modifier extensions** *(PR #11)* | `RuntimeLibrary.java` | `ash/GameRuntimeLibrary.Modifiers.kt` | `numeric_modifier` (item×2, effect×1), `boolean_modifier` (item×1, effect×1), `string_modifier` (item×1); uses `ModifierParser` chain |
+| **ASH collection extensions** *(PR #11)* | `RuntimeLibrary.java` | `ash/GameRuntimeLibrary.Collections.kt` | `get_inventory` (live — `int[item]` from InventoryManager); `get_closet`, `get_storage`, `get_stash`, `get_display` (empty stubs) |
+| **ASH goal/pref/combat extensions** *(PR #11)* | `RuntimeLibrary.java` | `ash/GameRuntimeLibrary.Goals/Prefs/Combat/Mood.kt` | `add_item_condition`, `remove_item_condition`, `goal_exists`, `get_goals`, `get_property`, `set_property`, `last_monster` (live via `_lastMonster` pref), `in_multi_fight`/`fight_follows_choice`/`copiers_used` (stubs), `get_moods`/`mood_list` (stubs) |
+| **ASH item-action extensions** *(PR #11)* | `RuntimeLibrary.java` | `ash/GameRuntimeLibrary.ItemActions.kt` | `use`, `eat`, `drink`, `chew`, `autosell`, `put_closet`, `take_closet`, `take_storage`; `put_shop` stub; all backed by new request classes |
+| **HTTP item request classes** *(PR #11)* | Various `request/` classes | `request/UseItemRequest`, `EatFoodRequest`, `DrinkBoozeRequest`, `ChewRequest`, `AutosellRequest`, `ClosetRequest`, `StorageRequest` | 7 suspend request classes; all use `KOL_BASE_URL` + `Result<String>` pattern; fully tested |
 
 ---
 
@@ -68,9 +75,15 @@ file counts suggest because the desktop has massive complexity in its managers a
 
 | Feature | Desktop size/complexity | Priority |
 |---------|------------------------|----------|
-| **BreakfastManager completion** | Guild manual HTTP use (detection-only stub); pocket wishes (choice handling deferred); hermit clovers, hardwood, Mr Store, boxing daydream, toy uses, batteries, skill books, outfit checkpoint | **High** — core is in (PR #10), gaps are the long tail |
+| **`cli_execute` real dispatch** | Full CLI command parsing | **High** — currently prints and returns true; minimal dispatch for `mood execute`, `mood [name]`, `set key=value`, `get key` would unblock most community scripts |
+| **`visit_url` ASH function** | Core web scripting primitive | **High** — `visit_url(url: string) → string` and `visit_url(url: string, post: boolean_map) → string`; needed by virtually every advanced ASH script; HttpClient already in GameRuntimeLibrary |
+| **VillainLair + Rufus solvers** | 4 choice IDs (1260, 1262, 1498, 1499) | **High** — TODO stubs; VillainLair is string matching (~50 lines); Rufus needs `RufusManager` (~200 lines) |
+| **BreakfastManager completion** | Guild manual HTTP use (detection-only stub); pocket wishes (choice handling deferred); hermit clovers, hardwood, Mr Store, boxing daydream, toy uses, batteries, skill books, outfit checkpoint | **High** — guild manual now trivial with UseItemRequest (Phase 11 target); hermit clovers needs `HermitRequest`; others incremental |
 | **BanishManager coverage** | Desktop has 55+ banishers; mobile has 20 from combat HTML patterns. Also: no phylum banishing (Breathitin, Out of the Frying Pan); no queue model | **Medium** — routing is wired; adding banishers is incremental work |
-| **VillainLair + Rufus solvers** | 4 choice IDs (1260, 1262, 1498, 1499) | **Medium** — TODO stubs; VillainLair is string matching (~50 lines); Rufus needs `RufusManager` (~200 lines) |
+| **ASH pricing functions** | `mall_price`, `historical_price`, `npc_price`, `autosell_price` | **Medium** — `autosell_price` and `npc_price` are pure GameDatabase lookups (trivial); `mall_price`/`historical_price` require MallSearchRequest (HTML parser TODO) |
+| **ASH economy actions (remaining)** | `buy`, `sell`, `create`, `craft`, `overdrink`, `retrieve_item`, `hermit` | **Medium** — `buy` needs MallSearchRequest; `create`/`craft` needs concoction parsing; `retrieve_item` is a compound action (closet/storage/buy); `overdrink` needs DrinkBoozeRequest variant |
+| **ASH outfit/equipment (remaining)** | `outfit`, `have_outfit`, `retrieve_outfit` | **Medium** — requires outfit tracking in InventoryManager |
+| **Six choice solver implementations** | `ArcadeGameSolver`, `GameproSolver`, `LightsOutSolver`, `LostKeySolver`, `SafetyShelterSolver`, `VampOutSolver` | **Medium** — all `NoOp`; LightsOut/SafetyShelter break Dreadsylvania and puzzle chains; these are the highest-value starting points |
 | **Quest tracking depth** | Per-quest state machines in `QuestDatabase.java` (1,284 lines) | **Medium** — 99 quests by name; step detection text-based; NPC-visit advances missed until next login |
 | **KoLCharacter depth** | 200+ fields in desktop | **Medium** — 70+ fields; quest flags, campground detail, storage absent |
 | **Relay server** | `webui/` 20+ decorators, 15 JS/CSS files | **Medium** — intentionally skipped |
@@ -84,8 +97,10 @@ file counts suggest because the desktop has massive complexity in its managers a
 | **GoalManager special stops** | `GOAL_CHOICE`, `GOAL_AUTOSTOP`, `GOAL_FACTOID`, `GOAL_FLOUNDRY`, `GOAL_LEPRECONDO`, `GOAL_SUBSTATS` | **Low-Medium** — mobile only has item/meat/level/banished goals |
 | **`AdventureManager` step count** | Zone turn count for choice context | **Low-Medium** — always 0; puzzle handlers that track zone turns broken |
 | **Pre-adventure zone checks** | `KoLAdventure.java` validates limit mode, outfit requirements, familiar requirements, zone-specific pre-flight (Tavern, Pyramid, Bat Hole, etc.) | **Low-Medium** — mobile sends raw adventure request with no zone pre-checks (banish pre-flight is now wired, but outfit/familiar/limit-mode checks absent) |
+| **`my_familiar()` regression** | `RuntimeLibrary.java` | `ash/GameRuntimeLibrary.kt:344` | **Low-Medium** — base `registerCharacterQueries` still returns player name instead of `activeFamiliar?.race`; the Phase 10 extension adds `my_familiar_weight` but the base `my_familiar()` override was not applied |
+| **ASH web scripting** | `visit_url`, `load_html`, `form_field`, `write`, `writeln` | **Low-Medium** — `visit_url` is promoted to High above; remaining web scripting is lower priority |
+| **ASH type conversions (remaining)** | `to_location`, `to_modifier`, `to_path`, `to_vykea` | **Low** — `to_familiar`, `to_slot`, `to_item`, `to_effect`, `to_skill` all implemented; remaining are niche |
 | **Mood auto-fill** | `minimalSet()` and `maximalSet()` in `MoodManager` | **Low** — no way to populate a mood from currently-active effects or available skills |
-| **`cli_execute()` real dispatch** | Full CLI command parsing | **Low** — ASH stub echoes but does nothing; `mood execute`, `set key=value`, `get key` patterns call-sites fail silently |
 | **`craft()` response parsing** | Parse `craft.php` response | **Low** — returns placeholder; `ItemCrafted` event has id=-1 |
 | **`available_amount()` closet/storage** | Closet + storage awareness | **Low** — identical to `item_amount()` |
 | **Plumber HP recovery** | `plumberHPRecovery()` path | **Low** |
@@ -245,38 +260,57 @@ Desktop ships 51 data files (64,700+ lines). Mobile bundles **50 `.txt` files** 
 `shared/src/commonMain/composeResources/files/data/`. Kotlin parser classes exist for the
 high-priority files, including `questslog.txt` (now parsed by `QuestLogDatabase`).
 
-### ASH Interpreter (~54 Functions — 93% Gap)
+### ASH Interpreter (~125 Function Overloads — 85% Gap)
 
 Desktop `textui/RuntimeLibrary.java` registers **835 `LibraryFunction` instances**. Mobile
-`ash/GameRuntimeLibrary.kt` registers approximately **54 distinct function overloads** — roughly
-6% coverage. The gap is the single largest remaining feature deficit.
+`ash/GameRuntimeLibrary.kt` + 11 extension files now register approximately **125 distinct
+function overloads** — roughly 15% coverage (up from 6% after Phase 10).
 
-**What's working (after Phase 9):** type conversions, string ops, math, aggregate ops, print variants,
-character queries (my_name, my_level, my_hp, my_maxhp, my_mp, my_maxmp, my_meat, my_adventures,
-my_fullness, my_inebriety, my_spleen_use, my_basestat, in_hardcore, my_familiar ✅ fixed),
-item queries (item_amount, available_amount, to_item, have_item), skill queries (have_skill,
-mp_cost, to_skill, daily_limit, times_cast), effect queries (have_effect, to_effect), game
-actions (adventure, use_skill, cli_execute stub), **banish queries (to_monster, is_banished ×2 overloads, banishers_used) ✅ new in PR #10**.
+**Architecture:** `GameRuntimeLibrary.kt` (71 registrations via private `register()`) plus
+11 extension files (`GameRuntimeLibrary.*.kt`) adding 54 overloads via the `regFn()` bridge.
+The `registerAll()` method calls all 21 registration blocks.
 
-**Missing by category:**
+**What's implemented (after Phase 11 / PR #11):**
+
+| Category | Functions |
+|----------|-----------|
+| Type conversions | `to_int` (×4), `to_float` (×2), `to_string` (×5), `to_boolean`, `to_item`, `to_skill`, `to_effect`, `to_slot`, `to_familiar`, `to_location` (stub), `to_monster` |
+| String utils | `contains`, `length`, `substring`, `index_of`, `replace`, `split`, `join`, `to_upper_case`, `to_lower_case` |
+| Math utils | `min`, `max`, `floor`, `ceil`, `round`, `abs`, `sqrt`, `random` |
+| Aggregate ops | `count`, `contains_key`, `remove`, `to_string` (aggregate) |
+| Print | `print`, `print_html`, `abort` |
+| Character | `my_name`, `my_level`, `my_hp`, `my_maxhp`, `my_mp`, `my_maxmp`, `my_meat`, `my_adventures`, `my_fullness`, `my_inebriety`, `my_spleen_use`, `my_basestat`, `in_hardcore`, `my_familiar` (⚠️ bug — see below), `my_class`, `my_path`, `my_sign`, `my_primestat`, `my_thrall`, `in_run`, `under_standard`, `ascension_number`, `can_interact` |
+| Familiar | `have_familiar`, `use_familiar`, `my_familiar_weight`, `to_familiar` |
+| Item | `item_amount`, `available_amount`, `to_item`, `have_item` |
+| Equipment | `equipped_item`, `have_equipped`, `to_slot`, `slot_to_item` |
+| Skill | `have_skill`, `mp_cost`, `to_skill`, `daily_limit`, `times_cast` |
+| Effect | `have_effect`, `to_effect` |
+| Modifier | `numeric_modifier` (item×2, effect×1), `boolean_modifier` (item×1, effect×1), `string_modifier` (item×1) |
+| Collections | `get_inventory` (live), `get_closet`, `get_storage`, `get_stash`, `get_display` (stubs) |
+| Date/time | `today_to_string`, `now_to_string`, `gameday_to_string`, `rollover`, `moon_phase` |
+| Goals | `add_item_condition`, `remove_item_condition`, `goal_exists`, `get_goals` |
+| Mood | `get_moods`, `mood_list` (stubs — MoodManager has no library-enumeration API) |
+| Preferences | `get_property`, `set_property` |
+| Combat | `last_monster` (live via `_lastMonster` pref), `in_multi_fight`, `fight_follows_choice`, `copiers_used` (stubs) |
+| Item actions | `use`, `eat`, `drink`, `chew`, `autosell`, `put_closet`, `take_closet`, `take_storage` (all live); `put_shop` (stub) |
+| Banish | `is_banished` (×2), `banishers_used`, `to_monster` |
+| Game actions | `adventure`, `use_skill` (×2), `cli_execute` (stub — echoes only) |
+
+⚠️ **`my_familiar()` known bug:** The base `registerCharacterQueries()` at line 344 returns
+`character?.state?.value?.name` (the player name) instead of `activeFamiliar?.race`. The
+Phase 10 extension adds `my_familiar_weight` correctly (from `FamiliarManager`) but the
+base `my_familiar()` was not overridden. The fix is tracked in a background task.
+
+**Still missing by category:**
 
 | Category | Key absent functions |
 |----------|---------------------|
-| Web scripting | `visit_url`, `load_html`, `form_field`, `write`, `writeln` |
-| Collection accessors | `get_inventory`, `get_closet`, `get_storage`, `get_display`, `get_stash` |
-| Economy actions | `buy`, `sell`, `create`, `craft`, `eat`, `drink`, `chew`, `overdrink`, `use` |
-| Inventory movement | `retrieve_item`, `autosell`, `hermit`, `put_closet`, `take_storage` |
+| Web scripting | `visit_url` (**high priority**), `load_html`, `form_field`, `write`, `writeln` |
+| Economy actions | `buy`, `sell`, `create`, `craft`, `overdrink`, `retrieve_item`, `hermit` |
 | Pricing | `mall_price`, `historical_price`, `npc_price`, `autosell_price` |
 | Adventure prep | `can_adventure`, `prepare_for_adventure`, `set_location` |
-| Goal management | `add_item_condition`, `remove_item_condition`, `goal_exists`, `get_goals` |
-| Mood integration | `get_moods`, `mood_list` |
-| Date/time | `today_to_string`, `now_to_string`, `rollover`, `moon_phase`, `gameday_to_string` |
-| Character queries | `my_class`, `my_path`, `my_sign`, `my_thrall`, `my_primestat`, `in_run`, `under_standard`, `ascension_number`, `can_interact` |
-| Familiar queries | `my_familiar_weight`, `familiar_weight`, `have_familiar`, `to_familiar`, `use_familiar` |
-| Equipment queries | `equipped_item`, `have_equipped`, `outfit`, `have_outfit`, `retrieve_outfit` |
-| Modifier queries | `numeric_modifier`, `boolean_modifier`, `string_modifier` |
-| Combat helpers | `in_multi_fight`, `fight_follows_choice`, `last_monster`, `copiers_used` |
-| Type conversions | `to_location`, `to_familiar`, `to_modifier`, `to_path`, `to_vykea` |
+| Equipment/outfit | `outfit`, `have_outfit`, `retrieve_outfit` |
+| Type conversions | `to_location` (stub), `to_modifier`, `to_path`, `to_vykea` |
 | CLI | `cli_execute` (stub only — echoes, no real dispatch) |
 
 ### Breakfast / Daily Automation (PR #10 — Partial)
@@ -297,11 +331,12 @@ the appropriate HTTP requests, and handles outfit checkpointing.
 - **Pocket wishes** — detects pocket wish in inventory; choice handling deferred to adventure loop (stub)
 - **Daycount gating** — `SessionManager` stores `LAST_DAYCOUNT`; rollover + breakfast prefs cleared only when `dayCount` changes
 
-**Remaining gaps:**
-- Guild manual HTTP use (`inv_use.php` call) — detection is present, activation is not
+**Remaining gaps (Phase 11 target):**
+- Guild manual HTTP use — now trivial: `UseItemRequest` (from PR #11) + manual item ID; ~15 lines
 - Pocket wish choice handling — requires adventure loop integration
-- Hermit clovers, hardwood planks, Mr Store monthly credits
-- Boxing daydream, toy uses, batteries, ancient saucehelm, skill books
+- Hermit clovers — needs `HermitRequest` wrapping `hermit.php`; ~40 lines
+- Hardwood planks, Mr Store monthly credits — need specific HTTP paths
+- Boxing daydream, toy uses, batteries, ancient saucehelm, skill books — incremental
 - Outfit checkpoint (save/restore equipped outfit around breakfast HTTP requests)
 
 ### Modifier System (Present, Substantial)
@@ -326,29 +361,28 @@ item ID (currently name-only), Synergy modifier type.
 | UI | Swing (aging) | Compose Multiplatform | Mobile is modern |
 | Concurrency | Manual threading | Coroutines | Mobile is cleaner |
 | Data | 51 `.txt` files parsed at startup | 50 bundled `.txt` files | Parity |
-| Testing | 384 test classes, many integration | 60 unit test files | Desktop wins |
-| Scripting | Full ASH + CLI (835 functions) | Partial ASH (~54 functions) | Desktop wins heavily |
+| Testing | 384 test classes, many integration | 70 unit test files | Desktop wins |
+| Scripting | Full ASH + CLI (835 functions) | Partial ASH (~125 functions, 15%) | Desktop wins; closing gap |
 | Events | Ad-hoc listeners | GameEventBus pub/sub | Mobile is cleaner |
 | Choice automation | ~1,000 handler cases | ~80 active IDs covered | Good coverage of common paths |
 | Recovery/mood | 9 classes, full persistence + mood library | 6 files, named library + malignant clearing | Closing gap — inheritance/AT songs remain |
 | ManaBurn | Full — any buff, summons, per-skill priority | Partial — mood-trigger effects only | Desktop wins on coverage |
 | Banish tracking | 55+ banishers, full routing integration, phylum | 20 banishers, zone pre-flight wired, identity detected, daycount-gated rollover | Substantially closed; 35 banishers + phylum remain |
 | Breakfast / daily actions | ~20 actions, outfit checkpointing | Garden, rumpus, VIP lounge core, guild manual detection | Core in; long tail absent |
+| Item HTTP actions | Broad coverage | `UseItem`, `EatFood`, `DrinkBooze`, `Chew`, `Autosell`, `Closet`, `Storage` (7 classes) | Core consumption + selling covered |
 
 ---
 
 ## Top Priorities
 
-1. **ASH function batch — core scripting primitives** — At ~54/835 (6%) coverage, the ASH gap
-   is the single largest feature deficit. No real community KoLmafia script is portable to mobile
-   until this improves. Highest-value batch:
-   - **Character queries:** `my_class`, `my_path`, `in_run`, `ascension_number`, `my_primestat`, `my_sign`
-   - **Collection accessor:** `get_inventory` (returns `int[item]` map; unlocks most inventory-checking scripts)
-   - **Modifier queries:** `numeric_modifier`, `boolean_modifier`, `string_modifier` (enables gear planning scripts)
-   - **Type conversions:** `to_location`, `to_familiar` (needed by nearly every automation script)
-   - **Goal management:** `add_item_condition`, `goal_exists`, `get_goals` (scripts that set their own stop conditions)
-   - **Date/time:** `today_to_string`, `now_to_string`, `rollover` (daily automation scripts need these)
-   - This batch alone would make the top ~20 community scripts runnable.
+1. **`cli_execute` + `visit_url` — ASH scripting primitives** — These two functions together
+   unlock the majority of community KoLmafia scripts. Priority order:
+   - **`visit_url(url: string) → string`** — takes a URL, issues GET (or POST with params map),
+     returns HTML. `HttpClient` is already wired into `GameRuntimeLibrary` via DI from Phase 10.
+     This is the single highest-value missing function (used by virtually every advanced script).
+   - **`cli_execute` real dispatch** — Currently echoes and returns true. Minimal real dispatch
+     should handle: `mood execute`, `mood [name]`, `set key=value`, `get key` — the four
+     most-called patterns in community scripts.
 
 2. **VillainLair + Rufus solvers** — Complete the four TODO stubs in `SolverHandlers.kt`:
    - Choices 1260/1262: pure string matching against `_villainLairColor` pref and response
@@ -356,28 +390,31 @@ item ID (currently name-only), Synergy modifier type.
    - Choices 1498/1499: requires a `RufusManager` to parse phone call HTML and store quest
      type/target in preferences (~200 lines total).
 
-3. **Six choice solver implementations** — All 6 solver stubs (`ArcadeGameSolver`, `GameproSolver`,
+3. **BreakfastManager completion — Phase 2** — The remaining high-value actions:
+   - Guild manual activation — `UseItemRequest` now exists; this is ~15 lines of new code
+   - Hermit clovers — `HermitRequest` wrapping `hermit.php?action=trade` (~40 lines)
+   - Outfit checkpoint — save/restore equipped items around breakfast HTTP requests
+
+4. **ASH pricing functions** — `autosell_price` and `npc_price` are pure `GameDatabase`
+   lookups (~10 lines each). `mall_price`/`historical_price` require MallSearchRequest
+   HTML parser (larger scope). Start with the two trivial ones.
+
+5. **Six choice solver implementations** — All 6 solver stubs (`ArcadeGameSolver`, `GameproSolver`,
    `LightsOutSolver`, `LostKeySolver`, `SafetyShelterSolver`, `VampOutSolver`) are `NoOp`.
    Without real implementations, choice IDs 486, 535, 536, 546, 594, 665, 890–903 fall
    through to option 1, breaking Dreadsylvania, Safety Shelter, and the Lights Out chain.
    `LightsOut` and `SafetyShelter` are the highest-value starting points.
 
-4. **BreakfastManager completion** — The high-value core actions are in (PR #10). Remaining:
-   - Guild manual activation (`inv_use.php` call; detection already works)
-   - Pocket wish choice handling (requires adventure loop integration)
-   - Hermit clovers, hardwood, Mr Store monthly credits
-   - Outfit checkpoint (save/restore around HTTP requests)
-
-5. **BanishManager — missing banishers** — Adding the 35 missing banishers is incremental
+6. **BanishManager — missing banishers** — Adding the 35 missing banishers is incremental
    (each is a one-liner in `Banisher.kt` + corresponding HTML pattern in `BANISHER_PATTERNS`).
    High-value gaps: Feel Hatred (25 turns), Monkey Slap (30 turns), Show your Work (30 turns),
    Spring-Loaded Front Bumper (30 turns).
-
-6. **`cli_execute` real dispatch** — Currently prints and returns true. Minimal real dispatch
-   should handle: `mood execute`, `mood [name]`, `set key=value`, `get key` — the four
-   most-called patterns in community scripts. Directly unblocks mood-using scripts.
 
 7. **Mood system refinements** — Three remaining gaps in approximate value order:
    (a) AT song slot tracking + auto-evict lowest-priority song when full (unblocks AT class players);
    (b) `removeMalignantEffects` default alignment with desktop (currently `true`, desktop is `false` — resolve intentional divergence);
    (c) mood inheritance (`extends` keyword parsing in mood names) — enables the "default" base mood pattern used by most power users.
+
+8. **`my_familiar()` bug fix** — The base `registerCharacterQueries()` at line 344 of
+   `GameRuntimeLibrary.kt` returns the player name instead of `activeFamiliar?.race`.
+   One-line fix; regression test needed. Tracked in background task.
