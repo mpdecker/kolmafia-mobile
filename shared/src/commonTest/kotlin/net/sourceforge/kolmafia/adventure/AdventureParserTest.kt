@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.adventure
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -88,5 +89,62 @@ class AdventureParserTest {
         val result = AdventureParser.parseAdventureResponse(html, "https://www.kingdomofloathing.com/adventure.php")
         assertIs<AdventureResult.NonCombat>(result)
         assertEquals(2, result.itemsGained.size)
+    }
+
+    @Test fun parseFightResult_winWithoutBanish_banishedFalse() {
+        val html = """
+            <span id='monname'>Ninja Snowman</span>
+            You win the fight!
+            You gain 100 Meat
+        """.trimIndent()
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.won)
+        assertFalse(result.banished)
+    }
+
+    @Test fun parseFightResult_fleeInTerror_banishedTrue() {
+        val html = """
+            <span id='monname'>Ninja Snowman</span>
+            The monster flees in terror!
+        """.trimIndent()
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals("Ninja Snowman", result.monster)
+    }
+
+    @Test fun parseFightResult_banishedFromAdventures_banishedTrue() {
+        val html = """
+            <span id='monname'>Ninja Snowman</span>
+            The Ninja Snowman is banished from your adventures for the rest of today.
+        """.trimIndent()
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+    }
+
+    @Test fun parseFightResult_goneSomewhere_banishedTrue() {
+        val html = """
+            <span id='monname'>Ninja Snowman</span>
+            It has gone somewhere else to live.
+        """.trimIndent()
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+    }
+
+    @Test fun parseFightResult_fleeField_banishedTrue() {
+        val html = """
+            <span id='monname'>Spooky Vampire</span>
+            It flees the field.
+        """.trimIndent()
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+    }
+
+    @Test fun parseFightResult_fledTheArea_banishedTrue() {
+        val html = """
+            <span id='monname'>Ninja Snowman</span>
+            It fled the area.
+        """.trimIndent()
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
     }
 }

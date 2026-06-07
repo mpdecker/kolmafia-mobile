@@ -37,8 +37,14 @@ class Preferences(private val settings: Settings) {
 
         // Mood
         const val AUTO_BUFF                = "autoBuff"
+        const val REMOVE_MALIGNANT_EFFECTS = "removeMalignantEffects"  // default true
         const val ACTIVE_MOOD_NAME         = "activeMoodName"        // persisted active mood name
         const val ACTIVE_MOOD_TRIGGERS     = "activeMoodTriggers"    // serialized trigger list
+        const val MOOD_LIBRARY_NAMES       = "moodLibraryNames"      // |-separated saved mood names
+        // Per-mood data stored under "moodTriggers_${name}" (dynamic key, not a constant)
+
+        // Banish tracking
+        const val BANISHED_MONSTERS = "banishedMonsters"   // serialized banish list (same key as desktop)
 
         // ManaBurn
         const val MANA_BURN_ENABLED        = "manaBurnEnabled"       // default false
