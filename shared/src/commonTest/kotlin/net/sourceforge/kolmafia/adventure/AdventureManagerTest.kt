@@ -287,6 +287,48 @@ class AdventureManagerTest {
         assertEquals(2, received.filterIsInstance<GameEvent.TurnConsumed>().size)
     }
 
+    @Test
+    fun lastMonster_written_after_combat() = runTest {
+        val (manager, _, _) = makeManager(
+            adventureHtml = COMBAT_HTML,
+            fightHtml = COMBAT_WIN_HTML,
+            statusJson = STATUS_JSON_ADVENTURES_LEFT
+        )
+        // Access prefs via reflection-free approach: rebuild manager with a captured prefs instance
+        val prefs = Preferences(MapSettings())
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("adventure.php") ->
+                    respond(COMBAT_HTML, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "text/html"))
+                request.url.encodedPath.contains("fight.php") ->
+                    respond(COMBAT_WIN_HTML, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "text/html"))
+                request.url.encodedPath.contains("api.php") ->
+                    respond(STATUS_JSON_ADVENTURES_LEFT, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"))
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val client = HttpClient(engine) {
+            install(HttpCookies)
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+        val combatManager = AdventureManager(
+            AdventureRequest(client),
+            FightRequest(client),
+            ChoiceRequest(client),
+            CharacterRequest(client),
+            KoLCharacter(),
+            prefs,
+            GameEventBus()
+        )
+        combatManager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
+        assertEquals("bunny", prefs.getString(Preferences.LAST_MONSTER, ""))
+    }
+
     companion object {
         const val NON_COMBAT_HTML = """<html><body><b>A Spooky Treehouse</b><p>You gain 10 Meat.</p></body></html>"""
         const val COMBAT_WIN_HTML = """<html><body><span id='monname'>bunny</span><p>You win the fight!</p></body></html>"""
