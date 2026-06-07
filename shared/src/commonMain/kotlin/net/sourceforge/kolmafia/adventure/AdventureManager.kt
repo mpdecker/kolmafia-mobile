@@ -246,8 +246,9 @@ class AdventureManager(
         var currentResponseText = initialResponseText
         var stepCount           = 0
         var lastChosenOption    = 1
+        val maxSteps            = 20
 
-        while (true) {
+        while (stepCount <= maxSteps) {
             val ctx = ChoiceContext(
                 choiceId       = currentChoiceId,
                 options        = ChoiceUtilities.parseChoices(currentResponseText),
@@ -267,6 +268,7 @@ class AdventureManager(
             val option = registry.dispatch(ctx)
                 ?: preferences.getString("choiceAdventure$currentChoiceId").toIntOrNull()
                 ?: 1
+            // skillUses decremented once per step — each choice interaction costs one skill use budget unit
             if (option > 0 && skillUses > 0) skillUses--
             lastChosenOption = option
 
@@ -284,6 +286,11 @@ class AdventureManager(
             } else {
                 break
             }
+        }
+        if (stepCount > maxSteps) {
+            eventBus.emit(GameEvent.AdventureLoopStopped(
+                StopReason.NetworkError(IllegalStateException("Choice chain exceeded $maxSteps steps at choice $currentChoiceId"))
+            ))
         }
         return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = lastChosenOption)
     }
