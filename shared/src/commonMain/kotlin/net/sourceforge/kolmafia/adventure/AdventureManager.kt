@@ -248,7 +248,7 @@ class AdventureManager(
         var lastChosenOption    = 1
         val maxSteps            = 20
 
-        while (stepCount <= maxSteps) {
+        while (stepCount < maxSteps) {
             val ctx = ChoiceContext(
                 choiceId       = currentChoiceId,
                 options        = ChoiceUtilities.parseChoices(currentResponseText),
@@ -287,9 +287,9 @@ class AdventureManager(
                 break
             }
         }
-        if (stepCount > maxSteps) {
+        if (stepCount >= maxSteps) {
             eventBus.emit(GameEvent.AdventureLoopStopped(
-                StopReason.NetworkError(IllegalStateException("Choice chain exceeded $maxSteps steps at choice $currentChoiceId"))
+                StopReason.MacroError("Choice chain exceeded $maxSteps steps at choice $currentChoiceId")
             ))
         }
         return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = lastChosenOption)
