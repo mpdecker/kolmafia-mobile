@@ -6,12 +6,14 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.UseItemRequest
 
 open class BreakfastManager(
     private val campgroundRequest: CampgroundRequest,
     private val clanRumpusRequest: ClanRumpusRequest,
     private val clanLoungeRequest: ClanLoungeRequest,
     private val preferences: Preferences,
+    private val useItemRequest: UseItemRequest,
 ) {
     companion object {
         const val VIP_LOUNGE_KEY_ID   = 5479
@@ -111,9 +113,15 @@ open class BreakfastManager(
             else                                        -> MOX_MANUAL_ID
         }
         if (!inventoryState.items.containsKey(manualId)) return
-        // Guild manual item is in inventory but HTTP use is not yet implemented.
-        // Sentinel will be set once the actual inv_use.php call is implemented.
-        // For now, this is a detection-only stub.
+        useGuildManual(manualId)
+    }
+
+    private suspend fun useGuildManual(manualId: Int) {
+        if (preferences.getBoolean(Preferences.GUILD_MANUAL_USED, false)) return
+        val result = useItemRequest.use(manualId, 1)
+        if (result.isSuccess) {
+            preferences.setBoolean(Preferences.GUILD_MANUAL_USED, true)
+        }
     }
 
     private suspend fun makePocketWishes(inventoryState: InventoryState) {
