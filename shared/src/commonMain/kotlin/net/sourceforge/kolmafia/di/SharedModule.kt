@@ -18,6 +18,10 @@ import net.sourceforge.kolmafia.adventure.choice.handlers.ResponseTextHandlers
 import net.sourceforge.kolmafia.adventure.choice.handlers.SkillUsesHandlers
 import net.sourceforge.kolmafia.adventure.choice.handlers.SolverHandlers
 import net.sourceforge.kolmafia.adventure.choice.handlers.StatHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.VillainLairHandlers
+import net.sourceforge.kolmafia.adventure.choice.handlers.RufusHandlers
+import net.sourceforge.kolmafia.adventure.RufusManager
+import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.quest.QuestDatabase
@@ -100,6 +104,8 @@ val sharedModule = module {
             QuestHandlers.registerAll(r)
             SkillUsesHandlers.registerAll(r)
             SolverHandlers.registerAll(r)
+            VillainLairHandlers.registerAll(r)
+            RufusHandlers.registerAll(r, get())
         }
     }
     singleOf(::UseItemRequest)
@@ -109,6 +115,7 @@ val sharedModule = module {
     singleOf(::AutosellRequest)
     singleOf(::ClosetRequest)
     singleOf(::StorageRequest)
+    singleOf(::BreakfastManager)
     singleOf(::InventoryManager)
     singleOf(::FamiliarManager)
     singleOf(::SkillCastRequest)
@@ -118,6 +125,7 @@ val sharedModule = module {
     single { MoodManager(skillManager = get(), preferences = get(), uneffectRequest = get()) }
     singleOf(::ManaBurnManager)
     singleOf(::BanishManager)
+    singleOf(::RufusManager)
     singleOf(::EffectManager)
     single {
         AdventureManager(
@@ -162,6 +170,7 @@ val sharedModule = module {
             closetRequest    = get(),
             storageRequest   = get(),
             banishManager    = get(),
+            httpClient        = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -181,6 +190,7 @@ val sharedModule = module {
             questLogRequest      = get(),
             moodManager          = get(),
             banishManager        = get(),
+            breakfastManager     = get(),
         )
     }
     singleOf(::ShopRequest)
