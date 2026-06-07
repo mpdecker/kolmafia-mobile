@@ -32,8 +32,14 @@ import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.http.createKoLHttpClient
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.data.CombatDatabase
+import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
+import net.sourceforge.kolmafia.request.ClanLoungeRequest
+import net.sourceforge.kolmafia.request.ClanRumpusRequest
 import net.sourceforge.kolmafia.request.LoginRequest
+import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.SessionManager
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.buffbot.BuffBotManager
@@ -105,6 +111,18 @@ val sharedModule = module {
     singleOf(::ManaBurnManager)
     singleOf(::BanishManager)
     singleOf(::EffectManager)
+    singleOf(::BanishManager)
+    singleOf(::CampgroundRequest)
+    singleOf(::ClanRumpusRequest)
+    singleOf(::ClanLoungeRequest)
+    single {
+        BreakfastManager(
+            campgroundRequest = get(),
+            clanRumpusRequest = get(),
+            clanLoungeRequest = get(),
+            preferences       = get(),
+        )
+    }
     single {
         AdventureManager(
             adventureRequest = get(),
@@ -126,6 +144,7 @@ val sharedModule = module {
             questLogRequest  = get(),
             manaBurnManager  = get(),
             banishManager    = get(),
+            combatDatabase   = CombatDatabase,
         )
     }
     single {
@@ -134,7 +153,8 @@ val sharedModule = module {
             inventoryManager = get(),
             skillManager = get(),
             effectManager = get(),
-            adventureManager = get()
+            adventureManager = get(),
+            banishManager = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -154,6 +174,7 @@ val sharedModule = module {
             questLogRequest      = get(),
             moodManager          = get(),
             banishManager        = get(),
+            breakfastManager     = get(),
         )
     }
     singleOf(::ShopRequest)
