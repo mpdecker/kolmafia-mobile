@@ -184,6 +184,35 @@ class GameRuntimeLibrary(
             args[0]
         }
 
+        // to_int for game entity types — returns the entity's numeric database ID
+        // Returns 0 when gameDatabase is null (test/no-db context) or entity unknown.
+        register(scope, "to_int", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
+            AshValue.of(gameDatabase?.item(args[0].toString())?.id?.toLong() ?: 0L)
+        }
+        register(scope, "to_int", AshType.INT, listOf("ef" to AshType.EFFECT)) { _, args ->
+            AshValue.of(gameDatabase?.effect(args[0].toString())?.id?.toLong() ?: 0L)
+        }
+        register(scope, "to_int", AshType.INT, listOf("sk" to AshType.SKILL)) { _, args ->
+            AshValue.of(gameDatabase?.skill(args[0].toString())?.id?.toLong() ?: 0L)
+        }
+        register(scope, "to_int", AshType.INT, listOf("fa" to AshType.FAMILIAR)) { _, args ->
+            AshValue.of(gameDatabase?.familiar(args[0].toString())?.id?.toLong() ?: 0L)
+        }
+        register(scope, "to_int", AshType.INT, listOf("loc" to AshType.LOCATION)) { _, args ->
+            AshValue.of(
+                gameDatabase?.zone(args[0].toString())
+                    ?.snarfblat?.toIntOrNull()?.toLong() ?: 0L
+            )
+        }
+        register(scope, "to_int", AshType.INT, listOf("mo" to AshType.MONSTER)) { _, args ->
+            AshValue.of(gameDatabase?.monster(args[0].toString())?.id?.toLong() ?: 0L)
+        }
+
+        // to_location(string) → location
+        register(scope, "to_location", AshType.LOCATION, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue.location(args[0].toString())
+        }
+
         // to_string for game entity types
         for (entityType in listOf(
             AshType.ITEM, AshType.SKILL, AshType.EFFECT,

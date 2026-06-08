@@ -9,6 +9,15 @@ import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.data.AdventureZone
+import net.sourceforge.kolmafia.data.EffectData
+import net.sourceforge.kolmafia.data.EffectQuality
+import net.sourceforge.kolmafia.data.FamiliarDefinition
+import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ItemData
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.data.MonsterDefinition
+import net.sourceforge.kolmafia.data.SkillDefinition
 import net.sourceforge.kolmafia.familiar.FamiliarData
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.familiar.FamiliarState
@@ -236,5 +245,99 @@ class GameRuntimeLibraryTest {
             print(to_string(count(b)));
         """.trimIndent())
         assertEquals("0", result)
+    }
+
+    // ── to_int entity overloads ──────────────────────────────────────────────────
+
+    private fun itemDb(itemId: Int): GameDatabase = object : GameDatabase() {
+        override fun item(name: String) = ItemData(
+            id = itemId, name = name, descId = "", image = "",
+            primaryUse = ItemPrimaryUse.NONE, secondaryUses = emptySet(),
+            access = emptySet(), autosellPrice = 0, plural = null
+        )
+    }
+
+    private fun effectDb(effectId: Int): GameDatabase = object : GameDatabase() {
+        override fun effect(name: String) = EffectData(
+            id = effectId, name = name, image = "", descId = "",
+            quality = EffectQuality.UNKNOWN, attributes = emptySet()
+        )
+    }
+
+    private fun skillDb(skillId: Int): GameDatabase = object : GameDatabase() {
+        override fun skill(name: String) = SkillDefinition(
+            id = skillId, name = name, image = "", tags = emptySet(),
+            mpCost = 0, duration = 0,
+            isPassive = false, isCombat = false, isNonCombat = false, isSong = false
+        )
+    }
+
+    private fun familiarDb(familiarId: Int): GameDatabase = object : GameDatabase() {
+        override fun familiar(name: String) = FamiliarDefinition(
+            id = familiarId, name = name, image = "", types = emptySet(),
+            larvaItem = "", hatchlingItem = "",
+            arenaCombatMoves = 0, arenaStrength = 0, arenaOc = 0, arenaHs = 0,
+            attributes = emptySet()
+        )
+    }
+
+    private fun monsterDb(monsterId: Int): GameDatabase = object : GameDatabase() {
+        override fun monster(name: String) = MonsterDefinition(
+            name = name, id = monsterId, image = "",
+            attack = 0, defense = 0, hp = 0, initiative = 0, meatDrop = 0,
+            phylum = "dude", isBoss = false, isGhost = false, isLucky = false,
+            isScaling = false, scale = 0, cap = 0, floor = 0, drops = emptyList()
+        )
+    }
+
+    private fun zoneDb(snarfblat: Int): GameDatabase = object : GameDatabase() {
+        override fun zone(locationName: String) = AdventureZone(
+            zoneName = locationName, urlParams = "adventure=$snarfblat",
+            locationName = locationName, environment = "", diffLevel = "",
+            statRequirement = 0, goals = emptyList(),
+            isOverdrunk = false, noWander = false
+        )
+    }
+
+    @Test
+    fun to_int_fromItem_returnsItemId() {
+        val lib = GameRuntimeLibrary(gameDatabase = itemDb(42))
+        assertEquals("42", outputLib(lib, """print(to_string(to_int(to_item("Seal Tooth"))));"""))
+    }
+
+    @Test
+    fun to_int_fromEffect_returnsEffectId() {
+        val lib = GameRuntimeLibrary(gameDatabase = effectDb(55))
+        assertEquals("55", outputLib(lib, """print(to_string(to_int(to_effect("Beaten Up"))));"""))
+    }
+
+    @Test
+    fun to_int_fromSkill_returnsSkillId() {
+        val lib = GameRuntimeLibrary(gameDatabase = skillDb(28))
+        assertEquals("28", outputLib(lib, """print(to_string(to_int(to_skill("Empathy of the Newt"))));"""))
+    }
+
+    @Test
+    fun to_int_fromFamiliar_returnsFamiliarId() {
+        val lib = GameRuntimeLibrary(gameDatabase = familiarDb(7))
+        assertEquals("7", outputLib(lib, """print(to_string(to_int(to_familiar("Mosquito"))));"""))
+    }
+
+    @Test
+    fun to_int_fromMonster_returnsMonsterId() {
+        val lib = GameRuntimeLibrary(gameDatabase = monsterDb(17))
+        assertEquals("17", outputLib(lib, """print(to_string(to_int(to_monster("Knob Goblin"))));"""))
+    }
+
+    @Test
+    fun to_int_fromLocation_returnsSnarfblat() {
+        val lib = GameRuntimeLibrary(gameDatabase = zoneDb(88))
+        assertEquals("88", outputLib(lib, """print(to_string(to_int(to_location("The Haunted Ballroom"))));"""))
+    }
+
+    @Test
+    fun to_int_fromItem_returnsZeroWhenDbNull() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("0", outputLib(lib, """print(to_string(to_int(to_item("unknown item"))));"""))
     }
 }
