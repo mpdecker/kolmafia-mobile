@@ -13,6 +13,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -52,9 +53,11 @@ class BreakfastManagerTest {
         rumbusCalls: MutableList<Unit> = mutableListOf(),
         klawCalls: MutableList<Unit> = mutableListOf(),
         useItemRequest: UseItemRequest = UseItemRequest(mockClient),
+        hermitRequest: HermitRequest = HermitRequest(mockClient),
     ): BreakfastManager {
         val campground = object : CampgroundRequest(mockClient) {
             override suspend fun harvestGarden() = Result.success(Unit).also { gardenCalls.add(Unit) }
+            override suspend fun useSpinningWheel() = Result.success("ok")
         }
         val rumpus = object : ClanRumpusRequest(mockClient) {
             override suspend fun visit() = Result.success(Unit).also { rumbusCalls.add(Unit) }
@@ -68,6 +71,8 @@ class BreakfastManagerTest {
             clanLoungeRequest = lounge,
             preferences = prefs,
             useItemRequest = useItemRequest,
+            hermitRequest = hermitRequest,
+            httpClient = mockClient,
         )
     }
 
@@ -110,6 +115,7 @@ class BreakfastManagerTest {
         val p = prefs { putString(Preferences.HARVEST_GARDEN_SOFTCORE, "any") }
         val campground = object : CampgroundRequest(mockClient) {
             override suspend fun harvestGarden(): Result<Unit> { gardenCalled = true; return Result.failure(Exception("net")) }
+            override suspend fun useSpinningWheel() = Result.success("ok")
         }
         val rumpus = object : ClanRumpusRequest(mockClient) {
             override suspend fun visit(): Result<Unit> { rumbusCalled = true; return Result.success(Unit) }
@@ -117,7 +123,7 @@ class BreakfastManagerTest {
         val lounge = object : ClanLoungeRequest(mockClient) {
             override suspend fun useKlaw() = Result.success("ok")
         }
-        BreakfastManager(campground, rumpus, lounge, p, UseItemRequest(mockClient)).runBreakfast(charState(), InventoryState())
+        BreakfastManager(campground, rumpus, lounge, p, UseItemRequest(mockClient), HermitRequest(mockClient), mockClient).runBreakfast(charState(), InventoryState())
         assertTrue(gardenCalled)
         assertFalse(p.getBoolean(Preferences.GARDEN_HARVESTED), "sentinel must NOT be set on failure")
         assertTrue(rumbusCalled, "rumpus must still run after garden failure")
@@ -242,5 +248,139 @@ class BreakfastManagerTest {
         assertEquals(9529, BreakfastItemIds.GENIE_BOTTLE_ID)
         assertEquals(10917, BreakfastItemIds.BOOK_OF_EVERY_SKILL_ID)
         assertEquals(142, BreakfastItemIds.ANTICHEESE_ID)
+    }
+
+    // ── Tier 1 action tests ───────────────────────────────────────────────────
+
+    @Test fun getHermitClovers_tradesWhenWorthlessItemPresent() = runBlocking {
+        val hermitCalls = mutableListOf<Pair<Int, Int>>()
+        val p = prefs()
+        val fakeHermit = object : HermitRequest(mockClient) {
+            override suspend fun trade(itemId: Int, quantity: Int): Result<String> {
+                hermitCalls.add(itemId to quantity)
+                return Result.success("ok")
+            }
+        }
+        val m = manager(prefs = p, hermitRequest = fakeHermit)
+        m.runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.WORTHLESS_TRINKET_ID))
+        assertTrue(hermitCalls.any { it.first == BreakfastItemIds.CLOVER_ITEM_ID && it.second == 1 })
+        assertTrue(p.getBoolean(Preferences.CLOVER_SOUGHT, false))
+    }
+
+    @Test fun getHermitClovers_skipsWhenNoWorthlessItem() = runBlocking {
+        val hermitCalls = mutableListOf<Pair<Int, Int>>()
+        val fakeHermit = object : HermitRequest(mockClient) {
+            override suspend fun trade(itemId: Int, quantity: Int): Result<String> {
+                hermitCalls.add(itemId to quantity)
+                return Result.success("ok")
+            }
+        }
+        manager(hermitRequest = fakeHermit).runBreakfast(charState(), InventoryState())
+        assertTrue(hermitCalls.isEmpty())
+    }
+
+    @Test fun getHermitClovers_skipsWhenSentinelSet() = runBlocking {
+        val hermitCalls = mutableListOf<Pair<Int, Int>>()
+        val p = prefs { putBoolean(Preferences.CLOVER_SOUGHT, true) }
+        val fakeHermit = object : HermitRequest(mockClient) {
+            override suspend fun trade(itemId: Int, quantity: Int): Result<String> {
+                hermitCalls.add(itemId to quantity)
+                return Result.success("ok")
+            }
+        }
+        manager(prefs = p, hermitRequest = fakeHermit)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.WORTHLESS_TRINKET_ID))
+        assertTrue(hermitCalls.isEmpty())
+    }
+
+    @Test fun useBookOfEverySkill_usesItemAndSetsSentinel() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs()
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.BOOK_OF_EVERY_SKILL_ID))
+        assertTrue(calls.any { it == BreakfastItemIds.BOOK_OF_EVERY_SKILL_ID to 1 })
+        assertTrue(p.getBoolean(Preferences.BOOK_OF_EVERY_SKILL_USED, false))
+    }
+
+    @Test fun useBookOfEverySkill_skipsWhenSentinelSet() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs { putBoolean(Preferences.BOOK_OF_EVERY_SKILL_USED, true) }
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.BOOK_OF_EVERY_SKILL_ID))
+        assertTrue(calls.none { it.first == BreakfastItemIds.BOOK_OF_EVERY_SKILL_ID })
+    }
+
+    @Test fun useReplicaBooks_usesAllThreeWhenPresent() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs()
+        manager(prefs = p, useItemRequest = fakeUse).runBreakfast(
+            charState(),
+            inventoryWithItems(
+                BreakfastItemIds.REPLICA_SNOWCONE_ID,
+                BreakfastItemIds.REPLICA_RESOLUTION_ID,
+                BreakfastItemIds.REPLICA_SMITH_ID,
+            )
+        )
+        assertTrue(calls.any { it.first == BreakfastItemIds.REPLICA_SNOWCONE_ID })
+        assertTrue(calls.any { it.first == BreakfastItemIds.REPLICA_RESOLUTION_ID })
+        assertTrue(calls.any { it.first == BreakfastItemIds.REPLICA_SMITH_ID })
+        assertTrue(p.getBoolean(Preferences.REPLICA_SNOWCONE_USED, false))
+        assertTrue(p.getBoolean(Preferences.REPLICA_RESOLUTION_USED, false))
+        assertTrue(p.getBoolean(Preferences.REPLICA_SMITH_USED, false))
+    }
+
+    @Test fun collectAnticheese_skipsWithin5Days() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs {
+            putInt(Preferences.LAST_ANTICHEESE_DAY, 10)
+            putInt(Preferences.LAST_DAYCOUNT, 13)   // only 3 days later — not enough
+        }
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.ANTICHEESE_ID))
+        assertTrue(calls.none { it.first == BreakfastItemIds.ANTICHEESE_ID })
+    }
+
+    @Test fun collectAnticheese_runsAfterCooldown() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs {
+            putInt(Preferences.LAST_ANTICHEESE_DAY, 10)
+            putInt(Preferences.LAST_DAYCOUNT, 15)   // 5 days later — cooldown done
+        }
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.ANTICHEESE_ID))
+        assertTrue(calls.any { it == BreakfastItemIds.ANTICHEESE_ID to 1 })
+        assertTrue(p.getBoolean(Preferences.ANTICHEESE_COLLECTED, false))
+    }
+
+    @Test fun collectAnticheese_runsWhenNoPriorDay() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs { putInt(Preferences.LAST_DAYCOUNT, 5) }  // no lastAnticheeseDay set
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.ANTICHEESE_ID))
+        assertTrue(calls.any { it == BreakfastItemIds.ANTICHEESE_ID to 1 })
     }
 }

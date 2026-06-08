@@ -11,6 +11,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,6 +32,7 @@ class SessionManagerBreakfastTest {
 
         val campground = object : CampgroundRequest(mockClient) {
             override suspend fun harvestGarden() = Result.success(Unit)
+            override suspend fun useSpinningWheel() = Result.success("ok")
         }
         val rumpus = object : ClanRumpusRequest(mockClient) {
             override suspend fun visit() = Result.success(Unit)
@@ -38,7 +40,7 @@ class SessionManagerBreakfastTest {
         val lounge = object : ClanLoungeRequest(mockClient) {
             override suspend fun useKlaw() = Result.success("ok")
         }
-        val breakfastMgr = object : BreakfastManager(campground, rumpus, lounge, p, UseItemRequest(mockClient)) {
+        val breakfastMgr = object : BreakfastManager(campground, rumpus, lounge, p, UseItemRequest(mockClient), HermitRequest(mockClient), mockClient) {
             override suspend fun runBreakfast(charState: CharacterState, inventoryState: InventoryState) {
                 breakfastCalled = true
             }

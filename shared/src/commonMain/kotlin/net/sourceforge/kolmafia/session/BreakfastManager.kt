@@ -1,11 +1,20 @@
 package net.sourceforge.kolmafia.session
 
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.forms.submitForm
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.Parameters
+import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 
 open class BreakfastManager(
@@ -14,10 +23,11 @@ open class BreakfastManager(
     private val clanLoungeRequest: ClanLoungeRequest,
     private val preferences: Preferences,
     private val useItemRequest: UseItemRequest,
+    private val hermitRequest: HermitRequest,
+    private val httpClient: HttpClient,
 ) {
     companion object {
         const val VIP_LOUNGE_KEY_ID   = 5479
-        const val POCKET_WISH_ITEM_ID = 8765
         const val MUS_MANUAL_ID       = 11
         const val MYS_MANUAL_ID       = 172
         const val MOX_MANUAL_ID       = 173
@@ -32,7 +42,22 @@ open class BreakfastManager(
         checkRumpusRoom(suffix)
         checkVIPLounge(suffix, inventoryState)
         readGuildManual(suffix, charState, inventoryState)
+        getHermitClovers(inventoryState)
+        collectHardwood()
+        collect2002MrStoreCredits(inventoryState)
+        collectAprilShowerGlobs(inventoryState)
+        useSpinningWheel()
+        visitBigIsland()
+        visitVolcanoIsland()
         makePocketWishes(inventoryState)
+        haveBoxingDaydream()
+        useToys(inventoryState)
+        collectAnticheese(inventoryState)
+        visitServerRoom()
+        harvestBatteries(inventoryState)
+        useBookOfEverySkill(inventoryState)
+        useReplicaBooks(inventoryState)
+        makeHandheldRadios(inventoryState)
 
         preferences.setBoolean(Preferences.BREAKFAST_COMPLETED, true)
     }
@@ -46,7 +71,44 @@ open class BreakfastManager(
         preferences.setBoolean(Preferences.LOOKING_GLASS, false)
         preferences.setBoolean(Preferences.FIREWORKS_SHOP, false)
         preferences.setInt(Preferences.POOL_GAME_RESULT, 0)
+        // Phase 13 sentinels
+        preferences.setBoolean(Preferences.CLOVER_SOUGHT, false)
+        preferences.setBoolean(Preferences.APRIL_SHOWER_GLOBS, false)
+        preferences.setBoolean(Preferences.BOOK_OF_EVERY_SKILL_USED, false)
+        preferences.setBoolean(Preferences.REPLICA_SNOWCONE_USED, false)
+        preferences.setBoolean(Preferences.REPLICA_RESOLUTION_USED, false)
+        preferences.setBoolean(Preferences.REPLICA_SMITH_USED, false)
+        preferences.setBoolean(Preferences.HAND_RADIO_USED, false)
+        preferences.setBoolean(Preferences.ANTICHEESE_COLLECTED, false)
+        preferences.setBoolean(Preferences.BATTERIES_HARVESTED, false)
+        preferences.setBoolean(Preferences.POCKET_WISHES_USED, false)
+        preferences.setBoolean(Preferences.BOXING_DAYDREAM, false)
+        preferences.setBoolean(Preferences.SPINNING_WHEEL_USED, false)
+        preferences.setBoolean(Preferences.BIG_ISLAND_VISITED, false)
+        preferences.setBoolean(Preferences.VOLCANO_ISLAND_VISITED, false)
+        preferences.setBoolean(Preferences.HARDWOOD_COLLECTED, false)
+        preferences.setBoolean(Preferences.MR_STORE_CREDITS_COLLECTED, false)
+        preferences.setBoolean(Preferences.SERVER_ROOM_VISITED, false)
+        // Clear per-toy sentinels
+        for (toyId in BreakfastItemIds.TOYS.keys) {
+            preferences.setBoolean("_toyUsed_$toyId", false)
+        }
     }
+
+    private suspend fun httpGet(path: String): Result<String> = try {
+        val response = httpClient.get("$KOL_BASE_URL/$path")
+        if (response.status.isSuccess()) Result.success(response.bodyAsText())
+        else Result.failure(Exception("HTTP ${response.status.value}"))
+    } catch (e: Exception) { Result.failure(e) }
+
+    private suspend fun httpPost(path: String, params: Map<String, String>): Result<String> = try {
+        val response = httpClient.submitForm(
+            "$KOL_BASE_URL/$path",
+            formParameters = Parameters.build { params.forEach { (k, v) -> append(k, v) } }
+        )
+        if (response.status.isSuccess()) Result.success(response.bodyAsText())
+        else Result.failure(Exception("HTTP ${response.status.value}"))
+    } catch (e: Exception) { Result.failure(e) }
 
     private suspend fun harvestGarden(suffix: String) {
         val harvestPrefKey = if (suffix == "Softcore") Preferences.HARVEST_GARDEN_SOFTCORE else Preferences.HARVEST_GARDEN_HARDCORE
@@ -124,8 +186,96 @@ open class BreakfastManager(
         }
     }
 
-    private suspend fun makePocketWishes(inventoryState: InventoryState) {
-        // Stub: pocket wish choice handling deferred to adventure loop.
-        if (!inventoryState.items.containsKey(POCKET_WISH_ITEM_ID)) return
+    // ── Tier 1 action methods ─────────────────────────────────────────────────
+
+    private suspend fun getHermitClovers(inventoryState: InventoryState) {
+        if (preferences.getBoolean(Preferences.CLOVER_SOUGHT, false)) return
+        val hasWorthless = listOf(
+            BreakfastItemIds.WORTHLESS_TRINKET_ID,
+            BreakfastItemIds.WORTHLESS_KNICK_KNACK_ID,
+            BreakfastItemIds.WORTHLESS_GEWGAW_ID,
+        ).any { inventoryState.items.containsKey(it) }
+        if (!hasWorthless) return
+        hermitRequest.trade(BreakfastItemIds.CLOVER_ITEM_ID, 1).onSuccess {
+            preferences.setBoolean(Preferences.CLOVER_SOUGHT, true)
+        }
     }
+
+    private suspend fun collectAprilShowerGlobs(inventoryState: InventoryState) {
+        if (preferences.getBoolean(Preferences.APRIL_SHOWER_GLOBS, false)) return
+        if (!inventoryState.items.containsKey(BreakfastItemIds.APRIL_SHOWER_THOUGHTS_SHIELD)) return
+        httpGet("inventory.php?action=shower").onSuccess {
+            preferences.setBoolean(Preferences.APRIL_SHOWER_GLOBS, true)
+        }
+    }
+
+    private suspend fun useBookOfEverySkill(inventoryState: InventoryState) {
+        if (preferences.getBoolean(Preferences.BOOK_OF_EVERY_SKILL_USED, false)) return
+        if (!inventoryState.items.containsKey(BreakfastItemIds.BOOK_OF_EVERY_SKILL_ID)) return
+        useItemRequest.use(BreakfastItemIds.BOOK_OF_EVERY_SKILL_ID, 1).onSuccess {
+            preferences.setBoolean(Preferences.BOOK_OF_EVERY_SKILL_USED, true)
+        }
+    }
+
+    private suspend fun useReplicaBooks(inventoryState: InventoryState) {
+        if (!preferences.getBoolean(Preferences.REPLICA_SNOWCONE_USED, false)
+                && inventoryState.items.containsKey(BreakfastItemIds.REPLICA_SNOWCONE_ID)) {
+            useItemRequest.use(BreakfastItemIds.REPLICA_SNOWCONE_ID, 1).onSuccess {
+                preferences.setBoolean(Preferences.REPLICA_SNOWCONE_USED, true)
+            }
+        }
+        if (!preferences.getBoolean(Preferences.REPLICA_RESOLUTION_USED, false)
+                && inventoryState.items.containsKey(BreakfastItemIds.REPLICA_RESOLUTION_ID)) {
+            useItemRequest.use(BreakfastItemIds.REPLICA_RESOLUTION_ID, 1).onSuccess {
+                preferences.setBoolean(Preferences.REPLICA_RESOLUTION_USED, true)
+            }
+        }
+        if (!preferences.getBoolean(Preferences.REPLICA_SMITH_USED, false)
+                && inventoryState.items.containsKey(BreakfastItemIds.REPLICA_SMITH_ID)) {
+            useItemRequest.use(BreakfastItemIds.REPLICA_SMITH_ID, 1).onSuccess {
+                preferences.setBoolean(Preferences.REPLICA_SMITH_USED, true)
+            }
+        }
+    }
+
+    private suspend fun makeHandheldRadios(inventoryState: InventoryState) {
+        if (preferences.getBoolean(Preferences.HAND_RADIO_USED, false)) return
+        if (!inventoryState.items.containsKey(BreakfastItemIds.ALLIED_RADIO_BACKPACK_ID)) return
+        useItemRequest.use(BreakfastItemIds.ALLIED_RADIO_BACKPACK_ID, 1).onSuccess {
+            preferences.setBoolean(Preferences.HAND_RADIO_USED, true)
+        }
+    }
+
+    private suspend fun collectAnticheese(inventoryState: InventoryState) {
+        if (preferences.getBoolean(Preferences.ANTICHEESE_COLLECTED, false)) return
+        val lastAnticheeseDay = preferences.getInt(Preferences.LAST_ANTICHEESE_DAY, -1)
+        val currentDays = preferences.getInt(Preferences.LAST_DAYCOUNT, -1)
+        if (lastAnticheeseDay >= 0 && currentDays >= 0 && currentDays < lastAnticheeseDay + 5) return
+        if (!inventoryState.items.containsKey(BreakfastItemIds.ANTICHEESE_ID)) return
+        useItemRequest.use(BreakfastItemIds.ANTICHEESE_ID, 1).onSuccess {
+            preferences.setBoolean(Preferences.ANTICHEESE_COLLECTED, true)
+            if (currentDays >= 0) preferences.setInt(Preferences.LAST_ANTICHEESE_DAY, currentDays)
+        }
+    }
+
+    private suspend fun harvestBatteries(inventoryState: InventoryState) {
+        if (preferences.getBoolean(Preferences.BATTERIES_HARVESTED, false)) return
+        val plantId = ItemDatabase.getByName("potted power plant")?.id ?: return
+        if (!inventoryState.items.containsKey(plantId)) return
+        useItemRequest.use(plantId, 1).onSuccess {
+            preferences.setBoolean(Preferences.BATTERIES_HARVESTED, true)
+        }
+    }
+
+    // ── Tier 2/3 stubs — filled in later tasks ────────────────────────────────
+
+    private suspend fun useSpinningWheel() {}
+    private suspend fun makePocketWishes(inventoryState: InventoryState) {}
+    private suspend fun haveBoxingDaydream() {}
+    private suspend fun useToys(inventoryState: InventoryState) {}
+    private suspend fun collectHardwood() {}
+    private suspend fun collect2002MrStoreCredits(inventoryState: InventoryState) {}
+    private suspend fun visitBigIsland() {}
+    private suspend fun visitVolcanoIsland() {}
+    private suspend fun visitServerRoom() {}
 }

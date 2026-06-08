@@ -11,8 +11,8 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
  * Wraps hermit.php trade requests.
  * POST hermit.php?action=trade&whichitem=ID&quantity=N
  */
-class HermitRequest(private val client: HttpClient) {
-    suspend fun trade(itemId: Int, quantity: Int): Result<String> = try {
+open class HermitRequest(private val client: HttpClient) {
+    open suspend fun trade(itemId: Int, quantity: Int): Result<String> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/hermit.php",
             formParameters = Parameters.build {
