@@ -165,6 +165,9 @@ class BanisherExpansionTest {
     @Test fun howlOfAlpha_isAvatar() =
         assertEquals(ResetType.AVATAR, Banisher.HOWL_OF_THE_ALPHA.resetType)
 
+    @Test fun iceHouse_isNever() =
+        assertEquals(ResetType.NEVER, Banisher.ICE_HOUSE.resetType)
+
     // Total count: 20 original + 49 new = 69 named + UNKNOWN = 70 entries
     @Test fun totalBanisherCount_is70() =
         assertEquals(70, Banisher.entries.size)
