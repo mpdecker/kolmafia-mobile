@@ -41,6 +41,23 @@ object AdventureParser {
         "The Force"                                           to Banisher.SABER_FORCE,
         "champagne"                                           to Banisher.DIVINE_CHAMPAGNE_POPPER,
         "chatterbox"                                          to Banisher.CHATTERBOXING,
+        "stinky cheese"                                       to Banisher.STINKY_CHEESE_EYE,
+        "smoke grenade"                                       to Banisher.SMOKE_GRENADE,
+        "walk away from the explosion"                        to Banisher.WALK_AWAY_FROM_EXPLOSION,
+        "split pea soup"                                      to Banisher.SPLIT_PEA_SOUP,
+        "tennis ball"                                         to Banisher.TENNIS_BALL,
+        "cocktail napkin"                                     to Banisher.COCKTAIL_NAPKIN,
+        "vivala"                                              to Banisher.V_FOR_VIVALA_MASK,
+        "indigo taffy"                                        to Banisher.PULLED_INDIGO_TAFFY,
+        "thunder clap"                                        to Banisher.THUNDER_CLAP,
+        "dirty stinkbomb"                                     to Banisher.DIRTY_STINKBOMB,
+        "peppermint bomb"                                     to Banisher.PEPPERMINT_BOMB,
+        "throw the bell away"                                 to Banisher.HAROLDS_BELL,
+        "skull explodes into a million"                       to Banisher.CRYSTAL_SKULL,
+        "EEEEEEEEEEEEEEEEEEEEEEEK"                            to Banisher.CLASSY_MONKEY,
+        "push away your opponent"                             to Banisher.BE_A_MIND_MASTER,
+        "You burned that foe so hard, you won't"              to Banisher.THROWIN_EMBER,
+        "deliver an epic punch"                               to Banisher.PUNCH_OUT_YOUR_FOE,
     )
 
     fun parseAdventureResponse(html: String, finalUrl: String): AdventureResult = when {
