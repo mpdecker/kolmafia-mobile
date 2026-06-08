@@ -140,6 +140,7 @@ class GameRuntimeLibrary(
         registerBanishQueries(scope)
         registerWebRequests(scope)
         registerHermit(scope)
+        registerTimingAndLogging(scope)
     }
 
     // ──────────────────────────────────────────────────────────────
