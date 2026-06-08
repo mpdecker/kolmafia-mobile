@@ -318,9 +318,45 @@ open class BreakfastManager(
             }
         }
     }
-    private suspend fun collectHardwood() {}
-    private suspend fun collect2002MrStoreCredits(inventoryState: InventoryState) {}
-    private suspend fun visitBigIsland() {}
-    private suspend fun visitVolcanoIsland() {}
-    private suspend fun visitServerRoom() {}
+    private suspend fun collectHardwood() {
+        if (preferences.getBoolean(Preferences.HARDWOOD_COLLECTED, false)) return
+        httpGet("shop.php?whichshop=lathe").onSuccess {
+            preferences.setBoolean(Preferences.HARDWOOD_COLLECTED, true)
+        }
+    }
+
+    private suspend fun collect2002MrStoreCredits(inventoryState: InventoryState) {
+        if (preferences.getBoolean(Preferences.MR_STORE_CREDITS_COLLECTED, false)) return
+        val catalogId = when {
+            inventoryState.items.containsKey(BreakfastItemIds.MR_STORE_2002_CATALOG_ID) ->
+                BreakfastItemIds.MR_STORE_2002_CATALOG_ID
+            inventoryState.items.containsKey(BreakfastItemIds.REPLICA_MR_STORE_CATALOG_ID) ->
+                BreakfastItemIds.REPLICA_MR_STORE_CATALOG_ID
+            else -> return
+        }
+        useItemRequest.use(catalogId, 1).onSuccess {
+            preferences.setBoolean(Preferences.MR_STORE_CREDITS_COLLECTED, true)
+        }
+    }
+
+    private suspend fun visitBigIsland() {
+        if (preferences.getBoolean(Preferences.BIG_ISLAND_VISITED, false)) return
+        httpGet("bigisland.php").onSuccess {
+            preferences.setBoolean(Preferences.BIG_ISLAND_VISITED, true)
+        }
+    }
+
+    private suspend fun visitVolcanoIsland() {
+        if (preferences.getBoolean(Preferences.VOLCANO_ISLAND_VISITED, false)) return
+        httpGet("place.php?whichplace=island_camp").onSuccess {
+            preferences.setBoolean(Preferences.VOLCANO_ISLAND_VISITED, true)
+        }
+    }
+
+    private suspend fun visitServerRoom() {
+        if (preferences.getBoolean(Preferences.SERVER_ROOM_VISITED, false)) return
+        httpGet("place.php?whichplace=airport_spooky_bunker").onSuccess {
+            preferences.setBoolean(Preferences.SERVER_ROOM_VISITED, true)
+        }
+    }
 }

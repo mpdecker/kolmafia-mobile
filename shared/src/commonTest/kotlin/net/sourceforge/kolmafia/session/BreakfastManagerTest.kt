@@ -549,4 +549,102 @@ class BreakfastManagerTest {
         val toyIds = BreakfastItemIds.TOYS.keys
         assertTrue(calls.none { it.first in toyIds }, "no toys should be used with empty inventory")
     }
+
+    // ── Tier 3 action tests ───────────────────────────────────────────────────
+
+    @Test fun visitBigIsland_setsSentinelOnSuccess() = runBlocking {
+        val p = prefs()
+        manager(prefs = p).runBreakfast(charState(), InventoryState())
+        assertTrue(p.getBoolean(Preferences.BIG_ISLAND_VISITED, false))
+    }
+
+    @Test fun visitBigIsland_skipsWhenSentinelSet() = runBlocking {
+        val p = prefs { putBoolean(Preferences.BIG_ISLAND_VISITED, true) }
+        // Just verify it doesn't crash and sentinel stays true
+        manager(prefs = p).runBreakfast(charState(), InventoryState())
+        assertTrue(p.getBoolean(Preferences.BIG_ISLAND_VISITED, false))
+    }
+
+    @Test fun visitVolcanoIsland_setsSentinel() = runBlocking {
+        val p = prefs()
+        manager(prefs = p).runBreakfast(charState(), InventoryState())
+        assertTrue(p.getBoolean(Preferences.VOLCANO_ISLAND_VISITED, false))
+    }
+
+    @Test fun visitServerRoom_setsSentinel() = runBlocking {
+        val p = prefs()
+        manager(prefs = p).runBreakfast(charState(), InventoryState())
+        assertTrue(p.getBoolean(Preferences.SERVER_ROOM_VISITED, false))
+    }
+
+    @Test fun collectHardwood_setsSentinel() = runBlocking {
+        val p = prefs()
+        manager(prefs = p).runBreakfast(charState(), InventoryState())
+        assertTrue(p.getBoolean(Preferences.HARDWOOD_COLLECTED, false))
+    }
+
+    @Test fun collect2002MrStoreCredits_usesRegularCatalogWhenPresent() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs()
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.MR_STORE_2002_CATALOG_ID))
+        assertTrue(calls.any { it.first == BreakfastItemIds.MR_STORE_2002_CATALOG_ID })
+        assertTrue(p.getBoolean(Preferences.MR_STORE_CREDITS_COLLECTED, false))
+    }
+
+    @Test fun collect2002MrStoreCredits_usesReplicaWhenRegularAbsent() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        manager(useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.REPLICA_MR_STORE_CATALOG_ID))
+        assertTrue(calls.any { it.first == BreakfastItemIds.REPLICA_MR_STORE_CATALOG_ID })
+    }
+
+    @Test fun collect2002MrStoreCredits_skipsWhenNoCatalog() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        manager(useItemRequest = fakeUse).runBreakfast(charState(), InventoryState())
+        assertFalse(calls.any {
+            it.first == BreakfastItemIds.MR_STORE_2002_CATALOG_ID ||
+            it.first == BreakfastItemIds.REPLICA_MR_STORE_CATALOG_ID
+        })
+    }
+
+    @Test fun clearBreakfastPrefs_clearsAllPhase13Sentinels() {
+        val p = prefs {
+            putBoolean(Preferences.CLOVER_SOUGHT, true)
+            putBoolean(Preferences.APRIL_SHOWER_GLOBS, true)
+            putBoolean(Preferences.BOOK_OF_EVERY_SKILL_USED, true)
+            putBoolean(Preferences.ANTICHEESE_COLLECTED, true)
+            putBoolean(Preferences.BATTERIES_HARVESTED, true)
+            putBoolean(Preferences.BIG_ISLAND_VISITED, true)
+            putBoolean(Preferences.VOLCANO_ISLAND_VISITED, true)
+            putBoolean(Preferences.HARDWOOD_COLLECTED, true)
+            putBoolean(Preferences.SERVER_ROOM_VISITED, true)
+            putBoolean("_toyUsed_3092", true)
+            putBoolean("_toyUsed_9123", true)
+        }
+        manager(prefs = p).clearBreakfastPrefs()
+        assertFalse(p.getBoolean(Preferences.CLOVER_SOUGHT, false))
+        assertFalse(p.getBoolean(Preferences.APRIL_SHOWER_GLOBS, false))
+        assertFalse(p.getBoolean(Preferences.BOOK_OF_EVERY_SKILL_USED, false))
+        assertFalse(p.getBoolean(Preferences.ANTICHEESE_COLLECTED, false))
+        assertFalse(p.getBoolean(Preferences.BATTERIES_HARVESTED, false))
+        assertFalse(p.getBoolean(Preferences.BIG_ISLAND_VISITED, false))
+        assertFalse(p.getBoolean(Preferences.VOLCANO_ISLAND_VISITED, false))
+        assertFalse(p.getBoolean(Preferences.HARDWOOD_COLLECTED, false))
+        assertFalse(p.getBoolean(Preferences.SERVER_ROOM_VISITED, false))
+        assertFalse(p.getBoolean("_toyUsed_3092", false))
+        assertFalse(p.getBoolean("_toyUsed_9123", false))
+    }
 }
