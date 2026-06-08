@@ -42,4 +42,17 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     regFn(scope, "my_thrall", AshType.STRING, emptyList()) { _, _ ->
         AshValue.EMPTY_STRING
     }
+
+    // can_adventure(location) → boolean
+    // Returns true if the character has adventures remaining.
+    regFn(scope, "can_adventure", AshType.BOOLEAN,
+        listOf("loc" to AshType.LOCATION)) { _, _ ->
+        AshValue.of((character?.state?.value?.adventuresLeft ?: 0) > 0)
+    }
+
+    // prepare_for_adventure() → boolean
+    // On desktop this restores outfit/HP/MP before a zone. Mobile no-ops it. Returns true.
+    regFn(scope, "prepare_for_adventure", AshType.BOOLEAN, emptyList()) { _, _ ->
+        AshValue.of(true)
+    }
 }

@@ -77,4 +77,27 @@ class GameRuntimeLibraryCharacterTest {
     fun myThrall_emptyString() {
         assertEquals("", outputLib(GameRuntimeLibrary.forTesting(), "print(my_thrall());"))
     }
+
+    @Test
+    fun canAdventure_trueWhenAdventuresLeft() {
+        val lib = libWith { copy(adventures = "5") }
+        assertEquals("true", outputLib(lib, """print(to_string(can_adventure(to_location("The Haunted Pantry"))));"""))
+    }
+
+    @Test
+    fun canAdventure_falseWhenNoAdventuresLeft() {
+        val lib = libWith { copy(adventures = "0") }
+        assertEquals("false", outputLib(lib, """print(to_string(can_adventure(to_location("The Haunted Pantry"))));"""))
+    }
+
+    @Test
+    fun prepareForAdventure_returnsTrue() {
+        assertEquals("true", outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(prepare_for_adventure()));"))
+    }
+
+    @Test
+    fun adv1_returnsFalseWhenNoAdventureManager() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("false", outputLib(lib, """print(to_string(adv1(to_location("The Haunted Pantry"), 1)));"""))
+    }
 }

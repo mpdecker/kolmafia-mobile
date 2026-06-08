@@ -538,6 +538,19 @@ class GameRuntimeLibrary(
             AshValue.of(true)
         }
 
+        // adv1(loc: location, adventuresUsed: int) → boolean
+        // Runs a single adventure at loc. Returns false if no AdventureManager.
+        register(scope, "adv1", AshType.BOOLEAN,
+            listOf("loc" to AshType.LOCATION, "adventuresUsed" to AshType.INT)) { _, args ->
+            val locName = args[0].toString()
+            val manager = adventureManager ?: return@register AshValue.of(false)
+            val location = AdventureLocation(locName, locName, "")
+            kotlinx.coroutines.runBlocking {
+                manager.runAdventures(location, 1, this).join()
+            }
+            AshValue.of(true)
+        }
+
         register(scope, "use_skill", AshType.BOOLEAN,
             listOf("turns" to AshType.INT, "sk" to AshType.SKILL)) { _, args ->
             val count = args[0].toLong().toInt()
