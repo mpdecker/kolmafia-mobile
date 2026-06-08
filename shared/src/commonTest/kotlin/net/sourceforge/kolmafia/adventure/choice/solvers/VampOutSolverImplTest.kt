@@ -44,9 +44,9 @@ class VampOutSolverImplTest {
     @Test fun step0_setsInterviewPrefs() {
         val (prefs, s) = prefsAndSolver()
         s.autoVampOut(1, 0, allLocationsHtml)
-        assertEquals(false, prefs.getBoolean("_interviewVlad"))
-        assertEquals(false, prefs.getBoolean("_interviewIsabella"))
-        assertEquals(false, prefs.getBoolean("_interviewMasquerade"))
+        assertEquals(false, prefs.getBoolean(Preferences.INTERVIEW_VLAD))
+        assertEquals(false, prefs.getBoolean(Preferences.INTERVIEW_ISABELLA))
+        assertEquals(false, prefs.getBoolean(Preferences.INTERVIEW_MASQUERADE))
     }
 
     @Test fun step0_notStartingPage_usesScript() {
@@ -66,21 +66,27 @@ class VampOutSolverImplTest {
     @Test fun step2_goal5_script0131_returns3() =
         assertEquals(3, solver().autoVampOut(5, 2, "anything"))
 
-    @Test fun step4_goal8_returns1() =
-        assertEquals(1, solver().autoVampOut(8, 4, "irrelevant text"))
+    // goal 8 script = "031241mtbv11"
+    // index:           0123456789...
+    // step4 → '4', step5 → '1', step6 → 'm' (Malkovich), step7 → 't' (Torremolinos)
+    @Test fun step4_goal8_returns4() =
+        assertEquals(4, solver().autoVampOut(8, 4, "irrelevant text"))
 
-    @Test fun step5_goal8_malkovich_findsOption() {
-        val html = """<a href="choice.php?option=3">Do the Malkovich thing</a>"""
-        assertEquals(3, solver().autoVampOut(8, 5, html))
+    @Test fun step5_goal8_returns1() =
+        assertEquals(1, solver().autoVampOut(8, 5, "irrelevant text"))
+
+    @Test fun step6_goal8_malkovich_findsOption() {
+        val html = """<input name="option" value="3">Do the Malkovich thing"""
+        assertEquals(3, solver().autoVampOut(8, 6, html))
     }
 
-    @Test fun step6_goal8_torremolinos_findsOption() {
-        val html = """<a href="choice.php?option=1">Visit Torremolinos</a>"""
-        assertEquals(1, solver().autoVampOut(8, 6, html))
+    @Test fun step7_goal8_torremolinos_findsOption() {
+        val html = """<input name="option" value="1">Visit Torremolinos"""
+        assertEquals(1, solver().autoVampOut(8, 7, html))
     }
 
-    @Test fun step5_goal8_keywordMissing_returnsNull() =
-        assertNull(solver().autoVampOut(8, 5, "no malkovich here"))
+    @Test fun step6_goal8_keywordMissing_returnsNull() =
+        assertNull(solver().autoVampOut(8, 6, "no malkovich here"))
 
     @Test fun stepPastScript_returnsNull() =
         assertNull(solver().autoVampOut(4, 99, ""))

@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.adventure.choice.solvers
 
+import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.preferences.Preferences
 
 class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
@@ -14,7 +15,7 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
         "0131",         // goal 5: Mysticality substats
         "01221",        // goal 6: Moxie substats
         "01232",        // goal 7: Meat
-        "03121mtbv11",  // goal 8: Prince + Sword (Brouhaha)
+        "031241mtbv11", // goal 8: Prince + Sword (Brouhaha)
         "042112mvtb11", // goal 9: Prince + Sceptre (Torremolinos)
         "014423vmbt11", // goal 10: Prince + Medallion (Ventrilo)
         "023334tvbm11", // goal 11: Prince + Chalice (Malkovich)
@@ -48,9 +49,9 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
         val isabellaAvailable   = responseText.contains("Visit Isabella's")
         val masqueradeAvailable = responseText.contains("Visit The Masquerade")
 
-        preferences.setBoolean("_interviewVlad",        !vladAvailable)
-        preferences.setBoolean("_interviewIsabella",    !isabellaAvailable)
-        preferences.setBoolean("_interviewMasquerade",  !masqueradeAvailable)
+        preferences.setBoolean(Preferences.INTERVIEW_VLAD,       !vladAvailable)
+        preferences.setBoolean(Preferences.INTERVIEW_ISABELLA,   !isabellaAvailable)
+        preferences.setBoolean(Preferences.INTERVIEW_MASQUERADE, !masqueradeAvailable)
 
         if (!vladAvailable && !isabellaAvailable && !masqueradeAvailable) return 1
 
@@ -78,10 +79,11 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
         return findChoiceDecisionIndex(keyword, responseText)
     }
 
+    /** Returns the option number whose text contains [text], or null if not found. */
     private fun findChoiceDecisionIndex(text: String, responseText: String): Int? {
-        val buttonRegex = Regex("""option=(\d+)">([^<]+)""")
-        return buttonRegex.findAll(responseText)
-            .firstOrNull { it.groupValues[2].contains(text) }
-            ?.groupValues?.get(1)?.toIntOrNull()
+        return ChoiceUtilities.parseChoices(responseText)
+            .entries
+            .firstOrNull { it.value.contains(text) }
+            ?.key
     }
 }
