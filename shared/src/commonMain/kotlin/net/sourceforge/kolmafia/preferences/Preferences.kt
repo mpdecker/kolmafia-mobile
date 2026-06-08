@@ -87,5 +87,26 @@ class Preferences(private val settings: Settings) {
         const val INTERVIEW_VLAD        = "_interviewVlad"        // boolean; true = visited
         const val INTERVIEW_ISABELLA    = "_interviewIsabella"     // boolean; true = visited
         const val INTERVIEW_MASQUERADE  = "_interviewMasquerade"   // boolean; true = visited
+
+        // BreakfastManager new sentinels (Phase 13)
+        const val CLOVER_SOUGHT              = "_cloverSought"              // boolean; hermit clover trade done today
+        const val APRIL_SHOWER_GLOBS         = "_aprilShowerGlobsCollected" // boolean
+        const val BOOK_OF_EVERY_SKILL_USED   = "_bookOfEverySkillUsed"      // boolean
+        const val REPLICA_SNOWCONE_USED      = "_replicaSnowconeTomeUsed"   // boolean
+        const val REPLICA_RESOLUTION_USED    = "_replicaResolutionLibramUsed" // boolean
+        const val REPLICA_SMITH_USED         = "_replicaSmithsTomeUsed"     // boolean
+        const val HAND_RADIO_USED            = "_handRadioUsed"             // boolean
+        const val ANTICHEESE_COLLECTED       = "_anticheeseCollected"       // boolean
+        const val LAST_ANTICHEESE_DAY        = "lastAnticheeseDay"          // int; global day when anticheese last used
+        const val BATTERIES_HARVESTED        = "_batteriesHarvested"        // boolean
+        const val POCKET_WISHES_USED         = "_pocketWishesUsed"          // boolean
+        const val BOXING_DAYDREAM            = "_boxingDaydream"            // boolean
+        const val SPINNING_WHEEL_USED        = "_spinningWheelUsed"         // boolean
+        const val BIG_ISLAND_VISITED         = "_bigIslandVisited"          // boolean
+        const val VOLCANO_ISLAND_VISITED     = "_volcanoIslandVisited"      // boolean
+        const val HARDWOOD_COLLECTED         = "_hardwoodCollected"         // boolean
+        const val MR_STORE_CREDITS_COLLECTED = "_2002MrStoreCreditsCollected" // boolean
+        const val SERVER_ROOM_VISITED        = "_serverRoomVisited"         // boolean
+        // Per-toy sentinels are dynamic: "_toyUsed_$toyId" — no compile-time constant needed
     }
 }
