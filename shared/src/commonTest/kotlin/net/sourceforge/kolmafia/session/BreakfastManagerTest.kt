@@ -231,4 +231,16 @@ class BreakfastManagerTest {
         assertFalse(p.getBoolean(Preferences.FIREWORKS_SHOP))
         assertEquals(0, p.getInt(Preferences.POOL_GAME_RESULT))
     }
+
+    @Test fun breakfastItemIds_toysMapIsNonEmpty() {
+        assertTrue(BreakfastItemIds.TOYS.isNotEmpty(), "TOYS map must not be empty")
+        assertEquals(34, BreakfastItemIds.TOYS.size, "Expected 34 toys")
+    }
+
+    @Test fun breakfastItemIds_knownItemIdsAreCorrect() {
+        assertEquals(24, BreakfastItemIds.CLOVER_ITEM_ID)
+        assertEquals(9529, BreakfastItemIds.GENIE_BOTTLE_ID)
+        assertEquals(10917, BreakfastItemIds.BOOK_OF_EVERY_SKILL_ID)
+        assertEquals(142, BreakfastItemIds.ANTICHEESE_ID)
+    }
 }
