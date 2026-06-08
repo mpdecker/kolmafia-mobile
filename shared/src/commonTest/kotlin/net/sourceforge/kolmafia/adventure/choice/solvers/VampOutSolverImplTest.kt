@@ -53,8 +53,17 @@ class VampOutSolverImplTest {
         assertNull(solver().autoVampOut(4, 0, "some other page without the sun text"))
     }
 
+    // No option links at all — all visited
+    private val noLocationsHtml = "Finally, the sun has set."
+
+    @Test fun step0_allLocationsVisited_returns1() =
+        assertEquals(1, solver().autoVampOut(8, 0, noLocationsHtml))
+
     @Test fun goalZero_returnsNull() = assertNull(solver().autoVampOut(0, 0, ""))
     @Test fun goal14_returnsNull() = assertNull(solver().autoVampOut(14, 0, ""))
+
+    @Test fun negativeStep_returnsNull() =
+        assertNull(solver().autoVampOut(4, -1, ""))
 
     // Step > 0 — script lookup
     @Test fun step1_goal4_script011_returns1() =

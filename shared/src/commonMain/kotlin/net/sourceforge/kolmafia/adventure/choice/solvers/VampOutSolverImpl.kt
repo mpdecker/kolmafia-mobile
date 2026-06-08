@@ -53,6 +53,8 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
         preferences.setBoolean(Preferences.INTERVIEW_ISABELLA,   !isabellaAvailable)
         preferences.setBoolean(Preferences.INTERVIEW_MASQUERADE, !masqueradeAvailable)
 
+        // Desktop behavior: on a 4th visit when all 3 locations have already been used,
+        // return option 1 (the "skip" / advance choice on that no-op page).
         if (!vladAvailable && !isabellaAvailable && !masqueradeAvailable) return 1
 
         val vladChoice       = if (vladAvailable) 1 else 0
