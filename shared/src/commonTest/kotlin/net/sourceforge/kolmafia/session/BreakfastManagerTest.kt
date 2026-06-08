@@ -383,4 +383,123 @@ class BreakfastManagerTest {
             .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.ANTICHEESE_ID))
         assertTrue(calls.any { it == BreakfastItemIds.ANTICHEESE_ID to 1 })
     }
+
+    // ── Tier 2 action tests ───────────────────────────────────────────────────
+
+    @Test fun useSpinningWheel_callsCampgroundAndSetsSentinel() = runBlocking {
+        var spinCalled = false
+        val p = prefs()
+        val campground = object : CampgroundRequest(mockClient) {
+            override suspend fun harvestGarden() = Result.success(Unit)
+            override suspend fun useSpinningWheel(): Result<String> {
+                spinCalled = true
+                return Result.success("ok")
+            }
+        }
+        val m = BreakfastManager(
+            campgroundRequest = campground,
+            clanRumpusRequest = object : ClanRumpusRequest(mockClient) {
+                override suspend fun visit() = Result.success(Unit)
+            },
+            clanLoungeRequest = object : ClanLoungeRequest(mockClient) {
+                override suspend fun useKlaw() = Result.success("ok")
+                override suspend fun useLookingGlass() = Result.success(Unit)
+                override suspend fun visitFireworks() = Result.success(Unit)
+                override suspend fun playPoolGame() = Result.success(Unit)
+            },
+            preferences = p,
+            useItemRequest = UseItemRequest(mockClient),
+            hermitRequest = HermitRequest(mockClient),
+            httpClient = mockClient,
+        )
+        m.runBreakfast(charState(), InventoryState())
+        assertTrue(spinCalled, "useSpinningWheel should be called")
+        assertTrue(p.getBoolean(Preferences.SPINNING_WHEEL_USED, false))
+    }
+
+    @Test fun useSpinningWheel_skipsWhenSentinelSet() = runBlocking {
+        var spinCalled = false
+        val p = prefs { putBoolean(Preferences.SPINNING_WHEEL_USED, true) }
+        val campground = object : CampgroundRequest(mockClient) {
+            override suspend fun harvestGarden() = Result.success(Unit)
+            override suspend fun useSpinningWheel(): Result<String> {
+                spinCalled = true
+                return Result.success("ok")
+            }
+        }
+        val m = BreakfastManager(
+            campgroundRequest = campground,
+            clanRumpusRequest = object : ClanRumpusRequest(mockClient) {
+                override suspend fun visit() = Result.success(Unit)
+            },
+            clanLoungeRequest = object : ClanLoungeRequest(mockClient) {
+                override suspend fun useKlaw() = Result.success("ok")
+                override suspend fun useLookingGlass() = Result.success(Unit)
+                override suspend fun visitFireworks() = Result.success(Unit)
+                override suspend fun playPoolGame() = Result.success(Unit)
+            },
+            preferences = p,
+            useItemRequest = UseItemRequest(mockClient),
+            hermitRequest = HermitRequest(mockClient),
+            httpClient = mockClient,
+        )
+        m.runBreakfast(charState(), InventoryState())
+        assertFalse(spinCalled, "useSpinningWheel should be skipped when sentinel already set")
+    }
+
+    @Test fun makePocketWishes_usesGenieBottleWhenPresent() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs()
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.GENIE_BOTTLE_ID))
+        assertTrue(calls.any { it.first == BreakfastItemIds.GENIE_BOTTLE_ID })
+        assertTrue(p.getBoolean(Preferences.POCKET_WISHES_USED, false))
+    }
+
+    @Test fun makePocketWishes_usesReplicaGenieBottleWhenRegularAbsent() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        manager(useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.REPLICA_GENIE_BOTTLE_ID))
+        assertTrue(calls.any { it.first == BreakfastItemIds.REPLICA_GENIE_BOTTLE_ID })
+    }
+
+    @Test fun makePocketWishes_skipsWhenNeitherBottlePresent() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        manager(useItemRequest = fakeUse).runBreakfast(charState(), InventoryState())
+        assertFalse(calls.any {
+            it.first == BreakfastItemIds.GENIE_BOTTLE_ID ||
+            it.first == BreakfastItemIds.REPLICA_GENIE_BOTTLE_ID
+        })
+    }
+
+    @Test fun makePocketWishes_skipsWhenSentinelSet() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs { putBoolean(Preferences.POCKET_WISHES_USED, true) }
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.GENIE_BOTTLE_ID))
+        assertFalse(calls.any { it.first == BreakfastItemIds.GENIE_BOTTLE_ID })
+    }
+
+    @Test fun haveBoxingDaydream_setsSentinelOnSuccess() = runBlocking {
+        val p = prefs()
+        manager(prefs = p).runBreakfast(charState(), InventoryState())
+        // httpClient responds "ok" — no whichchoice in response, sentinel still gets set
+        assertTrue(p.getBoolean(Preferences.BOXING_DAYDREAM, false))
+    }
 }

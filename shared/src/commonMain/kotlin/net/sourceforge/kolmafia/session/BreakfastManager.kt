@@ -269,9 +269,41 @@ open class BreakfastManager(
 
     // ── Tier 2/3 stubs — filled in later tasks ────────────────────────────────
 
-    private suspend fun useSpinningWheel() {}
-    private suspend fun makePocketWishes(inventoryState: InventoryState) {}
-    private suspend fun haveBoxingDaydream() {}
+    private suspend fun useSpinningWheel() {
+        if (preferences.getBoolean(Preferences.SPINNING_WHEEL_USED, false)) return
+        campgroundRequest.useSpinningWheel().onSuccess {
+            preferences.setBoolean(Preferences.SPINNING_WHEEL_USED, true)
+        }
+    }
+
+    private suspend fun makePocketWishes(inventoryState: InventoryState) {
+        if (preferences.getBoolean(Preferences.POCKET_WISHES_USED, false)) return
+        val bottleId = when {
+            inventoryState.items.containsKey(BreakfastItemIds.GENIE_BOTTLE_ID) ->
+                BreakfastItemIds.GENIE_BOTTLE_ID
+            inventoryState.items.containsKey(BreakfastItemIds.REPLICA_GENIE_BOTTLE_ID) ->
+                BreakfastItemIds.REPLICA_GENIE_BOTTLE_ID
+            else -> return
+        }
+        useItemRequest.use(bottleId, 1).onSuccess { html ->
+            if (html.contains("whichchoice")) {
+                val choiceId = Regex("whichchoice=(\\d+)").find(html)?.groupValues?.get(1) ?: "1"
+                httpPost("choice.php", mapOf("whichchoice" to choiceId, "option" to "3"))
+            }
+            preferences.setBoolean(Preferences.POCKET_WISHES_USED, true)
+        }
+    }
+
+    private suspend fun haveBoxingDaydream() {
+        if (preferences.getBoolean(Preferences.BOXING_DAYDREAM, false)) return
+        httpGet("place.php?whichplace=town_wrong&action=townwrong_boxingdaycare").onSuccess { html ->
+            if (html.contains("whichchoice")) {
+                val choiceId = Regex("whichchoice=(\\d+)").find(html)?.groupValues?.get(1) ?: "1261"
+                httpPost("choice.php", mapOf("whichchoice" to choiceId, "option" to "1"))
+            }
+            preferences.setBoolean(Preferences.BOXING_DAYDREAM, true)
+        }
+    }
     private suspend fun useToys(inventoryState: InventoryState) {}
     private suspend fun collectHardwood() {}
     private suspend fun collect2002MrStoreCredits(inventoryState: InventoryState) {}
