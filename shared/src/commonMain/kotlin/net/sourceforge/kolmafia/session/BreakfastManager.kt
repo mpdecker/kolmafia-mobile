@@ -190,13 +190,14 @@ open class BreakfastManager(
 
     private suspend fun getHermitClovers(inventoryState: InventoryState) {
         if (preferences.getBoolean(Preferences.CLOVER_SOUGHT, false)) return
-        val hasWorthless = listOf(
+        val worthlessIds = listOf(
             BreakfastItemIds.WORTHLESS_TRINKET_ID,
             BreakfastItemIds.WORTHLESS_KNICK_KNACK_ID,
             BreakfastItemIds.WORTHLESS_GEWGAW_ID,
-        ).any { inventoryState.items.containsKey(it) }
-        if (!hasWorthless) return
-        hermitRequest.trade(BreakfastItemIds.CLOVER_ITEM_ID, 1).onSuccess {
+        )
+        val count = worthlessIds.sumOf { inventoryState.items[it]?.quantity ?: 0 }.coerceAtMost(5)
+        if (count == 0) return
+        hermitRequest.trade(BreakfastItemIds.CLOVER_ITEM_ID, count).onSuccess {
             preferences.setBoolean(Preferences.CLOVER_SOUGHT, true)
         }
     }

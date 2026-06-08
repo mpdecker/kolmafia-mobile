@@ -7,7 +7,7 @@ import net.sourceforge.kolmafia.request.UneffectRequest
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
 
-class MoodManager(
+open class MoodManager(
     private val skillManager: SkillManager,
     private val preferences: Preferences,
     private val uneffectRequest: UneffectRequest? = null,
@@ -51,6 +51,8 @@ class MoodManager(
         val mood = activeMood ?: return
         if (!preferences.getBoolean(Preferences.AUTO_BUFF, true)) return
         val songLimit = charState.atSongLimit  // 0 for non-AT; 3 for AT
+        val locallyEvicted = mutableSetOf<Int>()  // tracks IDs evicted this pass
+        var locallyAdded = 0                       // songs cast this pass (not yet in effectState)
 
         for (trigger in missingTriggers(mood, effectState)) {
             val skill = skillState.skills.firstOrNull { it.id == trigger.skillId } ?: continue
@@ -59,13 +61,20 @@ class MoodManager(
 
             // AT song slot management: evict lowest-priority song before overcasting
             if (songLimit > 0 && isAtSong(trigger.effectName)) {
-                val activeSongs = effectState.effects.filter { isAtSong(it.name) }
-                if (activeSongs.size >= songLimit) {
+                val activeSongs = effectState.effects.filter {
+                    isAtSong(it.name) && it.id !in locallyEvicted
+                }
+                val effectiveCount = activeSongs.size + locallyAdded
+                if (effectiveCount >= songLimit) {
                     val toEvict = lowestPriorityActiveSong(activeSongs, mood.triggers)
                     if (toEvict != null) {
                         uneffectRequest?.uneffect(toEvict.id)
+                        locallyEvicted += toEvict.id
+                    } else {
+                        locallyAdded = (locallyAdded - 1).coerceAtLeast(0)
                     }
                 }
+                locallyAdded++
             }
 
             skillManager.cast(skill)
@@ -193,7 +202,7 @@ class MoodManager(
      * Returns false when EffectDatabase is not loaded (e.g., in test environments
      * that don't load game data files).
      */
-    internal fun isAtSong(effectName: String): Boolean =
+    internal open fun isAtSong(effectName: String): Boolean =
         net.sourceforge.kolmafia.data.EffectDatabase.getByName(effectName)
             ?.attributes?.contains("song") == true
 }

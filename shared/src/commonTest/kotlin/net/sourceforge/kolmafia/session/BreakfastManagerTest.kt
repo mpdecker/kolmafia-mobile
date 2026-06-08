@@ -47,6 +47,13 @@ class BreakfastManagerTest {
         return InventoryState(items = items)
     }
 
+    private fun inventoryWithQuantity(itemId: Int, quantity: Int): InventoryState {
+        val items = mapOf(
+            itemId to InventoryItem(itemId = itemId, name = "Item $itemId", quantity = quantity, type = ItemType.OTHER)
+        )
+        return InventoryState(items = items)
+    }
+
     private fun manager(
         prefs: Preferences = prefs(),
         gardenCalls: MutableList<Unit> = mutableListOf(),
@@ -252,7 +259,7 @@ class BreakfastManagerTest {
 
     // ── Tier 1 action tests ───────────────────────────────────────────────────
 
-    @Test fun getHermitClovers_tradesWhenWorthlessItemPresent() = runBlocking {
+    @Test fun getHermitClovers_tradesQuantityMatchingWorthlessItems() = runBlocking {
         val hermitCalls = mutableListOf<Pair<Int, Int>>()
         val p = prefs()
         val fakeHermit = object : HermitRequest(mockClient) {
@@ -261,9 +268,12 @@ class BreakfastManagerTest {
                 return Result.success("ok")
             }
         }
-        val m = manager(prefs = p, hermitRequest = fakeHermit)
-        m.runBreakfast(charState(), inventoryWithItems(BreakfastItemIds.WORTHLESS_TRINKET_ID))
-        assertTrue(hermitCalls.any { it.first == BreakfastItemIds.CLOVER_ITEM_ID && it.second == 1 })
+        // Give the character 3 worthless trinkets
+        val inv = inventoryWithQuantity(BreakfastItemIds.WORTHLESS_TRINKET_ID, 3)
+        manager(prefs = p, hermitRequest = fakeHermit).runBreakfast(charState(), inv)
+        assertEquals(1, hermitCalls.size, "Should trade exactly once")
+        assertEquals(BreakfastItemIds.CLOVER_ITEM_ID to 3, hermitCalls[0],
+            "Should trade 3 clovers for 3 worthless trinkets")
         assertTrue(p.getBoolean(Preferences.CLOVER_SOUGHT, false))
     }
 
