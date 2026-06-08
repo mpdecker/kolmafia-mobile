@@ -502,4 +502,51 @@ class BreakfastManagerTest {
         // httpClient responds "ok" — no whichchoice in response, sentinel still gets set
         assertTrue(p.getBoolean(Preferences.BOXING_DAYDREAM, false))
     }
+
+    @Test fun useToys_usesEachPresentToyWithCorrectCount() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs()
+        // hobby horse (3092 → 1 use) and school diploma (9123 → 11 uses)
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(3092, 9123))
+        assertTrue(calls.any { it == 3092 to 1 }, "hobby horse should be used once")
+        assertTrue(calls.any { it == 9123 to 11 }, "school diploma should be used 11 times")
+    }
+
+    @Test fun useToys_setsPerToysentinel() = runBlocking {
+        val p = prefs()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) = Result.success("ok")
+        }
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(3092))
+        assertTrue(p.getBoolean("_toyUsed_3092", false))
+    }
+
+    @Test fun useToys_skipsAlreadyUsedToy() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        val p = prefs { putBoolean("_toyUsed_3092", true) }
+        manager(prefs = p, useItemRequest = fakeUse)
+            .runBreakfast(charState(), inventoryWithItems(3092))
+        assertTrue(calls.none { it.first == 3092 }, "hobby horse should be skipped when sentinel set")
+    }
+
+    @Test fun useToys_skipsToyNotInInventory() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val fakeUse = object : UseItemRequest(mockClient) {
+            override suspend fun use(itemId: Int, quantity: Int) =
+                Result.success("ok").also { calls.add(itemId to quantity) }
+        }
+        manager(useItemRequest = fakeUse).runBreakfast(charState(), InventoryState())
+        val toyIds = BreakfastItemIds.TOYS.keys
+        assertTrue(calls.none { it.first in toyIds }, "no toys should be used with empty inventory")
+    }
 }

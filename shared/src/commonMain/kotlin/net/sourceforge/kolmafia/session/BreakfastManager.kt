@@ -304,7 +304,20 @@ open class BreakfastManager(
             preferences.setBoolean(Preferences.BOXING_DAYDREAM, true)
         }
     }
-    private suspend fun useToys(inventoryState: InventoryState) {}
+    private suspend fun useToys(inventoryState: InventoryState) {
+        for ((toyId, dailyCount) in BreakfastItemIds.TOYS) {
+            val sentinelKey = "_toyUsed_$toyId"
+            if (preferences.getBoolean(sentinelKey, false)) continue
+            if (!inventoryState.items.containsKey(toyId)) continue
+            try {
+                useItemRequest.use(toyId, dailyCount).onSuccess {
+                    preferences.setBoolean(sentinelKey, true)
+                }
+            } catch (_: Exception) {
+                // best-effort; continue to next toy
+            }
+        }
+    }
     private suspend fun collectHardwood() {}
     private suspend fun collect2002MrStoreCredits(inventoryState: InventoryState) {}
     private suspend fun visitBigIsland() {}
