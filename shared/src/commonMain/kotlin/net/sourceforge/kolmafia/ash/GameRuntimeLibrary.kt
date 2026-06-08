@@ -208,11 +208,6 @@ class GameRuntimeLibrary(
             AshValue.of(gameDatabase?.monster(args[0].toString())?.id?.toLong() ?: 0L)
         }
 
-        // to_location(string) → location
-        register(scope, "to_location", AshType.LOCATION, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue.location(args[0].toString())
-        }
-
         // to_string for game entity types
         for (entityType in listOf(
             AshType.ITEM, AshType.SKILL, AshType.EFFECT,
@@ -585,6 +580,11 @@ class GameRuntimeLibrary(
         // to_monster(string) → monster
         register(scope, "to_monster", AshType.MONSTER, listOf("name" to AshType.STRING)) { _, args ->
             AshValue(AshType.MONSTER, args[0].toString())
+        }
+
+        // to_location(string) → location
+        register(scope, "to_location", AshType.LOCATION, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue.location(args[0].toString())
         }
 
         // is_banished(monster) → boolean — accepts both monster type and string

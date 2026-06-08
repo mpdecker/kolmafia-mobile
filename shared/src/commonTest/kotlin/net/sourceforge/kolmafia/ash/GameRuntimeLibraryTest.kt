@@ -248,6 +248,9 @@ class GameRuntimeLibraryTest {
     }
 
     // ── to_int entity overloads ──────────────────────────────────────────────────
+    // Note: the ASH interpreter in this codebase does not support $type[name] literal
+    // syntax. Tests use to_item(string), to_effect(string), etc. to construct entity
+    // values instead, which is the same code path as far as to_int() is concerned.
 
     private fun itemDb(itemId: Int): GameDatabase = object : GameDatabase() {
         override fun item(name: String) = ItemData(
@@ -339,5 +342,14 @@ class GameRuntimeLibraryTest {
     fun to_int_fromItem_returnsZeroWhenDbNull() {
         val lib = GameRuntimeLibrary.forTesting()
         assertEquals("0", outputLib(lib, """print(to_string(to_int(to_item("unknown item"))));"""))
+    }
+
+    @Test
+    fun to_location_fromString_returnsLocation() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals(
+            "The Haunted Pantry",
+            outputLib(lib, """print(to_string(to_location("The Haunted Pantry")));""")
+        )
     }
 }
