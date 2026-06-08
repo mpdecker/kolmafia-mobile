@@ -3,7 +3,7 @@ package net.sourceforge.kolmafia.data
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
-object CombatDatabase {
+object CombatDatabase : ZoneLookup {
     private val byLocation = mutableMapOf<String, ZoneCombatData>()
     private val entries = mutableListOf<ZoneCombatData>()
     private var loaded = false
@@ -50,7 +50,7 @@ object CombatDatabase {
         }
     }
 
-    fun getByLocation(name: String): ZoneCombatData? = byLocation[name.lowercase()]
+    override fun getByLocation(name: String): ZoneCombatData? = byLocation[name.lowercase()]
 
     fun all(): List<ZoneCombatData> = entries.toList()
 }

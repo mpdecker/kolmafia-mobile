@@ -79,4 +79,30 @@ class GameRuntimeLibraryFamiliarTest {
             outputLib(GameRuntimeLibrary.forTesting(),
                 """print(to_string(use_familiar(to_familiar("Angry Goat"))));"""))
     }
+
+    // ── my_familiar tests ────────────────────────────────────────────────────
+
+    @Test
+    fun myFamiliar_returnsRaceNotGivenName() {
+        val sombrero = FamiliarData(
+            id = 42, name = "Bob", race = "Hovering Sombrero",
+            weight = 10, experience = 0, kills = 0
+        )
+        val fm = makeFamiliarManager(FamiliarState(activeFamiliar = sombrero))
+        val lib = GameRuntimeLibrary(familiarManager = fm)
+        assertEquals("Hovering Sombrero", outputLib(lib, "print(my_familiar());"))
+    }
+
+    @Test
+    fun myFamiliar_returnsNoneWhenNoActiveFamiliar() {
+        val fm = makeFamiliarManager(FamiliarState(activeFamiliar = null))
+        val lib = GameRuntimeLibrary(familiarManager = fm)
+        assertEquals("none", outputLib(lib, "print(my_familiar());"))
+    }
+
+    @Test
+    fun myFamiliar_returnsNoneWhenNoFamiliarManager() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("none", outputLib(lib, "print(my_familiar());"))
+    }
 }

@@ -1,10 +1,14 @@
 package net.sourceforge.kolmafia.ash
 
+import io.ktor.client.HttpClient
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
+import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
+import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.mood.MoodManager
@@ -14,10 +18,12 @@ import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.skill.SkillState
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -45,12 +51,57 @@ class GameRuntimeLibrary(
     internal val autosellRequest: AutosellRequest? = null,
     internal val closetRequest: ClosetRequest? = null,
     internal val storageRequest: StorageRequest? = null,
+    internal val banishManager: BanishManager? = null,
+    internal val httpClient: HttpClient? = null,
+    internal val hermitRequest: HermitRequest? = null,
 ) : RuntimeLibrary() {
 
     companion object {
         /** Used in tests where no game managers are needed. */
         fun forTesting() = GameRuntimeLibrary()
     }
+
+    private val cliDispatch: List<Pair<Regex, (MatchResult, AshRuntimeContext) -> Unit>> = listOf(
+
+        // "mood execute" — run missing triggers for active mood
+        Regex("^mood\\s+execute$", RegexOption.IGNORE_CASE) to { _, _ ->
+            moodManager?.let { mood ->
+                kotlinx.coroutines.runBlocking {
+                    mood.executeActiveMood(
+                        effectState = effectManager?.state?.value ?: EffectState(),
+                        skillState  = skillManager?.state?.value  ?: SkillState(),
+                        charState   = character?.state?.value     ?: CharacterState(),
+                    )
+                }
+            }
+        },
+
+        // "mood <name>" — set active mood by name, then execute
+        Regex("^mood\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val name = m.groupValues[1].trim()
+            moodManager?.setActiveMoodByName(name)
+            moodManager?.let { mood ->
+                kotlinx.coroutines.runBlocking {
+                    mood.executeActiveMood(
+                        effectState = effectManager?.state?.value ?: EffectState(),
+                        skillState  = skillManager?.state?.value  ?: SkillState(),
+                        charState   = character?.state?.value     ?: CharacterState(),
+                    )
+                }
+            }
+        },
+
+        // "set key=value" — write a preference string
+        Regex("^set\\s+(.+?)\\s*=\\s*(.*)$") to { m, _ ->
+            preferences?.setString(m.groupValues[1].trim(), m.groupValues[2])
+        },
+
+        // "get key" — read and print a preference string
+        Regex("^get\\s+(.+)$") to { m, rt ->
+            val value = preferences?.getString(m.groupValues[1].trim(), "") ?: ""
+            rt.print(value)
+        },
+    )
 
     /** Bridges the protected [register] so extension functions in this module can call it. */
     internal fun regFn(
@@ -85,6 +136,10 @@ class GameRuntimeLibrary(
         registerPreferenceAccess(scope)
         registerCombatStubs(scope)
         registerItemActions(scope)
+        registerPricingQueries(scope)
+        registerBanishQueries(scope)
+        registerWebRequests(scope)
+        registerHermit(scope)
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -342,9 +397,10 @@ class GameRuntimeLibrary(
             AshValue.of(character?.state?.value?.isHardcore ?: false)
         }
         register(scope, "my_familiar", AshType.FAMILIAR, emptyList()) { _, _ ->
-            val state = character?.state?.value
-            val name = if (state?.hasFamiliar == true) state.familiarName else "none"
-            AshValue.familiar(name)
+            AshValue.familiar(
+                familiarManager?.state?.value?.activeFamiliar?.race
+                    ?.takeIf { it.isNotBlank() } ?: "none"
+            )
         }
     }
 
@@ -480,10 +536,50 @@ class GameRuntimeLibrary(
         }
 
         register(scope, "cli_execute", AshType.BOOLEAN, listOf("cmd" to AshType.STRING)) { runtime, args ->
-            // Minimal: echo the command to output.
-            // Full KoLmafia CLI dispatch is out of scope for Phase 5.
-            runtime.print("[cli] ${args[0]}")
+            val cmd = args[0].toString()
+            val matched = cliDispatch.firstOrNull { (regex, _) -> regex.matches(cmd) }
+            if (matched != null) {
+                matched.second(matched.first.find(cmd)!!, runtime)
+            } else {
+                runtime.print("[cli] $cmd")   // unknown command: echo fallback
+            }
             AshValue.of(true)
+        }
+
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Banish queries
+    // ──────────────────────────────────────────────────────────────
+
+    private fun registerBanishQueries(scope: AshScope) {
+        // to_monster(string) → monster
+        register(scope, "to_monster", AshType.MONSTER, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.MONSTER, args[0].toString())
+        }
+
+        // is_banished(monster) → boolean — accepts both monster type and string
+        register(scope, "is_banished", AshType.BOOLEAN, listOf("monster" to AshType.MONSTER)) { _, args ->
+            val name = args[0].toString()
+            val currentTurn = character?.state?.value?.currentRun ?: 0
+            AshValue.of(banishManager?.isBanished(name, currentTurn) ?: false)
+        }
+        register(scope, "is_banished", AshType.BOOLEAN, listOf("monster" to AshType.STRING)) { _, args ->
+            val name = args[0].toString()
+            val currentTurn = character?.state?.value?.currentRun ?: 0
+            AshValue.of(banishManager?.isBanished(name, currentTurn) ?: false)
+        }
+
+        // banishers_used() → string[monster]
+        val returnType = AggregateType(AshType.MONSTER, AshType.STRING)
+        register(scope, "banishers_used", returnType, emptyList()) { _, _ ->
+            val result = AggregateValue(returnType)
+            val currentTurn = character?.state?.value?.currentRun ?: 0
+            banishManager?.getActiveBanishes(currentTurn)
+                ?.forEach { (monsterName, banisher) ->
+                    result[AshValue(AshType.MONSTER, monsterName)] = AshValue.of(banisher.canonicalName)
+                }
+            result
         }
     }
 }
