@@ -21,6 +21,12 @@ import net.sourceforge.kolmafia.adventure.choice.handlers.StatHandlers
 import net.sourceforge.kolmafia.adventure.choice.handlers.VillainLairHandlers
 import net.sourceforge.kolmafia.adventure.choice.handlers.RufusHandlers
 import net.sourceforge.kolmafia.adventure.RufusManager
+import net.sourceforge.kolmafia.adventure.choice.solvers.LightsOutSolverImpl
+import net.sourceforge.kolmafia.adventure.choice.solvers.SafetyShelterSolverImpl
+import net.sourceforge.kolmafia.adventure.choice.solvers.LostKeySolverImpl
+import net.sourceforge.kolmafia.adventure.choice.solvers.ArcadeGameSolverImpl
+import net.sourceforge.kolmafia.adventure.choice.solvers.GameproSolverImpl
+import net.sourceforge.kolmafia.adventure.choice.solvers.VampOutSolverImpl
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.data.GameDatabase
@@ -83,12 +89,12 @@ val sharedModule = module {
     singleOf(::QuestLogRequest)
     single {
         ChoiceSolvers(
-            safetyShelter = net.sourceforge.kolmafia.adventure.choice.solvers.SafetyShelterSolver.NoOp,
-            vampOut       = net.sourceforge.kolmafia.adventure.choice.solvers.VampOutSolver.NoOp,
-            arcadeGame    = net.sourceforge.kolmafia.adventure.choice.solvers.ArcadeGameSolver.NoOp,
-            lostKey       = net.sourceforge.kolmafia.adventure.choice.solvers.LostKeySolver.NoOp,
-            gamepro       = net.sourceforge.kolmafia.adventure.choice.solvers.GameproSolver.NoOp,
-            lightsOut     = net.sourceforge.kolmafia.adventure.choice.solvers.LightsOutSolver.NoOp,
+            safetyShelter = SafetyShelterSolverImpl(),
+            vampOut       = VampOutSolverImpl(get()),
+            arcadeGame    = ArcadeGameSolverImpl(),
+            lostKey       = LostKeySolverImpl(),
+            gamepro       = GameproSolverImpl(get()),
+            lightsOut     = LightsOutSolverImpl(get()),
         )
     }
     singleOf(::RufusManager)
