@@ -25,9 +25,8 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
         AshValue.of(!(character?.state?.value?.kingLiberated ?: true))
     }
 
-    // Stub: CharacterState has no underStandard field
     regFn(scope, "under_standard", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(false)
+        AshValue.of(character?.state?.value?.isUnderStandard ?: false)
     }
 
     regFn(scope, "ascension_number", AshType.INT, emptyList()) { _, _ ->

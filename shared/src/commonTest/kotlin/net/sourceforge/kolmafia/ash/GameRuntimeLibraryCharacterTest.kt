@@ -50,9 +50,21 @@ class GameRuntimeLibraryCharacterTest {
     }
 
     @Test
-    fun underStandard_alwaysFalse() {
-        assertEquals("false",
-            outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(under_standard()));"))
+    fun underStandard_trueWhenPathIsStandard() {
+        val lib = libWith { copy(path = "Standard") }
+        assertEquals("true", outputLib(lib, "print(to_string(under_standard()));"))
+    }
+
+    @Test
+    fun underStandard_falseWhenPathIsNone() {
+        val lib = libWith { copy(path = "None") }
+        assertEquals("false", outputLib(lib, "print(to_string(under_standard()));"))
+    }
+
+    @Test
+    fun underStandard_falseWhenNoCharacter() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("false", outputLib(lib, "print(to_string(under_standard()));"))
     }
 
     @Test

@@ -187,6 +187,7 @@ data class CharacterState(
     val isInRonin: Boolean     get() = roninLeft > 0
     val isRestricted: Boolean  get() = isHardcore || isInRonin
     val isInLimitMode: Boolean get() = limitMode.isNotBlank()
+    val isUnderStandard: Boolean get() = ascensionPath == AscensionPath.STANDARD
 
     // ── Computed: familiar ────────────────────────────────────────────────────
     val hasFamiliar: Boolean      get() = familiarId > 0
