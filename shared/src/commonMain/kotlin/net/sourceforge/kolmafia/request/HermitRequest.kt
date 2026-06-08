@@ -1,8 +1,8 @@
 package net.sourceforge.kolmafia.request
 
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.request.forms.submitForm
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
@@ -22,7 +22,7 @@ class HermitRequest(private val client: HttpClient) {
             }
         )
         if (response.status.isSuccess()) {
-            Result.success(response.body())
+            Result.success(response.bodyAsText())
         } else {
             Result.failure(Exception("HTTP ${response.status.value}"))
         }

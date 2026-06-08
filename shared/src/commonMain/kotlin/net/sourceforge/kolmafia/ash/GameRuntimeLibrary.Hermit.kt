@@ -7,6 +7,8 @@ internal fun GameRuntimeLibrary.registerHermit(scope: AshScope) {
 
     // hermit(it: item, n: int) → int
     // Trades [n] of [it] with the hermit. Returns count on success, 0 on failure.
+    // Note: hermit() uses item-first argument order (hermit(item, count)) matching
+    // desktop KoLmafia's ASH API, unlike mobile's other item functions which are (qty, item).
     regFn(scope, "hermit", AshType.INT,
         listOf("it" to AshType.ITEM, "n" to AshType.INT)) { _, args ->
         val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.of(0L)
