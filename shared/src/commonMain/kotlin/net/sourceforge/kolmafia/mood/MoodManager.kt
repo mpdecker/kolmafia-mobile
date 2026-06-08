@@ -50,11 +50,42 @@ class MoodManager(
         removeMalignantEffects(effectState)
         val mood = activeMood ?: return
         if (!preferences.getBoolean(Preferences.AUTO_BUFF, true)) return
+        val songLimit = charState.atSongLimit  // 0 for non-AT; 3 for AT
+
         for (trigger in missingTriggers(mood, effectState)) {
             val skill = skillState.skills.firstOrNull { it.id == trigger.skillId } ?: continue
             if (skill.mpCost > charState.currentMp) continue
             if (skill.dailyLimit > 0 && skill.timesCast >= skill.dailyLimit) continue
+
+            // AT song slot management: evict lowest-priority song before overcasting
+            if (songLimit > 0 && isAtSong(trigger.effectName)) {
+                val activeSongs = effectState.effects.filter { isAtSong(it.name) }
+                if (activeSongs.size >= songLimit) {
+                    val toEvict = lowestPriorityActiveSong(activeSongs, mood.triggers)
+                    if (toEvict != null) {
+                        uneffectRequest?.uneffect(toEvict.id)
+                    }
+                }
+            }
+
             skillManager.cast(skill)
+        }
+    }
+
+    /**
+     * Returns the active AT song with the lowest priority in the current mood.
+     * "Lowest priority" = the active song whose effectId appears LAST in [moodTriggers].
+     * Songs not present in the mood trigger list are treated as lowest priority (evicted first).
+     */
+    private fun lowestPriorityActiveSong(
+        activeSongs: List<net.sourceforge.kolmafia.effect.EffectData>,
+        moodTriggers: List<MoodTrigger>,
+    ): net.sourceforge.kolmafia.effect.EffectData? {
+        if (activeSongs.isEmpty()) return null
+        val triggerEffectIds = moodTriggers.map { it.effectId }
+        return activeSongs.maxByOrNull { song ->
+            val idx = triggerEffectIds.lastIndexOf(song.id)
+            if (idx < 0) Int.MAX_VALUE else idx  // not in mood → treat as lowest priority
         }
     }
 
