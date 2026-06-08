@@ -220,6 +220,11 @@ class GameRuntimeLibrary(
                 AshValue.of(args[0].toString())
             }
         }
+
+        // to_location(string) → location — type conversion for locations
+        register(scope, "to_location", AshType.LOCATION, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue.location(args[0].toString())
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -580,11 +585,6 @@ class GameRuntimeLibrary(
         // to_monster(string) → monster
         register(scope, "to_monster", AshType.MONSTER, listOf("name" to AshType.STRING)) { _, args ->
             AshValue(AshType.MONSTER, args[0].toString())
-        }
-
-        // to_location(string) → location
-        register(scope, "to_location", AshType.LOCATION, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue.location(args[0].toString())
         }
 
         // is_banished(monster) → boolean — accepts both monster type and string
