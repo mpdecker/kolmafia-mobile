@@ -101,6 +101,36 @@ class GameRuntimeLibrary(
             val value = preferences?.getString(m.groupValues[1].trim(), "") ?: ""
             rt.print(value)
         },
+
+        // "cast N skill-name" — cast a skill N times (count form: silent no-op if unknown)
+        Regex("^cast\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val count = m.groupValues[1].toIntOrNull() ?: 1
+            val skillName = m.groupValues[2].trim()
+            val skill = skillManager?.state?.value?.skills
+                ?.find { it.name.equals(skillName, ignoreCase = true) }
+            if (skill != null) {
+                kotlinx.coroutines.runBlocking { skillManager!!.cast(skill, count) }
+            }
+            // skill not found → silent no-op (no echo for count form)
+        },
+
+        // "cast skill-name" — cast a skill once (no count prefix; echo if unknown)
+        Regex("^cast\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val skillName = m.groupValues[1].trim()
+            val skill = skillManager?.state?.value?.skills
+                ?.find { it.name.equals(skillName, ignoreCase = true) }
+            if (skill != null) {
+                kotlinx.coroutines.runBlocking { skillManager!!.cast(skill, 1) }
+            } else {
+                rt.print("[cli] cast $skillName")  // unknown skill → echo
+            }
+        },
+
+        // "familiar name" — switch to a familiar by species name
+        Regex("^familiar\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val name = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking { familiarManager?.setFamiliar(name) }
+        },
     )
 
     /** Bridges the protected [register] so extension functions in this module can call it. */

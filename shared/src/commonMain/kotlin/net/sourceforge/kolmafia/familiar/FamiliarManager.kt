@@ -29,7 +29,7 @@ private data class FamiliarApiEntry(
     @SerialName("active") val isActive: Boolean = false
 )
 
-class FamiliarManager(
+open class FamiliarManager(
     private val client: HttpClient,
     private val eventBus: GameEventBus
 ) {
@@ -105,7 +105,7 @@ class FamiliarManager(
     // ── Phase 10 ASH helpers ──────────────────────────────────────────────────
 
     /** Sets the active familiar by species name (race). Returns failure if not owned. */
-    suspend fun setFamiliar(name: String): Result<Unit> {
+    open suspend fun setFamiliar(name: String): Result<Unit> {
         val familiar = state.value.ownedFamiliars
             .find { it.race.equals(name, ignoreCase = true) }
             ?: return Result.failure(Exception("Familiar not owned: $name"))
