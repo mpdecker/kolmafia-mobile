@@ -18,6 +18,7 @@ import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.GoalManager
@@ -52,6 +53,7 @@ class GameRuntimeLibrary(
     internal val storageRequest: StorageRequest? = null,
     internal val banishManager: BanishManager? = null,
     internal val httpClient: HttpClient? = null,
+    internal val hermitRequest: HermitRequest? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -137,6 +139,7 @@ class GameRuntimeLibrary(
         registerPricingQueries(scope)
         registerBanishQueries(scope)
         registerWebRequests(scope)
+        registerHermit(scope)
     }
 
     // ──────────────────────────────────────────────────────────────

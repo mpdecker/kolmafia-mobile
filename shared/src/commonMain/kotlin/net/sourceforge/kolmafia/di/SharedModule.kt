@@ -59,6 +59,7 @@ import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.StorageRequest
+import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.shop.CoinmasterRequest
 import net.sourceforge.kolmafia.shop.ShopRequest
@@ -116,6 +117,7 @@ val sharedModule = module {
         }
     }
     singleOf(::UseItemRequest)
+    singleOf(::HermitRequest)
     singleOf(::EatFoodRequest)
     singleOf(::DrinkBoozeRequest)
     singleOf(::ChewRequest)
@@ -176,7 +178,8 @@ val sharedModule = module {
             closetRequest    = get(),
             storageRequest   = get(),
             banishManager    = get(),
-            httpClient        = get(),
+            httpClient       = get(),
+            hermitRequest    = get(),
         )
     }
     singleOf(::ScriptManager)
