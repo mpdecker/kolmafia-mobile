@@ -52,12 +52,12 @@ object AdventureParser {
         "thunder clap"                                        to Banisher.THUNDER_CLAP,
         "dirty stinkbomb"                                     to Banisher.DIRTY_STINKBOMB,
         "peppermint bomb"                                     to Banisher.PEPPERMINT_BOMB,
-        "harolds bell"                                        to Banisher.HAROLDS_BELL,
-        "crystal skull"                                       to Banisher.CRYSTAL_SKULL,
-        "classy monkey"                                       to Banisher.CLASSY_MONKEY,
-        "mind master"                                         to Banisher.BE_A_MIND_MASTER,
-        "throwin"                                             to Banisher.THROWIN_EMBER,
-        "punch out"                                           to Banisher.PUNCH_OUT_YOUR_FOE,
+        "throw the bell away"                                 to Banisher.HAROLDS_BELL,
+        "skull explodes into a million"                       to Banisher.CRYSTAL_SKULL,
+        "EEEEEEEEEEEEEEEEEEEEEEEK"                            to Banisher.CLASSY_MONKEY,
+        "push away your opponent"                             to Banisher.BE_A_MIND_MASTER,
+        "You burned that foe so hard, you won't"              to Banisher.THROWIN_EMBER,
+        "deliver an epic punch"                               to Banisher.PUNCH_OUT_YOUR_FOE,
     )
 
     fun parseAdventureResponse(html: String, finalUrl: String): AdventureResult = when {

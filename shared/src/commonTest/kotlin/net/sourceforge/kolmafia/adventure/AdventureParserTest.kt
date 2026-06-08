@@ -267,4 +267,46 @@ class AdventureParserTest {
         assertTrue(result.banished)
         assertEquals(Banisher.PEPPERMINT_BOMB, result.banisher)
     }
+
+    @Test fun parseFightResult_haroldsBell_detected() {
+        val html = "You throw the bell away, and the monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.HAROLDS_BELL, result.banisher)
+    }
+
+    @Test fun parseFightResult_crystalSkull_detected() {
+        val html = "Your skull explodes into a million pieces! The monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.CRYSTAL_SKULL, result.banisher)
+    }
+
+    @Test fun parseFightResult_classyMonkey_detected() {
+        val html = "EEEEEEEEEEEEEEEEEEEEEEEK! The monster flees in terror from the monkey."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.CLASSY_MONKEY, result.banisher)
+    }
+
+    @Test fun parseFightResult_beAMindMaster_detected() {
+        val html = "You push away your opponent, who flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.BE_A_MIND_MASTER, result.banisher)
+    }
+
+    @Test fun parseFightResult_throwinEmber_detected() {
+        val html = "You burned that foe so hard, you won't see them again. They flee in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.THROWIN_EMBER, result.banisher)
+    }
+
+    @Test fun parseFightResult_punchOutYourFoe_detected() {
+        val html = "You deliver an epic punch and the monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.PUNCH_OUT_YOUR_FOE, result.banisher)
+    }
 }
