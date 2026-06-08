@@ -151,4 +151,18 @@ class MoodManager(
             )
         }
     }
+
+    /**
+     * Returns true if [effectName] is an Accordion Thief song, determined by the
+     * "song" attribute in statuseffects.txt (parsed by EffectDatabase at load time).
+     *
+     * AT songs (Polka of Plenty, Fat Leon's, Ode to Booze, Aloysius' Antiphon, etc.)
+     * have "song" in their `attributes` column.
+     *
+     * Returns false when EffectDatabase is not loaded (e.g., in test environments
+     * that don't load game data files).
+     */
+    internal fun isAtSong(effectName: String): Boolean =
+        net.sourceforge.kolmafia.data.EffectDatabase.getByName(effectName)
+            ?.attributes?.contains("song") == true
 }

@@ -199,6 +199,8 @@ data class CharacterState(
         else                        -> 0
     }
     val audienceLimit: Int get() = 30   // 50 with Pete jacket; simplified here
+    // AT song slot limit. Base = 3 for AT class; 0 for all other classes.
+    val atSongLimit: Int get() = if (characterClassEnum == CharacterClass.ACCORDION_THIEF) 3 else 0
 
     // ── Computed: campground access ───────────────────────────────────────────
     val canUseStore: Boolean        get() = hasStore
