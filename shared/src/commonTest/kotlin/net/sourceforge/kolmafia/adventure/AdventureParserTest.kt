@@ -188,4 +188,83 @@ class AdventureParserTest {
         val result = AdventureParser.parseFightResult(html)
         assertTrue(result.banished)
     }
+
+    // New banisher detection patterns — Phase 12
+
+    @Test fun parseFightResult_stinkyCheeseEye_detected() {
+        val html = "The monster flees in terror from stinky cheese eye goo on it."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.STINKY_CHEESE_EYE, result.banisher)
+    }
+
+    @Test fun parseFightResult_smokeGrenade_detected() {
+        val html = "You throw a smoke grenade and your foe flees in terror while the smoke clears."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.SMOKE_GRENADE, result.banisher)
+    }
+
+    @Test fun parseFightResult_walkAwayFromExplosion_detected() {
+        val html = "You walk away from the explosion in slow motion as your foe flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.WALK_AWAY_FROM_EXPLOSION, result.banisher)
+    }
+
+    @Test fun parseFightResult_splitPeaSoup_detected() {
+        val html = "You hurl split pea soup and the monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.SPLIT_PEA_SOUP, result.banisher)
+    }
+
+    @Test fun parseFightResult_tennisBall_detected() {
+        val html = "You chuck a tennis ball and the monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.TENNIS_BALL, result.banisher)
+    }
+
+    @Test fun parseFightResult_cocktailNapkin_detected() {
+        val html = "You flourish your cocktail napkin and the monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.COCKTAIL_NAPKIN, result.banisher)
+    }
+
+    @Test fun parseFightResult_vivala_detected() {
+        val html = "You make a v for vivala mask gesture and the monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.V_FOR_VIVALA_MASK, result.banisher)
+    }
+
+    @Test fun parseFightResult_indigoTaffy_detected() {
+        val html = "You throw indigo taffy and the monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.PULLED_INDIGO_TAFFY, result.banisher)
+    }
+
+    @Test fun parseFightResult_thunderClap_detected() {
+        val html = "You thunder clap the monster and it flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.THUNDER_CLAP, result.banisher)
+    }
+
+    @Test fun parseFightResult_dirtyStinkbomb_detected() {
+        val html = "You throw a dirty stinkbomb and the monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.DIRTY_STINKBOMB, result.banisher)
+    }
+
+    @Test fun parseFightResult_peppermintBomb_detected() {
+        val html = "You lob a peppermint bomb at the monster, causing it to flee in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.PEPPERMINT_BOMB, result.banisher)
+    }
 }
