@@ -18,4 +18,15 @@ internal fun GameRuntimeLibrary.registerHermit(scope: AshScope) {
         val success = kotlinx.coroutines.runBlocking { req.trade(itemId, count) }.isSuccess
         AshValue.of(if (success) count.toLong() else 0L)
     }
+
+    // hermit(n: int, it: item) → int   [count-first; matches desktop hermit(count, item)]
+    regFn(scope, "hermit", AshType.INT,
+        listOf("n" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val count  = args[0].toLong().toInt()
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(0L)
+        if (count <= 0) return@regFn AshValue.of(0L)
+        val req = hermitRequest ?: return@regFn AshValue.of(0L)
+        val success = kotlinx.coroutines.runBlocking { req.trade(itemId, count) }.isSuccess
+        AshValue.of(if (success) count.toLong() else 0L)
+    }
 }
