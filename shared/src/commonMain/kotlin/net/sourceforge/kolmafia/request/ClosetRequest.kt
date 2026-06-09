@@ -1,13 +1,15 @@
 package net.sourceforge.kolmafia.request
 
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
-class ClosetRequest(private val client: HttpClient) {
+open class ClosetRequest(private val client: HttpClient) {
+
     suspend fun putIn(itemId: Int, quantity: Int): Result<String> {
         return try {
             val response = client.get("$KOL_BASE_URL/closet.php") {
@@ -41,6 +43,24 @@ class ClosetRequest(private val client: HttpClient) {
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Fetches the closet contents from api.php?what=closet.
+     * Returns a map of item ID → quantity. Open so tests can override.
+     */
+    open suspend fun fetchContents(): Map<Int, Int> {
+        return try {
+            val response = client.get("$KOL_BASE_URL/api.php") {
+                parameter("what", "closet")
+                parameter("for", "KoLmafia-Mobile")
+            }
+            if (!response.status.isSuccess()) return emptyMap()
+            val rawMap: Map<String, Int> = response.body()
+            rawMap.entries.mapNotNull { (k, v) -> k.toIntOrNull()?.to(v) }.toMap()
+        } catch (e: Exception) {
+            emptyMap()
         }
     }
 }

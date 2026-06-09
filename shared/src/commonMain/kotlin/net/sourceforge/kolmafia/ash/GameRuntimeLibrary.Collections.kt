@@ -14,14 +14,30 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
         result
     }
 
-    // ── get_closet() → int[item] (stub — closet not yet fetched on mobile) ────
-    regFn(scope, "get_closet", itemIntType, emptyList()) { _, _ ->
-        AggregateValue(itemIntType)
+    // ── Helper: convert fetchContents() Map<Int, Int> → AggregateValue ───────
+    fun mapToAggregate(contents: Map<Int, Int>): AggregateValue {
+        val result = AggregateValue(itemIntType)
+        contents.forEach { (itemId, qty) ->
+            val itemName = gameDatabase?.item(itemId)?.name ?: "Item #$itemId"
+            result[AshValue.item(itemName)] = AshValue.of(qty.toLong())
+        }
+        return result
     }
 
-    // ── get_storage() → int[item] (stub — Hagnk's storage not yet fetched) ───
+    // ── get_closet() → int[item] (live — fetches from api.php?what=closet) ───
+    regFn(scope, "get_closet", itemIntType, emptyList()) { _, _ ->
+        val contents = kotlinx.coroutines.runBlocking {
+            closetRequest?.fetchContents() ?: emptyMap()
+        }
+        mapToAggregate(contents)
+    }
+
+    // ── get_storage() → int[item] (live — fetches from api.php?what=storage) ─
     regFn(scope, "get_storage", itemIntType, emptyList()) { _, _ ->
-        AggregateValue(itemIntType)
+        val contents = kotlinx.coroutines.runBlocking {
+            storageRequest?.fetchContents() ?: emptyMap()
+        }
+        mapToAggregate(contents)
     }
 
     // ── get_stash() → int[item] (stub — clan stash not yet fetched) ──────────
