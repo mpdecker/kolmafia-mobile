@@ -104,7 +104,10 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
     }
 
     // 12. overdrink(qty: int, it: item) → boolean
-    // Allows drinking past the inebriety limit — same HTTP call as drink().
+    // Desktop semantic: bypasses the inebriety cap entirely (server allows over-limit).
+    // Mobile simplification: identical to drinksilent() — both call DrinkBoozeRequest.drink()
+    // since mobile has no client-side inebriety guard. Scripts calling overdrink() get the
+    // correct HTTP action; the cap-bypass distinction only matters for desktop UI suppression.
     regFn(scope, "overdrink", AshType.BOOLEAN,
         listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
         val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)

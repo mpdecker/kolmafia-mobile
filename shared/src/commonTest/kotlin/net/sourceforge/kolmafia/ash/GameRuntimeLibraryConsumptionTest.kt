@@ -18,6 +18,12 @@ private fun okClient(): HttpClient = HttpClient(MockEngine {
     respond("ok", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/html"))
 })
 
+/**
+ * Two-item stub (food + booze) covering both consumption categories.
+ * GameRuntimeLibraryItemActionsTest.kt has a single-item StubGameDatabase
+ * that covers only one item at a time; this variant is purpose-built for
+ * tests that need both a food and a booze item in scope simultaneously.
+ */
 private class StubDb : GameDatabase() {
     private val food = ItemData(1001, "magical sausage", "desc", "food.gif",
         ItemPrimaryUse.FOOD, emptySet(), setOf('t', 'd'), 10, null)
