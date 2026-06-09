@@ -82,4 +82,34 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         val req = storageRequest ?: return@regFn AshValue.of(false)
         AshValue.of(kotlinx.coroutines.runBlocking { req.withdraw(itemId, qty) }.isSuccess)
     }
+
+    // 10. eatsilent(qty: int, it: item) → boolean
+    // Same as eat() — mobile has no client-side fullness guard; server enforces cap.
+    regFn(scope, "eatsilent", AshType.BOOLEAN,
+        listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
+        val qty = args[0].toLong().toInt()
+        val req = eatFoodRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.eat(itemId, qty) }.isSuccess)
+    }
+
+    // 11. drinksilent(qty: int, it: item) → boolean
+    // Same as drink() — mobile has no client-side inebriety guard.
+    regFn(scope, "drinksilent", AshType.BOOLEAN,
+        listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
+        val qty = args[0].toLong().toInt()
+        val req = drinkBoozeRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.drink(itemId, qty) }.isSuccess)
+    }
+
+    // 12. overdrink(qty: int, it: item) → boolean
+    // Allows drinking past the inebriety limit — same HTTP call as drink().
+    regFn(scope, "overdrink", AshType.BOOLEAN,
+        listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
+        val qty = args[0].toLong().toInt()
+        val req = drinkBoozeRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.drink(itemId, qty) }.isSuccess)
+    }
 }
