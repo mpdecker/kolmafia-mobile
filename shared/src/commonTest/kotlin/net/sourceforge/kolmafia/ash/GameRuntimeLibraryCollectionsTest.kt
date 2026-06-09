@@ -20,17 +20,17 @@ class GameRuntimeLibraryCollectionsTest {
     }
 
     @Test
-    fun getCloset_returnsEmptyAggregate() {
+    fun getCloset_returnsEmptyWhenRequestIsNull() {
+        // GameRuntimeLibrary.forTesting() sets closetRequest = null; should return empty aggregate
         assertEquals("0",
-            outputLib(GameRuntimeLibrary.forTesting(),
-                "print(to_string(count(get_closet())));"))
+            outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(count(get_closet())));"))
     }
 
     @Test
-    fun getStorage_returnsEmptyAggregate() {
+    fun getStorage_returnsEmptyWhenRequestIsNull() {
+        // GameRuntimeLibrary.forTesting() sets storageRequest = null; should return empty aggregate
         assertEquals("0",
-            outputLib(GameRuntimeLibrary.forTesting(),
-                "print(to_string(count(get_storage())));"))
+            outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(count(get_storage())));"))
     }
 
     @Test
@@ -82,15 +82,4 @@ class GameRuntimeLibraryCollectionsTest {
         assertEquals("1", outputLib(lib, "print(to_string(count(get_storage())));"))
     }
 
-    @Test
-    fun getCloset_returnsEmptyWhenRequestIsNull() {
-        assertEquals("0",
-            outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(count(get_closet())));"))
-    }
-
-    @Test
-    fun getStorage_returnsEmptyWhenRequestIsNull() {
-        assertEquals("0",
-            outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(count(get_storage())));"))
-    }
 }
