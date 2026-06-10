@@ -46,8 +46,8 @@ class StorageRequestTest {
             "Expected whichitem=15 in request path but got: $capturedPaths"
         )
         assertTrue(
-            capturedPaths.any { it.contains("action=take") },
-            "Expected action=take in request path but got: $capturedPaths"
+            capturedPaths.any { it.contains("action=pullitem") },
+            "Expected action=pullitem in request path but got: $capturedPaths"
         )
     }
 

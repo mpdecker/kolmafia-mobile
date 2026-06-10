@@ -25,6 +25,7 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
     }
 
     // ── get_closet() → int[item] (live — fetches from api.php?what=closet) ───
+    // Live fetch — issues an HTTP request on every call; avoid calling in tight loops.
     regFn(scope, "get_closet", itemIntType, emptyList()) { _, _ ->
         val contents = kotlinx.coroutines.runBlocking {
             closetRequest?.fetchContents() ?: emptyMap()
@@ -33,6 +34,7 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
     }
 
     // ── get_storage() → int[item] (live — fetches from api.php?what=storage) ─
+    // Live fetch — issues an HTTP request on every call; avoid calling in tight loops.
     regFn(scope, "get_storage", itemIntType, emptyList()) { _, _ ->
         val contents = kotlinx.coroutines.runBlocking {
             storageRequest?.fetchContents() ?: emptyMap()

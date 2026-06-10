@@ -10,7 +10,7 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
 open class ClosetRequest(private val client: HttpClient) {
 
-    suspend fun putIn(itemId: Int, quantity: Int): Result<String> {
+    open suspend fun putIn(itemId: Int, quantity: Int): Result<String> {
         return try {
             val response = client.get("$KOL_BASE_URL/closet.php") {
                 parameter("action", "put")
@@ -28,7 +28,7 @@ open class ClosetRequest(private val client: HttpClient) {
         }
     }
 
-    suspend fun takeOut(itemId: Int, quantity: Int): Result<String> {
+    open suspend fun takeOut(itemId: Int, quantity: Int): Result<String> {
         return try {
             val response = client.get("$KOL_BASE_URL/closet.php") {
                 parameter("action", "take")

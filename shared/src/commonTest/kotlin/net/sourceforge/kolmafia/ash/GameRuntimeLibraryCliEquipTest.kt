@@ -83,10 +83,12 @@ class GameRuntimeLibraryCliEquipTest {
 
     @Test
     fun cliExecute_equipWithSlotUnknownSlot_silentNoOp() {
-        val invMgr = FakeInventoryManager(swordInBackpack())
+        val equipCalls = mutableListOf<Pair<String, String>>()
+        val invMgr = FakeInventoryManager(swordInBackpack(), equipCalls)
         val lib = GameRuntimeLibrary(inventoryManager = invMgr)
         val out = outputLib(lib, """cli_execute("equip badslot rusty sword");""")
         assertEquals("", out)
+        assertEquals(emptyList<Pair<String, String>>(), equipCalls)
     }
 
     @Test

@@ -13,7 +13,7 @@ open class StorageRequest(private val client: HttpClient) {
     suspend fun withdraw(itemId: Int, quantity: Int): Result<String> {
         return try {
             val response = client.get("$KOL_BASE_URL/storage.php") {
-                parameter("action", "take")
+                parameter("action", "pullitem")
                 parameter("whichitem", itemId)
                 parameter("qty", quantity)
                 parameter("ajax", 1)
