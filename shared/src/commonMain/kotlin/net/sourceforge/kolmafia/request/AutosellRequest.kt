@@ -7,8 +7,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
-class AutosellRequest(private val client: HttpClient) {
-    suspend fun autosell(itemId: Int, quantity: Int): Result<String> {
+open class AutosellRequest(private val client: HttpClient) {
+    open suspend fun autosell(itemId: Int, quantity: Int): Result<String> {
         return try {
             val response = client.get("$KOL_BASE_URL/sellstuff_ugly.php") {
                 parameter("action", "sell")

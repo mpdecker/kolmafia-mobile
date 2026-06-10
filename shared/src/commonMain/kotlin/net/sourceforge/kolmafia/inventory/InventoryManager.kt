@@ -15,12 +15,12 @@ import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
-class InventoryManager(
+open class InventoryManager(
     private val client: HttpClient,
     private val eventBus: GameEventBus
 ) {
     private val _state = MutableStateFlow(InventoryState())
-    val state: StateFlow<InventoryState> = _state.asStateFlow()
+    open val state: StateFlow<InventoryState> = _state.asStateFlow()
 
     fun initialize(scope: CoroutineScope) {
         scope.launch {
@@ -74,7 +74,7 @@ class InventoryManager(
         Result.failure(e)
     }
 
-    suspend fun equipItem(item: InventoryItem, slot: String): Result<Unit> = try {
+    open suspend fun equipItem(item: InventoryItem, slot: String): Result<Unit> = try {
         client.submitForm(
             url = "$KOL_BASE_URL/inv_equip.php",
             formParameters = parameters {
@@ -89,7 +89,7 @@ class InventoryManager(
         Result.failure(e)
     }
 
-    suspend fun unequipSlot(slot: String): Result<Unit> = try {
+    open suspend fun unequipSlot(slot: String): Result<Unit> = try {
         client.submitForm(
             url = "$KOL_BASE_URL/inv_equip.php",
             formParameters = parameters {

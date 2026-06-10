@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
@@ -134,6 +135,68 @@ class GameRuntimeLibrary(
         Regex("^familiar\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val name = m.groupValues[1].trim()
             kotlinx.coroutines.runBlocking { familiarManager?.setFamiliar(name) }
+        },
+
+        // "equip [<slot>] <item-name>" — equip item, optionally into a named slot.
+        // If the first word after "equip" is a known slot apiKey or displayName, treat it as a slot
+        // and the remainder as the item name; otherwise, treat the whole remainder as an item name
+        // and equip into "default" slot. Unknown slot name → error echo; unknown item → silent no-op.
+        Regex("^equip\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val rest = m.groupValues[1].trim()
+            // Try to split: first token as slot, rest as item name
+            val spaceIdx = rest.indexOf(' ')
+            val firstToken = if (spaceIdx >= 0) rest.substring(0, spaceIdx) else rest
+            val afterFirst = if (spaceIdx >= 0) rest.substring(spaceIdx + 1).trim() else ""
+            val knownSlot = EquipmentSlot.entries.find { s ->
+                s.displayName.equals(firstToken, ignoreCase = true)
+                    || s.apiKey.equals(firstToken, ignoreCase = true)
+            }
+            if (knownSlot != null && afterFirst.isNotEmpty()) {
+                // Slot + item form
+                val item = inventoryManager?.state?.value?.items?.values
+                    ?.find { it.name.equals(afterFirst, ignoreCase = true) }
+                if (item == null) return@to
+                kotlinx.coroutines.runBlocking { inventoryManager!!.equipItem(item, knownSlot.apiKey) }
+            } else if (spaceIdx >= 0 && afterFirst.isNotEmpty()) {
+                // First token looks like a slot word but isn't recognized — check if it could be
+                // part of a multi-word item name by seeing if anything in inventory matches the full rest
+                val itemByFullName = inventoryManager?.state?.value?.items?.values
+                    ?.find { it.name.equals(rest, ignoreCase = true) }
+                if (itemByFullName != null) {
+                    kotlinx.coroutines.runBlocking { inventoryManager!!.equipItem(itemByFullName, "default") }
+                } else {
+                    // First token doesn't match any slot and full string isn't a known item.
+                    // Check if first token looks like an explicit (but unknown) slot attempt:
+                    // heuristic — if afterFirst matches an inventory item, treat firstToken as bad slot
+                    val itemByAfter = inventoryManager?.state?.value?.items?.values
+                        ?.find { it.name.equals(afterFirst, ignoreCase = true) }
+                    if (itemByAfter != null) {
+                        rt.print("[cli] equip: unknown slot $firstToken")
+                    }
+                    // otherwise silent no-op (unknown item)
+                }
+            } else {
+                // Single-word item — no slot
+                val item = inventoryManager?.state?.value?.items?.values
+                    ?.find { it.name.equals(rest, ignoreCase = true) }
+                if (item != null) {
+                    kotlinx.coroutines.runBlocking { inventoryManager!!.equipItem(item, "default") }
+                }
+            }
+        },
+
+        // "unequip <slot>" — remove equipped item from a slot
+        Regex("^unequip\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val slotName = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking { inventoryManager?.unequipSlot(slotName) }
+        },
+
+        // "sell N <item>" or "autosell N <item>" — autosell N copies
+        Regex("^(?:sell|autosell)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemName = m.groupValues[2].trim()
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { autosellRequest?.autosell(itemId, qty) }
         },
     )
 
