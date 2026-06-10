@@ -82,6 +82,7 @@ open class GameDatabase {
     fun foldGroup(itemName: String) = FoldGroupDatabase.groupFor(itemName)
     fun npcStore(key: String) = NpcStoreDatabase.getByKey(key)
     open fun npcPrice(itemName: String): Int = NpcStoreDatabase.npcPrice(itemName)
+    open fun npcStoreFor(itemName: String): NpcStoreData? = NpcStoreDatabase.storeForItem(itemName)
     fun dailyLimit(name: String) = DailyLimitDatabase.getByName(name)
     fun packageItem(name: String) = PackageDatabase.getByName(name)
     fun cafeFood(name: String) = CafeDatabase.getFood(name)

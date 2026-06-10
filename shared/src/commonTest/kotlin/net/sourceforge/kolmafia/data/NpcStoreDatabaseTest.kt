@@ -5,6 +5,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NpcStoreDatabaseTest {
@@ -102,5 +103,34 @@ Store B	storeb	magic widget	200	ROW2
 """.trimIndent()
         NpcStoreDatabase.loadFromText(textWithDupe)
         assertEquals(100, NpcStoreDatabase.npcPrice("magic widget"))
+    }
+
+    @Test
+    fun `storeForItem returns the store that sells the item`() {
+        NpcStoreDatabase.loadFromText(sampleText)
+        val store = NpcStoreDatabase.storeForItem("ye olde golde frontes")
+        assertNotNull(store)
+        assertEquals("guildstore1", store!!.storeKey)
+    }
+
+    @Test
+    fun `storeForItem is case-insensitive`() {
+        NpcStoreDatabase.loadFromText(sampleText)
+        val store = NpcStoreDatabase.storeForItem("YE OLDE GOLDE FRONTES")
+        assertNotNull(store)
+        assertEquals("guildstore1", store!!.storeKey)
+    }
+
+    @Test
+    fun `storeForItem returns null for unknown item`() {
+        NpcStoreDatabase.loadFromText(sampleText)
+        assertNull(NpcStoreDatabase.storeForItem("imaginary widget"))
+    }
+
+    @Test
+    fun `storeForItem returns null after resetForTest`() {
+        NpcStoreDatabase.loadFromText(sampleText)
+        NpcStoreDatabase.resetForTest()
+        assertNull(NpcStoreDatabase.storeForItem("ye olde golde frontes"))
     }
 }

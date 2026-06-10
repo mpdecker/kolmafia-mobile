@@ -8,6 +8,7 @@ object NpcStoreDatabase {
     private val _byKey   = mutableMapOf<String, NpcStoreData>()
     private val _byName  = mutableMapOf<String, NpcStoreData>()
     private val _itemPrices = mutableMapOf<String, Int>()
+    private val _byItemName = mutableMapOf<String, NpcStoreData>()
     private var loaded = false
 
     val byKey:  Map<String, NpcStoreData> get() = _byKey
@@ -23,6 +24,7 @@ object NpcStoreDatabase {
         _byKey.clear()
         _byName.clear()
         _itemPrices.clear()
+        _byItemName.clear()
 
         val storeItems = mutableMapOf<String, MutableList<NpcStoreItem>>()
 
@@ -60,10 +62,19 @@ object NpcStoreDatabase {
             }
         }
 
+        // Build item-name → store index after all stores are fully populated
+        _byKey.values.forEach { store ->
+            store.items.forEach { item ->
+                _byItemName.putIfAbsent(item.itemName.lowercase(), store)
+            }
+        }
+
         loaded = true
     }
 
     fun npcPrice(itemName: String): Int = _itemPrices[itemName.lowercase()] ?: 0
+
+    fun storeForItem(itemName: String): NpcStoreData? = _byItemName[itemName.lowercase()]
 
     fun getByKey(key: String): NpcStoreData? = _byKey[key.lowercase()]
     fun getByName(name: String): NpcStoreData? = _byName[name.lowercase()]
@@ -75,6 +86,7 @@ object NpcStoreDatabase {
         _byKey.clear()
         _byName.clear()
         _itemPrices.clear()
+        _byItemName.clear()
         loaded = false
     }
 }
