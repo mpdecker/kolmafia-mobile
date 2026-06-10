@@ -180,6 +180,46 @@ class ManaBurnManagerTest {
         assertEquals(listOf(100), cast)
     }
 
+    @Test fun pickSkillToBurn_allowNonMoodBurning_picksBuffSkill() {
+        val p = MapSettings()
+        p.putBoolean(Preferences.ALLOW_NON_MOOD_BURNING, true)
+        val prefs = Preferences(p)
+        val skillState = SkillState(skills = listOf(
+            SkillData(1, "Arcane Missiles", SkillType.BUFF, mpCost = 5, dailyLimit = 0, timesCast = 0),
+        ))
+        val picked = ManaBurnManager.pickSkillToBurn(
+            null, EffectState(), skillState, CharacterState(currentMp = 50), prefs = prefs,
+        )
+        assertEquals(1, picked?.id)
+    }
+
+    @Test fun pickSkillToBurn_summonThreshold_picksSummon() {
+        val p = MapSettings()
+        p.putInt(Preferences.MANA_BURN_SUMMON_THRESHOLD, 50)
+        val prefs = Preferences(p)
+        val skillState = SkillState(skills = listOf(
+            SkillData(1, "Summon Snowcone", SkillType.SUMMON, mpCost = 5, dailyLimit = 0, timesCast = 0),
+        ))
+        val picked = ManaBurnManager.pickSkillToBurn(
+            null, EffectState(), skillState, CharacterState(currentMp = 80, maxMp = 100), prefs = prefs,
+        )
+        assertEquals(1, picked?.id)
+    }
+
+    @Test fun pickSkillToBurn_priorityListRespected() {
+        val p = MapSettings()
+        p.putString(Preferences.MANA_BURN_SKILLS, "Skill B|Skill A")
+        val prefs = Preferences(p)
+        val skillState = SkillState(skills = listOf(
+            SkillData(1, "Skill A", SkillType.BUFF, mpCost = 5, dailyLimit = 0, timesCast = 0),
+            SkillData(2, "Skill B", SkillType.BUFF, mpCost = 5, dailyLimit = 0, timesCast = 0),
+        ))
+        val picked = ManaBurnManager.pickSkillToBurn(
+            null, EffectState(), skillState, CharacterState(currentMp = 50), prefs = prefs,
+        )
+        assertEquals(2, picked?.id)
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun prefs(enabled: Boolean, belowPct: Int = 90): Preferences {

@@ -46,6 +46,20 @@ open class ClosetRequest(private val client: HttpClient) {
         }
     }
 
+    /** Take all items from the closet into inventory. */
+    open suspend fun emptyCloset(): Result<Int> {
+        return try {
+            val contents = fetchContents()
+            var moved = 0
+            for ((itemId, qty) in contents) {
+                if (takeOut(itemId, qty).isSuccess) moved += qty
+            }
+            Result.success(moved)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Fetches the closet contents from api.php?what=closet.
      * Returns a map of item ID → quantity. Open so tests can override.

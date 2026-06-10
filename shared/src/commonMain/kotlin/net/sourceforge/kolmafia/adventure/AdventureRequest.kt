@@ -21,4 +21,14 @@ class AdventureRequest(private val client: HttpClient) {
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    /** Travel to a zone without spending an adventure (desktop set_location). */
+    suspend fun travel(snarfblat: String): Result<String> = try {
+        val response = client.get("$KOL_BASE_URL/adventure.php") {
+            parameter("snarfblat", snarfblat)
+        }
+        Result.success(response.bodyAsText())
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }

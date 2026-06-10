@@ -234,4 +234,155 @@ class GameRuntimeLibraryCliTest {
         runLib(lib, """cli_execute("goal clear");""")
         assertEquals(false, gm.hasItemGoals())
     }
+
+    @Test
+    fun cliExecute_goalMeat_setsMeatGoal() {
+        val gm = net.sourceforge.kolmafia.session.GoalManager()
+        val lib = GameRuntimeLibrary(goalManager = gm)
+        runLib(lib, """cli_execute("goal meat 5000");""")
+        assertTrue(gm.hasMeatGoalSet())
+    }
+
+    @Test
+    fun cliExecute_goalLevel_setsLevelGoal() {
+        val gm = net.sourceforge.kolmafia.session.GoalManager()
+        val lib = GameRuntimeLibrary(goalManager = gm)
+        runLib(lib, """cli_execute("goal level 13");""")
+        assertTrue(gm.hasLevelGoalSet())
+    }
+
+    @Test
+    fun cliExecute_location_printsLastLocation() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        prefs.putString(net.sourceforge.kolmafia.preferences.Preferences.LAST_LOCATION, "The Spooky Forest")
+        val lib = GameRuntimeLibrary(preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs))
+        val out = outputLib(lib, """cli_execute("location");""")
+        assertTrue(out.contains("The Spooky Forest"))
+    }
+
+    @Test
+    fun cliExecute_emptyCloset_callsClosetRequest() {
+        var called = false
+        val closet = object : net.sourceforge.kolmafia.request.ClosetRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun emptyCloset(): Result<Int> {
+                called = true
+                return Result.success(0)
+            }
+        }
+        val lib = GameRuntimeLibrary(closetRequest = closet)
+        runLib(lib, """cli_execute("empty closet");""")
+        assertTrue(called)
+    }
+
+    @Test
+    fun cliExecute_overdrink_callsDrinkRequest() {
+        val engine = MockEngine { respond("ok", HttpStatusCode.OK) }
+        val client = HttpClient(engine)
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 9, name = "martini", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            drinkBoozeRequest = net.sourceforge.kolmafia.request.DrinkBoozeRequest(client)
+        )
+        runLib(lib, """cli_execute("overdrink 1 martini");""")
+        assertTrue(engine.requestHistory.isNotEmpty())
+    }
+
+    @Test
+    fun cliExecute_echo_printsText() {
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(lib, """cli_execute("echo hello world");""")
+        assertEquals("hello world", out)
+    }
+
+    @Test
+    fun cliExecute_status_printsCharacterSummary() {
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(
+                name = "TestPlayer",
+                level = "5",
+                adventures = "12",
+                meat = "999",
+                hp = "30",
+                hpmax = "50",
+                mp = "10",
+                mpmax = "20",
+            )
+        )
+        val lib = GameRuntimeLibrary(character = char)
+        val out = outputLib(lib, """cli_execute("status");""")
+        assertTrue(out.contains("TestPlayer"))
+        assertTrue(out.contains("Level 5"))
+        assertTrue(out.contains("12 adventures"))
+    }
+
+    @Test
+    fun cliExecute_stop_doesNotThrowWhenManagerPresent() {
+        val client = HttpClient(MockEngine { respond("") })
+        val mgr = net.sourceforge.kolmafia.adventure.AdventureManager(
+            adventureRequest = net.sourceforge.kolmafia.adventure.AdventureRequest(client),
+            fightRequest = net.sourceforge.kolmafia.adventure.FightRequest(client),
+            choiceRequest = net.sourceforge.kolmafia.adventure.ChoiceRequest(client),
+            characterRequest = net.sourceforge.kolmafia.request.CharacterRequest(client),
+            character = net.sourceforge.kolmafia.character.KoLCharacter(),
+            preferences = prefs(),
+            eventBus = net.sourceforge.kolmafia.event.GameEventBus(),
+        )
+        val lib = GameRuntimeLibrary(adventureManager = mgr)
+        runLib(lib, """cli_execute("abort");""")
+    }
+
+    @Test
+    fun cliExecute_wiki_printsWikiUrl() {
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(lib, """cli_execute("wiki seal tooth");""")
+        assertEquals("https://wiki.a.kolmafia.us/wiki/seal_tooth", out)
+    }
+
+    @Test
+    fun cliExecute_configGetSet_aliasesGetSet() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("config set myKey value123");""")
+        val out = outputLib(lib, """cli_execute("config get myKey");""")
+        assertEquals("value123", out)
+    }
+
+    @Test
+    fun cliExecute_goalAddId_registersItemGoalById() {
+        val gm = net.sourceforge.kolmafia.session.GoalManager()
+        val lib = GameRuntimeLibrary(goalManager = gm)
+        runLib(lib, """cli_execute("goal add id:42");""")
+        assertTrue(gm.hasItemGoal(42))
+    }
+
+    @Test
+    fun cliExecute_putCloset_callsClosetPutIn() {
+        var putItemId = 0
+        var putQty = 0
+        val closet = object : net.sourceforge.kolmafia.request.ClosetRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun putIn(itemId: Int, quantity: Int): Result<String> {
+                putItemId = itemId
+                putQty = quantity
+                return Result.success("")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 7, name = "seal tooth", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(closetRequest = closet, gameDatabase = db)
+        runLib(lib, """cli_execute("put_closet 3 seal tooth");""")
+        assertEquals(7, putItemId)
+        assertEquals(3, putQty)
+    }
 }

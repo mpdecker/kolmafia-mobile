@@ -1,9 +1,12 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.adventure.AdventurePrep
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.AdventureZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 class GameRuntimeLibraryCharacterTest {
 
@@ -88,6 +91,23 @@ class GameRuntimeLibraryCharacterTest {
     fun canAdventure_falseWhenNoAdventuresLeft() {
         val lib = libWith { copy(adventures = "0") }
         assertEquals("false", outputLib(lib, """print(to_string(can_adventure(to_location("The Haunted Pantry"))));"""))
+    }
+
+    @Test
+    fun canAdventure_overdrunkZoneRequiresInebriety() {
+        val sober = net.sourceforge.kolmafia.character.CharacterState(adventuresLeft = 5, inebriety = 0)
+        val zone = AdventureZone(
+            zoneName = "Holiday",
+            urlParams = "adventure=23",
+            locationName = "Drunken Stupor",
+            environment = "outdoor",
+            diffLevel = "low",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = true,
+            noWander = false,
+        )
+        assertFalse(AdventurePrep.canAdventureAt("Drunken Stupor", sober, zone))
     }
 
     @Test

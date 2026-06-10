@@ -24,6 +24,23 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
         AshValue.of(price)
     }
 
+    // retrieve_price(it: item) → int — cheapest acquisition price (mall vs NPC)
+    regFn(scope, "retrieve_price", AshType.INT,
+        listOf("it" to AshType.ITEM)) { _, args ->
+        val itemName = args[0].toString()
+        val npc = gameDatabase?.npcPrice(itemName) ?: 0
+        val mall = kotlinx.coroutines.runBlocking {
+            mallManager?.cheapestPrice(itemName) ?: -1L
+        }.toInt()
+        val best = when {
+            mall > 0 && npc > 0 -> minOf(mall, npc)
+            mall > 0 -> mall
+            npc > 0 -> npc
+            else -> -1
+        }
+        AshValue.of(best.toLong())
+    }
+
     regFn(scope, "historical_price", AshType.INT,
         listOf("it" to AshType.ITEM)) { _, args ->
         val itemId = gameDatabase?.item(args[0].toString())?.id ?: return@regFn AshValue.ZERO

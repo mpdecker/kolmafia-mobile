@@ -53,6 +53,25 @@ private fun fakeInventory(qty: Int): InventoryManager {
     }
 }
 
+/** Inventory that gains [qtyOnFetch] items when [fetchInventory] is called (simulates withdraw). */
+private fun inventoryGainingOnFetch(qtyOnFetch: Int, initialQty: Int = 0): InventoryManager {
+    return object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+        private val _s = MutableStateFlow(
+            InventoryState(items = if (initialQty > 0) mapOf(
+                ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, initialQty, ItemType.OTHER)
+            ) else emptyMap())
+        )
+        override val state: StateFlow<InventoryState> = _s
+        override suspend fun fetchInventory() {
+            if (qtyOnFetch > 0) {
+                _s.value = InventoryState(items = mapOf(
+                    ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, qtyOnFetch, ItemType.OTHER)
+                ))
+            }
+        }
+    }
+}
+
 private fun closetSucceeds() = object : ClosetRequest(HttpClient(MockEngine { respond("") })) {
     override suspend fun takeOut(itemId: Int, quantity: Int) = Result.success("ok")
 }
@@ -120,7 +139,7 @@ class RetrieveItemServiceTest {
     @Test
     fun retrieve_takesFromCloset_whenInventoryShort() = runTest {
         val service = RetrieveItemService(
-            inventoryManager = fakeInventory(qty = 0),
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
             closetRequest = closetSucceeds(),
             storageRequest = null,
             npcBuyRequest = null,
@@ -133,7 +152,7 @@ class RetrieveItemServiceTest {
     @Test
     fun retrieve_pullsFromStorage_whenClosetFails() = runTest {
         val service = RetrieveItemService(
-            inventoryManager = fakeInventory(qty = 0),
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
             closetRequest = closetFails(),
             storageRequest = storageSucceeds(),
             npcBuyRequest = null,
@@ -220,7 +239,7 @@ class RetrieveItemServiceTest {
     @Test
     fun retrieve_takesFromDisplay_whenStorageFails() = runTest {
         val service = RetrieveItemService(
-            inventoryManager = fakeInventory(qty = 0),
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
             closetRequest = closetFails(),
             storageRequest = storageFails(),
             displayCaseRequest = displaySucceeds(),
@@ -235,7 +254,7 @@ class RetrieveItemServiceTest {
     @Test
     fun retrieve_takesFromStash_whenDisplayFails() = runTest {
         val service = RetrieveItemService(
-            inventoryManager = fakeInventory(qty = 0),
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
             closetRequest = closetFails(),
             storageRequest = storageFails(),
             displayCaseRequest = displayFails(),
@@ -245,5 +264,31 @@ class RetrieveItemServiceTest {
             gameDatabase = dbNoNpc()
         )
         assertEquals(2, service.retrieve(ITEM_ID, 2))
+    }
+
+    @Test
+    fun retrieve_closetHttpSuccessButPartialMove_returnsActualQty() = runTest {
+        var fetchCount = 0
+        val inv = object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+            private val _s = MutableStateFlow(InventoryState(items = emptyMap()))
+            override val state: StateFlow<InventoryState> = _s
+            override suspend fun fetchInventory() {
+                fetchCount++
+                if (fetchCount == 1) {
+                    _s.value = InventoryState(items = mapOf(
+                        ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, 1, ItemType.OTHER)
+                    ))
+                }
+            }
+        }
+        val service = RetrieveItemService(
+            inventoryManager = inv,
+            closetRequest = closetSucceeds(),
+            storageRequest = null,
+            npcBuyRequest = null,
+            mallManager = null,
+            gameDatabase = dbNoNpc()
+        )
+        assertEquals(1, service.retrieve(ITEM_ID, 3))
     }
 }

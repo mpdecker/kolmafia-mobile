@@ -52,6 +52,12 @@ class Preferences(private val settings: Settings) {
         // ManaBurn
         const val MANA_BURN_ENABLED        = "manaBurnEnabled"       // default false
         const val MANA_BURN_MIN_MP_PCT     = "manaBurnMinMpPct"      // burn when MP% >= this; default 90
+        const val ALLOW_NON_MOOD_BURNING   = "allowNonMoodBurning"   // burn non-mood buffs; default false
+        const val MANA_BURN_SUMMON_THRESHOLD = "manaBurnSummonThreshold" // MP% to prefer summons; 0=off
+        const val MANA_BURN_SKILLS         = "manaBurnSkills"        // pipe-separated skill priority list
+
+        // Adventure location tracking
+        const val LAST_LOCATION            = "_lastLocation"
 
         // Breakfast — user-controlled guard prefs (match desktop names exactly)
         const val HARVEST_GARDEN_SOFTCORE   = "harvestGardenSoftcore"   // "none"|"any"; default "none" (matches desktop)

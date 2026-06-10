@@ -179,6 +179,11 @@ val sharedModule = module {
             questLogRequest  = get(),
             manaBurnManager  = get(),
             banishManager    = get(),
+            gameDatabase     = get(),
+            outfitManager    = get(),
+            retrieveItemService = get(),
+            useItemRequest   = get(),
+            familiarManager  = get(),
         )
     }
     single {
@@ -213,6 +218,9 @@ val sharedModule = module {
             craftRequest        = get(),
             manageStoreRequest  = get(),
             mallPriceManager    = get(),
+            characterRequest    = get(),
+            recoveryManager     = get(),
+            adventureRequest    = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -250,6 +258,7 @@ val sharedModule = module {
             inventoryManager = get(),
             gameDatabase = get(),
             client = get(),
+            character = get(),
         )
     }
     single {

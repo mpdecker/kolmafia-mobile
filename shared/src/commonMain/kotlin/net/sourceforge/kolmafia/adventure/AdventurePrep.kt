@@ -1,6 +1,10 @@
 package net.sourceforge.kolmafia.adventure
 
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.data.AdventureDatabase
+import net.sourceforge.kolmafia.data.AdventureZone
 import net.sourceforge.kolmafia.equipment.OutfitManager
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -9,10 +13,34 @@ import net.sourceforge.kolmafia.request.UseItemRequest
  * Zone prep before adventuring — wears disguises and retrieves prep items when known.
  * Preference overrides:
  * - `zoneOutfit_<location>` → outfit name
+ * - `zoneFamiliar_<location>` → familiar species name
  * - `zoneItem_<location>` → comma-separated item names to retrieve (qty 1 each)
  * - `zoneUse_<location>` → comma-separated item names to use before adventuring
  */
 object AdventurePrep {
+
+    /** Returns false when the character cannot adventure at [locationName] (zone rules + adventures left). */
+    fun canAdventureAt(
+        locationName: String,
+        character: CharacterState?,
+        zone: AdventureZone? = AdventureDatabase.getByName(locationName),
+    ): Boolean {
+        if ((character?.adventuresLeft ?: 0) <= 0) return false
+        val cs = character ?: return true
+        zone ?: return true
+
+        if (zone.isOverdrunk && cs.inebriety <= 0) return false
+
+        if (cs.isInLimitMode) {
+            val mode = cs.limitMode.lowercase()
+            val inZone = zone.urlParams.lowercase().contains(mode) ||
+                zone.zoneName.lowercase().contains(mode) ||
+                zone.locationName.lowercase().contains(mode)
+            if (!inZone) return false
+        }
+
+        return true
+    }
     private val ZONE_OUTFITS = mapOf(
         "The Mine Office" to "Mining Gear",
         "Dwarf Factory" to "Mining Gear",
@@ -39,7 +67,15 @@ object AdventurePrep {
         retrieveItemService: RetrieveItemService? = null,
         useItemRequest: UseItemRequest? = null,
         gameDatabase: net.sourceforge.kolmafia.data.GameDatabase? = null,
+        familiarManager: FamiliarManager? = null,
+        character: CharacterState? = null,
     ): Boolean {
+        val familiarName = preferences?.getString("zoneFamiliar_$locationName", "")?.takeIf { it.isNotBlank() }
+        if (familiarName != null) {
+            val fm = familiarManager ?: return false
+            if (fm.setFamiliar(familiarName).isFailure) return false
+        }
+
         val outfitName = preferences?.getString("zoneOutfit_$locationName", "")?.takeIf { it.isNotBlank() }
             ?: ZONE_OUTFITS[locationName]
             ?: ZONE_OUTFITS.entries.firstOrNull { (zone, _) ->

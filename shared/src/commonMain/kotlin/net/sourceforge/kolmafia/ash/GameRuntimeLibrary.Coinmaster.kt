@@ -13,12 +13,14 @@ internal fun GameRuntimeLibrary.registerCoinmasterFunctions(scope: AshScope) {
 
     regFn(scope, "is_accessible", AshType.BOOLEAN, listOf("master" to AshType.COINMASTER)) { _, args ->
         val master = resolveMaster(args[0]) ?: return@regFn AshValue.FALSE
-        AshValue.of(master.isAccessible())
+        AshValue.of(coinmasterManager?.isAccessible(master) ?: master.isAccessible())
     }
 
     regFn(scope, "inaccessible_reason", AshType.STRING, listOf("master" to AshType.COINMASTER)) { _, args ->
         val master = resolveMaster(args[0]) ?: return@regFn AshValue.EMPTY_STRING
-        AshValue.of(master.inaccessibleReason())
+        val reason = coinmasterManager?.inaccessibleReason(master)
+            ?: master.inaccessibleReason()
+        AshValue.of(reason)
     }
 
     regFn(scope, "visit", AshType.BOOLEAN, listOf("master" to AshType.COINMASTER)) { _, args ->
@@ -72,6 +74,14 @@ internal fun GameRuntimeLibrary.registerCoinmasterFunctions(scope: AshScope) {
     }
 
     regFn(scope, "sell_price", AshType.INT,
+        listOf("master" to AshType.COINMASTER, "it" to AshType.ITEM)) { _, args ->
+        val master = resolveMaster(args[0]) ?: return@regFn AshValue.ZERO
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.ZERO
+        AshValue.of((coinmasterManager?.sellPrice(master, itemId) ?: 0).toLong())
+    }
+
+    // sell_cost — desktop alias for sell_price
+    regFn(scope, "sell_cost", AshType.INT,
         listOf("master" to AshType.COINMASTER, "it" to AshType.ITEM)) { _, args ->
         val master = resolveMaster(args[0]) ?: return@regFn AshValue.ZERO
         val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.ZERO

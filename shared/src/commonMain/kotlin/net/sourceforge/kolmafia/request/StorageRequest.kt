@@ -28,6 +28,24 @@ open class StorageRequest(private val client: HttpClient) {
         }
     }
 
+    open suspend fun deposit(itemId: Int, quantity: Int): Result<String> {
+        return try {
+            val response = client.get("$KOL_BASE_URL/storage.php") {
+                parameter("action", "storeitem")
+                parameter("whichitem", itemId)
+                parameter("qty", quantity)
+                parameter("ajax", 1)
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.bodyAsText())
+            } else {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Fetches Hagnk's storage contents from api.php?what=storage.
      * Returns a map of item ID → quantity. Open so tests can override.

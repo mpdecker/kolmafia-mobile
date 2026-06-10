@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
@@ -13,6 +14,7 @@ open class CoinmasterManager(
     private val inventoryManager: InventoryManager?,
     private val gameDatabase: GameDatabase?,
     private val client: HttpClient,
+    private val character: KoLCharacter? = null,
 ) {
     open fun resolveMaster(value: String): CoinmasterData? =
         CoinmasterRegistry.findByNickname(value)
@@ -79,6 +81,21 @@ open class CoinmasterManager(
 
     open fun sellsItem(master: CoinmasterData, itemId: Int): Boolean =
         master.sellRowFor(itemId) != null
+
+    open fun isAccessible(master: CoinmasterData): Boolean {
+        if (!master.isAccessible()) return false
+        val char = character?.state?.value ?: return true
+        return CoinmasterAccessibility.isAccessible(master, char)
+    }
+
+    open fun inaccessibleReason(master: CoinmasterData): String {
+        if (!master.isAccessible()) return "Shop not available"
+        val char = character?.state?.value
+        if (char != null) {
+            CoinmasterAccessibility.inaccessibleReason(master, char)?.let { return it }
+        }
+        return ""
+    }
 
     private fun inventoryCount(itemId: Int): Int =
         inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0

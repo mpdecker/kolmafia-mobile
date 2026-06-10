@@ -12,7 +12,7 @@ object AdventureParser {
     private val MONSTER_NAME = Regex("""<span id='monname'>(.*?)</span>""")
     private val ENCOUNTER_NAME = Regex("""<b>([^<]{3,60})</b>""")
     private val BANISH_PATTERN = Regex(
-        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field)|won't be seeing|nowhere to be seen|as the vortex disappears|peel(?:s)? out|You infect your foe|spooked by its balefulness|knock your opponent into tomorrow|Ultra Hammer|Patriotic Screech|human musk|deathchucks|B\. L\. A\. R\. T|Heartstone|curse of vacation)""",
+        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field)|won't be seeing|nowhere to be seen|don't expect to see|ensuing confusion|as the vortex disappears|peel(?:s)? out|You infect your foe|spooked by its balefulness|knock your opponent into tomorrow|Ultra Hammer|Patriotic Screech|human musk|deathchucks|B\. L\. A\. R\. T|Heartstone|curse of vacation)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -31,6 +31,19 @@ object AdventureParser {
         "tide of beans"                                       to Banisher.BEANCANNON,
         "residual hot jelly heat"                             to Banisher.BREATHE_OUT,
         "into the ball return system"                         to Banisher.BOWL_A_CURVEBALL,
+        "surprisingly loud bang, and your opponent"           to Banisher.DIVINE_CHAMPAGNE_POPPER,
+        "don't expect to see"                                 to Banisher.DIRTY_STINKBOMB,
+        "far enough away from you"                            to Banisher.DEATHCHUCKS,
+        "random phone number onto the napkin"                 to Banisher.COCKTAIL_NAPKIN,
+        "flee in the ensuing confusion"                       to Banisher.SMOKE_GRENADE,
+        "wistful expression"                                  to Banisher.SPOOKY_MUSIC_BOX_MECHANISM,
+        "You won't be seeing"                                 to Banisher.TENNIS_BALL,
+        "a nearby door"                                       to Banisher.ICE_HOTEL_BELL,
+        "read the restraining order"                          to Banisher.GINGERBREAD_RESTRAINING_ORDER,
+        "chokes and sputters and leave"                       to Banisher.BUNDLE_OF_FRAGRANT_HERBS,
+        "nowhere to be found"                                 to Banisher.PULLED_INDIGO_TAFFY,
+        "EEEEEEEEEEEEEEEEEEEEEEEEK"                           to Banisher.CLASSY_MONKEY,
+        "peels out"                                           to Banisher.PEEL_OUT,
         "won't be seeing"                                     to Banisher.PANTSGIVING,
         "nowhere to be seen"                                  to Banisher.LOUDER_THAN_BOMB,
         "busy getting the cheese off"                         to Banisher.STUFFED_YAM_STINKBOMB,

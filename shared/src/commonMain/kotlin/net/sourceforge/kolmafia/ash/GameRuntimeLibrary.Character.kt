@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.adventure.AdventurePrep
+import net.sourceforge.kolmafia.preferences.Preferences
 
 internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
 
@@ -50,10 +51,12 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     }
 
     // can_adventure(location) → boolean
-    // Returns true if the character has adventures remaining.
     regFn(scope, "can_adventure", AshType.BOOLEAN,
-        listOf("loc" to AshType.LOCATION)) { _, _ ->
-        AshValue.of((character?.state?.value?.adventuresLeft ?: 0) > 0)
+        listOf("loc" to AshType.LOCATION)) { _, args ->
+        val locationName = args[0].toString()
+        AshValue.of(
+            AdventurePrep.canAdventureAt(locationName, character?.state?.value)
+        )
     }
 
     // prepare_for_adventure() → boolean (no location — always succeeds)
@@ -73,7 +76,21 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
                 retrieveItemService,
                 useItemRequest,
                 gameDatabase,
+                familiarManager,
+                character?.state?.value,
             )
+        }
+        AshValue.of(ok)
+    }
+
+    // set_location(loc: location) → boolean — travel without adventuring
+    regFn(scope, "set_location", AshType.BOOLEAN,
+        listOf("loc" to AshType.LOCATION)) { _, args ->
+        val locationName = args[0].toString()
+        val loc = resolveLocation(locationName) ?: return@regFn AshValue.of(false)
+        preferences?.setString(Preferences.LAST_LOCATION, loc.name)
+        val ok = kotlinx.coroutines.runBlocking {
+            adventureRequest?.travel(loc.id)?.isSuccess ?: false
         }
         AshValue.of(ok)
     }

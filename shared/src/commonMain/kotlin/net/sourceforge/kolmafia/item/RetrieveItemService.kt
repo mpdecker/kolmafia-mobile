@@ -34,23 +34,27 @@ open class RetrieveItemService(
         if (remaining <= 0) return qty
 
         if (remaining > 0 && closetRequest != null) {
-            val result = closetRequest.takeOut(itemId, remaining)
-            if (result.isSuccess) remaining = 0
+            remaining -= withdrawFromSource(itemId, remaining) { qty ->
+                closetRequest.takeOut(itemId, qty)
+            }
         }
 
         if (remaining > 0 && storageRequest != null) {
-            val result = storageRequest.withdraw(itemId, remaining)
-            if (result.isSuccess) remaining = 0
+            remaining -= withdrawFromSource(itemId, remaining) { qty ->
+                storageRequest.withdraw(itemId, qty)
+            }
         }
 
         if (remaining > 0 && displayCaseRequest != null) {
-            val result = displayCaseRequest.takeOut(itemId, remaining)
-            if (result.isSuccess) remaining = 0
+            remaining -= withdrawFromSource(itemId, remaining) { qty ->
+                displayCaseRequest.takeOut(itemId, qty)
+            }
         }
 
         if (remaining > 0 && clanStashRequest != null) {
-            val result = clanStashRequest.takeOut(itemId, remaining)
-            if (result.isSuccess) remaining = 0
+            remaining -= withdrawFromSource(itemId, remaining) { qty ->
+                clanStashRequest.takeOut(itemId, qty)
+            }
         }
 
         if (remaining > 0) {
@@ -60,8 +64,11 @@ open class RetrieveItemService(
         if (remaining > 0 && npcBuyRequest != null) {
             val npcStore = gameDatabase?.npcStoreFor(itemName)
             if (npcStore != null) {
+                val before = inventoryCount(itemId)
                 val bought = npcBuyRequest.buy(npcStore.storeKey, itemId, remaining).getOrDefault(0)
-                remaining -= bought
+                inventoryManager?.fetchInventory()
+                val gained = (inventoryCount(itemId) - before).coerceAtLeast(bought)
+                remaining -= gained
             }
         }
 
@@ -70,10 +77,27 @@ open class RetrieveItemService(
         }
 
         if (remaining > 0 && mallManager != null) {
-            remaining -= mallManager.buy(itemId, remaining)
+            val before = inventoryCount(itemId)
+            val bought = mallManager.buy(itemId, remaining)
+            inventoryManager?.fetchInventory()
+            val gained = (inventoryCount(itemId) - before).coerceAtLeast(bought)
+            remaining -= gained
         }
 
         return qty - remaining
+    }
+
+    /** Withdraw up to [qty] from a collection source; returns actual count gained in inventory. */
+    private suspend fun withdrawFromSource(
+        itemId: Int,
+        qty: Int,
+        withdraw: suspend (Int) -> Result<String>,
+    ): Int {
+        val before = inventoryCount(itemId)
+        val result = withdraw(qty)
+        if (result.isFailure) return 0
+        inventoryManager?.fetchInventory()
+        return (inventoryCount(itemId) - before).coerceIn(0, qty)
     }
 
     private suspend fun craftMissing(itemName: String, itemId: Int, qty: Int): Int {
