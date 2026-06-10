@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.MainStat
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
+import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
@@ -39,8 +40,7 @@ data class ChoiceContext(
 
     fun isWearingOutfit(outfitId: Int): Boolean {
         val outfit = OutfitDatabase.getById(outfitId) ?: return false
-        val equippedLower = characterState.equipment.values.map { it.lowercase() }.toSet()
-        return outfit.equipment.all { it.lowercase() in equippedLower }
+        return OutfitManager.isWearingPieces(outfit.equipment, characterState.equipment)
     }
 
     fun hasEffect(effectName: String): Boolean =

@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
@@ -34,7 +35,7 @@ private fun mallThatBuys(qty: Int): MallManager {
 
 // Returns a service that always reports full success (returns whatever qty was requested).
 private fun retrieveAlwaysSucceeds(): RetrieveItemService =
-    object : RetrieveItemService(null, null, null, null, null, null) {
+    object : RetrieveItemService(null, null, null, null, null, null, null, null, null, null, null) {
         override suspend fun retrieve(itemId: Int, qty: Int) = qty
     }
 
@@ -87,13 +88,32 @@ class GameRuntimeLibraryMallTest {
     }
 
     @Test
-    fun retrieveItem_withRetrieveFlag_alwaysAttempts() {
+    fun retrieveItem_withRetrieveFlag_checkOnlyUsesAccessibleCount() {
+        val manager = object : OutfitManager(
+            retrieveItemService = null,
+            equipmentRequest = net.sourceforge.kolmafia.request.EquipmentRequest(
+                HttpClient(MockEngine { respond("") })
+            ),
+            customOutfitRequest = net.sourceforge.kolmafia.request.CustomOutfitRequest(
+                HttpClient(MockEngine { respond("") })
+            ),
+            character = net.sourceforge.kolmafia.character.KoLCharacter(),
+            gameDatabase = stubDb(),
+            closetRequest = null,
+            storageRequest = null,
+            displayCaseRequest = null,
+            clanStashRequest = null,
+            inventoryManager = null,
+        ) {
+            override suspend fun accessibleCount(itemId: Int, itemName: String) = 5
+        }
         val lib = GameRuntimeLibrary(
             gameDatabase = stubDb(),
-            retrieveItemService = retrieveAlwaysSucceeds()
+            retrieveItemService = retrieveAlwaysSucceeds(),
+            outfitManager = manager,
         )
-        // retrieve = false: mobile ignores flag, still tries
         assertEquals("true", outputLib(lib, """print(to_string(retrieve_item(1, to_item("$TEST_ITEM"), false)));"""))
+        assertEquals("false", outputLib(lib, """print(to_string(retrieve_item(10, to_item("$TEST_ITEM"), false)));"""))
     }
 
     @Test

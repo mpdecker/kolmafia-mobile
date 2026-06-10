@@ -33,8 +33,12 @@ internal fun GameRuntimeLibrary.registerWebRequests(scope: AshScope) {
                     formParameters = Parameters.build {
                         postData.split("&").filter { it.isNotBlank() }.forEach { pair ->
                             val eq = pair.indexOf('=')
-                            if (eq >= 0) append(pair.substring(0, eq), pair.substring(eq + 1))
-                            else append(pair, "")
+                            if (eq >= 0) {
+                                append(
+                                    pair.substring(0, eq).decodeURLQueryComponent(),
+                                    pair.substring(eq + 1).decodeURLQueryComponent()
+                                )
+                            } else append(pair.decodeURLQueryComponent(), "")
                         }
                     },
                 )

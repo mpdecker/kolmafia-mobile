@@ -9,9 +9,11 @@ internal fun GameRuntimeLibrary.registerMoodQueries(scope: AshScope) {
 
     fun buildMoodList(): AggregateValue {
         val agg = AggregateValue(stringIntType)
-        moodManager?.moodLibrary?.keys?.sorted()?.forEachIndexed { i, name ->
-            agg[AshValue.of(i.toLong())] = AshValue.of(name)
-        }
+        moodManager?.moodLibrary?.values
+            ?.sortedBy { it.displayName() }
+            ?.forEachIndexed { i, mood ->
+                agg[AshValue.of(i.toLong())] = AshValue.of(mood.displayName())
+            }
         return agg
     }
 

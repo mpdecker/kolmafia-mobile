@@ -8,6 +8,9 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
+import net.sourceforge.kolmafia.equipment.OutfitManager
+import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.familiar.FamiliarManager
@@ -19,11 +22,15 @@ import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.EquipmentRequest
+import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
+import net.sourceforge.kolmafia.mall.MallPriceManager
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
+import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.GoalManager
@@ -63,6 +70,12 @@ class GameRuntimeLibrary(
     internal val clanStashRequest: ClanStashRequest? = null,
     internal val mallManager: MallManager? = null,
     internal val retrieveItemService: RetrieveItemService? = null,
+    internal val outfitManager: OutfitManager? = null,
+    internal val equipmentRequest: EquipmentRequest? = null,
+    internal val coinmasterManager: CoinmasterManager? = null,
+    internal val craftRequest: CraftRequest? = null,
+    internal val manageStoreRequest: ManageStoreRequest? = null,
+    internal val mallPriceManager: MallPriceManager? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -141,6 +154,151 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { familiarManager?.setFamiliar(name) }
         },
 
+        // "enthrone name" / "enthrone none" — Crown of Thrones
+        Regex("^enthrone\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val name = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking { familiarManager?.setEnthroned(name) }
+        },
+
+        // "bjornify name" / "bjornify none" — Buddy Bjorn
+        Regex("^bjornify\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val name = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking { familiarManager?.setBjornified(name) }
+        },
+
+        // "retrieve N item" — compound retrieve chain
+        Regex("^retrieve\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val count = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemName = m.groupValues[2].trim()
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+        },
+
+        // "use N item" — use item from inventory
+        Regex("^use\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemName = m.groupValues[2].trim()
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { useItemRequest?.use(itemId, qty) }
+        },
+
+        // "use item" — use one copy
+        Regex("^use\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemName = m.groupValues[1].trim()
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { useItemRequest?.use(itemId, 1) }
+        },
+
+        // "eat N item" / "eat item"
+        Regex("^eat\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { eatFoodRequest?.eat(itemId, qty) }
+        },
+        Regex("^eat\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { eatFoodRequest?.eat(itemId, 1) }
+        },
+
+        // "drink N item" / "drink item"
+        Regex("^drink\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { drinkBoozeRequest?.drink(itemId, qty) }
+        },
+        Regex("^drink\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { drinkBoozeRequest?.drink(itemId, 1) }
+        },
+
+        // "chew N item" / "chew item"
+        Regex("^chew\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { chewRequest?.chew(itemId, qty) }
+        },
+        Regex("^chew\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { chewRequest?.chew(itemId, 1) }
+        },
+
+        // "eatsilent N item" / "drinksilent N item"
+        Regex("^eatsilent\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { eatFoodRequest?.eat(itemId, qty) }
+        },
+        Regex("^drinksilent\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { drinkBoozeRequest?.drink(itemId, qty) }
+        },
+
+        // "visit <coinmaster>" — open coinmaster shop page
+        Regex("^visit\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val master = coinmasterManager?.resolveMaster(m.groupValues[1].trim()) ?: return@to
+            kotlinx.coroutines.runBlocking { coinmasterManager?.visit(master) }
+        },
+
+        // closet / display / stash put & take
+        Regex("^closet\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { closetRequest?.putIn(itemId, qty) }
+        },
+        Regex("^closet\\s+take\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { closetRequest?.takeOut(itemId, qty) }
+        },
+        Regex("^storage\\s+take\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { storageRequest?.withdraw(itemId, qty) }
+        },
+        Regex("^display\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { displayCaseRequest?.putIn(itemId, qty) }
+        },
+        Regex("^display\\s+take\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { displayCaseRequest?.takeOut(itemId, qty) }
+        },
+        Regex("^stash\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { clanStashRequest?.putIn(itemId, qty) }
+        },
+        Regex("^stash\\s+take\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { clanStashRequest?.takeOut(itemId, qty) }
+        },
+
+        // goal add/remove/clear
+        Regex("^goal\\s+add\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            goalManager?.addItemGoalByName(m.groupValues[1].trim())
+        },
+        Regex("^goal\\s+remove\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            goalManager?.removeGoal(m.groupValues[1].trim())
+        },
+        Regex("^goal\\s+clear$", RegexOption.IGNORE_CASE) to { _, _ ->
+            goalManager?.clearGoals()
+        },
+
+        // "putshop price[@limit] N item" — list item in mall store
+        Regex("^putshop\\s+(\\d+)(?:@(\\d+))?\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val price = m.groupValues[1].toIntOrNull() ?: return@to
+            val limit = m.groupValues[2].toIntOrNull() ?: 0
+            val qty = m.groupValues[3].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[4].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                manageStoreRequest?.addItem(itemId, price, limit, qty)
+            }
+        },
+
         // "equip [<slot>] <item-name>" — equip item, optionally into a named slot.
         // If the first word after "equip" is a known slot apiKey, treat it as a slot and the
         // remainder as the item name; if that item lookup fails, fall back to trying the full
@@ -190,7 +348,112 @@ class GameRuntimeLibrary(
             val itemId = gameDatabase?.item(itemName)?.id ?: return@to
             kotlinx.coroutines.runBlocking { autosellRequest?.autosell(itemId, qty) }
         },
+
+        // "outfit save <name>" — save current equipment as custom outfit
+        Regex("^outfit\\s+save\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val name = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking { outfitManager?.saveOutfit(name) }
+        },
+
+        // "outfit list [filter]" — print outfit names matching optional filter
+        Regex("^outfit\\s+list(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val filter = m.groupValues[1].trim().lowercase()
+            kotlinx.coroutines.runBlocking {
+                val names = outfitManager?.getOutfitsWithPieces()?.map { it.name } ?: emptyList()
+                names.filter { filter.isEmpty() || it.lowercase().contains(filter) }
+                    .forEach { rt.print(it) }
+            }
+        },
+
+        // "outfit checkpoint" — restore equipment from last checkpoint
+        Regex("^outfit\\s+checkpoint$", RegexOption.IGNORE_CASE) to { _, _ ->
+            val char = character ?: return@to
+            val equip = equipmentRequest ?: return@to
+            val db = gameDatabase ?: return@to
+            kotlinx.coroutines.runBlocking {
+                OutfitCheckpoint.restoreSaved(equip, db)
+            }
+        },
+
+        // "outfit <name>" — wear named outfit (runs embedded c=/e=/f= actions after wear)
+        Regex("^outfit\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val name = m.groupValues[1].trim()
+            if (name.equals("list", ignoreCase = true) ||
+                name.equals("checkpoint", ignoreCase = true) ||
+                name.startsWith("save ", ignoreCase = true)
+            ) return@to
+            kotlinx.coroutines.runBlocking {
+                outfitManager?.wearOutfit(name) { cmd -> dispatchCli(cmd, rt) }
+            }
+        },
+
+        // "buy using storage N ¶itemId[@limit]" — HC/Ronin mall buy tracked via storage
+        Regex("^buy\\s+using\\s+storage\\s+(\\d+)\\s+[\\u00B6¶](\\d+)(?:@(\\d+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val count = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemId = m.groupValues[2].toIntOrNull() ?: return@to
+            val limit = m.groupValues[3].toIntOrNull() ?: Int.MAX_VALUE
+            val mall = mallManager ?: return@to
+            val char = character ?: return@to
+            val equip = equipmentRequest ?: return@to
+            val db = gameDatabase ?: return@to
+            val cs = char.state.value
+            if (!cs.isHardcore && !cs.isInRonin) return@to
+            kotlinx.coroutines.runBlocking {
+                val initial = storageRequest?.fetchContents()?.get(itemId) ?: 0
+                val checkpoint = OutfitCheckpoint.snapshot(char, equip, db)
+                checkpoint.use { mall.buy(itemId, count, limit) }
+                storageRequest?.fetchContents()?.get(itemId) ?: initial
+            }
+        },
+
+        // "coinmaster buy <nick> <item>" / "coinmaster sell <nick> <item>"
+        Regex("^coinmaster\\s+(buy|sell)\\s+(\\S+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val isBuy = m.groupValues[1].equals("buy", ignoreCase = true)
+            val nickname = m.groupValues[2].trim()
+            val itemName = m.groupValues[3].trim()
+            val master = coinmasterManager?.resolveMaster(nickname) ?: return@to
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                if (isBuy) coinmasterManager?.buy(master, itemId, 1)
+                else coinmasterManager?.sell(master, itemId, 1)
+            }
+        },
+
+        // "create N item" — compound retrieve (includes craft/coinmaster/mall)
+        Regex("^create\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val count = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemName = m.groupValues[2].trim()
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+        },
+
+        // "buy N item[@limit]" — checkpoint-wrapped mall purchase
+        Regex("^buy\\s+(\\d+)\\s+(.+?)(?:@(\\d+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val count = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemName = m.groupValues[2].trim()
+            val limit = m.groupValues[3].toIntOrNull() ?: Int.MAX_VALUE
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            val mall = mallManager ?: return@to
+            val char = character ?: return@to
+            val equip = equipmentRequest ?: return@to
+            val db = gameDatabase
+            kotlinx.coroutines.runBlocking {
+                val checkpoint = OutfitCheckpoint.snapshot(char, equip, db)
+                checkpoint.use {
+                    mall.buy(itemId, count, limit)
+                }
+            }
+        },
     )
+
+    internal fun dispatchCli(cmd: String, rt: AshRuntimeContext) {
+        val matched = cliDispatch.firstOrNull { (regex, _) -> regex.matches(cmd) }
+        if (matched != null) {
+            matched.second(matched.first.find(cmd)!!, rt)
+        } else {
+            rt.print("[cli] $cmd")
+        }
+    }
 
     /** Bridges the protected [register] so extension functions in this module can call it. */
     internal fun regFn(
@@ -227,6 +490,10 @@ class GameRuntimeLibrary(
         registerItemActions(scope)
         registerPricingQueries(scope)
         registerMallFunctions(scope)
+        registerShopFunctions(scope)
+        registerOutfitFunctions(scope)
+        registerCoinmasterFunctions(scope)
+        registerCraftFunctions(scope)
         registerBanishQueries(scope)
         registerWebRequests(scope)
         registerHermit(scope)
@@ -315,6 +582,10 @@ class GameRuntimeLibrary(
         // to_location(string) → location — type conversion for locations
         register(scope, "to_location", AshType.LOCATION, listOf("name" to AshType.STRING)) { _, args ->
             AshValue.location(args[0].toString())
+        }
+
+        register(scope, "to_coinmaster", AshType.COINMASTER, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.COINMASTER, args[0].toString())
         }
     }
 
@@ -503,6 +774,9 @@ class GameRuntimeLibrary(
         register(scope, "my_spleen_use", AshType.INT, emptyList()) { _, _ ->
             AshValue.of((character?.state?.value?.spleenUsed ?: 0).toLong())
         }
+        register(scope, "is_headless", AshType.BOOLEAN, emptyList()) { _, _ ->
+            AshValue.of(true)
+        }
         register(scope, "my_basestat", AshType.INT, listOf("stat" to AshType.STAT)) { _, args ->
             val statName = args[0].toString().lowercase()
             val cs = character?.state?.value
@@ -669,13 +943,7 @@ class GameRuntimeLibrary(
         }
 
         register(scope, "cli_execute", AshType.BOOLEAN, listOf("cmd" to AshType.STRING)) { runtime, args ->
-            val cmd = args[0].toString()
-            val matched = cliDispatch.firstOrNull { (regex, _) -> regex.matches(cmd) }
-            if (matched != null) {
-                matched.second(matched.first.find(cmd)!!, runtime)
-            } else {
-                runtime.print("[cli] $cmd")   // unknown command: echo fallback
-            }
+            dispatchCli(args[0].toString(), runtime)
             AshValue.of(true)
         }
 

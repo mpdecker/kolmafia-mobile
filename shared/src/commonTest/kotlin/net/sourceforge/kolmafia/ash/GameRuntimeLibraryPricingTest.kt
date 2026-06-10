@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.ash
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.mall.MallPriceManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -86,5 +87,32 @@ class GameRuntimeLibraryPricingTest {
         )
         assertEquals("0",
             outputLib(lib, """print(to_string(npc_price(to_item("some other item"))));"""))
+    }
+
+    @Test
+    fun historicalPrice_readsFromMallPriceManager() {
+        val clock = MallPriceManager.TestClock(5_000L)
+        val priceManager = MallPriceManager(clock)
+        priceManager.cachePrice(1, 250L, 3, 99)
+        val lib = GameRuntimeLibrary(
+            gameDatabase = StubPricingDatabase(fakeItemName = "seal tooth"),
+            mallPriceManager = priceManager
+        )
+        assertEquals("250",
+            outputLib(lib, """print(to_string(historical_price(to_item("seal tooth"))));"""))
+    }
+
+    @Test
+    fun historicalAge_readsSecondsSinceCached() {
+        val clock = MallPriceManager.TestClock(5_000L)
+        val priceManager = MallPriceManager(clock)
+        priceManager.cachePrice(1, 250L, 3, 99)
+        clock.nowSeconds = 5_120L
+        val lib = GameRuntimeLibrary(
+            gameDatabase = StubPricingDatabase(fakeItemName = "seal tooth"),
+            mallPriceManager = priceManager
+        )
+        assertEquals("120",
+            outputLib(lib, """print(to_string(historical_age(to_item("seal tooth"))));"""))
     }
 }

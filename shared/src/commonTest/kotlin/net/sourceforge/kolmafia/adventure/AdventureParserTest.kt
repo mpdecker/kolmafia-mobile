@@ -309,4 +309,25 @@ class AdventureParserTest {
         assertTrue(result.banished)
         assertEquals(Banisher.PUNCH_OUT_YOUR_FOE, result.banisher)
     }
+
+    @Test fun parseFightResult_ultraHammer_detected() {
+        val html = "You swing the Ultra Hammer and your foe flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.ULTRA_HAMMER, result.banisher)
+    }
+
+    @Test fun parseFightResult_balefulHowl_detected() {
+        val html = "Your familiar is spooked by its balefulness and flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.BALEFUL_HOWL, result.banisher)
+    }
+
+    @Test fun parseFightResult_glitchedMalware_detected() {
+        val html = "You infect your foe with malware and they flee in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.GLITCHED_MALWARE, result.banisher)
+    }
 }

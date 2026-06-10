@@ -68,10 +68,14 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         AshValue.of(kotlinx.coroutines.runBlocking { req.takeOut(itemId, qty) }.isSuccess)
     }
 
-    // 8. put_shop(price: int, limit: int, it: item) → boolean  [STUB - return false]
+    // 8. put_shop(price: int, limit: int, it: item) → boolean
     regFn(scope, "put_shop", AshType.BOOLEAN,
-        listOf("price" to AshType.INT, "limit" to AshType.INT, "it" to AshType.ITEM)) { _, _ ->
-        AshValue.of(false)
+        listOf("price" to AshType.INT, "limit" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val itemId = resolveItemId(args[2].toString()) ?: return@regFn AshValue.of(false)
+        val price = args[0].toLong().toInt()
+        val limit = args[1].toLong().toInt()
+        val req = manageStoreRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.addItem(itemId, price, limit).isSuccess })
     }
 
     // 9. take_storage(qty: int, it: item) → boolean

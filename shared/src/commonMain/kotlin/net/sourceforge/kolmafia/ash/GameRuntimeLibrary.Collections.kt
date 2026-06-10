@@ -42,13 +42,19 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
         mapToAggregate(contents)
     }
 
-    // ── get_stash() → int[item] (stub — clan stash not yet fetched) ──────────
+    // ── get_stash() → int[item] (live — fetches from clan_stash.php) ─────────
     regFn(scope, "get_stash", itemIntType, emptyList()) { _, _ ->
-        AggregateValue(itemIntType)
+        val contents = kotlinx.coroutines.runBlocking {
+            clanStashRequest?.fetchContents() ?: emptyMap()
+        }
+        mapToAggregate(contents)
     }
 
-    // ── get_display() → int[item] (stub — display case not yet fetched) ──────
+    // ── get_display() → int[item] (live — fetches from displaycollection.php) ─
     regFn(scope, "get_display", itemIntType, emptyList()) { _, _ ->
-        AggregateValue(itemIntType)
+        val contents = kotlinx.coroutines.runBlocking {
+            displayCaseRequest?.fetchContents() ?: emptyMap()
+        }
+        mapToAggregate(contents)
     }
 }

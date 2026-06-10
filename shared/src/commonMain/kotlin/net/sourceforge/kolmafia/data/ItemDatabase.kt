@@ -24,6 +24,18 @@ object ItemDatabase {
     fun getByName(name: String): ItemData? = byName[name.lowercase()]
     fun all(): Collection<ItemData> = byId.values
 
+    /** Test hook — register an item without loading items.txt. */
+    internal fun registerForTest(item: ItemData) {
+        byId[item.id] = item
+        byName[item.name.lowercase()] = item
+    }
+
+    internal fun resetForTest() {
+        byId.clear()
+        byName.clear()
+        loaded = false
+    }
+
     private fun parse(text: String) {
         for (raw in text.lines()) {
             val line = raw.trim()

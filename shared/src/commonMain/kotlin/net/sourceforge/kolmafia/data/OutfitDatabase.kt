@@ -6,10 +6,12 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 object OutfitDatabase {
     private val _byId = mutableMapOf<Int, OutfitData>()
     private val _byName = mutableMapOf<String, OutfitData>()
+    private val _customById = mutableMapOf<Int, OutfitData>()
+    private val _customByName = mutableMapOf<String, OutfitData>()
     private var loaded = false
 
-    val byId: Map<Int, OutfitData> get() = _byId
-    val byName: Map<String, OutfitData> get() = _byName
+    val byId: Map<Int, OutfitData> get() = _byId + _customById
+    val byName: Map<String, OutfitData> get() = _byName + _customByName
 
     @OptIn(ExperimentalResourceApi::class)
     suspend fun load() {
@@ -68,11 +70,36 @@ object OutfitDatabase {
         loaded = true
     }
 
-    fun getById(id: Int): OutfitData? = _byId[id]
+    fun getById(id: Int): OutfitData? = _byId[id] ?: _customById[id]
 
-    fun getByName(name: String): OutfitData? = _byName[name.lowercase()]
+    fun getByName(name: String): OutfitData? {
+        val lower = name.lowercase()
+        return _byName[lower] ?: _customByName[lower]
+    }
 
     fun all(): Collection<OutfitData> = _byId.values
+
+    fun customOutfits(): Collection<OutfitData> = _customById.values
+
+    fun allOutfits(): Collection<OutfitData> = _byId.values + _customById.values
+
+    fun registerCustom(outfit: OutfitData) {
+        require(outfit.id < 0) { "Custom outfit ids must be negative" }
+        _customById[outfit.id] = outfit
+        _customByName[outfit.name.lowercase()] = outfit
+    }
+
+    fun clearCustom() {
+        _customById.clear()
+        _customByName.clear()
+    }
+
+    /** Registers a static outfit entry (for tests). */
+    fun registerStatic(outfit: OutfitData) {
+        require(outfit.id > 0) { "Static outfit ids must be positive" }
+        _byId[outfit.id] = outfit
+        _byName[outfit.name.lowercase()] = outfit
+    }
 
     fun findByPiece(itemName: String): OutfitData? {
         val lower = itemName.lowercase()

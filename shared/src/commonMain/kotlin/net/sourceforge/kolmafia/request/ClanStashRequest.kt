@@ -9,6 +9,10 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
 open class ClanStashRequest(private val client: HttpClient) {
 
+    companion object {
+        private val ITEM_ROW = Regex("""whichitem=(\d+)[^>]*>[^<]*(?:\((\d+)\))?""")
+    }
+
     /** Contribute [quantity] of item [itemId] to the clan stash. */
     open suspend fun putIn(itemId: Int, quantity: Int): Result<String> {
         return try {
@@ -39,5 +43,25 @@ open class ClanStashRequest(private val client: HttpClient) {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    /** Parses clan_stash.php for item id → quantity. */
+    open suspend fun fetchContents(): Map<Int, Int> {
+        return try {
+            val html = client.get("$KOL_BASE_URL/clan_stash.php").bodyAsText()
+            parseContents(html)
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    fun parseContents(html: String): Map<Int, Int> {
+        val result = mutableMapOf<Int, Int>()
+        for (m in ITEM_ROW.findAll(html)) {
+            val id = m.groupValues[1].toIntOrNull() ?: continue
+            val qty = m.groupValues[2].toIntOrNull()?.takeIf { it > 0 } ?: 1
+            result[id] = (result[id] ?: 0) + qty
+        }
+        return result
     }
 }

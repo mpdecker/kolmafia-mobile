@@ -44,6 +44,7 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
+import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.session.SessionManager
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.buffbot.BuffBotManager
@@ -59,6 +60,10 @@ import net.sourceforge.kolmafia.npc.NpcBuyRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
+import net.sourceforge.kolmafia.equipment.OutfitManager
+import net.sourceforge.kolmafia.request.CustomOutfitRequest
+import net.sourceforge.kolmafia.request.CraftRequest
+import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.StorageRequest
@@ -66,6 +71,7 @@ import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
+import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.shop.CoinmasterRequest
 import net.sourceforge.kolmafia.shop.ShopRequest
 import net.sourceforge.kolmafia.skill.SkillCastRequest
@@ -131,8 +137,18 @@ val sharedModule = module {
     singleOf(::StorageRequest)
     singleOf(::DisplayCaseRequest)
     singleOf(::ClanStashRequest)
+    singleOf(::ManageStoreRequest)
+    singleOf(::EquipmentRequest)
+    singleOf(::CustomOutfitRequest)
     singleOf(::BreakfastManager)
-    singleOf(::InventoryManager)
+    single {
+        InventoryManager(
+            client = get(),
+            eventBus = get(),
+            characterRequest = get(),
+            character = get(),
+        )
+    }
     singleOf(::FamiliarManager)
     singleOf(::SkillCastRequest)
     singleOf(::SkillManager)
@@ -191,6 +207,12 @@ val sharedModule = module {
             clanStashRequest    = get(),
             mallManager         = get(),
             retrieveItemService = get(),
+            outfitManager       = get(),
+            equipmentRequest    = get(),
+            coinmasterManager   = get(),
+            craftRequest        = get(),
+            manageStoreRequest  = get(),
+            mallPriceManager    = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -211,6 +233,7 @@ val sharedModule = module {
             moodManager          = get(),
             banishManager        = get(),
             breakfastManager     = get(),
+            outfitManager        = get(),
         )
     }
     singleOf(::ShopRequest)
@@ -219,15 +242,43 @@ val sharedModule = module {
     singleOf(::MallPurchaseRequest)
     single { MallPriceManager() }
     singleOf(::NpcBuyRequest)
-    single { MallManager(get(), get(), get()) }
+    single { MallManager(get(), get(), get(), get()) }
+    singleOf(::CraftRequest)
+    single {
+        CoinmasterManager(
+            coinmasterRequest = get(),
+            inventoryManager = get(),
+            gameDatabase = get(),
+            client = get(),
+        )
+    }
     single {
         RetrieveItemService(
             inventoryManager = get(),
             closetRequest    = get(),
             storageRequest   = get(),
+            displayCaseRequest = get(),
+            clanStashRequest = get(),
             npcBuyRequest    = get(),
             mallManager      = get(),
+            coinmasterManager = get(),
+            craftRequest     = get(),
+            useItemRequest   = get(),
             gameDatabase     = get()
+        )
+    }
+    single {
+        OutfitManager(
+            retrieveItemService = get(),
+            equipmentRequest = get(),
+            customOutfitRequest = get(),
+            character = get(),
+            gameDatabase = get(),
+            closetRequest = get(),
+            storageRequest = get(),
+            displayCaseRequest = get(),
+            clanStashRequest = get(),
+            inventoryManager = get(),
         )
     }
     singleOf(::ChatManager)

@@ -18,10 +18,10 @@ class CoinmasterRegistryTest {
 
     @Test
     fun findByShopId_returnsSameMaster() {
-        val dmt = CoinmasterRegistry.findByNickname("dmt")!!
-        val byId = CoinmasterRegistry.findByShopId(dmt.shopId!!)
+        val shore = CoinmasterRegistry.findByNickname("shore")!!
+        val byId = CoinmasterRegistry.findByShopId(shore.shopId!!)
         assertNotNull(byId)
-        assertEquals(dmt.masterName, byId.masterName)
+        assertEquals(shore.masterName, byId.masterName)
     }
 
     @Test

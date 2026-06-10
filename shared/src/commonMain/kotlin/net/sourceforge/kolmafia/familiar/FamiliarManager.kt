@@ -112,6 +112,30 @@ open class FamiliarManager(
         return switchFamiliar(familiar)
     }
 
+    /** Enthrone a familiar by species name, or clear with "none"/empty. */
+    open suspend fun setEnthroned(name: String): Result<Unit> {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || trimmed.equals("none", ignoreCase = true)) {
+            return familiarRequest.enthrone(0)
+        }
+        val familiar = state.value.ownedFamiliars
+            .find { it.race.equals(trimmed, ignoreCase = true) }
+            ?: return Result.failure(Exception("Familiar not owned: $trimmed"))
+        return familiarRequest.enthrone(familiar.id)
+    }
+
+    /** Bjornify a familiar by species name, or clear with "none"/empty. */
+    open suspend fun setBjornified(name: String): Result<Unit> {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || trimmed.equals("none", ignoreCase = true)) {
+            return familiarRequest.bjornify(0)
+        }
+        val familiar = state.value.ownedFamiliars
+            .find { it.race.equals(trimmed, ignoreCase = true) }
+            ?: return Result.failure(Exception("Familiar not owned: $trimmed"))
+        return familiarRequest.bjornify(familiar.id)
+    }
+
     /** Test hook — sets internal state without going through the network. */
     internal fun testSetState(state: FamiliarState) { _state.value = state }
 }
