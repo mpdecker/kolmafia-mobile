@@ -4,11 +4,12 @@ import io.ktor.client.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import kotlinx.coroutines.CancellationException
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
 open class NpcBuyRequest(private val client: HttpClient) {
 
-    open suspend fun buy(storeKey: String, itemId: Int, quantity: Int): Result<Int> = runCatching {
+    open suspend fun buy(storeKey: String, itemId: Int, quantity: Int): Result<Int> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/store.php",
             formParameters = parameters {
@@ -21,8 +22,13 @@ open class NpcBuyRequest(private val client: HttpClient) {
         )
         val body = response.bodyAsText()
         if (body.contains("You can't afford") || body.contains("That store doesn't")) {
-            return@runCatching 0
+            Result.success(0)
+        } else {
+            Result.success(quantity)
         }
-        quantity
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 }
