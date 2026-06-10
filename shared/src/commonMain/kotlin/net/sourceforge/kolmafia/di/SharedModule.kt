@@ -50,9 +50,12 @@ import net.sourceforge.kolmafia.buffbot.BuffBotManager
 import net.sourceforge.kolmafia.chat.ChatManager
 import net.sourceforge.kolmafia.chat.ChatPoller
 import net.sourceforge.kolmafia.chat.ChatSender
+import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPriceManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
+import net.sourceforge.kolmafia.npc.NpcBuyRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
@@ -185,7 +188,9 @@ val sharedModule = module {
             httpClient       = get(),
             hermitRequest    = get(),
             displayCaseRequest = get(),
-            clanStashRequest = get(),
+            clanStashRequest    = get(),
+            mallManager         = get(),
+            retrieveItemService = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -213,6 +218,18 @@ val sharedModule = module {
     singleOf(::MallSearchRequest)
     singleOf(::MallPurchaseRequest)
     single { MallPriceManager() }
+    singleOf(::NpcBuyRequest)
+    single { MallManager(get(), get(), get()) }
+    single {
+        RetrieveItemService(
+            inventoryManager = get(),
+            closetRequest    = get(),
+            storageRequest   = get(),
+            npcBuyRequest    = get(),
+            mallManager      = get(),
+            gameDatabase     = get()
+        )
+    }
     singleOf(::ChatManager)
     singleOf(::ChatSender)
     singleOf(::ChatPoller)
