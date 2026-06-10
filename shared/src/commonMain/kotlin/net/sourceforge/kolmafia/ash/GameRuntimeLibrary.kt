@@ -18,6 +18,8 @@ import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.ClanStashRequest
+import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -54,6 +56,8 @@ class GameRuntimeLibrary(
     internal val banishManager: BanishManager? = null,
     internal val httpClient: HttpClient? = null,
     internal val hermitRequest: HermitRequest? = null,
+    internal val displayCaseRequest: DisplayCaseRequest? = null,
+    internal val clanStashRequest: ClanStashRequest? = null,
 ) : RuntimeLibrary() {
 
     companion object {

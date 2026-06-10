@@ -115,4 +115,40 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         val req = drinkBoozeRequest ?: return@regFn AshValue.of(false)
         AshValue.of(kotlinx.coroutines.runBlocking { req.drink(itemId, qty) }.isSuccess)
     }
+
+    // 13. put_display(qty: int, it: item) → boolean — move item from backpack to display case
+    regFn(scope, "put_display", AshType.BOOLEAN,
+        listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
+        val qty = args[0].toLong().toInt()
+        val req = displayCaseRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.putIn(itemId, qty) }.isSuccess)
+    }
+
+    // 14. take_display(qty: int, it: item) → boolean — move item from display case to backpack
+    regFn(scope, "take_display", AshType.BOOLEAN,
+        listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
+        val qty = args[0].toLong().toInt()
+        val req = displayCaseRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.takeOut(itemId, qty) }.isSuccess)
+    }
+
+    // 15. put_stash(qty: int, it: item) → boolean — contribute item to clan stash
+    regFn(scope, "put_stash", AshType.BOOLEAN,
+        listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
+        val qty = args[0].toLong().toInt()
+        val req = clanStashRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.putIn(itemId, qty) }.isSuccess)
+    }
+
+    // 16. take_stash(qty: int, it: item) → boolean — take item from clan stash
+    regFn(scope, "take_stash", AshType.BOOLEAN,
+        listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
+        val qty = args[0].toLong().toInt()
+        val req = clanStashRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.takeOut(itemId, qty) }.isSuccess)
+    }
 }

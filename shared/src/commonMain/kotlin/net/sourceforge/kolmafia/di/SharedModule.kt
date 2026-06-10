@@ -61,6 +61,8 @@ import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.request.ClanStashRequest
+import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.shop.CoinmasterRequest
 import net.sourceforge.kolmafia.shop.ShopRequest
 import net.sourceforge.kolmafia.skill.SkillCastRequest
@@ -124,6 +126,8 @@ val sharedModule = module {
     singleOf(::AutosellRequest)
     singleOf(::ClosetRequest)
     singleOf(::StorageRequest)
+    singleOf(::DisplayCaseRequest)
+    singleOf(::ClanStashRequest)
     singleOf(::BreakfastManager)
     singleOf(::InventoryManager)
     singleOf(::FamiliarManager)
@@ -180,6 +184,8 @@ val sharedModule = module {
             banishManager    = get(),
             httpClient       = get(),
             hermitRequest    = get(),
+            displayCaseRequest = get(),
+            clanStashRequest = get(),
         )
     }
     singleOf(::ScriptManager)
