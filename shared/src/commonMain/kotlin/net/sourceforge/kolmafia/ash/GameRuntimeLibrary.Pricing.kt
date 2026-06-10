@@ -13,4 +13,14 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
         val price = gameDatabase?.npcPrice(args[0].toString()) ?: 0
         AshValue.of(price.toLong())
     }
+
+    // mall_price(it: item) → int — cheapest listed mall price; -1 if not found
+    regFn(scope, "mall_price", AshType.INT,
+        listOf("it" to AshType.ITEM)) { _, args ->
+        val itemName = args[0].toString()
+        val price = kotlinx.coroutines.runBlocking {
+            mallManager?.cheapestPrice(itemName) ?: -1L
+        }
+        AshValue.of(price)
+    }
 }

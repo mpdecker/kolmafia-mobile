@@ -20,6 +20,8 @@ import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
+import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StorageRequest
@@ -59,6 +61,8 @@ class GameRuntimeLibrary(
     internal val hermitRequest: HermitRequest? = null,
     internal val displayCaseRequest: DisplayCaseRequest? = null,
     internal val clanStashRequest: ClanStashRequest? = null,
+    internal val mallManager: MallManager? = null,
+    internal val retrieveItemService: RetrieveItemService? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -222,6 +226,7 @@ class GameRuntimeLibrary(
         registerCombatStubs(scope)
         registerItemActions(scope)
         registerPricingQueries(scope)
+        registerMallFunctions(scope)
         registerBanishQueries(scope)
         registerWebRequests(scope)
         registerHermit(scope)
