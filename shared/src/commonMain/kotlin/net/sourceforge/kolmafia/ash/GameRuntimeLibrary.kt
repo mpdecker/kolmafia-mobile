@@ -138,51 +138,39 @@ class GameRuntimeLibrary(
         },
 
         // "equip [<slot>] <item-name>" — equip item, optionally into a named slot.
-        // If the first word after "equip" is a known slot apiKey or displayName, treat it as a slot
-        // and the remainder as the item name; otherwise, treat the whole remainder as an item name
-        // and equip into "default" slot. Unknown slot name → error echo; unknown item → silent no-op.
-        Regex("^equip\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+        // If the first word after "equip" is a known slot apiKey, treat it as a slot and the
+        // remainder as the item name; if that item lookup fails, fall back to trying the full
+        // remainder as an item name with "default" slot. Unknown item → silent no-op.
+        Regex("^equip\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val rest = m.groupValues[1].trim()
-            // Try to split: first token as slot, rest as item name
             val spaceIdx = rest.indexOf(' ')
-            val firstToken = if (spaceIdx >= 0) rest.substring(0, spaceIdx) else rest
-            val afterFirst = if (spaceIdx >= 0) rest.substring(spaceIdx + 1).trim() else ""
-            val knownSlot = EquipmentSlot.entries.find { s ->
-                s.displayName.equals(firstToken, ignoreCase = true)
-                    || s.apiKey.equals(firstToken, ignoreCase = true)
-            }
-            if (knownSlot != null && afterFirst.isNotEmpty()) {
-                // Slot + item form
-                val item = inventoryManager?.state?.value?.items?.values
-                    ?.find { it.name.equals(afterFirst, ignoreCase = true) }
-                if (item == null) return@to
-                kotlinx.coroutines.runBlocking { inventoryManager!!.equipItem(item, knownSlot.apiKey) }
-            } else if (spaceIdx >= 0 && afterFirst.isNotEmpty()) {
-                // First token looks like a slot word but isn't recognized — check if it could be
-                // part of a multi-word item name by seeing if anything in inventory matches the full rest
-                val itemByFullName = inventoryManager?.state?.value?.items?.values
-                    ?.find { it.name.equals(rest, ignoreCase = true) }
-                if (itemByFullName != null) {
-                    kotlinx.coroutines.runBlocking { inventoryManager!!.equipItem(itemByFullName, "default") }
-                } else {
-                    // First token doesn't match any slot and full string isn't a known item.
-                    // Check if first token looks like an explicit (but unknown) slot attempt:
-                    // heuristic — if afterFirst matches an inventory item, treat firstToken as bad slot
-                    val itemByAfter = inventoryManager?.state?.value?.items?.values
+
+            if (spaceIdx > 0) {
+                val firstToken = rest.substring(0, spaceIdx)
+                val afterFirst = rest.substring(spaceIdx + 1).trim()
+                val knownSlot = EquipmentSlot.entries.find { s ->
+                    s.apiKey.equals(firstToken, ignoreCase = true)
+                }
+                if (knownSlot != null) {
+                    // "equip <slot> <item>" — try afterFirst as item name in named slot
+                    val item = inventoryManager?.state?.value?.items?.values
                         ?.find { it.name.equals(afterFirst, ignoreCase = true) }
-                    if (itemByAfter != null) {
-                        rt.print("[cli] equip: unknown slot $firstToken")
+                    if (item != null) {
+                        kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, knownSlot.apiKey) }
+                        return@to
                     }
-                    // otherwise silent no-op (unknown item)
-                }
-            } else {
-                // Single-word item — no slot
-                val item = inventoryManager?.state?.value?.items?.values
-                    ?.find { it.name.equals(rest, ignoreCase = true) }
-                if (item != null) {
-                    kotlinx.coroutines.runBlocking { inventoryManager!!.equipItem(item, "default") }
+                    // slot was recognised but item not found — could be item name starting with a slot word
+                    // fall through to try full rest as item name with "default" slot
                 }
             }
+
+            // "equip <item>" — no slot, or slot+item fallback
+            val item = inventoryManager?.state?.value?.items?.values
+                ?.find { it.name.equals(rest, ignoreCase = true) }
+            if (item != null) {
+                kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, "default") }
+            }
+            // not in backpack → silent no-op
         },
 
         // "unequip <slot>" — remove equipped item from a slot

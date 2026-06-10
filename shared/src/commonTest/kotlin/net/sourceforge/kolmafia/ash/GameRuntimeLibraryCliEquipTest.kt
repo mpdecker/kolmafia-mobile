@@ -3,6 +3,8 @@ package net.sourceforge.kolmafia.ash
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
@@ -24,11 +26,8 @@ private class FakeInventoryManager(
     HttpClient(MockEngine { respond("") }),
     GameEventBus()
 ) {
-    private val _items: Map<Int, InventoryItem> = initialItems
-
-    override val state get() = kotlinx.coroutines.flow.MutableStateFlow(
-        InventoryState(items = _items)
-    )
+    private val _fakeState = MutableStateFlow(InventoryState(items = initialItems))
+    override val state: StateFlow<InventoryState> = _fakeState
 
     override suspend fun equipItem(item: InventoryItem, slot: String): Result<Unit> {
         equipCalls.add(item.name to slot)
@@ -83,11 +82,24 @@ class GameRuntimeLibraryCliEquipTest {
     }
 
     @Test
-    fun cliExecute_equipWithSlotUnknownSlot_echoesCommand() {
+    fun cliExecute_equipWithSlotUnknownSlot_silentNoOp() {
         val invMgr = FakeInventoryManager(swordInBackpack())
         val lib = GameRuntimeLibrary(inventoryManager = invMgr)
         val out = outputLib(lib, """cli_execute("equip badslot rusty sword");""")
-        assertEquals("[cli] equip: unknown slot badslot", out)
+        assertEquals("", out)
+    }
+
+    @Test
+    fun cliExecute_equip_itemNameStartingWithSlotToken_equipsWithDefaultSlot() {
+        val hatItem = InventoryItem(20, "hat of the colossus", 1, ItemType.HAT)
+        val equipCalls = mutableListOf<Pair<String, String>>()
+        val invMgr = FakeInventoryManager(
+            initialItems = mapOf(20 to hatItem),
+            equipCalls = equipCalls
+        )
+        val lib = GameRuntimeLibrary(inventoryManager = invMgr)
+        runLib(lib, """cli_execute("equip hat of the colossus");""")
+        assertEquals(listOf("hat of the colossus" to "default"), equipCalls)
     }
 
     @Test
