@@ -1,16 +1,16 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-_Generated: 2026-06-03 (updated 2026-06-08 after Phase 14: ASH Script Compatibility Pack)_
+_Generated: 2026-06-03 (updated 2026-06-09 after Phase 15: Inventory Ops & Consumption Completeness)_
 
 ## Scale Comparison
 
 | Metric | Desktop (Java) | Mobile (Kotlin) | Coverage |
 |--------|---------------|-----------------|----------|
-| Source files | ~1,172 classes | ~247 files (commonMain) | ~21% |
-| Lines of code | ~57,000 | ~14,657 (commonMain) | ~26% |
-| Test files | 411 | 95 | ~23% |
-| Tests | ~1,800+ | 1,207 | ~67% (of covered scope) |
-| ASH function overloads | ~890 | ~98 registered | ~11% |
+| Source files | ~1,172 classes | ~249 files (commonMain) | ~21% |
+| Lines of code | ~57,000 | ~14,931 (commonMain) | ~26% |
+| Test files | 411 | 97 | ~24% |
+| Tests | ~1,800+ | 1,236 | ~69% (of covered scope) |
+| ASH function overloads | ~890 | ~113 registered | ~13% |
 | Banisher enum entries | 70 (69 named + UNKNOWN) | 70 (69 named + UNKNOWN) | **100%** |
 | BreakfastManager actions | 22 (20 universal + 2 niche) | 20 | **~91%** |
 | Build target | JVM 21 | Android + iOS | — |
@@ -75,13 +75,18 @@ file counts suggest because the desktop has massive complexity in its managers a
 | **`can_adventure()` / `prepare_for_adventure()`** *(Phase 14)* | `RuntimeLibrary.java` adventure guards | `GameRuntimeLibrary.Character.kt` | `can_adventure(loc)` returns `adventuresLeft > 0`; `prepare_for_adventure()` is no-op returning `true` |
 | **`adv1(location, adventuresUsed)`** *(Phase 14)* | `RuntimeLibrary.java` single-adventure form | `GameRuntimeLibrary.kt registerGameActions` | Runs 1 adventure via `adventureManager.runAdventures()`; returns false when manager null |
 | **`cli_execute` cast + familiar** *(Phase 14)* | `KoLmafiaCLI.java` cast/familiar commands | `GameRuntimeLibrary.kt cliDispatch` | `cast N skill-name` and `cast skill-name` wire to `SkillManager.cast()`; `familiar name` wires to `FamiliarManager.setFamiliar()`; `FamiliarManager` made `open class` |
+| **`eatsilent()` / `drinksilent()` / `overdrink()`** *(Phase 15)* | `RuntimeLibrary.java` consumption variants | `GameRuntimeLibrary.ItemActions.kt` items 10–12 | Registered as distinct overloads (no client-side cap guard on mobile; server enforces); delegates to existing `EatFoodRequest`/`DrinkBoozeRequest` |
+| **`get_closet()` / `get_storage()` live data** *(Phase 15)* | `RuntimeLibrary.java` inventory collections | `GameRuntimeLibrary.Collections.kt` | Now live — `api.php?what=closet` and `api.php?what=storage`; `ClosetRequest.fetchContents()` / `StorageRequest.fetchContents()` return `Map<Int,Int>` converted to `AggregateValue`; HTTP on every call — warn scripts against tight loops |
+| **`DisplayCaseRequest` + `ClanStashRequest`** *(Phase 15)* | Various `request/` classes | `request/DisplayCaseRequest.kt`, `request/ClanStashRequest.kt` | HTTP wrappers: `displaycollection.php?action=put/take` and `clan_stash.php?action=contribute/take`; `open class` + `open suspend fun` for test overridability |
+| **`put_display()` / `take_display()` / `put_stash()` / `take_stash()`** *(Phase 15)* | `RuntimeLibrary.java` | `GameRuntimeLibrary.ItemActions.kt` items 13–16 | Four live ASH functions wired to `DisplayCaseRequest` and `ClanStashRequest`; DI-registered in `SharedModule` |
+| **`cli_execute` equip/unequip/sell/autosell** *(Phase 15)* | `KoLmafiaCLI.java` equipment + selling | `GameRuntimeLibrary.kt cliDispatch` | `equip [<slot>] <item>` with slot-detection heuristic + fallback; `unequip <slot>`; `sell N <item>` / `autosell N <item>` both wire to `AutosellRequest`; `InventoryManager` + `AutosellRequest` made `open class` |
 | **CombatDatabase / ZoneLookup** *(PR #10)* | `AdventureDatabase.java` monster weights | `data/ZoneLookup.kt` + `data/CombatDatabase.kt` | Zone→monster list; used by banish zone pre-flight |
 | **`is_banished()` + `banishers_used()`** *(PR #10)* | `RuntimeLibrary.java` banish queries | `ash/GameRuntimeLibrary.kt` | `is_banished(monster)`, `is_banished(string)`, `banishers_used() → string[monster]` |
 | **ASH character/familiar/equipment** *(PR #11)* | `RuntimeLibrary.java` | `GameRuntimeLibrary.Character/Familiar/Equipment.kt` | `my_class`, `my_path`, `my_sign`, `my_primestat`, `in_run`, `ascension_number`, `have_familiar`, `use_familiar`, `equipped_item`, `to_slot`, `slot_to_item` |
 | **ASH date/time** *(PR #11)* | `RuntimeLibrary.java` | `GameRuntimeLibrary.DateTime.kt` | `today_to_string`, `now_to_string`, `gameday_to_string`, `rollover`, `moon_phase`; platform expect/actual |
 | **ASH modifier extensions** *(PR #11)* | `RuntimeLibrary.java` | `GameRuntimeLibrary.Modifiers.kt` | `numeric_modifier` (×3), `boolean_modifier` (×2), `string_modifier` (×1) |
-| **ASH collection extensions** *(PR #11)* | `RuntimeLibrary.java` | `GameRuntimeLibrary.Collections.kt` | `get_inventory` (live); `get_closet`, `get_storage`, `get_stash`, `get_display` (stubs) |
-| **ASH item-action extensions** *(PR #11)* | `RuntimeLibrary.java` | `GameRuntimeLibrary.ItemActions.kt` | `use`, `eat`, `drink`, `chew`, `autosell`, `put_closet`, `take_closet`, `take_storage`; `put_shop` stub |
+| **ASH collection extensions** *(PR #11, Phase 15)* | `RuntimeLibrary.java` | `GameRuntimeLibrary.Collections.kt` | `get_inventory` (live); `get_closet`, `get_storage` (**live** — Phase 15 via `api.php?what=closet/storage`); `get_stash`, `get_display` (stubs) |
+| **ASH item-action extensions** *(PR #11, Phase 15)* | `RuntimeLibrary.java` | `GameRuntimeLibrary.ItemActions.kt` | `use`, `eat`, `drink`, `chew`, `autosell`, `put_closet`, `take_closet`, `take_storage`; `eatsilent`, `drinksilent`, `overdrink` **(Phase 15)**; `put_display`, `take_display`, `put_stash`, `take_stash` **(Phase 15)**; `put_shop` stub |
 | **HTTP item request classes** *(PR #11)* | Various `request/` classes | `request/UseItemRequest`, `EatFoodRequest`, `DrinkBoozeRequest`, `ChewRequest`, `AutosellRequest`, `ClosetRequest`, `StorageRequest` | 7 suspend request classes |
 | **`visit_url` ASH function** *(PR #13)* | `RuntimeLibrary.java` `visit_url` | `GameRuntimeLibrary.WebRequest.kt` | 4 overloads: GET (×2), POST string (×2); HttpClient wired via DI |
 | **`hermit()` ASH function** *(PR #13)* | `RuntimeLibrary.java` `hermit` | `GameRuntimeLibrary.Hermit.kt` + `request/HermitRequest.kt` | `hermit(item, count) → int`; item-first to match desktop API |
@@ -95,14 +100,12 @@ file counts suggest because the desktop has massive complexity in its managers a
 
 | Feature | Desktop size/complexity | Priority |
 |---------|------------------------|----------|
-| **`get_closet()` / `get_storage()`** | `RuntimeLibrary.java` — live inventory | **High** — both return empty stubs; `ClosetRequest` and `StorageRequest` exist but don't populate collections; scripts using closet/Hagnk's content are blind |
 | **`buy()` / `retrieve_item()`** | `MallSearchRequest` / compound | **High** — `buy` needs MallSearchRequest HTML parser; `retrieve_item` is compound (closet/storage/buy); blocks many automation scripts |
-| **`cli_execute` remaining dispatch** | `KoLmafiaCLI.java` ~100+ commands | **High** — Phase 14 added `cast N/1` + `familiar`; still missing `equip`, `unequip`, `outfit`, `sell/autosell`, `buy`; scripts calling these fall through to echo |
-| **`eatsilent()` / `drinksilent()` / `overdrink()`** | `RuntimeLibrary.java` consumption variants | **Medium** — mobile has eat/drink but not silent variants or overdrinking; `EatFoodRequest`/`DrinkBoozeRequest` already exist |
+| **`cli_execute` remaining dispatch** | `KoLmafiaCLI.java` ~100+ commands | **High** — Phase 15 added `equip`, `unequip`, `sell`, `autosell`; still missing `outfit <name>`, `buy <n> <item>`; scripts calling these fall through to echo |
 | **`create()` / `craft()` response parsing** | `concoction/` 32 classes | **Medium** — submits but returns placeholder item (id=-1); `ItemCrafted` event has id=-1 |
 | **`put_shop()` / `take_shop()` / `reprice_shop()`** | `MallRequest.java` | **Medium** — all stub/absent; shop management blocked |
 | **`copiers_used(skill)`** | `RuntimeLibrary.java` copy tracking | **Medium** — always returns 0; Yellow Ray / other copy counts not tracked |
-| **`put_display()` / `take_display()` / `put_stash()` / `take_stash()`** | `RuntimeLibrary.java` | **Medium** — missing; `get_stash()` and `get_display()` are also empty stubs |
+| **`get_stash()` / `get_display()` live data** | `RuntimeLibrary.java` | **Medium** — `put_stash`/`take_stash`/`put_display`/`take_display` now live (Phase 15); but read variants still return empty stubs (no `api.php?what=stash` equivalent; requires HTML parse of `clan_stash.php` / `displaycollection.php`) |
 | **ASH outfit/equipment (remaining)** | `outfit`, `have_outfit`, `retrieve_outfit` | **Medium** — requires outfit tracking in InventoryManager |
 | **Quest tracking depth** | Per-quest state machines in `QuestDatabase.java` | **Medium** — 99 quests by name; step detection text-based; NPC-visit advances missed until next login |
 | **KoLCharacter depth** | 200+ fields in desktop | **Medium** — 70+ fields; per-quest flags, detailed campground state, storage/closet item counts beyond meat totals absent |
@@ -306,17 +309,17 @@ overloads** — roughly 11% coverage.
 | Skill | `have_skill`, `mp_cost`, `to_skill`, `daily_limit`, `times_cast` |
 | Effect | `have_effect`, `to_effect` |
 | Modifier | `numeric_modifier` (item×2, effect×1), `boolean_modifier` (item×1, effect×1), `string_modifier` (item×1) |
-| Collections | `get_inventory` (live), `get_closet`, `get_storage`, `get_stash`, `get_display` (stubs) |
+| Collections | `get_inventory` (live), `get_closet` **(live — Phase 15)**, `get_storage` **(live — Phase 15)**, `get_stash`, `get_display` (stubs) |
 | Date/time | `today_to_string`, `now_to_string`, `gameday_to_string`, `rollover`, `moon_phase` |
 | Goals | `add_item_condition`, `remove_item_condition`, `goal_exists`, `get_goals` |
 | Mood | `get_moods`, `mood_list` (live — reads `moodLibrary.keys.sorted()`) |
 | Preferences | `get_property`, `set_property` |
 | Combat | `last_monster` (live via `_lastMonster` pref), `in_multi_fight` (stub), `fight_follows_choice` (stub), `copiers_used` (stub) |
-| Item actions | `use`, `eat`, `drink`, `chew`, `autosell`, `put_closet`, `take_closet`, `take_storage` (all live); `put_shop` (stub) |
+| Item actions | `use`, `eat`, `drink`, `chew`, `autosell`, `put_closet`, `take_closet`, `take_storage` (all live); `eatsilent`, `drinksilent`, `overdrink` **(Phase 15)**; `put_display`, `take_display`, `put_stash`, `take_stash` **(Phase 15)**; `put_shop` (stub) |
 | Banish | `is_banished` (×2), `banishers_used`, `to_monster` |
 | Web | `visit_url` (×4: GET×2, POST×2) |
 | Economy | `hermit(item, count)` and `hermit(count, item)` (both overloads); `npc_price`, `autosell_price` (GameDatabase lookups) |
-| Game actions | `adventure`, `use_skill` (×2), `adv1` (single-adventure form), `cli_execute` (partial — 6 patterns dispatched: mood/set/get/cast×2/familiar) |
+| Game actions | `adventure`, `use_skill` (×2), `adv1` (single-adventure form), `cli_execute` (partial — **10 patterns dispatched**: mood/set/get/cast×2/familiar/equip/unequip/sell+autosell) |
 | Timing | `wait`, `waitq` |
 
 **Still missing by category:**
@@ -325,13 +328,13 @@ overloads** — roughly 11% coverage.
 |----------|---------------------|
 | Type conversions | `to_modifier`, `to_path`, `to_thrall`, `to_vykea`, `to_servant`, `to_bounty` (niche entity types) |
 | Web scripting | `load_html`, `write`, `writeln`, `form_field`, `make_url` |
-| Economy | `buy` (×3), `sell`, `retrieve_item`, `retrieve_price`, `overdrink`, `eatsilent`, `drinksilent` |
-| Collections | `put_display`, `take_display`, `put_stash`, `take_stash`, `empty_closet` |
+| Economy | `buy` (×3), `sell`, `retrieve_item`, `retrieve_price` |
+| Collections | `get_stash` (live), `get_display` (live), `empty_closet` |
 | Shop management | `reprice_shop`, `take_shop` |
 | Pricing | `mall_price`, `historical_price` |
 | Adventure prep | `set_location` |
 | Equipment | `outfit`, `have_outfit`, `retrieve_outfit` |
-| CLI | `cli_execute` remaining dispatch (`equip`, `unequip`, `outfit`, `sell/autosell`, `buy`; ~90 unhandled patterns), `cli_execute_output` |
+| CLI | `cli_execute` remaining dispatch (`outfit <name>`, `buy <n> <item>`; ~88 unhandled patterns still echo), `cli_execute_output` |
 | Logging | `dump` |
 | Environment | `is_dark_mode`, `is_headless`, `get_revision`, `get_version`, `get_path` |
 | Combat | `copiers_used` real tracking, `can_still_steal`, `get_ccs_action` |
@@ -362,56 +365,49 @@ Mobile has a 10-file `modifiers/` package covering the full passive prediction a
 | ManaBurn | Full — any buff, summons, per-skill priority | Partial — mood-trigger effects only | Desktop wins on coverage |
 | Banish tracking | 70 banishers, queue model, phylum, full routing | **70 banishers (parity)**, 37 patterns, zone pre-flight, daycount-gated | Enum parity; queue/phylum remain |
 | Breakfast / daily actions | ~22 actions, outfit checkpointing | **20/22 actions** — all core items; missing only Jackass Plumber + Sea Jelly | **Near parity** — niche items remain |
-| Item HTTP actions | Broad coverage | 7 request classes + HermitRequest | Core consumption + selling + hermit covered |
+| Item HTTP actions | Broad coverage | 9 request classes + HermitRequest | Core consumption + selling + display case + clan stash + hermit covered |
 
 ---
 
 ## Top Priorities
 
-_Phase 14 completed items 1–7 from the previous list. Updated priorities:_
+_Phase 15 completed: `get_closet`/`get_storage` live (was #1), `eatsilent`/`drinksilent`/`overdrink` (was #4), `put_display`/`take_display`/`put_stash`/`take_stash` (was #6), `cli_execute` equip/unequip/sell/autosell (was part of #3). Updated priorities:_
 
-1. **`get_closet()` / `get_storage()` live data** — Both return empty stubs. Wire
-   `ClosetRequest` and `StorageRequest` to populate the aggregate via HTTP fetch + inventory HTML parse.
-   Many scripts check closet/Hagnk's contents before deciding to buy or retrieve items; blind returns
-   silently break these checks.
-
-2. **`buy()` / `retrieve_item()`** — `buy` needs a `MallSearchRequest` HTML parser to identify the
+1. **`buy()` / `retrieve_item()`** — `buy` needs a `MallSearchRequest` HTML parser to identify the
    cheapest seller and submit the purchase. `retrieve_item` is a compound operation (check closet →
    check storage → mall buy). Both are blocked on the HTML parser. High impact: these underpin most
    end-to-end automation scripts.
 
-3. **`cli_execute` remaining dispatch** — Phase 14 added `cast N/1` and `familiar`. Still missing:
-   `equip <slot> <item>`, `unequip <slot>`, `outfit <name>`, `sell <n> <item>`, `autosell <n> <item>`,
-   `buy <n> <item>`. Add patterns to `cliDispatch` in `GameRuntimeLibrary.kt`; wire to existing
-   `InventoryManager`/`MallPriceManager` methods where available.
-
-4. **`eatsilent()` / `drinksilent()` / `overdrink()`** — Mobile has `eat`/`drink` but not the silent
-   or overdrink variants. `EatFoodRequest` and `DrinkBoozeRequest` already exist; silent variants skip
-   the fullness/inebriety capacity check. `overdrink` calls `DrinkBoozeRequest` ignoring the limit.
-   3 additional `regFn` calls wrapping existing request classes.
-
-5. **Mood inheritance** — `Mood.java` parses `"moodA extends default"` parent merge. Mobile `Mood` is
+2. **Mood inheritance** — `Mood.java` parses `"moodA extends default"` parent merge. Mobile `Mood` is
    flat. Add an optional `parent: String?` field to `Mood`, and in `MoodManager.executeActiveMood()`
    merge parent triggers before evaluating child triggers. Enables the "default" base mood pattern
    used by almost every power user.
 
-6. **`put_display()` / `take_display()` / `put_stash()` / `take_stash()`** — Display case and clan
-   stash operations. `get_stash()` and `get_display()` are already stubs; add the corresponding
-   mutating calls. Requires HTTP wrappers for `displaycollection.php` and `clan_stash.php`.
+3. **`cli_execute` remaining dispatch** — Phase 15 added `equip`, `unequip`, `sell`, `autosell`.
+   Still missing: `outfit <name>`, `buy <n> <item>`. `outfit` requires an `OutfitManager`; `buy`
+   requires the mall HTML parser (see #1).
 
-7. **Outfit / equipment query functions** — `outfit(name)`, `have_outfit(name)`,
+4. **Outfit / equipment query functions** — `outfit(name)`, `have_outfit(name)`,
    `retrieve_outfit(name)` require tracking outfit state in `InventoryManager`. Outfit data is
    available via the character API; needs parsing + a new `OutfitManager` or extension of equipment
    state.
 
-8. **BANISHER_PATTERNS gap fill** — 20 banishers have enum entries but no fight-HTML pattern. Each is
+5. **`get_stash()` / `get_display()` live data** — Mutating ops (put/take) now live (Phase 15);
+   read variants still return empty stubs. No `api.php?what=stash` equivalent — requires HTML parse
+   of `clan_stash.php` / `displaycollection.php`.
+
+6. **Fix `AutosellRequest` endpoint** — Currently uses `sellstuff_ugly.php`; KoL expects
+   `sellstuff_multi.php` with `action=autosell`, `whichitem[]=id`, `howmany=qty`. Flagged as
+   background task.
+
+7. **BANISHER_PATTERNS gap fill** — 20 banishers have enum entries but no fight-HTML pattern. Each is
    a one-liner in `BANISHER_PATTERNS`. High-value ones that fire through fight HTML: `BATTER_UP`,
    `HUMAN_MUSK`, `MARK_YOUR_TERRITORY`, `BALEFUL_HOWL`.
 
-9. **VampOut option-0 edge case** — When the solver's target location (Vlad/Isabella/Masquerade) is
+8. **VampOut option-0 edge case** — When the solver's target location (Vlad/Isabella/Masquerade) is
    already visited, `vladChoice` evaluates to `0` (invalid KoL option). Should return `null` to fall
    through to preference fallback. Tracked as background task.
 
-10. **`visit_url` POST body double-encoding** — Current `doPost` re-splits and re-encodes the
-    `post_data` string, double-encoding any pre-encoded values. Scripts passing pre-encoded POST bodies
-    (e.g., names with spaces) get corrupted requests. Tracked as background task.
+9. **`visit_url` POST body double-encoding** — Current `doPost` re-splits and re-encodes the
+   `post_data` string, double-encoding any pre-encoded values. Scripts passing pre-encoded POST bodies
+   (e.g., names with spaces) get corrupted requests. Tracked as background task.
