@@ -15,8 +15,12 @@ open class MoodManager(
     var activeMood: Mood? = null
 
     companion object {
-        fun missingTriggers(mood: Mood, effectState: EffectState): List<MoodTrigger> =
-            mood.triggers.filter { trigger ->
+        fun missingTriggers(
+            mood: Mood,
+            effectState: EffectState,
+            library: Map<String, Mood> = emptyMap(),
+        ): List<MoodTrigger> =
+            mood.effectiveTriggers(library).filter { trigger ->
                 val remaining = effectState.effects
                     .firstOrNull { it.id == trigger.effectId }
                     ?.duration ?: 0
@@ -54,7 +58,8 @@ open class MoodManager(
         val locallyEvicted = mutableSetOf<Int>()  // tracks IDs evicted this pass
         var locallyAdded = 0                       // songs cast this pass (not yet in effectState)
 
-        for (trigger in missingTriggers(mood, effectState)) {
+        val effectiveTriggers = mood.effectiveTriggers(moodLibrary)
+        for (trigger in missingTriggers(mood, effectState, moodLibrary)) {
             val skill = skillState.skills.firstOrNull { it.id == trigger.skillId } ?: continue
             if (skill.mpCost > charState.currentMp) continue
             if (skill.dailyLimit > 0 && skill.timesCast >= skill.dailyLimit) continue
@@ -66,7 +71,7 @@ open class MoodManager(
                 }
                 val effectiveCount = activeSongs.size + locallyAdded
                 if (effectiveCount >= songLimit) {
-                    val toEvict = lowestPriorityActiveSong(activeSongs, mood.triggers)
+                    val toEvict = lowestPriorityActiveSong(activeSongs, effectiveTriggers)
                     if (toEvict != null) {
                         uneffectRequest?.uneffect(toEvict.id)
                         locallyEvicted += toEvict.id
@@ -108,19 +113,20 @@ open class MoodManager(
             preferences.setString(Preferences.ACTIVE_MOOD_TRIGGERS, "")
             return
         }
-        preferences.setString(Preferences.ACTIVE_MOOD_NAME, mood.name)
+        preferences.setString(Preferences.ACTIVE_MOOD_NAME, mood.displayName())
         preferences.setString(Preferences.ACTIVE_MOOD_TRIGGERS, serializeTriggers(mood.triggers))
     }
 
     /** Restores [activeMood] from preferences. Call once after login. */
     fun loadActiveMood() {
-        val name = preferences.getString(Preferences.ACTIVE_MOOD_NAME)
-        if (name.isBlank()) {
+        val storedName = preferences.getString(Preferences.ACTIVE_MOOD_NAME)
+        if (storedName.isBlank()) {
             activeMood = null
             return
         }
+        val (name, parentNames) = Mood.parseName(storedName)
         val raw = preferences.getString(Preferences.ACTIVE_MOOD_TRIGGERS)
-        activeMood = Mood(name, parseTriggers(raw))
+        activeMood = Mood(name, parseTriggers(raw), parentNames)
     }
 
     // ── Mood library ──────────────────────────────────────────────────────────
@@ -144,7 +150,8 @@ open class MoodManager(
      * Returns true on success, false if [name] is not in the library.
      */
     fun setActiveMoodByName(name: String): Boolean {
-        val mood = moodLibrary[name] ?: return false
+        val canonical = Mood.canonicalName(name)
+        val mood = moodLibrary[canonical] ?: return false
         activeMood = mood
         saveActiveMood()
         return true
@@ -152,10 +159,11 @@ open class MoodManager(
 
     /** Persists the current [moodLibrary] to preferences. */
     fun saveMoodLibrary() {
-        val names = moodLibrary.keys.joinToString("|")
+        val moods = moodLibrary.values.toList()
+        val names = moods.map { it.displayName() }.joinToString("|")
         preferences.setString(Preferences.MOOD_LIBRARY_NAMES, names)
-        for ((name, mood) in moodLibrary) {
-            preferences.setString("moodTriggers_$name", serializeTriggers(mood.triggers))
+        for (mood in moods) {
+            preferences.setString("moodTriggers_${mood.name}", serializeTriggers(mood.triggers))
         }
     }
 
@@ -163,10 +171,11 @@ open class MoodManager(
     fun loadMoodLibrary() {
         val namesRaw = preferences.getString(Preferences.MOOD_LIBRARY_NAMES)
         if (namesRaw.isBlank()) { moodLibrary = emptyMap(); return }
-        val names = namesRaw.split("|").filter { it.isNotBlank() }
-        moodLibrary = names.associate { name ->
+        val displayNames = namesRaw.split("|").filter { it.isNotBlank() }
+        moodLibrary = displayNames.associate { displayName ->
+            val (name, parentNames) = Mood.parseName(displayName)
             val raw = preferences.getString("moodTriggers_$name")
-            name to Mood(name, parseTriggers(raw))
+            name to Mood(name, parseTriggers(raw), parentNames)
         }
     }
 

@@ -160,6 +160,7 @@ class AdventureManager(
                                 effectState = effects?.state?.value ?: EffectState(),
                                 skillState  = skills?.state?.value ?: SkillState(),
                                 charState   = character.state.value,
+                                moodLibrary = moodManager?.moodLibrary ?: emptyMap(),
                             )
                             burnIter++
                             if (!burned) break

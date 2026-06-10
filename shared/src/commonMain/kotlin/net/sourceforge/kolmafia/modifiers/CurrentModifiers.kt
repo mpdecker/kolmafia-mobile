@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.MainStat
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
+import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.effect.EffectData
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -251,13 +252,21 @@ class CurrentModifiers(
             if (raw != null) total = total + ModifierParser.parse(raw, context)
         }
 
-        // 7. Complete outfits (all equipment pieces present)
-        val equippedLower = state.equippedItems().map { it.second.lowercase() }.toSet()
-        for (outfit in OutfitDatabase.all()) {
+        // 7. Complete outfits (slot-aware multiset)
+        for (outfit in OutfitDatabase.allOutfits()) {
             if (outfit.equipment.isEmpty()) continue
-            if (outfit.equipment.all { it.lowercase() in equippedLower }) {
+            if (OutfitManager.isWearingPieces(outfit.equipment, state.equipment)) {
                 val raw = ModifierDatabase.getOutfit(outfit.name)?.modifiers
                 if (raw != null) total = total + ModifierParser.parse(raw, context)
+            }
+        }
+
+        // 8. Item synergies (all listed pieces equipped)
+        val equippedLower = state.equippedItems().map { it.second.lowercase() }.toSet()
+        for (synergy in ModifierDatabase.synergies()) {
+            val parts = synergy.name.split('/').map { it.trim().lowercase() }
+            if (parts.isNotEmpty() && parts.all { part -> part in equippedLower }) {
+                total = total + ModifierParser.parse(synergy.modifiers, context)
             }
         }
 

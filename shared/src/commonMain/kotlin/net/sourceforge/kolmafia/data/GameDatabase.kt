@@ -46,6 +46,7 @@ open class GameDatabase {
         PackageDatabase.load()
         NpcStoreDatabase.load()
         DailyLimitDatabase.load()
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.load()
 
         // Quest log text patterns (for quest state detection)
         QuestLogDatabase.load()

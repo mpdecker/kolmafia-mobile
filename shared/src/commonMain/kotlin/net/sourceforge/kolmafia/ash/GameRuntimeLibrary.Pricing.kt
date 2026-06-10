@@ -23,4 +23,16 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
         }
         AshValue.of(price)
     }
+
+    regFn(scope, "historical_price", AshType.INT,
+        listOf("it" to AshType.ITEM)) { _, args ->
+        val itemId = gameDatabase?.item(args[0].toString())?.id ?: return@regFn AshValue.ZERO
+        AshValue.of(mallPriceManager?.getHistoricalPrice(itemId) ?: 0L)
+    }
+
+    regFn(scope, "historical_age", AshType.INT,
+        listOf("it" to AshType.ITEM)) { _, args ->
+        val itemId = gameDatabase?.item(args[0].toString())?.id ?: return@regFn AshValue.of(-1L)
+        AshValue.of(mallPriceManager?.getHistoricalAge(itemId) ?: -1L)
+    }
 }

@@ -34,9 +34,10 @@ class ManaBurnManager(
             effectState: EffectState,
             skillState: SkillState,
             charState: CharacterState,
+            moodLibrary: Map<String, Mood> = emptyMap(),
         ): SkillData? {
             if (mood == null) return null
-            return mood.triggers
+            return mood.effectiveTriggers(moodLibrary)
                 .sortedBy { trigger ->
                     effectState.effects.firstOrNull { it.id == trigger.effectId }?.duration ?: 0
                 }
@@ -61,9 +62,10 @@ class ManaBurnManager(
         effectState: EffectState,
         skillState: SkillState,
         charState: CharacterState,
+        moodLibrary: Map<String, Mood> = emptyMap(),
     ): Boolean {
         if (!shouldBurn(charState, preferences)) return false
-        val skill = pickSkillToBurn(mood, effectState, skillState, charState) ?: return false
+        val skill = pickSkillToBurn(mood, effectState, skillState, charState, moodLibrary) ?: return false
         skillManager.cast(skill)
         return true
     }

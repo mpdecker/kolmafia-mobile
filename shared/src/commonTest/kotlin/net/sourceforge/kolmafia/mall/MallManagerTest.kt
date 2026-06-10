@@ -93,4 +93,18 @@ class MallManagerTest {
         val manager = MallManager(MallSearchRequest(client), MallPurchaseRequest(client), stubDb())
         assertEquals(-1L, manager.cheapestPrice("test widget"))
     }
+
+    @Test
+    fun cheapestPrice_cachesPriceInMallPriceManager() = runTest {
+        val engine = buildEngine()
+        val client = HttpClient(engine)
+        val clock = MallPriceManager.TestClock(1_000L)
+        val priceManager = MallPriceManager(clock)
+        val manager = MallManager(
+            MallSearchRequest(client), MallPurchaseRequest(client), stubDb(), priceManager
+        )
+        assertEquals(100L, manager.cheapestPrice("test widget"))
+        assertEquals(100L, priceManager.getHistoricalPrice(42))
+        assertEquals(0L, priceManager.getHistoricalAge(42))
+    }
 }

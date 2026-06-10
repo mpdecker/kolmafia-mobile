@@ -7,10 +7,12 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 object ModifierDatabase {
     private val _byTypeAndName = mutableMapOf<String, MutableMap<String, ModifierEntry>>()
     private val _allByName = mutableMapOf<String, MutableList<ModifierEntry>>()
+    private val _synergies = mutableListOf<ModifierEntry>()
     private var loaded = false
 
     val byTypeAndName: Map<String, Map<String, ModifierEntry>> get() = _byTypeAndName
     val allByName: Map<String, List<ModifierEntry>> get() = _allByName
+    fun synergies(): List<ModifierEntry> = _synergies
 
     suspend fun load() {
         if (loaded) return
@@ -26,8 +28,12 @@ object ModifierDatabase {
             val modifiers = parts[2].trim()
             if (entityType.isEmpty() || name.isEmpty()) continue
             val entry = ModifierEntry(entityType, name, modifiers)
-            _byTypeAndName.getOrPut(entityType) { mutableMapOf() }[name] = entry
-            _allByName.getOrPut(name.lowercase()) { mutableListOf() } += entry
+            if (entityType == "Synergy") {
+                _synergies += entry
+            } else {
+                _byTypeAndName.getOrPut(entityType) { mutableMapOf() }[name] = entry
+                _allByName.getOrPut(name.lowercase()) { mutableListOf() } += entry
+            }
         }
         loaded = true
     }

@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.adventure.AdventurePrep
+
 internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
 
     regFn(scope, "my_class", AshType.CLASS, emptyList()) { _, _ ->
@@ -38,6 +40,10 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
         AshValue.of(cs != null && !cs.isHardcore && !cs.isInRonin)
     }
 
+    regFn(scope, "is_dark_mode", AshType.BOOLEAN, emptyList()) { _, _ ->
+        AshValue.of(false)
+    }
+
     // Stub: no THRALL AshType yet
     regFn(scope, "my_thrall", AshType.STRING, emptyList()) { _, _ ->
         AshValue.EMPTY_STRING
@@ -50,9 +56,25 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
         AshValue.of((character?.state?.value?.adventuresLeft ?: 0) > 0)
     }
 
-    // prepare_for_adventure() → boolean
-    // On desktop this restores outfit/HP/MP before a zone. Mobile no-ops it. Returns true.
+    // prepare_for_adventure() → boolean (no location — always succeeds)
     regFn(scope, "prepare_for_adventure", AshType.BOOLEAN, emptyList()) { _, _ ->
         AshValue.of(true)
+    }
+
+    // prepare_for_adventure(loc: location) → boolean
+    regFn(scope, "prepare_for_adventure", AshType.BOOLEAN,
+        listOf("loc" to AshType.LOCATION)) { _, args ->
+        val locationName = args[0].toString()
+        val ok = kotlinx.coroutines.runBlocking {
+            AdventurePrep.prepareForAdventure(
+                locationName,
+                outfitManager,
+                preferences,
+                retrieveItemService,
+                useItemRequest,
+                gameDatabase,
+            )
+        }
+        AshValue.of(ok)
     }
 }

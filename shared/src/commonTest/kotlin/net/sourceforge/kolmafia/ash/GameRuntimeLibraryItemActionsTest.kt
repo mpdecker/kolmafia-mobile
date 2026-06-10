@@ -15,6 +15,7 @@ import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import kotlin.test.Test
@@ -256,12 +257,25 @@ class GameRuntimeLibraryItemActionsTest {
             outputLib(lib, """print(to_string(take_storage(1, to_item("test item"))));"""))
     }
 
-    // ── put_shop() — stub ──────────────────────────────────────────
+    // ── put_shop() ────────────────────────────────────────────────
 
     @Test
-    fun putShop_alwaysReturnsFalse() {
-        val lib = GameRuntimeLibrary.forTesting()
+    fun putShop_returnsTrueOnSuccess() {
+        val lib = GameRuntimeLibrary(
+            gameDatabase = stubDb(),
+            manageStoreRequest = ManageStoreRequest(okClient())
+        )
+        assertEquals("true",
+            outputLib(lib, """print(to_string(put_shop(100, 0, to_item("test item"))));"""))
+    }
+
+    @Test
+    fun putShop_returnsFalseWithNullRequest() {
+        val lib = GameRuntimeLibrary(
+            gameDatabase = stubDb(),
+            manageStoreRequest = null
+        )
         assertEquals("false",
-            outputLib(lib, """print(to_string(put_shop(100, 0, to_item("anything"))));"""))
+            outputLib(lib, """print(to_string(put_shop(100, 0, to_item("test item"))));"""))
     }
 }

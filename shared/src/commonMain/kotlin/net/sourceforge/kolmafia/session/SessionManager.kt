@@ -13,6 +13,7 @@ import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.LoginResult
@@ -41,6 +42,7 @@ class SessionManager(
     private val moodManager: MoodManager? = null,
     private val banishManager: BanishManager? = null,
     private val breakfastManager: BreakfastManager? = null,
+    private val outfitManager: OutfitManager? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -69,9 +71,10 @@ class SessionManager(
                         effectManager.initialize(appScope)
                         scriptManager.initialize()
                         questLogRequest?.syncAll()
-                        moodManager?.loadActiveMood()
                         moodManager?.loadMoodLibrary()
+                        moodManager?.loadActiveMood()
                         banishManager?.load()
+                        outfitManager?.refreshCustomOutfits()
 
                         // Run breakfast actions
                         breakfastManager?.runBreakfast(

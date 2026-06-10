@@ -12,7 +12,7 @@ object AdventureParser {
     private val MONSTER_NAME = Regex("""<span id='monname'>(.*?)</span>""")
     private val ENCOUNTER_NAME = Regex("""<b>([^<]{3,60})</b>""")
     private val BANISH_PATTERN = Regex(
-        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field))""",
+        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field)|won't be seeing|nowhere to be seen|as the vortex disappears|peel(?:s)? out|You infect your foe|spooked by its balefulness|knock your opponent into tomorrow|Ultra Hammer|Patriotic Screech|human musk|deathchucks|B\. L\. A\. R\. T|Heartstone|curse of vacation)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -58,6 +58,43 @@ object AdventureParser {
         "push away your opponent"                             to Banisher.BE_A_MIND_MASTER,
         "You burned that foe so hard, you won't"              to Banisher.THROWIN_EMBER,
         "deliver an epic punch"                               to Banisher.PUNCH_OUT_YOUR_FOE,
+        "your opponent turns and runs"                        to Banisher.HOWL_OF_THE_ALPHA,
+        "You roar with sudden power"                          to Banisher.NANORHINO,
+        "knocked out of the park"                             to Banisher.BATTER_UP,
+        "You punt your foe into next week"                    to Banisher.PUNT_AOSOL,
+        "You hold up the monkey paw and it slaps"             to Banisher.MONKEY_SLAP,
+        "the spring of your shoes"                            to Banisher.SPRING_KICK,
+        "foe is obliterated in a spectacular explosion"       to Banisher.WALK_AWAY_FROM_EXPLOSION,
+        "opponent heads for the hills"                        to Banisher.THUNDER_CLAP,
+        "tie up the gingerbread"                              to Banisher.LICORICE_ROPE,
+        "release a majestic roar"                             to Banisher.ROAR_LIKE_A_LION,
+        "You punt your opponent over the horizon"             to Banisher.PUNT_WEREPROF,
+        "A bolt of lightning arcs out and burns your foe"     to Banisher.SEADENT_LIGHTNING,
+        "spew a heaping helping of your pheromones"           to Banisher.MARK_YOUR_TERRITORY,
+        "off into the distance and likely won't return"       to Banisher.LEFT_ZOOT_KICK,
+        "an even creepier grin"                               to Banisher.V_FOR_VIVALA_MASK,
+        "You fix an extremely disdainful eye"                 to Banisher.STINKY_CHEESE_EYE,
+        "Ultra Hammer"                                        to Banisher.ULTRA_HAMMER,
+        "spooked by its balefulness"                          to Banisher.BALEFUL_HOWL,
+        "peel out"                                            to Banisher.PEEL_OUT,
+        "curse of vacation"                                   to Banisher.CURSE_OF_VACATION,
+        "Patriotic Screech"                                   to Banisher.PATRIOTIC_SCREECH,
+        "Heartstone"                                          to Banisher.HEARTSTONE_BANISH,
+        "B. L. A. R. T."                                      to Banisher.BLART_SPRAY_WIDE,
+        "You infect your foe"                                 to Banisher.GLITCHED_MALWARE,
+        "deathchucks"                                         to Banisher.DEATHCHUCKS,
+        "human musk"                                          to Banisher.HUMAN_MUSK,
+        "Baseball Diamond"                                    to Banisher.BASEBALL_DIAMOND,
+        "gingerbread restraining order"                       to Banisher.GINGERBREAD_RESTRAINING_ORDER,
+        "ice hotel bell"                                      to Banisher.ICE_HOTEL_BELL,
+        "spooky music box"                                    to Banisher.SPOOKY_MUSIC_BOX_MECHANISM,
+        "standalone cheese"                                   to Banisher.STAFF_OF_THE_STANDALONE_CHEESE,
+        "tryptophan dart"                                     to Banisher.TRYPTOPHAN_DART,
+        "Crimbuccaneer rigging lasso"                         to Banisher.CRIMBUCCANEER_RIGGING_LASSO,
+        "boring familiar pictures"                            to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "fragrant&quot; herbs"                                to Banisher.BUNDLE_OF_FRAGRANT_HERBS,
+        "fragrant\" herbs"                                    to Banisher.BUNDLE_OF_FRAGRANT_HERBS,
+        "Right Zoot Kick"                                      to Banisher.RIGHT_ZOOT_KICK,
     )
 
     fun parseAdventureResponse(html: String, finalUrl: String): AdventureResult = when {

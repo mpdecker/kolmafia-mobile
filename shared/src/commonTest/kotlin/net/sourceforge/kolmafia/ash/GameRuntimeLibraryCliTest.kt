@@ -63,12 +63,24 @@ class GameRuntimeLibraryCliTest {
      * Creates a fake FamiliarManager that records every [setFamiliar] call into
      * [switchCalls] without touching the network.
      */
-    private fun fakeFamiliarManager(switchCalls: MutableList<String>): FamiliarManager {
+    private fun fakeFamiliarManager(
+        switchCalls: MutableList<String>,
+        enthroneCalls: MutableList<String>? = null,
+        bjornifyCalls: MutableList<String>? = null,
+    ): FamiliarManager {
         val client = HttpClient(MockEngine { respond("") })
         val eventBus = GameEventBus()
         return object : FamiliarManager(client, eventBus) {
             override suspend fun setFamiliar(name: String): Result<Unit> {
                 switchCalls.add(name)
+                return Result.success(Unit)
+            }
+            override suspend fun setEnthroned(name: String): Result<Unit> {
+                enthroneCalls?.add(name)
+                return Result.success(Unit)
+            }
+            override suspend fun setBjornified(name: String): Result<Unit> {
+                bjornifyCalls?.add(name)
                 return Result.success(Unit)
             }
         }
@@ -165,5 +177,61 @@ class GameRuntimeLibraryCliTest {
         val lib = GameRuntimeLibrary(familiarManager = fakeFamiliarMgr)
         runLib(lib, """cli_execute("familiar Mosquito");""")
         assertEquals(listOf("Mosquito"), switchCalls)
+    }
+
+    @Test
+    fun cliExecute_enthrone_callsSetEnthroned() {
+        val enthroneCalls = mutableListOf<String>()
+        val lib = GameRuntimeLibrary(
+            familiarManager = fakeFamiliarManager(mutableListOf(), enthroneCalls)
+        )
+        runLib(lib, """cli_execute("enthrone Mosquito");""")
+        assertEquals(listOf("Mosquito"), enthroneCalls)
+    }
+
+    @Test
+    fun cliExecute_bjornify_callsSetBjornified() {
+        val bjornifyCalls = mutableListOf<String>()
+        val lib = GameRuntimeLibrary(
+            familiarManager = fakeFamiliarManager(mutableListOf(), bjornifyCalls = bjornifyCalls)
+        )
+        runLib(lib, """cli_execute("bjornify none");""")
+        assertEquals(listOf("none"), bjornifyCalls)
+    }
+
+    @Test
+    fun cliExecute_eat_callsEatFoodRequest() {
+        val engine = MockEngine { respond("ok", HttpStatusCode.OK) }
+        val client = HttpClient(engine)
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 5, name = "salmon", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            eatFoodRequest = net.sourceforge.kolmafia.request.EatFoodRequest(client)
+        )
+        runLib(lib, """cli_execute("eat 2 salmon");""")
+        assertTrue(engine.requestHistory.isNotEmpty())
+    }
+
+    @Test
+    fun cliExecute_goalAdd_registersItemGoal() {
+        val gm = net.sourceforge.kolmafia.session.GoalManager()
+        val lib = GameRuntimeLibrary(goalManager = gm)
+        runLib(lib, """cli_execute("goal add seal tooth");""")
+        assertTrue(gm.hasItemGoalByName("seal tooth"))
+    }
+
+    @Test
+    fun cliExecute_goalClear_clearsGoals() {
+        val gm = net.sourceforge.kolmafia.session.GoalManager()
+        gm.addItemGoalByName("seal tooth")
+        val lib = GameRuntimeLibrary(goalManager = gm)
+        runLib(lib, """cli_execute("goal clear");""")
+        assertEquals(false, gm.hasItemGoals())
     }
 }

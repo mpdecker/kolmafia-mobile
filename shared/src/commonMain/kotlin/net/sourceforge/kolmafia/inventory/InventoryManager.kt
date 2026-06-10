@@ -14,10 +14,14 @@ import kotlinx.coroutines.launch
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.request.CharacterRequest
+import net.sourceforge.kolmafia.character.KoLCharacter
 
 open class InventoryManager(
     private val client: HttpClient,
-    private val eventBus: GameEventBus
+    private val eventBus: GameEventBus,
+    private val characterRequest: CharacterRequest? = null,
+    private val character: KoLCharacter? = null,
 ) {
     private val _state = MutableStateFlow(InventoryState())
     open val state: StateFlow<InventoryState> = _state.asStateFlow()
@@ -36,7 +40,7 @@ open class InventoryManager(
         }
     }
 
-    suspend fun fetchInventory() {
+    open suspend fun fetchInventory() {
         try {
             val invResponse = client.get("$KOL_BASE_URL/api.php") {
                 parameter("what", "inventory")
@@ -79,14 +83,23 @@ open class InventoryManager(
             url = "$KOL_BASE_URL/inv_equip.php",
             formParameters = parameters {
                 append("which", "2")
+                append("action", "equip")
                 append("whichitem", item.itemId.toString())
                 append("slot", slot)
+                append("ajax", "1")
             }
         )
         eventBus.emit(GameEvent.ItemEquipped(item, slot))
+        syncCharacterEquipment()
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
+    }
+
+    open suspend fun syncCharacterEquipment() {
+        val req = characterRequest ?: return
+        val char = character ?: return
+        req.fetchCharacterState().onSuccess { char.updateFromApiResponse(it) }
     }
 
     open suspend fun unequipSlot(slot: String): Result<Unit> = try {
@@ -118,22 +131,14 @@ open class InventoryManager(
         Result.failure(e)
     }
 
-    suspend fun craft(mode: CraftMode, item1Id: Int, item2Id: Int): Result<InventoryItem> = try {
-        client.submitForm(
-            url = "$KOL_BASE_URL/craft.php",
-            formParameters = parameters {
-                append("action", mode.apiAction)
-                if (mode == CraftMode.COMBINE) append("mode", "combine")
-                append("item1", item1Id.toString())
-                append("item2", item2Id.toString())
-            }
-        )
-        val placeholder = InventoryItem(-1, "Crafted item", 1, ItemType.OTHER)
-        eventBus.emit(GameEvent.ItemCrafted(placeholder))
+    suspend fun craft(mode: CraftMode, item1Id: Int, item2Id: Int): Result<InventoryItem> {
+        val request = net.sourceforge.kolmafia.request.CraftRequest(client)
+        val created = request.craft(mode, 1, item1Id, item2Id)
+        if (created <= 0) return Result.failure(Exception("Craft failed"))
         fetchInventory()
-        Result.success(placeholder)
-    } catch (e: Exception) {
-        Result.failure(e)
+        val placeholder = InventoryItem(item1Id, "Crafted item", created, ItemType.OTHER)
+        eventBus.emit(GameEvent.ItemCrafted(placeholder))
+        return Result.success(placeholder)
     }
 
     suspend fun mallSearch(query: String): Result<List<MallListing>> {

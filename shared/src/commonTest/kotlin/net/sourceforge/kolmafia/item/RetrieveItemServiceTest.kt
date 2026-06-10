@@ -77,6 +77,22 @@ private fun npcFails() = object : NpcBuyRequest(HttpClient(MockEngine { respond(
     override suspend fun buy(storeKey: String, itemId: Int, quantity: Int) = Result.success(0)
 }
 
+private fun displaySucceeds() = object : net.sourceforge.kolmafia.request.DisplayCaseRequest(HttpClient(MockEngine { respond("") })) {
+    override suspend fun takeOut(itemId: Int, quantity: Int) = Result.success("ok")
+}
+
+private fun stashSucceeds() = object : net.sourceforge.kolmafia.request.ClanStashRequest(HttpClient(MockEngine { respond("") })) {
+    override suspend fun takeOut(itemId: Int, quantity: Int) = Result.success("ok")
+}
+
+private fun displayFails() = object : net.sourceforge.kolmafia.request.DisplayCaseRequest(HttpClient(MockEngine { respond("") })) {
+    override suspend fun takeOut(itemId: Int, quantity: Int) = Result.failure<String>(Exception("empty"))
+}
+
+private fun stashFails() = object : net.sourceforge.kolmafia.request.ClanStashRequest(HttpClient(MockEngine { respond("") })) {
+    override suspend fun takeOut(itemId: Int, quantity: Int) = Result.failure<String>(Exception("empty"))
+}
+
 private fun mallSucceeds(qty: Int): MallManager {
     val dummyClient = HttpClient(MockEngine { respond("") })
     return object : MallManager(MallSearchRequest(dummyClient), MallPurchaseRequest(dummyClient), null) {
@@ -199,5 +215,35 @@ class RetrieveItemServiceTest {
             gameDatabase = dbNoNpc()
         )
         assertEquals(0, service.retrieve(ITEM_ID, 1))
+    }
+
+    @Test
+    fun retrieve_takesFromDisplay_whenStorageFails() = runTest {
+        val service = RetrieveItemService(
+            inventoryManager = fakeInventory(qty = 0),
+            closetRequest = closetFails(),
+            storageRequest = storageFails(),
+            displayCaseRequest = displaySucceeds(),
+            clanStashRequest = null,
+            npcBuyRequest = null,
+            mallManager = null,
+            gameDatabase = dbNoNpc()
+        )
+        assertEquals(2, service.retrieve(ITEM_ID, 2))
+    }
+
+    @Test
+    fun retrieve_takesFromStash_whenDisplayFails() = runTest {
+        val service = RetrieveItemService(
+            inventoryManager = fakeInventory(qty = 0),
+            closetRequest = closetFails(),
+            storageRequest = storageFails(),
+            displayCaseRequest = displayFails(),
+            clanStashRequest = stashSucceeds(),
+            npcBuyRequest = null,
+            mallManager = null,
+            gameDatabase = dbNoNpc()
+        )
+        assertEquals(2, service.retrieve(ITEM_ID, 2))
     }
 }

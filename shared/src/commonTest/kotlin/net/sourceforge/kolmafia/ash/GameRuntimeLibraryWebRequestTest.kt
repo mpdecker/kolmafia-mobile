@@ -110,4 +110,18 @@ class GameRuntimeLibraryWebRequestTest {
         val result = outputLib(lib, """string s = visit_url("api.php"); print(s);""")
         assertEquals("", result)
     }
+
+    @Test
+    fun visit_url_postDecodesUrlEncodedValues() {
+        val captured = mutableListOf<Pair<String, String>>()
+        val lib = libWith(makeClient { request ->
+            request.body.toByteArray().decodeToString().split("&").forEach { pair ->
+                val eq = pair.indexOf('=')
+                if (eq >= 0) captured += pair.substring(0, eq) to pair.substring(eq + 1)
+            }
+            respond("ok", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/html"))
+        })
+        outputLib(lib, """visit_url("api.php", "whichitem=42&name=hello%20world");""")
+        assertEquals(listOf("whichitem" to "42", "name" to "hello+world"), captured)
+    }
 }

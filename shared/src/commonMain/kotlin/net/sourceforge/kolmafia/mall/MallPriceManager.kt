@@ -35,6 +35,17 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
         if (clock.nowSeconds - entry.cachedAt >= TTL_SECONDS) return null
         return entry.cached
     }
+
+    fun getHistoricalPrice(itemId: Int): Long = getCachedPrice(itemId)?.price ?: 0L
+
+    /** Seconds since the cached price was recorded; -1 if unknown or expired. */
+    fun getHistoricalAge(itemId: Int): Long {
+        val entry = cache[itemId] ?: return -1L
+        if (clock.nowSeconds - entry.cachedAt >= TTL_SECONDS) return -1L
+        return clock.nowSeconds - entry.cachedAt
+    }
+
+    internal fun cachedAtForTest(itemId: Int): Long? = cache[itemId]?.cachedAt
 }
 
 internal expect fun currentEpochSeconds(): Long

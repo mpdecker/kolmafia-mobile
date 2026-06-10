@@ -20,9 +20,13 @@ internal fun GameRuntimeLibrary.registerCombatStubs(scope: AshScope) {
         AshValue(AshType.MONSTER, name)
     }
 
-    // copiers_used(skill) → int  (stub — always 0 on mobile)
+    // copiers_used(skill) → int — returns timesCast for the named skill
     regFn(scope, "copiers_used", AshType.INT,
-        listOf("sk" to AshType.SKILL)) { _, _ ->
-        AshValue.of(0L)
+        listOf("sk" to AshType.SKILL)) { _, args ->
+        val skillName = args[0].toString()
+        val times = skillManager?.state?.value?.skills
+            ?.find { it.name.equals(skillName, ignoreCase = true) }
+            ?.timesCast ?: 0
+        AshValue.of(times.toLong())
     }
 }
