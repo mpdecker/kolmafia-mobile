@@ -18,6 +18,7 @@ import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillType
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class GameRuntimeLibraryCliTest {
@@ -561,5 +562,131 @@ class GameRuntimeLibraryCliTest {
     fun write_routesToRuntimePrint() {
         val lib = GameRuntimeLibrary.forTesting()
         assertEquals("hello", outputLib(lib, """write("hello");"""))
+    }
+
+    @Test
+    fun cliExecute_turns_printsAdventuresLeft() {
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(adventures = "17")
+        )
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("17", outputLib(lib, """cli_execute("turns");"""))
+        assertEquals("17", outputLib(lib, """cli_execute("turnsleft");"""))
+    }
+
+    @Test
+    fun cliExecute_javadoc_printsWikiUrl() {
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(lib, """cli_execute("javadoc seal tooth");""")
+        assertEquals("https://wiki.a.kolmafia.us/wiki/seal_tooth", out)
+    }
+
+    @Test
+    fun cliExecute_homepage_visitsMainPage() {
+        var visited = false
+        val client = HttpClient(MockEngine { request ->
+            if (request.url.encodedPath.contains("main.php")) visited = true
+            respond("", HttpStatusCode.OK)
+        })
+        val lib = GameRuntimeLibrary(httpClient = client)
+        runLib(lib, """cli_execute("homepage");""")
+        assertTrue(visited)
+    }
+
+    @Test
+    fun cliExecute_hermit_callsHermitRequest() {
+        var tradeItemId = 0
+        var tradeQty = 0
+        val hermit = object : net.sourceforge.kolmafia.request.HermitRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun trade(itemId: Int, quantity: Int): Result<String> {
+                tradeItemId = itemId
+                tradeQty = quantity
+                return Result.success("")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 24, name = "smurf", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(hermitRequest = hermit, gameDatabase = db)
+        runLib(lib, """cli_execute("hermit 3 smurf");""")
+        assertEquals(24, tradeItemId)
+        assertEquals(3, tradeQty)
+    }
+
+    @Test
+    fun cliExecute_relayOn_setsPref() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("relay on");""")
+        assertTrue(p.getBoolean("relayActive", false))
+        runLib(lib, """cli_execute("relay off");""")
+        assertFalse(p.getBoolean("relayActive", true))
+    }
+
+    @Test
+    fun cliExecute_questlog_syncsQuestLog() {
+        var synced = false
+        val questLog = object : net.sourceforge.kolmafia.request.QuestLogRequest(
+            HttpClient(MockEngine { respond("") }),
+            net.sourceforge.kolmafia.quest.QuestDatabase(prefs()),
+        ) {
+            override suspend fun syncAll() {
+                synced = true
+            }
+        }
+        val lib = GameRuntimeLibrary(questLogRequest = questLog)
+        runLib(lib, """cli_execute("questlog");""")
+        assertTrue(synced)
+        synced = false
+        runLib(lib, """cli_execute("quests");""")
+        assertTrue(synced)
+    }
+
+    @Test
+    fun cliExecute_description_printsItemSummary() {
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 1, name = "seal tooth", descId = "x", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 50, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        val out = outputLib(lib, """cli_execute("description seal tooth");""")
+        assertEquals("seal tooth [none] autosell=50", out)
+    }
+
+    @Test
+    fun cliExecute_contactsAndMail_visitPages() {
+        val paths = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            paths.add(request.url.encodedPath)
+            respond("", HttpStatusCode.OK)
+        })
+        val lib = GameRuntimeLibrary(httpClient = client)
+        runLib(lib, """cli_execute("contacts");""")
+        runLib(lib, """cli_execute("mail");""")
+        assertTrue(paths.any { it.contains("contacts.php") })
+        assertTrue(paths.any { it.contains("mail.php") })
+    }
+
+    @Test
+    fun cliExecute_inv_refreshesInventory() {
+        var fetched = false
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+            HttpClient(MockEngine { respond("") }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ) {
+            override suspend fun fetchInventory() { fetched = true }
+            override suspend fun syncCharacterEquipment() { /* no-op */ }
+        }
+        val lib = GameRuntimeLibrary(inventoryManager = inv)
+        runLib(lib, """cli_execute("inv");""")
+        assertTrue(fetched)
     }
 }

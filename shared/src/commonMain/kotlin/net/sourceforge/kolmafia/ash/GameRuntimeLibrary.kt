@@ -39,6 +39,7 @@ import net.sourceforge.kolmafia.mall.MallPriceManager
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
+import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.GoalManager
@@ -89,6 +90,7 @@ class GameRuntimeLibrary(
     internal val adventureRequest: AdventureRequest? = null,
     internal val uneffectRequest: net.sourceforge.kolmafia.request.UneffectRequest? = null,
     internal val questDatabase: net.sourceforge.kolmafia.quest.QuestDatabase? = null,
+    internal val questLogRequest: QuestLogRequest? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -96,7 +98,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase21"
+        const val REVISION = "phase24"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -368,13 +370,52 @@ class GameRuntimeLibrary(
             }
         },
 
-        // refresh — sync character + inventory
+        // refresh — sync character, inventory, skills, effects, familiars, quest log
         Regex("^refresh$", RegexOption.IGNORE_CASE) to { _, _ ->
             kotlinx.coroutines.runBlocking {
                 characterRequest?.fetchCharacterState()?.onSuccess { resp ->
                     character?.updateFromApiResponse(resp)
                 }
                 inventoryManager?.fetchInventory()
+                skillManager?.fetchSkills()
+                effectManager?.fetchEffects()
+                familiarManager?.fetchFamiliars()
+                questLogRequest?.syncAll()
+            }
+        },
+
+        // questlog / quests — sync quest log pages
+        Regex("^(?:questlog|quests)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { questLogRequest?.syncAll() }
+        },
+
+        // skills / effects / inv — refresh cached state
+        Regex("^skills$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { skillManager?.fetchSkills() }
+        },
+        Regex("^effects$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { effectManager?.fetchEffects() }
+        },
+        Regex("^inv$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                inventoryManager?.fetchInventory()
+                inventoryManager?.syncCharacterEquipment()
+            }
+        },
+
+        // contacts / mail — visit common KoL pages
+        Regex("^contacts$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("contacts.php")
+        },
+        Regex("^(?:mail|readmail)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("mail.php")
+        },
+
+        // description / desc item — print item summary from database
+        Regex("^(?:description|desc)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val item = gameDatabase?.item(m.groupValues[1].trim())
+            if (item != null) {
+                rt.print("${item.name} [${item.primaryUse.name.lowercase()}] autosell=${item.autosellPrice}")
             }
         },
 
@@ -440,8 +481,11 @@ class GameRuntimeLibrary(
             adventureManager?.stop()
         },
 
-        // main / council / campground — visit common KoL pages
+        // main / council / campground / homepage — visit common KoL pages
         Regex("^main$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("main.php")
+        },
+        Regex("^homepage$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("main.php")
         },
         Regex("^council$", RegexOption.IGNORE_CASE) to { _, _ ->
@@ -451,9 +495,33 @@ class GameRuntimeLibrary(
             visitKolPage("campground.php")
         },
 
-        // wiki item — print Kol Wiki URL (headless has no browser)
+        // wiki / javadoc item — print Kol Wiki URL (headless has no browser)
         Regex("^wiki\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             rt.print(wikiUrlFor(m.groupValues[1].trim()))
+        },
+        Regex("^javadoc\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            rt.print(wikiUrlFor(m.groupValues[1].trim()))
+        },
+
+        // turns / turnsleft — print adventures remaining
+        Regex("^(?:turns|turnsleft)$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print((character?.state?.value?.adventuresLeft ?: 0).toString())
+        },
+
+        // relay on/off — headless stub; scripts check pref only
+        Regex("^relay(?:\\s+(on|off|open|close))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            when (m.groupValues.getOrNull(1)?.lowercase()) {
+                "on", "open" -> preferences?.setBoolean("relayActive", true)
+                "off", "close" -> preferences?.setBoolean("relayActive", false)
+                else -> rt.print("Relay is not available in KoLmafia Mobile.")
+            }
+        },
+
+        // hermit N item — trade with the hermit
+        Regex("^hermit\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { hermitRequest?.trade(itemId, qty) }
         },
 
         // config get/set — aliases for get/set prefs

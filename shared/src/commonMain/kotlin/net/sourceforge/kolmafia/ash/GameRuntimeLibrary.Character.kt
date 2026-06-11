@@ -50,6 +50,14 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
         AshValue.EMPTY_STRING
     }
 
+    regFn(scope, "turnsleft", AshType.INT, emptyList()) { _, _ ->
+        AshValue.of((character?.state?.value?.adventuresLeft ?: 0).toLong())
+    }
+
+    regFn(scope, "my_absorbs", AshType.INT, emptyList()) { _, _ ->
+        AshValue.of((character?.state?.value?.absorbs ?: 0).toLong())
+    }
+
     // can_adventure(location) → boolean
     regFn(scope, "can_adventure", AshType.BOOLEAN,
         listOf("loc" to AshType.LOCATION)) { _, args ->

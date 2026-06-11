@@ -153,4 +153,23 @@ class GameRuntimeLibraryCharacterTest {
         val lib = GameRuntimeLibrary(adventureManager = mgr)
         assertEquals("false", outputLib(lib, """print(to_string(adv1(to_location("Totally Fake Zone Name"), 1)));"""))
     }
+
+    @Test
+    fun turnsleft_matchesMyAdventures() {
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(adventures = "9")
+        )
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("9", outputLib(lib, "print(to_string(turnsleft()));"))
+        assertEquals("9", outputLib(lib, "print(to_string(my_adventures()));"))
+    }
+
+    @Test
+    fun myAbsorbs_returnsCharacterAbsorbs() {
+        val char = KoLCharacter()
+        char.updateClassResource(absorbs = 4)
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("4", outputLib(lib, "print(to_string(my_absorbs()));"))
+    }
 }

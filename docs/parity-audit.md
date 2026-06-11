@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-06-10 after Phase 22: stat gates, CLI batch 5, quest/goal polish)*
+*Generated: 2026-06-03 (updated 2026-06-10 after Phase 23: CLI batch 6, quest rules, turnsleft ASH)*
 
 ## Scale Comparison
 
@@ -10,7 +10,7 @@
 | Source files             | ~1,172 classes              | ~253 files (commonMain) | ~22%                    |
 | Lines of code            | ~57,000                     | ~15,000+ (commonMain)   | ~26%                    |
 | Test files               | 411                         | 119                     | ~29%                    |
-| Tests                    | ~1,800+                     | 1,414                   | ~79% (of covered scope) |
+| Tests                    | ~1,800+                     | 1,421                   | ~79% (of covered scope) |
 | ASH function overloads   | ~890                        | ~245 registered         | ~28%                    |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN) | **100%**                |
 | BreakfastManager actions | 22 (20 universal + 2 niche) | 20                      | **~91%**                |
@@ -118,7 +118,7 @@ file counts suggest because the desktop has massive complexity in its managers a
 | `**visit_url` ASH function** *(PR #13)*                                              | `RuntimeLibrary.java` `visit_url`                       | `GameRuntimeLibrary.WebRequest.kt`                                                                                                   | 4 overloads: GET (×2), POST string (×2); HttpClient wired via DI                                                                                                                                                                                                                                        |
 | `**hermit()` ASH function** *(PR #13)*                                               | `RuntimeLibrary.java` `hermit`                          | `GameRuntimeLibrary.Hermit.kt` + `request/HermitRequest.kt`                                                                          | `hermit(item, count) → int`; item-first to match desktop API                                                                                                                                                                                                                                            |
 | `**get_moods()` / `mood_list()*`* *(PR #13 + Phase 17)*                              | `RuntimeLibrary.java` mood queries                      | `GameRuntimeLibrary.Mood.kt`                                                                                                         | Live — returns `displayName()` strings sorted (includes `extends` clause)                                                                                                                                                                                                                               |
-| `**cli_execute` partial dispatch** *(PR #11 + Phase 15–22)*                  | `KoLmafiaCLI.java` (100+ commands)                      | `GameRuntimeLibrary.kt` cliDispatch                                                                                                  | Handles: mood, set/get/**config get/set**, cast, familiar, enthrone/bjornify, eat/drink/chew/eatsilent/drinksilent/overdrink, adventure/adv, location/set location/**zone/count**, refresh/recover/rest, storage put/**put_storage**, takeshop, empty closet, **echo/print/status/stop/main/council/campground/wiki/put_closet/goal add id:N**, goal meat/level/**factoid/autostop**, visit coinmaster, closet/storage/display/stash put/take/**take_closet/take_storage**, goal add/remove/clear, putshop, equip/unequip, sell/autosell, outfit, buy, coinmaster, create, retrieve, use, **uneffect (×2)**, **dump**, **batch open/close**, **reagent**; ~20+ patterns still echo |
+| `**cli_execute` partial dispatch** *(PR #11 + Phase 15–23)*                  | `KoLmafiaCLI.java` (100+ commands)                      | `GameRuntimeLibrary.kt` cliDispatch                                                                                                  | Handles: mood, set/get/**config get/set**, cast, familiar, enthrone/bjornify, eat/drink/chew/eatsilent/drinksilent/overdrink, adventure/adv, location/set location/**zone/count/turns/turnsleft**, refresh/recover/rest, storage put/**put_storage**, takeshop, empty closet, **echo/print/status/stop/main/homepage/council/campground/wiki/javadoc/put_closet/goal add id:N**, goal meat/level/**factoid/autostop**, visit coinmaster, closet/storage/display/stash put/take/**take_closet/take_storage**, goal add/remove/clear, putshop, equip/unequip, sell/autosell, outfit, buy, coinmaster, create, retrieve, use, **hermit**, **uneffect (×2)**, **dump**, **batch open/close**, **reagent**, **relay on/off (stub)**; ~15+ patterns still echo |
 | **ASH pricing functions** *(PR #11 + Phase 16 + 18e + 20)*                                | `RuntimeLibrary.java` pricing                           | `GameRuntimeLibrary.Pricing.kt`                                                                                                      | `npc_price`, `autosell_price`, `mall_price` live, `**retrieve_price**`, `historical_price`, `historical_age`                                                                                                                                                                                                      |
 | **AdventurePrep depth** *(Phase 18b + 20 + 22)*                                                   | `KoLAdventure.prepareForAdventure()`                      | `adventure/AdventurePrep.kt`                                                                                                         | Outfit + `zoneItem`/`zoneUse` prefs + **`zoneFamiliar` pref**; **`canAdventureAt()`** overdrunk/limit-mode/**stat requirement**; wired at adventure loop start                                                                                                                                                                          |
 
@@ -130,10 +130,10 @@ file counts suggest because the desktop has massive complexity in its managers a
 
 | Feature                                             | Desktop size/complexity                                                      | Priority                                                                                                                                                                                                          |
 | --------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `**cli_execute` remaining dispatch**                | `KoLmafiaCLI.java` ~100+ commands                                            | **Medium** — Phase 22 added zone/count/put_storage/goal autostop; ~20+ patterns still echo (relay, etc.)                                                                                   |
+| `**cli_execute` remaining dispatch**                | `KoLmafiaCLI.java` ~100+ commands                                            | **Medium** — Phase 23 added hermit/turns/homepage/javadoc/relay stub; ~15+ patterns still echo                                                                                   |
 | `**create()` / `craft()` response parsing**         | `concoction/` 32 classes                                                     | **Low** — Phase 21: SUSE/station split, craft failure HTML detection, inventory-verified SUSE loop; MANUAL edge cases remain                                                                                                             |
 | **Coinmaster depth**                                | Full `coinmasters.txt` registry + accessibility rules                        | **Low** — `CoinmasterAccessibility` gates for dimemaster/shore/mystic/starchart/hunter via `CoinmasterManager.isAccessible()`                                                                                   |
-| **Quest tracking depth**                            | Per-quest state machines in `QuestDatabase.java`                             | **Medium** — Phase 21: quest ASH helpers + `QuestAdvanceRules` inline bumps; per-quest state machines and NPC-visit advances still absent                                                                                                             |
+| **Quest tracking depth**                            | Per-quest state machines in `QuestDatabase.java`                             | **Medium** — Phase 21–23: quest ASH helpers + expanded `QuestAdvanceRules` (~20 inline rules); per-quest state machines and NPC-visit advances still absent                                                                                                             |
 | **KoLCharacter depth**                              | 200+ fields in desktop                                                       | **Medium** — 70+ fields; per-quest flags, detailed campground state, storage/closet item counts beyond meat totals absent                                                                                         |
 | **Relay server**                                    | `webui/` 20+ decorators, 15 JS/CSS files                                     | **Medium** — intentionally skipped                                                                                                                                                                                |
 | **Maximizer**                                       | `maximizer/` 12 classes (~5,877 lines)                                       | **Medium** — stat optimization engine; very high complexity                                                                                                                                                       |
@@ -369,7 +369,7 @@ overloads** — roughly 25% coverage.
 | ---------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Type conversions | `to_modifier`, `to_path`, `to_thrall`, `to_vykea`, `to_servant`, `to_bounty` (niche entity types)                 |
 | Web scripting    | `load_html`, `form_field`, `make_url`                                                                             |
-| CLI              | `cli_execute` remaining dispatch (~25+ patterns still echo), `relay`                                                |
+| CLI              | `cli_execute` remaining dispatch (~15+ patterns still echo)                                                |
 | Logging          | `dump` (full desktop aggregate; mobile has compact CLI dump only)                                                                                                            |
 | Environment      | `get_path`                                                                                                        |
 | Combat           | `can_still_steal`, `get_ccs_action`                                                                               |
@@ -409,12 +409,12 @@ Mobile has a 10-file `modifiers/` package covering the full passive prediction a
 
 ## Top Priorities
 
-*Phase 22 closed stat gates and CLI batch 5. Updated priorities:*
+*Phase 24 closed CLI batch 7, hermit retrieve hop, and quest finished rules. Updated priorities:*
 
-1. **`cli_execute` remaining dispatch** — ~20+ patterns still echo (relay, etc.).
+1. **`cli_execute` remaining dispatch** — ~10 patterns still echo (itemnotify, absorb, pool, vendor, etc.).
 2. **Quest tracking depth** — Per-quest state machines; NPC-visit step advances beyond inline rules.
-3. **Full `InventoryManager.retrieveItem`** — familiar-steal/buy script paths still absent.
-4. **Maximizer / relay / session logging** — large deferred subsystems.
+3. **Full `InventoryManager.retrieveItem`** — familiar-steal script path still absent.
+4. **Maximizer / full relay / session logging** — large deferred subsystems.
 
 ---
 
@@ -433,5 +433,7 @@ Phase 19 → CLI adventure/location/refresh/recover/storage put/takeshop/empty c
 Phase 20 → CLI echo/status/stop/main/council/campground/wiki/config/put_closet/goal add id:N; ASH retrieve_price/sell autosell alias/sell_cost; AdventurePrep zoneFamiliar + canAdventureAt overdrunk/limit-mode; prep wired at adventure loop start
 Phase 21 → cli_execute_output + uneffect CLI/ASH + dump/batch/take_closet/take_storage/reagent/goal factoid; get_version/get_revision/write/writeln; quest_status/step/finished/set_quest_progress + QuestAdvanceRules; adv1/adventure resolveLocation; SUSE/station craft split + craft failure parsing; VampOut script-zero fallback; 1,405 tests
 Phase 22 → canAdventureAtZone stat gates + prepare/loop preflight; CLI zone/count/put_storage/goal autostop; goal_exists factoid/autostop; QuestAdvanceRules expansion; 1,414 tests
+Phase 23 → CLI hermit/turns/turnsleft/homepage/javadoc/relay stub; ASH turnsleft(); QuestAdvanceRules council quest expansion; 1,421 tests
+Phase 24 → CLI questlog/skills/effects/inv/contacts/mail/desc + refresh full sync; ASH my_absorbs(); RetrieveItemService hermit hop; QuestAdvanceRules bat/friar/cyrpt/trapper/manor finished; 1,429 tests
 ```
 

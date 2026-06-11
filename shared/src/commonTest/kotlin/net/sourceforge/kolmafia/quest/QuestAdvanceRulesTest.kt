@@ -40,6 +40,27 @@ class QuestAdvanceRulesTest {
     }
 
     @Test
+    fun apply_goblinFinishedOnKingSlain() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("You have slain the Goblin King", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.GOBLIN))
+    }
+
+    @Test
+    fun apply_batFinishedOnBossBatSlain() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("You have slain the Boss Bat. Huzzah!", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.BAT))
+    }
+
+    @Test
+    fun apply_manorFinishedOnEyeOfEd() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("You acquire an item: Eye of Ed", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.MANOR))
+    }
+
+    @Test
     fun apply_noMatchReturnsFalse() {
         val db = QuestDatabase(Preferences(MapSettings()))
         assertFalse(QuestAdvanceRules.apply("You fight a seal.", db))
