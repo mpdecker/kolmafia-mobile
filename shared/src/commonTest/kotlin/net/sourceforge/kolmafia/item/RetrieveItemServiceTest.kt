@@ -113,6 +113,17 @@ private fun stashFails() = object : net.sourceforge.kolmafia.request.ClanStashRe
     override suspend fun takeOut(itemId: Int, quantity: Int) = Result.failure<String>(Exception("empty"))
 }
 
+private fun hermitSucceeds(): net.sourceforge.kolmafia.request.HermitRequest =
+    object : net.sourceforge.kolmafia.request.HermitRequest(HttpClient(MockEngine { respond("") })) {
+        override suspend fun trade(itemId: Int, quantity: Int) = Result.success("ok")
+    }
+
+private fun hermitFails(): net.sourceforge.kolmafia.request.HermitRequest =
+    object : net.sourceforge.kolmafia.request.HermitRequest(HttpClient(MockEngine { respond("") })) {
+        override suspend fun trade(itemId: Int, quantity: Int) =
+            Result.failure<String>(Exception("not tradable"))
+    }
+
 private fun mallSucceeds(qty: Int): MallManager {
     val dummyClient = HttpClient(MockEngine { respond("") })
     return object : MallManager(MallSearchRequest(dummyClient), MallPurchaseRequest(dummyClient), null) {
@@ -208,6 +219,34 @@ class RetrieveItemServiceTest {
             gameDatabase = dbWithNpc()
         )
         assertEquals(3, service.retrieve(ITEM_ID, 3))
+    }
+
+    @Test
+    fun retrieve_tradesHermit_whenEarlierSourcesFail() = runTest {
+        val service = RetrieveItemService(
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
+            closetRequest = closetFails(),
+            storageRequest = storageFails(),
+            npcBuyRequest = npcFails(),
+            mallManager = null,
+            gameDatabase = dbNoNpc(),
+            hermitRequest = hermitSucceeds(),
+        )
+        assertEquals(2, service.retrieve(ITEM_ID, 2))
+    }
+
+    @Test
+    fun retrieve_skipsHermitOnFailure() = runTest {
+        val service = RetrieveItemService(
+            inventoryManager = fakeInventory(qty = 0),
+            closetRequest = closetFails(),
+            storageRequest = storageFails(),
+            npcBuyRequest = null,
+            mallManager = null,
+            gameDatabase = dbNoNpc(),
+            hermitRequest = hermitFails(),
+        )
+        assertEquals(0, service.retrieve(ITEM_ID, 1))
     }
 
     @Test

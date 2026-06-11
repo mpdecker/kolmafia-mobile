@@ -223,6 +223,7 @@ val sharedModule = module {
             adventureRequest    = get(),
             uneffectRequest     = get(),
             questDatabase       = get(),
+            questLogRequest     = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -275,7 +276,8 @@ val sharedModule = module {
             coinmasterManager = get(),
             craftRequest     = get(),
             useItemRequest   = get(),
-            gameDatabase     = get()
+            gameDatabase     = get(),
+            hermitRequest    = get(),
         )
     }
     single {

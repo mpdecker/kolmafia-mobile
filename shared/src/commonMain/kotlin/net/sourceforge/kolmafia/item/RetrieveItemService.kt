@@ -13,6 +13,7 @@ import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
+import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
@@ -29,6 +30,7 @@ open class RetrieveItemService(
     private val craftRequest: CraftRequest? = null,
     private val useItemRequest: UseItemRequest? = null,
     private val gameDatabase: GameDatabase?,
+    private val hermitRequest: HermitRequest? = null,
 ) {
     open suspend fun retrieve(itemId: Int, qty: Int): Int {
         val itemName = gameDatabase?.item(itemId)?.name ?: return 0
@@ -78,6 +80,10 @@ open class RetrieveItemService(
             remaining -= coinmasterManager.buyItem(itemId, remaining)
         }
 
+        if (remaining > 0 && hermitRequest != null) {
+            remaining -= withdrawFromHermit(itemId, remaining)
+        }
+
         if (remaining > 0 && mallManager != null) {
             val before = inventoryCount(itemId)
             val bought = mallManager.buy(itemId, remaining)
@@ -87,6 +93,13 @@ open class RetrieveItemService(
         }
 
         return qty - remaining
+    }
+
+    private suspend fun withdrawFromHermit(itemId: Int, qty: Int): Int {
+        val before = inventoryCount(itemId)
+        if (hermitRequest!!.trade(itemId, qty).isFailure) return 0
+        inventoryManager?.fetchInventory()
+        return (inventoryCount(itemId) - before).coerceIn(0, qty)
     }
 
     /** Withdraw up to [qty] from a collection source; returns actual count gained in inventory. */
