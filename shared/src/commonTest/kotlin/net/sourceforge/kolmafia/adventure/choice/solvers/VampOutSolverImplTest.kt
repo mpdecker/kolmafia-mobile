@@ -102,4 +102,10 @@ class VampOutSolverImplTest {
 
     @Test fun stepPastScript_returnsNull() =
         assertNull(solver().autoVampOut(4, 99, ""))
+
+    @Test fun step0_scriptZero_fallsBackToFirstParsedChoice() {
+        val html = """<input name="option" value="2">Pick me""" +
+            """<input name="option" value="5">Or me"""
+        assertEquals(2, solver().autoVampOut(4, 0, html))
+    }
 }

@@ -4,6 +4,8 @@ import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.craftMode
 import net.sourceforge.kolmafia.data.isAutoCraftable
+import net.sourceforge.kolmafia.data.isStationCraftable
+import net.sourceforge.kolmafia.data.isSuseCraftable
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
@@ -104,34 +106,60 @@ open class RetrieveItemService(
         val concoction = ConcoctionDatabase.getByResult(itemName) ?: return 0
         if (!concoction.isAutoCraftable()) return 0
 
-        if (concoction.methods.contains("SUSE") && useItemRequest != null) {
-            val source = concoction.ingredients.firstOrNull()?.name ?: return 0
-            val sourceId = gameDatabase?.item(source)?.id ?: return 0
-            var made = 0
-            while (made < qty) {
-                if (retrieve(sourceId, 1) < 1) break
-                if (useItemRequest.use(sourceId, 1).isFailure) break
-                inventoryManager?.fetchInventory()
-                if (inventoryCount(itemId) > made) made = inventoryCount(itemId)
-                else made++
-            }
-            return made.coerceAtMost(qty)
+        if (concoction.isSuseCraftable() && useItemRequest != null) {
+            return craftSuse(concoction, itemId, qty)
         }
 
+        if (!concoction.isStationCraftable()) return 0
+        return craftAtStation(concoction, itemId, qty)
+    }
+
+    private suspend fun craftSuse(
+        concoction: net.sourceforge.kolmafia.data.ConcoctionData,
+        itemId: Int,
+        qty: Int,
+    ): Int {
+        val use = useItemRequest ?: return 0
+        val source = concoction.ingredients.firstOrNull()?.name ?: return 0
+        val sourceId = gameDatabase?.item(source)?.id ?: return 0
+        val before = inventoryCount(itemId)
+        var attempts = 0
+        while (inventoryCount(itemId) - before < qty && attempts < qty * 2) {
+            attempts++
+            if (retrieve(sourceId, 1) < 1) break
+            if (use.use(sourceId, 1).isFailure) break
+            inventoryManager?.fetchInventory()
+        }
+        return (inventoryCount(itemId) - before).coerceIn(0, qty)
+    }
+
+    private suspend fun craftAtStation(
+        concoction: net.sourceforge.kolmafia.data.ConcoctionData,
+        itemId: Int,
+        qty: Int,
+    ): Int {
         val mode = concoction.craftMode() ?: return 0
         val craft = craftRequest ?: return 0
-        if (concoction.ingredients.size < 2) return 0
-
         val ing1 = gameDatabase?.item(concoction.ingredients[0].name)?.id ?: return 0
         val ing2 = gameDatabase?.item(concoction.ingredients[1].name)?.id ?: return 0
         val before = inventoryCount(itemId)
-        for (ing in concoction.ingredients) {
-            val ingId = gameDatabase.item(ing.name)?.id ?: return 0
-            if (retrieve(ingId, ing.quantity * qty) < ing.quantity * qty) return inventoryCount(itemId) - before
+        var remaining = qty
+        while (remaining > 0) {
+            for (ing in concoction.ingredients) {
+                val ingId = gameDatabase?.item(ing.name)?.id ?: return inventoryCount(itemId) - before
+                if (retrieve(ingId, ing.quantity) < ing.quantity) {
+                    return (inventoryCount(itemId) - before).coerceIn(0, qty)
+                }
+            }
+            val batch = remaining.coerceAtMost(qty)
+            val created = craft.craft(mode, batch, ing1, ing2)
+            inventoryManager?.fetchInventory()
+            if (created <= 0) break
+            val gained = inventoryCount(itemId) - before
+            remaining = qty - gained
+            if (gained >= qty) break
         }
-        val created = craft.craft(mode, qty, ing1, ing2)
-        inventoryManager?.fetchInventory()
-        return (inventoryCount(itemId) - before).coerceAtLeast(created)
+        return (inventoryCount(itemId) - before).coerceIn(0, qty)
     }
 
     private fun inventoryCount(itemId: Int): Int =

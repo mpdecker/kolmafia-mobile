@@ -221,6 +221,8 @@ val sharedModule = module {
             characterRequest    = get(),
             recoveryManager     = get(),
             adventureRequest    = get(),
+            uneffectRequest     = get(),
+            questDatabase       = get(),
         )
     }
     singleOf(::ScriptManager)

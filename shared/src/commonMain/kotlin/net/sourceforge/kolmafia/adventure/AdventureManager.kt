@@ -30,6 +30,7 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestAdvanceRules
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
@@ -88,6 +89,13 @@ class AdventureManager(
         scope.launch {
             _isRunning.value = true
             try {
+                if (!AdventurePrep.canAdventureAtZone(
+                        location.name,
+                        character.state.value,
+                    )) {
+                    eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.MacroError("cannot adventure at ${location.name}")))
+                    return@launch
+                }
                 if (!AdventurePrep.prepareForAdventure(
                         location.name,
                         outfitManager,
@@ -96,6 +104,7 @@ class AdventureManager(
                         useItemRequest,
                         gameDatabase,
                         familiarManager,
+                        character.state.value,
                     )) {
                     eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.MacroError("prepare for adventure failed")))
                     return@launch
@@ -146,6 +155,11 @@ class AdventureManager(
                     if (goalManager.hasLevelGoal(charAfterTurn.level)) {
                         eventBus.emit(GameEvent.TurnConsumed(location, result))
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("level goal met: ${charAfterTurn.level}")))
+                        return@launch
+                    }
+                    if (goalManager.matchesFactoid(lastTurnResponseText)) {
+                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("factoid goal met")))
                         return@launch
                     }
 
@@ -219,6 +233,7 @@ class AdventureManager(
     fun stop() { currentJob?.cancel() }
 
     internal suspend fun checkQuestAdvancement(responseText: String) {
+        QuestAdvanceRules.apply(responseText, questDatabase)
         if (QUEST_ADVANCE_SIGNALS.none { responseText.contains(it, ignoreCase = true) }) return
         questLogRequest?.syncAll()
     }

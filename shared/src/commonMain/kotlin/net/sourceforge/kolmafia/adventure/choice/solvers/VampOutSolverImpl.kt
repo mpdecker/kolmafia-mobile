@@ -38,8 +38,9 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
         }
 
         val ch = script[stepCount]
-        // '0' at position 0 but NOT the location page → can't continue
-        if (ch == '0') return null
+        if (ch == '0') {
+            return ChoiceUtilities.parseChoices(responseText).keys.minOrNull()
+        }
 
         return resolveScriptChar(ch, responseText)
     }
@@ -66,7 +67,7 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
             in vladGoals     -> vladChoice.coerceAtLeast(firstAvailable(vladAvailable, isabellaAvailable, masqueradeAvailable))
             in isabellaGoals -> isabellaChoice.coerceAtLeast(firstAvailable(isabellaAvailable, masqueradeAvailable, vladAvailable))
             else             -> masqueradeChoice.coerceAtLeast(firstAvailable(masqueradeAvailable, isabellaAvailable, vladAvailable))
-        }
+        }.let { choice -> if (choice > 0) choice else firstAvailable(vladAvailable, isabellaAvailable, masqueradeAvailable) }
     }
 
     private fun firstAvailable(vararg flags: Boolean): Int =

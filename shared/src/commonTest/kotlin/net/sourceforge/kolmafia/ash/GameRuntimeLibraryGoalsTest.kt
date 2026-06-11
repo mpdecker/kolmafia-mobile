@@ -48,10 +48,11 @@ class GameRuntimeLibraryGoalsTest {
     }
 
     @Test
-    fun goalExists_level_trueWhenSet() {
+    fun goalExists_factoid_trueWhenSet() {
         val gm = GoalManager()
-        gm.setLevelGoal(10)
+        gm.setFactoidGoal("You win")
         val lib = GameRuntimeLibrary(goalManager = gm)
-        assertEquals("true", outputLib(lib, "print(to_string(goal_exists(\"level\")));"))
+        assertEquals("true", outputLib(lib, "print(to_string(goal_exists(\"factoid\")));"))
+        assertEquals("true", outputLib(lib, "print(to_string(goal_exists(\"autostop\")));"))
     }
 }

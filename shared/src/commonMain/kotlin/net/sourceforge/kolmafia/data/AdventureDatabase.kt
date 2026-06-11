@@ -101,4 +101,20 @@ object AdventureDatabase {
     }
 
     fun all(): List<AdventureZone> = zones.toList()
+
+    /** Test hook — register a zone without loading adventures.txt. */
+    internal fun injectForTest(zone: AdventureZone) {
+        zones.add(zone)
+        byName[zone.locationName.lowercase()] = zone
+        zone.snarfblat?.let { bySnarfblat[it] = zone }
+        loaded = true
+    }
+
+    /** Test hook — reset singleton state. */
+    internal fun resetForTest() {
+        byName.clear()
+        bySnarfblat.clear()
+        zones.clear()
+        loaded = false
+    }
 }

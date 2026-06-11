@@ -385,4 +385,181 @@ class GameRuntimeLibraryCliTest {
         assertEquals(7, putItemId)
         assertEquals(3, putQty)
     }
+
+    // ── Phase 21 CLI batch 4 + cli_execute_output ────────────────────────────
+
+    @Test
+    fun cliExecuteOutput_capturesMultiLineOutput() {
+        val lib = GameRuntimeLibrary()
+        runLib(lib, """
+            cli_execute("echo line1");
+            cli_execute("echo line2");
+        """.trimIndent())
+        val out = outputLib(lib, "print(cli_execute_output());")
+        assertEquals("line2", out)
+    }
+
+    @Test
+    fun cliExecuteOutput_emptyAfterDirectPrint() {
+        val lib = GameRuntimeLibrary()
+        runLib(lib, """print("direct");""")
+        assertEquals("", outputLib(lib, "print(cli_execute_output());"))
+    }
+
+    @Test
+    fun cliExecute_takeCloset_callsClosetTakeOut() {
+        var called = false
+        val closet = object : net.sourceforge.kolmafia.request.ClosetRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun takeOut(itemId: Int, quantity: Int): Result<String> {
+                called = true
+                return Result.success("")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 7, name = "seal tooth", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(closetRequest = closet, gameDatabase = db)
+        runLib(lib, """cli_execute("take_closet 2 seal tooth");""")
+        assertTrue(called)
+    }
+
+    @Test
+    fun cliExecute_dump_printsSummary() {
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(
+                name = "TestPlayer", level = "5", adventures = "12", meat = "999",
+                hp = "30", hpmax = "50", mp = "10", mpmax = "20",
+            )
+        )
+        val p = prefs()
+        p.setString(net.sourceforge.kolmafia.preferences.Preferences.LAST_LOCATION, "The Spooky Forest")
+        val lib = GameRuntimeLibrary(character = char, preferences = p)
+        val out = outputLib(lib, """cli_execute("dump");""")
+        assertTrue(out.contains("TestPlayer"))
+        assertTrue(out.contains("loc=The Spooky Forest"))
+    }
+
+    @Test
+    fun cliExecute_batchOpenIncrementsPref() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("batch open"); cli_execute("batch open");""")
+        assertEquals(2, p.getInt("batching", 0))
+        runLib(lib, """cli_execute("batch close");""")
+        assertEquals(1, p.getInt("batching", 0))
+    }
+
+    @Test
+    fun cliExecute_goalFactoid_registersFactoidGoal() {
+        val gm = net.sourceforge.kolmafia.session.GoalManager()
+        val lib = GameRuntimeLibrary(goalManager = gm)
+        runLib(lib, """cli_execute("goal factoid You found the thing");""")
+        assertTrue(gm.hasFactoidGoalSet())
+        assertTrue(gm.matchesFactoid("Something happened. You found the thing!"))
+    }
+
+    @Test
+    fun cliExecute_uneffect_callsUneffectRequest() {
+        var uneffectId = 0
+        val uneffect = object : net.sourceforge.kolmafia.request.UneffectRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun uneffect(effectId: Int): Result<Unit> {
+                uneffectId = effectId
+                return Result.success(Unit)
+            }
+        }
+        val effectsJson = """{"42":{"name":"Muscular","duration":10}}"""
+        val client = HttpClient(MockEngine { respond(effectsJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json")) }) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val effectMgr = net.sourceforge.kolmafia.effect.EffectManager(client, GameEventBus())
+        runBlocking { effectMgr.fetchEffects() }
+        assertEquals(1, effectMgr.state.value.effects.size)
+        val lib = GameRuntimeLibrary(effectManager = effectMgr, uneffectRequest = uneffect)
+        runLib(lib, """cli_execute("uneffect Muscular");""")
+        assertEquals(42, uneffectId)
+    }
+
+    @Test
+    fun getVersion_returnsMobileVersion() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals(GameRuntimeLibrary.VERSION, outputLib(lib, "print(get_version());"))
+    }
+
+    @Test
+    fun getRevision_returnsMobileRevision() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals(GameRuntimeLibrary.REVISION, outputLib(lib, "print(get_revision());"))
+    }
+
+    @Test
+    fun cliExecute_goalAutostop_registersFactoidGoal() {
+        val gm = net.sourceforge.kolmafia.session.GoalManager()
+        val lib = GameRuntimeLibrary(goalManager = gm)
+        runLib(lib, """cli_execute("goal autostop You win");""")
+        assertTrue(gm.hasFactoidGoalSet())
+    }
+
+    @Test
+    fun cliExecute_zone_printsZoneName() {
+        val p = prefs()
+        p.setString(net.sourceforge.kolmafia.preferences.Preferences.LAST_LOCATION, "The Haunted Pantry")
+        val lib = GameRuntimeLibrary(preferences = p)
+        val out = outputLib(lib, """cli_execute("zone");""")
+        // Without loaded AdventureDatabase, falls back to location name
+        assertTrue(out.isNotBlank())
+    }
+
+    @Test
+    fun cliExecute_count_printsInventoryQty() {
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+            HttpClient(MockEngine { respond("") }),
+            GameEventBus(),
+        ) {
+            private val _s = kotlinx.coroutines.flow.MutableStateFlow(
+                net.sourceforge.kolmafia.inventory.InventoryState(
+                    items = mapOf(
+                        7 to net.sourceforge.kolmafia.inventory.InventoryItem(
+                            7, "seal tooth", 4, net.sourceforge.kolmafia.inventory.ItemType.OTHER
+                        )
+                    )
+                )
+            )
+            override val state = _s
+        }
+        val lib = GameRuntimeLibrary(inventoryManager = inv)
+        val out = outputLib(lib, """cli_execute("count seal tooth");""")
+        assertEquals("4", out)
+    }
+
+    @Test
+    fun cliExecute_putStorage_callsStorageDeposit() {
+        var deposited = false
+        val storage = object : net.sourceforge.kolmafia.request.StorageRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun deposit(itemId: Int, quantity: Int): Result<String> {
+                deposited = true
+                return Result.success("")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 7, name = "seal tooth", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(storageRequest = storage, gameDatabase = db)
+        runLib(lib, """cli_execute("put_storage 2 seal tooth");""")
+        assertTrue(deposited)
+    }
+
+    @Test
+    fun write_routesToRuntimePrint() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("hello", outputLib(lib, """write("hello");"""))
+    }
 }

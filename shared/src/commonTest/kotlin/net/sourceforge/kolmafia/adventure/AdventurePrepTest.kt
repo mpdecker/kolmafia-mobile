@@ -5,6 +5,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.AdventureZone
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
@@ -72,6 +73,73 @@ class AdventurePrepTest {
 
         val spelunkZone = normalZone.copy(urlParams = "place=spelunk_tower")
         assertTrue(AdventurePrep.canAdventureAt("The Sleazy Back Alley", cs, spelunkZone))
+    }
+
+    @Test
+    fun canAdventureAt_falseWhenMainStatBelowRequirement() {
+        val lowStat = CharacterState(adventuresLeft = 5, buffedMusc = 10, characterClass = 1)
+        val highStatZone = AdventureZone(
+            zoneName = "Manor1",
+            urlParams = "adventure=388",
+            locationName = "The Haunted Kitchen",
+            environment = "indoor",
+            diffLevel = "mid",
+            statRequirement = 20,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        assertFalse(AdventurePrep.canAdventureAt("The Haunted Kitchen", lowStat, highStatZone))
+
+        val okStat = lowStat.copy(buffedMusc = 25)
+        assertTrue(AdventurePrep.canAdventureAt("The Haunted Kitchen", okStat, highStatZone))
+    }
+
+    @Test
+    fun canAdventureAt_trueWhenStatRequirementIsZero() {
+        val cs = CharacterState(adventuresLeft = 5, buffedMusc = 1, characterClass = 1)
+        val zone = AdventureZone(
+            zoneName = "Manor1",
+            urlParams = "adventure=113",
+            locationName = "The Haunted Pantry",
+            environment = "indoor",
+            diffLevel = "low",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        assertTrue(AdventurePrep.canAdventureAt("The Haunted Pantry", cs, zone))
+    }
+
+    @Test
+    fun prepareForAdventure_failsWhenStatTooLow() = runBlocking {
+        val zone = AdventureZone(
+            zoneName = "Manor1",
+            urlParams = "adventure=388",
+            locationName = "The Haunted Kitchen",
+            environment = "indoor",
+            diffLevel = "mid",
+            statRequirement = 20,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        AdventureDatabase.resetForTest()
+        AdventureDatabase.injectForTest(zone)
+        try {
+            val cs = CharacterState(adventuresLeft = 5, buffedMusc = 5, characterClass = 1)
+            assertFalse(AdventurePrep.canAdventureAtZone("The Haunted Kitchen", cs, zone))
+            val ok = AdventurePrep.prepareForAdventure(
+                "The Haunted Kitchen",
+                outfitManager = null,
+                preferences = prefs(),
+                character = cs,
+            )
+            assertFalse(ok)
+        } finally {
+            AdventureDatabase.resetForTest()
+        }
     }
 
     @Test

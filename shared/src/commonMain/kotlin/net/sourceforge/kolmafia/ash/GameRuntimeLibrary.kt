@@ -6,6 +6,7 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.adventure.AdventureRequest
+import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
@@ -86,12 +87,20 @@ class GameRuntimeLibrary(
     internal val characterRequest: CharacterRequest? = null,
     internal val recoveryManager: RecoveryManager? = null,
     internal val adventureRequest: AdventureRequest? = null,
+    internal val uneffectRequest: net.sourceforge.kolmafia.request.UneffectRequest? = null,
+    internal val questDatabase: net.sourceforge.kolmafia.quest.QuestDatabase? = null,
 ) : RuntimeLibrary() {
 
     companion object {
         /** Used in tests where no game managers are needed. */
         fun forTesting() = GameRuntimeLibrary()
+
+        const val VERSION = "1.0.0-mobile"
+        const val REVISION = "phase21"
     }
+
+    /** Captured stdout from the most recent [cli_execute] call. */
+    internal val lastCliOutput = StringBuilder()
 
     private val cliDispatch: List<Pair<Regex, (MatchResult, AshRuntimeContext) -> Unit>> = listOf(
 
@@ -327,6 +336,28 @@ class GameRuntimeLibrary(
             rt.print(loc)
         },
 
+        // zone — print adventures.txt zone name for current location
+        Regex("^zone$", RegexOption.IGNORE_CASE) to { _, rt ->
+            val loc = preferences?.getString(Preferences.LAST_LOCATION, "") ?: ""
+            val zone = AdventureDatabase.getByName(loc)?.zoneName ?: loc
+            rt.print(zone)
+        },
+
+        // count [N] item — print inventory quantity (N ignored; desktop compatibility)
+        Regex("^count\\s+(?:(\\d+)\\s+)?(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val itemName = m.groupValues[2].trim()
+            val qty = inventoryManager?.state?.value?.items?.values
+                ?.find { it.name.equals(itemName, ignoreCase = true) }?.quantity ?: 0
+            rt.print(qty.toString())
+        },
+
+        // put_storage N item — alias for storage put
+        Regex("^put_storage\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { storageRequest?.deposit(itemId, qty) }
+        },
+
         // set location zone — travel without adventuring
         Regex("^set\\s+location\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val zoneName = m.groupValues[1].trim()
@@ -439,6 +470,61 @@ class GameRuntimeLibrary(
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
             kotlinx.coroutines.runBlocking { closetRequest?.putIn(itemId, qty) }
+        },
+
+        // take_closet N item — alias for closet take
+        Regex("^take_closet\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { closetRequest?.takeOut(itemId, qty) }
+        },
+
+        // take_storage N item — alias for storage take
+        Regex("^take_storage\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { storageRequest?.withdraw(itemId, qty) }
+        },
+
+        // uneffect name / uneffect all
+        Regex("^uneffect\\s+all$", RegexOption.IGNORE_CASE) to { _, _ ->
+            uneffectAll()
+        },
+        Regex("^uneffect\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            uneffectByName(m.groupValues[1].trim())
+        },
+
+        // dump / dump off — compact state summary
+        Regex("^dump(?:\\s+off)?$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print(buildDumpSummary())
+        },
+
+        // batch open / batch close — pref counter only
+        Regex("^batch\\s+open$", RegexOption.IGNORE_CASE) to { _, _ ->
+            val prefs = preferences ?: return@to
+            prefs.setInt("batching", (prefs.getInt("batching", 0) + 1).coerceAtLeast(1))
+        },
+        Regex("^batch\\s+close$", RegexOption.IGNORE_CASE) to { _, _ ->
+            val prefs = preferences ?: return@to
+            val current = prefs.getInt("batching", 0)
+            if (current > 0) prefs.setInt("batching", current - 1)
+        },
+
+        // reagent N item
+        Regex("^reagent\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { useItemRequest?.use(itemId, qty) }
+        },
+
+        // goal factoid text — stop when response contains text
+        Regex("^goal\\s+factoid\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            goalManager?.setFactoidGoal(m.groupValues[1].trim())
+        },
+
+        // goal autostop text — desktop alias for factoid goal
+        Regex("^goal\\s+autostop\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            goalManager?.setFactoidGoal(m.groupValues[1].trim())
         },
 
         // putshop price[@limit] N item — list item in mall store
@@ -609,7 +695,7 @@ class GameRuntimeLibrary(
         if (name.all { it.isDigit() }) {
             return AdventureLocation(name, name, "")
         }
-        return AdventureLocation(name, name, "")
+        return null
     }
 
     internal fun wikiUrlFor(name: String): String {
@@ -625,6 +711,36 @@ class GameRuntimeLibrary(
             } catch (_: Exception) {
                 // best-effort page visit
             }
+        }
+    }
+
+    internal fun uneffectByName(name: String) {
+        val req = uneffectRequest ?: return
+        val effect = effectManager?.state?.value?.effects
+            ?.find { it.name.equals(name, ignoreCase = true) } ?: return
+        kotlinx.coroutines.runBlocking { req.uneffect(effect.id) }
+    }
+
+    internal fun uneffectAll() {
+        val req = uneffectRequest ?: return
+        val effects = effectManager?.state?.value?.effects ?: return
+        kotlinx.coroutines.runBlocking {
+            for (effect in effects) {
+                req.uneffect(effect.id).onFailure { /* best-effort */ }
+            }
+        }
+    }
+
+    internal fun buildDumpSummary(): String {
+        val cs = character?.state?.value
+        val loc = preferences?.getString(Preferences.LAST_LOCATION, "") ?: ""
+        val goals = goalManager?.allGoalsAsStrings()?.joinToString(", ") ?: ""
+        return buildString {
+            if (cs != null) {
+                append("${cs.name} L${cs.level}; ${cs.adventuresLeft} adv; ${cs.meat} meat")
+            }
+            if (loc.isNotBlank()) append("; loc=$loc")
+            if (goals.isNotBlank()) append("; goals=[$goals]")
         }
     }
 
@@ -680,6 +796,10 @@ class GameRuntimeLibrary(
         registerWebRequests(scope)
         registerHermit(scope)
         registerTimingAndLogging(scope)
+        registerCliOutput(scope)
+        registerEnvironmentQueries(scope)
+        registerUneffectActions(scope)
+        registerQuestQueries(scope)
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -1076,8 +1196,8 @@ class GameRuntimeLibrary(
             val locName = args[1].toString()
             val manager = adventureManager
                 ?: throw ScriptException("Adventure manager not available")
-            val location = AdventureLocation(locName, locName, "")
-            // Fix: call .join() so the script coroutine blocks until all turns complete.
+            val location = resolveLocation(locName)
+                ?: throw ScriptException("Unknown location: $locName")
             kotlinx.coroutines.runBlocking {
                 manager.runAdventures(location, turns, this).join()
             }
@@ -1090,7 +1210,7 @@ class GameRuntimeLibrary(
             listOf("loc" to AshType.LOCATION, "adventuresUsed" to AshType.INT)) { _, args ->
             val locName = args[0].toString()
             val manager = adventureManager ?: return@register AshValue.of(false)
-            val location = AdventureLocation(locName, locName, "")
+            val location = resolveLocation(locName) ?: return@register AshValue.of(false)
             kotlinx.coroutines.runBlocking {
                 manager.runAdventures(location, 1, this).join()
             }
@@ -1125,10 +1245,23 @@ class GameRuntimeLibrary(
         }
 
         register(scope, "cli_execute", AshType.BOOLEAN, listOf("cmd" to AshType.STRING)) { runtime, args ->
-            dispatchCli(args[0].toString(), runtime)
+            lastCliOutput.clear()
+            val capturing = CliCapturingContext(runtime, lastCliOutput)
+            dispatchCli(args[0].toString(), capturing)
             AshValue.of(true)
         }
 
+    }
+
+    /** Wraps an [AshRuntimeContext] to mirror [print] into [lastCliOutput]. */
+    private class CliCapturingContext(
+        private val delegate: AshRuntimeContext,
+        private val buffer: StringBuilder,
+    ) : AshRuntimeContext {
+        override fun print(msg: String) {
+            buffer.append(msg).append('\n')
+            delegate.print(msg)
+        }
     }
 
     // ──────────────────────────────────────────────────────────────

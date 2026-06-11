@@ -11,4 +11,10 @@ fun ConcoctionData.craftMode(): CraftMode? = when {
 }
 
 fun ConcoctionData.isAutoCraftable(): Boolean =
+    isSuseCraftable() || isStationCraftable()
+
+fun ConcoctionData.isSuseCraftable(): Boolean =
+    methods.contains("SUSE") && !methods.contains("MANUAL") && ingredients.isNotEmpty()
+
+fun ConcoctionData.isStationCraftable(): Boolean =
     !methods.contains("MANUAL") && craftMode() != null && ingredients.size >= 2

@@ -7,6 +7,8 @@ import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class CraftRequestTest {
 
@@ -25,5 +27,17 @@ class CraftRequestTest {
             respond("You craft stuff <!-- cr:2x10,11=42 -->", HttpStatusCode.OK)
         })
         assertEquals(2, CraftRequest(client).craft("combine", 2, 10, 11))
+    }
+
+    @Test
+    fun parseCreatedCount_returnsZeroOnFailureMessage() {
+        assertEquals(0, CraftRequest.parseCreatedCount("You can't craft that right now."))
+        assertEquals(0, CraftRequest.parseCreatedCount("You don't have enough of the ingredients."))
+    }
+
+    @Test
+    fun isCraftFailure_detectsKnownSignals() {
+        assertTrue(CraftRequest.isCraftFailure("You haven't unlocked that recipe yet."))
+        assertFalse(CraftRequest.isCraftFailure("You craft stuff <!-- cr:1x1,2=3 -->"))
     }
 }

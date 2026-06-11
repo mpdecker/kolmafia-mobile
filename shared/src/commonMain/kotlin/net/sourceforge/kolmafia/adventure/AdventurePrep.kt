@@ -26,6 +26,15 @@ object AdventurePrep {
         zone: AdventureZone? = AdventureDatabase.getByName(locationName),
     ): Boolean {
         if ((character?.adventuresLeft ?: 0) <= 0) return false
+        return canAdventureAtZone(locationName, character, zone)
+    }
+
+    /** Zone-only gates (stat, overdrunk, limit mode) — ignores adventures remaining. */
+    fun canAdventureAtZone(
+        locationName: String,
+        character: CharacterState?,
+        zone: AdventureZone? = AdventureDatabase.getByName(locationName),
+    ): Boolean {
         val cs = character ?: return true
         zone ?: return true
 
@@ -38,6 +47,8 @@ object AdventurePrep {
                 zone.locationName.lowercase().contains(mode)
             if (!inZone) return false
         }
+
+        if (zone.statRequirement > 0 && cs.buffedMainStat < zone.statRequirement) return false
 
         return true
     }
@@ -70,6 +81,8 @@ object AdventurePrep {
         familiarManager: FamiliarManager? = null,
         character: CharacterState? = null,
     ): Boolean {
+        if (!canAdventureAtZone(locationName, character)) return false
+
         val familiarName = preferences?.getString("zoneFamiliar_$locationName", "")?.takeIf { it.isNotBlank() }
         if (familiarName != null) {
             val fm = familiarManager ?: return false

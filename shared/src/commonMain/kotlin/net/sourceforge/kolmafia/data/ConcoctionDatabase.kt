@@ -29,6 +29,24 @@ object ConcoctionDatabase {
     fun getByIngredient(name: String): List<ConcoctionData> =
         _byIngredient[name.lowercase()] ?: emptyList()
     fun all(): Collection<ConcoctionData> = _byResult.values
+
+    /** Test hook — inject a concoction without loading from disk. */
+    internal fun injectForTest(concoction: ConcoctionData) {
+        _byResult[concoction.result.lowercase()] = concoction
+        for (ingredient in concoction.ingredients) {
+            _byIngredient
+                .getOrPut(ingredient.name.lowercase()) { mutableListOf() }
+                .add(concoction)
+        }
+        loaded = true
+    }
+
+    /** Test hook — reset singleton state. */
+    internal fun resetForTest() {
+        _byResult.clear()
+        _byIngredient.clear()
+        loaded = false
+    }
     fun cooking(): List<ConcoctionData> = _byResult.values.filter { it.isCooking }
     fun mixing(): List<ConcoctionData> = _byResult.values.filter { it.isMixing }
     fun smithing(): List<ConcoctionData> = _byResult.values.filter { it.isSmithing }
