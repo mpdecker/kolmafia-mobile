@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-06-11 after Phase 29: script compatibility + Maximizer MVP)*
+*Generated: 2026-06-03 (updated 2026-06-11 after Phase 30: CLI depth, quest guild sync, Maximizer storage pulls)*
 
 ## Scale Comparison
 
@@ -10,7 +10,7 @@
 | Source files             | ~1,172 classes              | ~253 files (commonMain) | ~22%                    |
 | Lines of code            | ~57,000                     | ~15,000+ (commonMain)   | ~26%                    |
 | Test files               | 411                         | 119                     | ~29%                    |
-| Tests                    | ~1,800+                     | 1,494                   | ~83% (of covered scope) |
+| Tests                    | ~1,800+                     | 1,505                   | ~84% (of covered scope) |
 | ASH function overloads   | ~890                        | ~250 registered         | ~28%                    |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN) | **100%**                |
 | BreakfastManager actions | 22 (20 universal + 2 niche) | 22                      | **100%**                |
@@ -132,13 +132,13 @@ file counts suggest because the desktop has massive complexity in its managers a
 
 | Feature                                           | Desktop size/complexity                                                      | Priority                                                                                                                                                                                                          |
 | ------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `**cli_execute` remaining dispatch**              | `KoLmafiaCLI.java` ~100+ commands                                            | **Medium** — Phase 23 added hermit/turns/homepage/javadoc/relay stub; ~15+ patterns still echo                                                                                                                    |
+| `**cli_execute` remaining dispatch**              | `KoLmafiaCLI.java` ~100+ commands                                            | **Low-Medium** — Phase 30 added acquire/wear/pull/breakfast/searchmall/reprice/checkpoint aliases; niche echoes remain                                                                                              |
 | `**create()` / `craft()` response parsing**       | `concoction/` 32 classes                                                     | **Low** — Phase 21: SUSE/station split, craft failure HTML detection, inventory-verified SUSE loop; MANUAL edge cases remain                                                                                      |
 | **Coinmaster depth**                              | Full `coinmasters.txt` registry + accessibility rules                        | **Low** — `CoinmasterAccessibility` gates for dimemaster/shore/mystic/starchart/hunter via `CoinmasterManager.isAccessible()`                                                                                     |
-| **Quest tracking depth**                          | Per-quest state machines in `QuestDatabase.java`                             | **Medium** — Phase 21–23: quest ASH helpers + expanded `QuestAdvanceRules` (~20 inline rules); per-quest state machines and NPC-visit advances still absent                                                       |
+| **Quest tracking depth**                          | Per-quest state machines in `QuestDatabase.java`                             | **Medium** — Phase 30: guild quest signals + `visit_url` quest hooks; conditional/inventory-gated guild steps still absent                                                                                        |
 | **KoLCharacter depth**                            | 200+ fields in desktop                                                       | **Medium** — 70+ fields; per-quest flags, detailed campground state, storage/closet item counts beyond meat totals absent                                                                                         |
 | **Relay server**                                  | `webui/` 20+ decorators, 15 JS/CSS files                                     | **Medium** — intentionally skipped                                                                                                                                                                                |
-| **Maximizer (full desktop)**                      | `maximizer/` 12 classes (~5,877 lines)                                       | **Medium** — constraint language, storage pulls, familiar/thrall optimization remain deferred; **MVP subset shipped** *(Phase 29)*                                                                               |
+| **Maximizer (full desktop)**                      | `maximizer/` 12 classes (~5,877 lines)                                       | **Medium** — constraint language, familiar/thrall optimization remain; **MVP + closet/storage pulls** *(Phase 29–30)*                                                                                            |
 | **Session logging**                               | `RequestLogger.java` (1,322 lines)                                           | **Medium** — events via GameEventBus only; nothing persisted                                                                                                                                                      |
 | **ManaBurn sophistication gap**                   | Desktop burns any castable buff, summons, per-skill priority                 | **Low** — Phase 19 added `allowNonMoodBurning`, `manaBurnSummonThreshold`, `manaBurnSkills`; mood triggers remain primary                                                                                         |
 | **GoalManager special stops**                     | `GOAL_CHOICE`, `GOAL_AUTOSTOP`, `GOAL_FACTOID`, etc.                         | **Low** — Phase 21–22: `goal factoid`/`goal autostop` CLI + factoid autostop + `goal_exists("factoid")`; choice/autostop variants still absent                                                                    |
@@ -411,12 +411,12 @@ Mobile has a 10-file `modifiers/` package covering the full passive prediction a
 
 ## Top Priorities
 
-*Phase 29 shipped Maximizer MVP, modifier-expression depth, combat state tracking, session logging, breakfast 22/22, guild/misc quest signals, and high-frequency CLI patterns. Updated priorities:*
+*Phase 30 shipped CLI alias depth, guild quest sync via visit_url, and Maximizer closet/storage pulls. Updated priorities:*
 
-1. **Full desktop Maximizer** — constraint language, storage/closet pulls, familiar/thrall optimization.
+1. **Full desktop Maximizer** — constraint language, familiar/thrall optimization, combination search.
 2. **Full relay server** — `webui/` decorators for non-headless use cases.
 3. `**cli_execute` remaining dispatch** — niche echo patterns only.
-4. **Quest tracking depth** — additional NPC-visit-only quest sync on more page types.
+4. **Quest tracking depth** — conditional guild steps (NEMESIS step9), inventory-gated FACTORY finish.
 
 ---
 
@@ -442,5 +442,6 @@ Phase 26 → CLI sendmsg/msg/note/absorb/version/charpane; ASH say/msg/quest_sta
 Phase 27 → CLI run/runscript/maximize/maximizer/autoscript/sync; ASH runscript/sync_quests/maximize(); QuestAdvanceRules larva council turn-in; 1,460 tests
 Phase 28 → QuestLogSync + council visit hooks; QuestAdvanceRules rat/bat/goblin council rules; ASH quest_is_unstarted(); CLI quest/whatis; 1,473 tests
 Phase 29 → MaximizerManager MVP + maximize ASH/CLI; ModifierExpression mod/fam/mainhand/res + item-ID lookup; AdventureManager combat flags; SessionLogger + session_logs(); QuestAdvanceRules guild/misc; breakfast 22/22; CLI goal choice/substats/set/get/counter/ccs/macro/location shortcuts; my_thrall THRALL type; VampOut all-visited null; 1,494 tests
+Phase 30 → CLI aliases (acquire/wear/pull/breakfast/searchmall/reprice/checkpoint); set location fix; guild place CLI + visit_url quest hooks; QuestAdvanceRules guild quests; Maximizer closet/storage pulls + checkpoint restore; 1,505 tests
 ```
 

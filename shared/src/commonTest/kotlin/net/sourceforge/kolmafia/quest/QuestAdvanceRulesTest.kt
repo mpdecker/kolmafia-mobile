@@ -136,8 +136,22 @@ class QuestAdvanceRulesTest {
     @Test
     fun apply_seaOldGuyStartedOnSignal() {
         val db = QuestDatabase(Preferences(MapSettings()))
-        assertTrue(QuestAdvanceRules.apply("Talk to the old guy by the sea.", db))
+        assertTrue(QuestAdvanceRules.apply("I lost my favorite boot in the ocean.", db))
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.SEA_OLD_GUY))
+    }
+
+    @Test
+    fun apply_meatcarStartedOnGuildSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("Welcome to Degrassi Knoll!", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.MEATCAR))
+    }
+
+    @Test
+    fun apply_egoStartedOnGuildSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("the location of the Cemetary is", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.EGO))
     }
 
     @Test

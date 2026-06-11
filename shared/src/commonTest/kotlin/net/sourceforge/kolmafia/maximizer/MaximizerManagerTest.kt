@@ -16,6 +16,7 @@ import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
+import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -91,5 +92,41 @@ class MaximizerManagerTest {
         )
         val mgr = MaximizerManager(StubDb(), inv, equip, character)
         assertFalse(mgr.maximize("mysticality").success)
+    }
+
+    @Test fun maximize_retrievesFromCloset_whenBestNotInInventory() = runBlocking {
+        val character = KoLCharacter()
+        character.updateEquipment(EquipmentSlot.HAT, "plain hat")
+        var fetchCount = 0
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+            override suspend fun fetchInventory() {
+                fetchCount++
+                state.value = InventoryState(items = mapOf(
+                    1 to InventoryItem(1, "myst hat", 1, ItemType.HAT),
+                ))
+            }
+        }
+        val closet = object : ClosetRequest(HttpClient(MockEngine { respond("ok") })) {
+            override suspend fun fetchContents() = mapOf(1 to 1)
+            override suspend fun takeOut(itemId: Int, quantity: Int) = Result.success("ok")
+        }
+        var equippedId: Int? = null
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                equippedId = itemId
+                return Result.success(Unit)
+            }
+        }
+        val mgr = MaximizerManager(StubDb(), inv, equip, character, closet)
+        assertTrue(mgr.maximize("mysticality").success)
+        assertEquals(1, equippedId)
+        assertTrue(fetchCount >= 1)
     }
 }

@@ -10,7 +10,7 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
 open class StorageRequest(private val client: HttpClient) {
 
-    suspend fun withdraw(itemId: Int, quantity: Int): Result<String> {
+    open suspend fun withdraw(itemId: Int, quantity: Int): Result<String> {
         return try {
             val response = client.get("$KOL_BASE_URL/storage.php") {
                 parameter("action", "pullitem")

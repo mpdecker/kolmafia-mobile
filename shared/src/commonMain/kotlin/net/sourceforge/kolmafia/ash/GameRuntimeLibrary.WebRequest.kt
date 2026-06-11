@@ -16,7 +16,9 @@ internal fun GameRuntimeLibrary.registerWebRequests(scope: AshScope) {
         return runBlocking {
             try {
                 val response = client.get(fullUrl)
-                response.body<String>()
+                val body = response.body<String>()
+                if (body.isNotBlank()) processVisitQuestHooks(body)
+                body
             } catch (e: Exception) {
                 ""
             }
@@ -42,7 +44,9 @@ internal fun GameRuntimeLibrary.registerWebRequests(scope: AshScope) {
                         }
                     },
                 )
-                response.body<String>()
+                val body = response.body<String>()
+                if (body.isNotBlank()) processVisitQuestHooks(body)
+                body
             } catch (e: Exception) {
                 ""
             }

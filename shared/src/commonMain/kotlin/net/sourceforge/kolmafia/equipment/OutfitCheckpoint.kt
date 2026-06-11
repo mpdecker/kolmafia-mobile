@@ -52,5 +52,9 @@ class OutfitCheckpoint private constructor(
             checkpoint.restore()
             return true
         }
+
+        fun clearSaved() {
+            saved = null
+        }
     }
 }

@@ -855,6 +855,58 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_acquire_callsRetrieve() {
+        var retrieved: Pair<Int, Int>? = null
+        val retrieve = object : net.sourceforge.kolmafia.item.RetrieveItemService(
+            null, null, null, null, null, null, null, null, null, null, null,
+        ) {
+            override suspend fun retrieve(itemId: Int, qty: Int): Int {
+                retrieved = itemId to qty
+                return qty
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 42, name = "seal tooth", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, retrieveItemService = retrieve)
+        runLib(lib, """cli_execute("acquire 3 seal tooth");""")
+        assertEquals(42 to 3, retrieved)
+    }
+
+    @Test
+    fun cliExecute_pull_withdrawsFromStorage() {
+        var withdrawn: Pair<Int, Int>? = null
+        val storage = object : net.sourceforge.kolmafia.request.StorageRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun withdraw(itemId: Int, quantity: Int): Result<String> {
+                withdrawn = itemId to quantity
+                return Result.success("ok")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 7, name = "meat paste", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, storageRequest = storage)
+        runLib(lib, """cli_execute("pull 2 meat paste");""")
+        assertEquals(7 to 2, withdrawn)
+    }
+
+    @Test
+    fun cliExecute_setLocation_setsLastLocationPref() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("set location The Haunted Pantry");""")
+        assertEquals("The Haunted Pantry", p.getString(Preferences.LAST_LOCATION, ""))
+    }
+
+    @Test
     fun cliExecute_ccsAndMacro_storeCombatMacro() {
         val p = prefs()
         val lib = GameRuntimeLibrary(preferences = p)

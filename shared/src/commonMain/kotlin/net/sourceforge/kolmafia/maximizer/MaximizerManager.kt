@@ -5,20 +5,26 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.modifiers.ModifierParser
+import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
+import net.sourceforge.kolmafia.request.StorageRequest
 
 /**
- * Inventory-only greedy maximizer MVP. Equips the best per-slot item for a single-stat goal.
+ * Greedy per-slot maximizer. Scores inventory + closet + storage, pulls from collections
+ * before equipping, and restores an outfit checkpoint on failure.
  */
 open class MaximizerManager(
     private val gameDatabase: GameDatabase,
     private val inventoryManager: InventoryManager,
     private val equipmentRequest: EquipmentRequest,
     private val character: KoLCharacter,
+    private val closetRequest: ClosetRequest? = null,
+    private val storageRequest: StorageRequest? = null,
 ) {
     private val equipSlots = listOf(
         EquipmentSlot.HAT,
@@ -40,14 +46,67 @@ open class MaximizerManager(
 
         val charState = character.state.value
         val invState = inventoryManager.state.value
+        val closetContents = closetRequest?.fetchContents().orEmpty()
+        val storageContents = storageRequest?.fetchContents().orEmpty()
         val scoreBefore = scoreEquipped(charState.equipment, modifier)
 
+        val bestPerSlot = findBestPerSlot(modifier, charState.equipment, invState, closetContents, storageContents)
+        val scoreAfter = bestPerSlot.values.sumOf { it.second }
+        if (scoreAfter <= scoreBefore) {
+            return MaximizeResult(false, goal, scoreBefore, scoreBefore)
+        }
+
+        val checkpoint = OutfitCheckpoint.snapshot(character, equipmentRequest, gameDatabase)
+        val equipped = mutableMapOf<EquipmentSlot, String>()
+        var anyFailure = false
+
+        for ((slot, pair) in bestPerSlot) {
+            val (name, _) = pair
+            val itemId = gameDatabase.item(name)?.id ?: continue
+            if (!ensureInInventory(itemId)) {
+                anyFailure = true
+                continue
+            }
+            if (equipmentRequest.equipItem(itemId, slot).isFailure) {
+                anyFailure = true
+            } else {
+                equipped[slot] = name
+            }
+        }
+        inventoryManager.syncCharacterEquipment()
+
+        if (anyFailure || equipped.isEmpty()) {
+            checkpoint.restore()
+            return MaximizeResult(false, goal, scoreBefore, scoreBefore)
+        }
+
+        return MaximizeResult(
+            success = true,
+            goal = goal,
+            scoreBefore = scoreBefore,
+            scoreAfter = scoreAfter,
+            equipped = equipped,
+        )
+    }
+
+    private fun findBestPerSlot(
+        modifier: DoubleModifier,
+        equipment: Map<EquipmentSlot, String>,
+        invState: InventoryState,
+        closetContents: Map<Int, Int>,
+        storageContents: Map<Int, Int>,
+    ): Map<EquipmentSlot, Pair<String, Double>> {
+        val candidateIds = buildSet {
+            addAll(invState.items.keys)
+            addAll(closetContents.keys)
+            addAll(storageContents.keys)
+        }
         val bestPerSlot = mutableMapOf<EquipmentSlot, Pair<String, Double>>()
         val usedItems = mutableSetOf<String>()
         for (slot in equipSlots) {
             var bestName = ""
-            var bestScore = scoreItem(charState.equipment[slot], modifier)
-            for ((itemId, _) in invState.items) {
+            var bestScore = scoreItem(equipment[slot], modifier)
+            for (itemId in candidateIds) {
                 val itemData = gameDatabase.item(itemId) ?: continue
                 if (!itemData.isEquipment || itemData.name in usedItems) continue
                 if (!fitsSlot(itemData, slot)) continue
@@ -62,30 +121,30 @@ open class MaximizerManager(
                 usedItems.add(bestName)
             }
         }
+        return bestPerSlot
+    }
 
-        val scoreAfter = bestPerSlot.values.sumOf { it.second }
-        if (scoreAfter <= scoreBefore) {
-            return MaximizeResult(false, goal, scoreBefore, scoreBefore)
-        }
-
-        val equipped = mutableMapOf<EquipmentSlot, String>()
-        for ((slot, pair) in bestPerSlot) {
-            val (name, _) = pair
-            val itemId = gameDatabase.item(name)?.id ?: continue
-            equipmentRequest.equipItem(itemId, slot).onSuccess {
-                equipped[slot] = name
+    private suspend fun ensureInInventory(itemId: Int): Boolean {
+        if (inventoryCount(itemId) >= 1) return true
+        if (closetRequest != null) {
+            val before = inventoryCount(itemId)
+            if (closetRequest.takeOut(itemId, 1).isSuccess) {
+                inventoryManager.fetchInventory()
+                if (inventoryCount(itemId) > before) return true
             }
         }
-        inventoryManager.syncCharacterEquipment()
-
-        return MaximizeResult(
-            success = equipped.isNotEmpty(),
-            goal = goal,
-            scoreBefore = scoreBefore,
-            scoreAfter = scoreAfter,
-            equipped = equipped,
-        )
+        if (storageRequest != null) {
+            val before = inventoryCount(itemId)
+            if (storageRequest.withdraw(itemId, 1).isSuccess) {
+                inventoryManager.fetchInventory()
+                if (inventoryCount(itemId) > before) return true
+            }
+        }
+        return inventoryCount(itemId) >= 1
     }
+
+    private fun inventoryCount(itemId: Int): Int =
+        inventoryManager.state.value.items[itemId]?.quantity ?: 0
 
     private fun scoreItem(itemName: String?, modifier: DoubleModifier): Double {
         if (itemName.isNullOrBlank()) return 0.0

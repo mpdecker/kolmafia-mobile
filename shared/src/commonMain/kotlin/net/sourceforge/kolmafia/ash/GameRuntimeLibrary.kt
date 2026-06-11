@@ -48,6 +48,7 @@ import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -103,6 +104,7 @@ class GameRuntimeLibrary(
     internal val chatSender: ChatSender? = null,
     internal val maximizerManager: MaximizerManager? = null,
     internal val sessionLogger: net.sourceforge.kolmafia.session.SessionLogger? = null,
+    internal val breakfastManager: BreakfastManager? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -110,7 +112,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase29"
+        const val REVISION = "phase30"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -204,6 +206,13 @@ class GameRuntimeLibrary(
             val count = m.groupValues[1].toIntOrNull() ?: return@to
             val itemName = m.groupValues[2].trim()
             val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+        },
+
+        // acquire / find — aliases for retrieve
+        Regex("^(?:acquire|find)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val count = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
             kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
         },
 
@@ -342,6 +351,16 @@ class GameRuntimeLibrary(
             goalManager?.setSubstatsGoal(true)
         },
 
+        // set location zone — must precede generic set pref handler
+        Regex("^set\\s+location\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val zoneName = m.groupValues[1].trim()
+            val location = resolveLocation(zoneName) ?: return@to
+            preferences?.setString(Preferences.LAST_LOCATION, location.name)
+            kotlinx.coroutines.runBlocking {
+                adventureRequest?.travel(location.id)
+            }
+        },
+
         // set pref value — bare preference alias
         Regex("^set\\s+(\\S+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             preferences?.setString(m.groupValues[1].trim(), m.groupValues[2])
@@ -383,6 +402,9 @@ class GameRuntimeLibrary(
         },
         Regex("^guild$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("guild.php", applyQuestHooks = true)
+        },
+        Regex("^guild\\s+(paco|ocg|scg|challenge)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            visitKolPage("guild.php?place=${m.groupValues[1].lowercase()}", applyQuestHooks = true)
         },
 
         // macro — print stored combat macro
@@ -433,16 +455,6 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { storageRequest?.deposit(itemId, qty) }
         },
 
-        // set location zone — travel without adventuring
-        Regex("^set\\s+location\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val zoneName = m.groupValues[1].trim()
-            val location = resolveLocation(zoneName) ?: return@to
-            preferences?.setString(Preferences.LAST_LOCATION, location.name)
-            kotlinx.coroutines.runBlocking {
-                adventureRequest?.travel(location.id)
-            }
-        },
-
         // refresh — sync character, inventory, skills, effects, familiars, quest log
         Regex("^refresh$", RegexOption.IGNORE_CASE) to { _, _ ->
             kotlinx.coroutines.runBlocking {
@@ -489,6 +501,12 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { effectManager?.fetchEffects() }
         },
         Regex("^inv$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                inventoryManager?.fetchInventory()
+                inventoryManager?.syncCharacterEquipment()
+            }
+        },
+        Regex("^inventory$", RegexOption.IGNORE_CASE) to { _, _ ->
             kotlinx.coroutines.runBlocking {
                 inventoryManager?.fetchInventory()
                 inventoryManager?.syncCharacterEquipment()
@@ -625,8 +643,8 @@ class GameRuntimeLibrary(
             dispatchCli("refresh", rt)
         },
 
-        // recover / rest — force recovery loop once
-        Regex("^(?:recover|rest)$", RegexOption.IGNORE_CASE) to { _, _ ->
+        // recover / rest / restore / check — force recovery loop once
+        Regex("^(?:recover|rest|restore|check)$", RegexOption.IGNORE_CASE) to { _, _ ->
             val rm = recoveryManager ?: return@to
             val char = character ?: return@to
             kotlinx.coroutines.runBlocking {
@@ -700,6 +718,19 @@ class GameRuntimeLibrary(
         Regex("^campground$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("campground.php")
         },
+        Regex("^camp$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("campground.php")
+        },
+
+        // breakfast — run daily breakfast sequence
+        Regex("^breakfast$", RegexOption.IGNORE_CASE) to { _, _ ->
+            val mgr = breakfastManager ?: return@to
+            val char = character ?: return@to
+            val inv = inventoryManager ?: return@to
+            kotlinx.coroutines.runBlocking {
+                mgr.runBreakfast(char.state.value, inv.state.value)
+            }
+        },
 
         // wiki / javadoc item — print Kol Wiki URL (headless has no browser)
         Regex("^wiki\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
@@ -760,11 +791,52 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { storageRequest?.withdraw(itemId, qty) }
         },
 
+        // pull / hagnk — aliases for storage take
+        Regex("^(?:pull|hagnk)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { storageRequest?.withdraw(itemId, qty) }
+        },
+
+        // searchmall [with limit N] item — print cheapest mall price
+        Regex("^searchmall(?:\\s+with\\s+limit\\s+(\\d+))?\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val itemName = m.groupValues[2].trim()
+            val price = kotlinx.coroutines.runBlocking { mallManager?.cheapestPrice(itemName) ?: -1L }
+            rt.print(price.toString())
+        },
+
+        // reprice N item[@limit] — mall store reprice
+        Regex("^reprice\\s+(\\d+)\\s+(.+?)(?:@(\\d+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val price = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            val limit = m.groupValues[3].toIntOrNull() ?: 0
+            kotlinx.coroutines.runBlocking { manageStoreRequest?.repriceItem(itemId, price, limit) }
+        },
+
+        // checkpoint / checkpoint clear — save or clear outfit checkpoint
+        Regex("^checkpoint(?:\\s+clear)?$", RegexOption.IGNORE_CASE) to { m, _ ->
+            if (m.value.endsWith("clear", ignoreCase = true)) {
+                OutfitCheckpoint.clearSaved()
+                return@to
+            }
+            val char = character ?: return@to
+            val equip = equipmentRequest ?: return@to
+            val db = gameDatabase ?: return@to
+            kotlinx.coroutines.runBlocking {
+                OutfitCheckpoint.snapshot(char, equip, db)
+            }
+        },
+
         // uneffect name / uneffect all
         Regex("^uneffect\\s+all$", RegexOption.IGNORE_CASE) to { _, _ ->
             uneffectAll()
         },
         Regex("^uneffect\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            uneffectByName(m.groupValues[1].trim())
+        },
+
+        // shrug / remedy — aliases for uneffect
+        Regex("^(?:shrug|remedy)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             uneffectByName(m.groupValues[1].trim())
         },
 
@@ -812,40 +884,20 @@ class GameRuntimeLibrary(
             }
         },
 
+        // wear / wield — aliases for equip
+        Regex("^(?:wear|wield)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            cliEquip(m.groupValues[1].trim())
+        },
+
         // "equip [<slot>] <item-name>" — equip item, optionally into a named slot.
-        // If the first word after "equip" is a known slot apiKey, treat it as a slot and the
-        // remainder as the item name; if that item lookup fails, fall back to trying the full
-        // remainder as an item name with "default" slot. Unknown item → silent no-op.
         Regex("^equip\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val rest = m.groupValues[1].trim()
-            val spaceIdx = rest.indexOf(' ')
+            cliEquip(m.groupValues[1].trim())
+        },
 
-            if (spaceIdx > 0) {
-                val firstToken = rest.substring(0, spaceIdx)
-                val afterFirst = rest.substring(spaceIdx + 1).trim()
-                val knownSlot = EquipmentSlot.entries.find { s ->
-                    s.apiKey.equals(firstToken, ignoreCase = true)
-                }
-                if (knownSlot != null) {
-                    // "equip <slot> <item>" — try afterFirst as item name in named slot
-                    val item = inventoryManager?.state?.value?.items?.values
-                        ?.find { it.name.equals(afterFirst, ignoreCase = true) }
-                    if (item != null) {
-                        kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, knownSlot.apiKey) }
-                        return@to
-                    }
-                    // slot was recognised but item not found — could be item name starting with a slot word
-                    // fall through to try full rest as item name with "default" slot
-                }
-            }
-
-            // "equip <item>" — no slot, or slot+item fallback
-            val item = inventoryManager?.state?.value?.items?.values
-                ?.find { it.name.equals(rest, ignoreCase = true) }
-            if (item != null) {
-                kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, "default") }
-            }
-            // not in backpack → silent no-op
+        // remove slot — unequip (after goal remove)
+        Regex("^remove\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val slotName = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking { inventoryManager?.unequipSlot(slotName) }
         },
 
         // "unequip <slot>" — remove equipped item from a slot
@@ -940,6 +992,13 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
         },
 
+        // make / bake / mix / smith / tinker / ply — aliases for create
+        Regex("^(?:make|bake|mix|smith|tinker|ply)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val count = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+        },
+
         // "buy N item[@limit]" — checkpoint-wrapped mall purchase
         Regex("^buy\\s+(\\d+)\\s+(.+?)(?:@(\\d+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
             val count = m.groupValues[1].toIntOrNull() ?: return@to
@@ -975,6 +1034,41 @@ class GameRuntimeLibrary(
     internal fun wikiUrlFor(name: String): String {
         val slug = name.trim().replace(' ', '_')
         return "https://wiki.a.kolmafia.us/wiki/$slug"
+    }
+
+    internal fun processVisitQuestHooks(html: String) {
+        val db = questDatabase ?: return
+        kotlinx.coroutines.runBlocking {
+            net.sourceforge.kolmafia.quest.QuestLogSync.processResponse(html, db, questLogRequest)
+        }
+    }
+
+    internal fun cliEquip(rest: String) {
+        val spaceIdx = rest.indexOf(' ')
+        if (spaceIdx > 0) {
+            val firstToken = rest.substring(0, spaceIdx)
+            val afterFirst = rest.substring(spaceIdx + 1).trim()
+            val knownSlot = EquipmentSlot.entries.find { s ->
+                s.apiKey.equals(firstToken, ignoreCase = true)
+            } ?: if (firstToken.equals("familiar", ignoreCase = true)) {
+                EquipmentSlot.FAMILIAR
+            } else {
+                null
+            }
+            if (knownSlot != null) {
+                val item = inventoryManager?.state?.value?.items?.values
+                    ?.find { it.name.equals(afterFirst, ignoreCase = true) }
+                if (item != null) {
+                    kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, knownSlot.apiKey) }
+                    return
+                }
+            }
+        }
+        val item = inventoryManager?.state?.value?.items?.values
+            ?.find { it.name.equals(rest, ignoreCase = true) }
+        if (item != null) {
+            kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, "default") }
+        }
     }
 
     private fun visitKolPage(path: String, applyQuestHooks: Boolean = false) {

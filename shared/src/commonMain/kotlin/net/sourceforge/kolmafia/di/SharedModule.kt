@@ -150,7 +150,16 @@ val sharedModule = module {
     singleOf(::ClanRumpusRequest)
     singleOf(::ClanLoungeRequest)
     singleOf(::FamiliarRequest)
-    singleOf(::MaximizerManager)
+    single {
+        MaximizerManager(
+            gameDatabase = get(),
+            inventoryManager = get(),
+            equipmentRequest = get(),
+            character = get(),
+            closetRequest = get(),
+            storageRequest = get(),
+        )
+    }
     singleOf(::SessionLogger)
     single {
         BreakfastManager(
@@ -253,6 +262,7 @@ val sharedModule = module {
             chatSender          = get(),
             maximizerManager    = get(),
             sessionLogger       = get(),
+            breakfastManager    = get(),
         )
     }
     singleOf(::ScriptManager)

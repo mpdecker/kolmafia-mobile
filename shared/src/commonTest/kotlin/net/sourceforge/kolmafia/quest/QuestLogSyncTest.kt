@@ -61,6 +61,30 @@ class QuestLogSyncTest {
     }
 
     @Test
+    fun guildPacoVisit_appliesQuestHooksFromHtml() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        val html = "<html>Welcome to Degrassi Knoll!</html>"
+        val client = HttpClient(MockEngine { respond(html, HttpStatusCode.OK) })
+        val lib = GameRuntimeLibrary(httpClient = client, questDatabase = db)
+        runLib(lib, """cli_execute("guild paco");""")
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.MEATCAR))
+    }
+
+    @Test
+    fun visitUrl_appliesQuestHooks() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        val html = "<html>Welcome to Degrassi Knoll!</html>"
+        val lib = GameRuntimeLibrary(
+            httpClient = HttpClient(MockEngine { respond(html, HttpStatusCode.OK) }),
+            questDatabase = db,
+        )
+        runLib(lib, """visit_url("guild.php?place=paco");""")
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.MEATCAR))
+    }
+
+    @Test
     fun councilVisit_appliesQuestHooksFromHtml() {
         val prefs = Preferences(MapSettings())
         val db = QuestDatabase(prefs)
