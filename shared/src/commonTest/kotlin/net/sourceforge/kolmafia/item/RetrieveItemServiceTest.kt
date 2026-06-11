@@ -6,6 +6,7 @@ import io.ktor.http.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
@@ -50,6 +51,25 @@ private fun fakeInventory(qty: Int): InventoryManager {
     return object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
         private val _s = MutableStateFlow(InventoryState(items = items))
         override val state: StateFlow<InventoryState> = _s
+    }
+}
+
+/** Inventory that gains [qtyOnFetch] items when [fetchInventory] is called (simulates withdraw). */
+private fun inventoryGainingOnFetch(qtyOnFetch: Int, initialQty: Int = 0): InventoryManager {
+    return object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+        private val _s = MutableStateFlow(
+            InventoryState(items = if (initialQty > 0) mapOf(
+                ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, initialQty, ItemType.OTHER)
+            ) else emptyMap())
+        )
+        override val state: StateFlow<InventoryState> = _s
+        override suspend fun fetchInventory() {
+            if (qtyOnFetch > 0) {
+                _s.value = InventoryState(items = mapOf(
+                    ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, qtyOnFetch, ItemType.OTHER)
+                ))
+            }
+        }
     }
 }
 
@@ -120,7 +140,7 @@ class RetrieveItemServiceTest {
     @Test
     fun retrieve_takesFromCloset_whenInventoryShort() = runTest {
         val service = RetrieveItemService(
-            inventoryManager = fakeInventory(qty = 0),
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
             closetRequest = closetSucceeds(),
             storageRequest = null,
             npcBuyRequest = null,
@@ -133,7 +153,7 @@ class RetrieveItemServiceTest {
     @Test
     fun retrieve_pullsFromStorage_whenClosetFails() = runTest {
         val service = RetrieveItemService(
-            inventoryManager = fakeInventory(qty = 0),
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
             closetRequest = closetFails(),
             storageRequest = storageSucceeds(),
             npcBuyRequest = null,
@@ -220,7 +240,7 @@ class RetrieveItemServiceTest {
     @Test
     fun retrieve_takesFromDisplay_whenStorageFails() = runTest {
         val service = RetrieveItemService(
-            inventoryManager = fakeInventory(qty = 0),
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
             closetRequest = closetFails(),
             storageRequest = storageFails(),
             displayCaseRequest = displaySucceeds(),
@@ -235,7 +255,7 @@ class RetrieveItemServiceTest {
     @Test
     fun retrieve_takesFromStash_whenDisplayFails() = runTest {
         val service = RetrieveItemService(
-            inventoryManager = fakeInventory(qty = 0),
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
             closetRequest = closetFails(),
             storageRequest = storageFails(),
             displayCaseRequest = displayFails(),
@@ -245,5 +265,219 @@ class RetrieveItemServiceTest {
             gameDatabase = dbNoNpc()
         )
         assertEquals(2, service.retrieve(ITEM_ID, 2))
+    }
+
+    @Test
+    fun retrieve_closetHttpSuccessButPartialMove_returnsActualQty() = runTest {
+        var fetchCount = 0
+        val inv = object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+            private val _s = MutableStateFlow(InventoryState(items = emptyMap()))
+            override val state: StateFlow<InventoryState> = _s
+            override suspend fun fetchInventory() {
+                fetchCount++
+                if (fetchCount == 1) {
+                    _s.value = InventoryState(items = mapOf(
+                        ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, 1, ItemType.OTHER)
+                    ))
+                }
+            }
+        }
+        val service = RetrieveItemService(
+            inventoryManager = inv,
+            closetRequest = closetSucceeds(),
+            storageRequest = null,
+            npcBuyRequest = null,
+            mallManager = null,
+            gameDatabase = dbNoNpc()
+        )
+        assertEquals(1, service.retrieve(ITEM_ID, 3))
+    }
+
+    @Test
+    fun retrieve_craftsSuse_whenInventoryGainsOnUse() = runTest {
+        ConcoctionDatabase.resetForTest()
+        ConcoctionDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConcoctionData(
+                result = ITEM_NAME,
+                resultQuantity = 1,
+                methods = setOf("SUSE"),
+                ingredients = listOf(net.sourceforge.kolmafia.data.ConcoctionIngredient("source item", 1)),
+            )
+        )
+        val sourceId = 99
+        val db = object : GameDatabase() {
+            override fun item(id: Int) = when (id) {
+                ITEM_ID -> testItemData()
+                sourceId -> ItemData(
+                    id = sourceId, name = "source item", descId = "", image = "",
+                    primaryUse = ItemPrimaryUse.NONE, secondaryUses = emptySet(),
+                    access = setOf('t'), autosellPrice = 0, plural = null
+                )
+                else -> null
+            }
+            override fun item(name: String) = when (name) {
+                ITEM_NAME -> testItemData()
+                "source item" -> item(sourceId)
+                else -> null
+            }
+        }
+        var uses = 0
+        val use = object : net.sourceforge.kolmafia.request.UseItemRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> {
+                uses++
+                return Result.success("")
+            }
+        }
+        val inv = object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+            private val _s = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    sourceId to InventoryItem(sourceId, "source item", 2, ItemType.OTHER),
+                ))
+            )
+            override val state: StateFlow<InventoryState> = _s
+            override suspend fun fetchInventory() {
+                _s.value = InventoryState(items = buildMap {
+                    if (uses > 0) put(ITEM_ID, InventoryItem(ITEM_ID, ITEM_NAME, uses, ItemType.OTHER))
+                    val sourceLeft = (2 - uses).coerceAtLeast(0)
+                    if (sourceLeft > 0) put(sourceId, InventoryItem(sourceId, "source item", sourceLeft, ItemType.OTHER))
+                })
+            }
+        }
+        val service = RetrieveItemService(
+            inventoryManager = inv,
+            closetRequest = null,
+            storageRequest = null,
+            npcBuyRequest = null,
+            mallManager = null,
+            useItemRequest = use,
+            gameDatabase = db,
+        )
+        try {
+            assertEquals(2, service.retrieve(ITEM_ID, 2))
+            assertEquals(2, uses)
+        } finally {
+            ConcoctionDatabase.resetForTest()
+        }
+    }
+
+    @Test
+    fun retrieve_craftsAtStation_whenIngredientsAvailable() = runTest {
+        ConcoctionDatabase.resetForTest()
+        ConcoctionDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConcoctionData(
+                result = ITEM_NAME,
+                resultQuantity = 1,
+                methods = setOf("COOK"),
+                ingredients = listOf(
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("ingredient a", 1),
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("ingredient b", 1),
+                ),
+            )
+        )
+        val ingA = 50
+        val ingB = 51
+        val db = object : GameDatabase() {
+            override fun item(id: Int) = when (id) {
+                ITEM_ID -> testItemData()
+                ingA -> ItemData(ingA, "ingredient a", "", "", ItemPrimaryUse.NONE, emptySet(), setOf('t'), 0, null)
+                ingB -> ItemData(ingB, "ingredient b", "", "", ItemPrimaryUse.NONE, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String) = when (name) {
+                ITEM_NAME -> testItemData()
+                "ingredient a" -> item(ingA)
+                "ingredient b" -> item(ingB)
+                else -> null
+            }
+        }
+        val inv = object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+            private val _s = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    ingA to InventoryItem(ingA, "ingredient a", 2, ItemType.OTHER),
+                    ingB to InventoryItem(ingB, "ingredient b", 2, ItemType.OTHER),
+                ))
+            )
+            override val state: StateFlow<InventoryState> = _s
+            override suspend fun fetchInventory() {
+                _s.value = InventoryState(items = mapOf(
+                    ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, 2, ItemType.OTHER),
+                ))
+            }
+        }
+        val craft = object : net.sourceforge.kolmafia.request.CraftRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun craft(mode: String, quantity: Int, itemId1: Int, itemId2: Int): Int = quantity
+        }
+        val service = RetrieveItemService(
+            inventoryManager = inv,
+            closetRequest = null,
+            storageRequest = null,
+            npcBuyRequest = null,
+            mallManager = null,
+            craftRequest = craft,
+            gameDatabase = db,
+        )
+        try {
+            assertEquals(2, service.retrieve(ITEM_ID, 2))
+        } finally {
+            ConcoctionDatabase.resetForTest()
+        }
+    }
+
+    @Test
+    fun retrieve_craftFailure_returnsZero() = runTest {
+        ConcoctionDatabase.resetForTest()
+        ConcoctionDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConcoctionData(
+                result = ITEM_NAME,
+                resultQuantity = 1,
+                methods = setOf("COMBINE"),
+                ingredients = listOf(
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("ingredient a", 1),
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("ingredient b", 1),
+                ),
+            )
+        )
+        val ingA = 50
+        val ingB = 51
+        val db = object : GameDatabase() {
+            override fun item(id: Int) = when (id) {
+                ITEM_ID -> testItemData()
+                ingA -> ItemData(ingA, "ingredient a", "", "", ItemPrimaryUse.NONE, emptySet(), setOf('t'), 0, null)
+                ingB -> ItemData(ingB, "ingredient b", "", "", ItemPrimaryUse.NONE, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String) = when (name) {
+                ITEM_NAME -> testItemData()
+                "ingredient a" -> item(ingA)
+                "ingredient b" -> item(ingB)
+                else -> null
+            }
+        }
+        val inv = object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+            private val _s = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    ingA to InventoryItem(ingA, "ingredient a", 1, ItemType.OTHER),
+                    ingB to InventoryItem(ingB, "ingredient b", 1, ItemType.OTHER),
+                ))
+            )
+            override val state: StateFlow<InventoryState> = _s
+        }
+        val craft = object : net.sourceforge.kolmafia.request.CraftRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun craft(mode: String, quantity: Int, itemId1: Int, itemId2: Int): Int = 0
+        }
+        val service = RetrieveItemService(
+            inventoryManager = inv,
+            closetRequest = null,
+            storageRequest = null,
+            npcBuyRequest = null,
+            mallManager = null,
+            craftRequest = craft,
+            gameDatabase = db,
+        )
+        try {
+            assertEquals(0, service.retrieve(ITEM_ID, 1))
+        } finally {
+            ConcoctionDatabase.resetForTest()
+        }
     }
 }

@@ -50,6 +50,15 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         AshValue.of(kotlinx.coroutines.runBlocking { req.autosell(itemId, qty) }.isSuccess)
     }
 
+    // sell(qty: int, it: item) → boolean — autosell alias (desktop economy sell)
+    regFn(scope, "sell", AshType.BOOLEAN,
+        listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
+        val qty = args[0].toLong().toInt()
+        val req = autosellRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.autosell(itemId, qty) }.isSuccess)
+    }
+
     // 6. put_closet(qty: int, it: item) → boolean
     regFn(scope, "put_closet", AshType.BOOLEAN,
         listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
@@ -154,5 +163,11 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         val qty = args[0].toLong().toInt()
         val req = clanStashRequest ?: return@regFn AshValue.of(false)
         AshValue.of(kotlinx.coroutines.runBlocking { req.takeOut(itemId, qty) }.isSuccess)
+    }
+
+    // 17. empty_closet() → boolean — take all items from closet
+    regFn(scope, "empty_closet", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val req = closetRequest ?: return@regFn AshValue.of(false)
+        AshValue.of(kotlinx.coroutines.runBlocking { req.emptyCloset().isSuccess })
     }
 }

@@ -28,6 +28,7 @@ internal fun GameRuntimeLibrary.registerGoalQueries(scope: AshScope) {
             "item"  -> goalManager?.hasItemGoals() ?: false
             "meat"  -> goalManager?.hasMeatGoalSet() ?: false
             "level" -> goalManager?.hasLevelGoalSet() ?: false
+            "factoid", "autostop" -> goalManager?.hasFactoidGoalSet() ?: false
             else    -> false
         }
         AshValue.of(result)

@@ -9,6 +9,17 @@ class GoalManager {
     private val _itemGoalNames = mutableSetOf<String>()  // stored lowercase+trimmed
     private var meatGoal: Int?  = null
     private var levelGoal: Int? = null
+    private var factoidGoal: String? = null
+
+    // ── Factoid goal (response text match) ────────────────────────────────────
+
+    fun setFactoidGoal(text: String) { factoidGoal = text.trim().takeIf { it.isNotBlank() } }
+    fun clearFactoidGoal() { factoidGoal = null }
+    fun hasFactoidGoalSet(): Boolean = factoidGoal != null
+    fun matchesFactoid(responseText: String): Boolean {
+        val goal = factoidGoal ?: return false
+        return responseText.contains(goal, ignoreCase = true)
+    }
 
     // ── ID-based item goals ───────────────────────────────────────────────────
 
@@ -48,6 +59,8 @@ class GoalManager {
     /** True if a level goal has been set (regardless of current level). */
     fun hasLevelGoalSet(): Boolean = levelGoal != null
 
+    fun hasFactoidGoal(): Boolean = factoidGoal != null
+
     /** Remove the first item goal matching [itemName] (case-insensitive). */
     fun removeGoal(itemName: String) { removeItemGoalByName(itemName) }
 
@@ -57,6 +70,7 @@ class GoalManager {
         _itemGoalNames.forEach { add("item name:$it") }
         meatGoal?.let  { add("meat:$it") }
         levelGoal?.let { add("level:$it") }
+        factoidGoal?.let { add("factoid:$it") }
     }
 
     // ── Clear all ─────────────────────────────────────────────────────────────
@@ -66,5 +80,6 @@ class GoalManager {
         _itemGoalNames.clear()
         meatGoal = null
         levelGoal = null
+        factoidGoal = null
     }
 }

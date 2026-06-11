@@ -38,6 +38,9 @@ class VampOutSolverImplTest {
     @Test fun step0_goal4_noVlad_returnsIsabellaAt1() =
         assertEquals(1, solver().autoVampOut(4, 0, noVladHtml))
 
+    @Test fun step0_goal1_noVlad_fallsBackToFirstAvailable() =
+        assertEquals(1, solver().autoVampOut(1, 0, noVladHtml))
+
     @Test fun step0_goal8_noVlad_returnsMasqueradeAt2() =
         assertEquals(2, solver().autoVampOut(8, 0, noVladHtml))
 
@@ -99,4 +102,10 @@ class VampOutSolverImplTest {
 
     @Test fun stepPastScript_returnsNull() =
         assertNull(solver().autoVampOut(4, 99, ""))
+
+    @Test fun step0_scriptZero_fallsBackToFirstParsedChoice() {
+        val html = """<input name="option" value="2">Pick me""" +
+            """<input name="option" value="5">Or me"""
+        assertEquals(2, solver().autoVampOut(4, 0, html))
+    }
 }

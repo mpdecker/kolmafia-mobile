@@ -15,7 +15,12 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ZoneLookup
+import net.sourceforge.kolmafia.equipment.OutfitManager
+import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.event.GameEvent
@@ -25,6 +30,7 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestAdvanceRules
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
@@ -56,6 +62,11 @@ class AdventureManager(
     private val manaBurnManager: ManaBurnManager? = null,
     private val banishManager: BanishManager? = null,
     private val combatDatabase: ZoneLookup? = null,
+    private val gameDatabase: GameDatabase? = null,
+    private val outfitManager: OutfitManager? = null,
+    private val retrieveItemService: RetrieveItemService? = null,
+    private val useItemRequest: UseItemRequest? = null,
+    private val familiarManager: FamiliarManager? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -78,6 +89,27 @@ class AdventureManager(
         scope.launch {
             _isRunning.value = true
             try {
+                if (!AdventurePrep.canAdventureAtZone(
+                        location.name,
+                        character.state.value,
+                    )) {
+                    eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.MacroError("cannot adventure at ${location.name}")))
+                    return@launch
+                }
+                if (!AdventurePrep.prepareForAdventure(
+                        location.name,
+                        outfitManager,
+                        preferences,
+                        retrieveItemService,
+                        useItemRequest,
+                        gameDatabase,
+                        familiarManager,
+                        character.state.value,
+                    )) {
+                    eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.MacroError("prepare for adventure failed")))
+                    return@launch
+                }
+
                 repeat(turns) {
                     if (!isActive) return@launch
                     itemGoalMetThisTurn = false
@@ -109,6 +141,8 @@ class AdventureManager(
                         return@launch
                     }
 
+                    checkInventoryItemGoals()
+
                     characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
 
                     // Numeric goal checks (meat, level) — evaluated on up-to-date character state
@@ -121,6 +155,11 @@ class AdventureManager(
                     if (goalManager.hasLevelGoal(charAfterTurn.level)) {
                         eventBus.emit(GameEvent.TurnConsumed(location, result))
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("level goal met: ${charAfterTurn.level}")))
+                        return@launch
+                    }
+                    if (goalManager.matchesFactoid(lastTurnResponseText)) {
+                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("factoid goal met")))
                         return@launch
                     }
 
@@ -194,6 +233,7 @@ class AdventureManager(
     fun stop() { currentJob?.cancel() }
 
     internal suspend fun checkQuestAdvancement(responseText: String) {
+        QuestAdvanceRules.apply(responseText, questDatabase)
         if (QUEST_ADVANCE_SIGNALS.none { responseText.contains(it, ignoreCase = true) }) return
         questLogRequest?.syncAll()
     }
@@ -300,6 +340,19 @@ class AdventureManager(
         items.forEach { name ->
             eventBus.emit(GameEvent.ItemObtained(InventoryItem(-1, name, 1, ItemType.OTHER)))
             if (goalManager.hasItemGoalByName(name)) itemGoalMetThisTurn = true
+            val itemId = gameDatabase?.item(name)?.id
+            if (itemId != null && goalManager.hasItemGoal(itemId)) itemGoalMetThisTurn = true
+        }
+    }
+
+    private fun checkInventoryItemGoals() {
+        if (!goalManager.hasItemGoals()) return
+        val items = inventory?.state?.value?.items ?: return
+        for (goalId in goalManager.itemGoalIds()) {
+            if ((items[goalId]?.quantity ?: 0) > 0) {
+                itemGoalMetThisTurn = true
+                return
+            }
         }
     }
 }

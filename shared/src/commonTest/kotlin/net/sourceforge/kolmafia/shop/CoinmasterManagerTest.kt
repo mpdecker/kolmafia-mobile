@@ -12,11 +12,17 @@ import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class CoinmasterManagerTest {
+
+    @BeforeTest
+    fun resetCoinmasterDatabase() {
+        CoinmasterDatabase.resetForTest()
+    }
 
     @Test
     fun findBuyRowForItem_locatesShoreRow() {

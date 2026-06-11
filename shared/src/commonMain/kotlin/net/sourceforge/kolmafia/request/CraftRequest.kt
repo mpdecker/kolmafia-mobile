@@ -12,13 +12,24 @@ open class CraftRequest(private val client: HttpClient) {
     companion object {
         private val CRAFT_COMMENT = Regex("""<!-- ?cr:(\d+)x(-?\d+),(-?\d+)=(\d+) ?-->""")
 
+        private val CRAFT_FAILURE_SIGNALS = listOf(
+            "You can't craft",
+            "don't have enough",
+            "don't know how to make",
+            "You haven't unlocked",
+        )
+
         fun parseCreatedCount(responseText: String): Int {
+            if (isCraftFailure(responseText)) return 0
             var total = 0
             for (match in CRAFT_COMMENT.findAll(responseText)) {
                 total += match.groupValues[1].toIntOrNull() ?: 0
             }
             return total
         }
+
+        fun isCraftFailure(responseText: String): Boolean =
+            CRAFT_FAILURE_SIGNALS.any { responseText.contains(it, ignoreCase = true) }
     }
 
     open suspend fun craft(mode: String, quantity: Int, itemId1: Int, itemId2: Int): Int {

@@ -39,4 +39,15 @@ class QuestDatabase(private val preferences: Preferences) {
 
     fun isQuestFinished(quest: Quest): Boolean =
         getProgress(quest) == FINISHED
+
+    fun progressFor(prefKey: String): String =
+        preferences.getString(prefKey, UNSTARTED)
+
+    fun progressFor(quest: Quest): String = getProgress(quest)
+
+    fun isAtLeast(quest: Quest, step: String): Boolean =
+        stepOrdinal(getProgress(quest)) >= stepOrdinal(step)
+
+    fun isFinished(prefKey: String): Boolean =
+        progressFor(prefKey) == FINISHED
 }

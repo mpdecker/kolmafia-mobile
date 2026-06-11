@@ -3,7 +3,13 @@ package net.sourceforge.kolmafia.ash
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPriceManager
+import net.sourceforge.kolmafia.mall.MallPurchaseRequest
+import net.sourceforge.kolmafia.mall.MallSearchRequest
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -114,5 +120,34 @@ class GameRuntimeLibraryPricingTest {
         )
         assertEquals("120",
             outputLib(lib, """print(to_string(historical_age(to_item("seal tooth"))));"""))
+    }
+
+    @Test
+    fun retrievePrice_picksCheaperOfMallAndNpc() {
+        val db = StubPricingDatabase(
+            fakeItemName = "seal tooth",
+            fakeAutosellPrice = 10,
+            fakeNpcPrice = 100,
+        )
+        val mall = object : MallManager(
+            MallSearchRequest(HttpClient(MockEngine { respond("[]") })),
+            MallPurchaseRequest(HttpClient(MockEngine { respond("") })),
+            db,
+        ) {
+            override suspend fun cheapestPrice(itemName: String): Long =
+                if (itemName.equals("seal tooth", ignoreCase = true)) 75L else -1L
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, mallManager = mall)
+        assertEquals("75",
+            outputLib(lib, """print(to_string(retrieve_price(to_item("seal tooth"))));"""))
+    }
+
+    @Test
+    fun retrievePrice_returnsNegativeOneWhenNoSource() {
+        val lib = GameRuntimeLibrary(
+            gameDatabase = StubPricingDatabase(fakeItemName = "seal tooth")
+        )
+        assertEquals("-1",
+            outputLib(lib, """print(to_string(retrieve_price(to_item("seal tooth"))));"""))
     }
 }

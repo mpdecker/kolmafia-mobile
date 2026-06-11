@@ -38,8 +38,9 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
         }
 
         val ch = script[stepCount]
-        // '0' at position 0 but NOT the location page → can't continue
-        if (ch == '0') return null
+        if (ch == '0') {
+            return ChoiceUtilities.parseChoices(responseText).keys.minOrNull()
+        }
 
         return resolveScriptChar(ch, responseText)
     }
@@ -63,11 +64,24 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
             if (masqueradeAvailable) 3 - (if (isabellaAvailable) 0 else 1) - (if (vladAvailable) 0 else 1) else 0
 
         return when (goalIdx) {
-            in vladGoals     -> vladChoice
-            in isabellaGoals -> isabellaChoice
-            else             -> masqueradeChoice
-        }
+            in vladGoals     -> vladChoice.coerceAtLeast(firstAvailable(vladAvailable, isabellaAvailable, masqueradeAvailable))
+            in isabellaGoals -> isabellaChoice.coerceAtLeast(firstAvailable(isabellaAvailable, masqueradeAvailable, vladAvailable))
+            else             -> masqueradeChoice.coerceAtLeast(firstAvailable(masqueradeAvailable, isabellaAvailable, vladAvailable))
+        }.let { choice -> if (choice > 0) choice else firstAvailable(vladAvailable, isabellaAvailable, masqueradeAvailable) }
     }
+
+    private fun firstAvailable(vararg flags: Boolean): Int =
+        when {
+            flags.getOrNull(0) == true -> 1
+            flags.getOrNull(1) == true -> if (flags.getOrNull(0) != true) 1 else 2
+            flags.getOrNull(2) == true -> {
+                var option = 1
+                if (flags.getOrNull(0) == true) option++
+                if (flags.getOrNull(1) == true) option++
+                option
+            }
+            else -> 1
+        }
 
     private fun resolveScriptChar(ch: Char, responseText: String): Int? {
         if (ch.isDigit()) return ch.digitToInt()

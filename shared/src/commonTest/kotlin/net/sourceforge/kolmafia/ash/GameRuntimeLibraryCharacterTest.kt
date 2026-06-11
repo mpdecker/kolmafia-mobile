@@ -1,9 +1,15 @@
 package net.sourceforge.kolmafia.ash
 
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import net.sourceforge.kolmafia.adventure.AdventurePrep
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.AdventureZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 class GameRuntimeLibraryCharacterTest {
 
@@ -91,6 +97,23 @@ class GameRuntimeLibraryCharacterTest {
     }
 
     @Test
+    fun canAdventure_overdrunkZoneRequiresInebriety() {
+        val sober = net.sourceforge.kolmafia.character.CharacterState(adventuresLeft = 5, inebriety = 0)
+        val zone = AdventureZone(
+            zoneName = "Holiday",
+            urlParams = "adventure=23",
+            locationName = "Drunken Stupor",
+            environment = "outdoor",
+            diffLevel = "low",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = true,
+            noWander = false,
+        )
+        assertFalse(AdventurePrep.canAdventureAt("Drunken Stupor", sober, zone))
+    }
+
+    @Test
     fun prepareForAdventure_returnsTrue() {
         assertEquals("true", outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(prepare_for_adventure()));"))
     }
@@ -99,5 +122,35 @@ class GameRuntimeLibraryCharacterTest {
     fun adv1_returnsFalseWhenNoAdventureManager() {
         val lib = GameRuntimeLibrary.forTesting()
         assertEquals("false", outputLib(lib, """print(to_string(adv1(to_location("The Haunted Pantry"), 1)));"""))
+    }
+
+    @Test
+    fun resolveLocation_spookyForest_usesSnarfblat20() {
+        val lib = GameRuntimeLibrary.forTesting()
+        val loc = lib.resolveLocation("The Spooky Forest")
+        assertEquals("20", loc?.id)
+        assertEquals("The Spooky Forest", loc?.name)
+    }
+
+    @Test
+    fun resolveLocation_unknownName_returnsNull() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals(null, lib.resolveLocation("Totally Fake Zone Name"))
+    }
+
+    @Test
+    fun adv1_unknownLocation_returnsFalse() {
+        val client = HttpClient(MockEngine { respond("") })
+        val mgr = net.sourceforge.kolmafia.adventure.AdventureManager(
+            adventureRequest = net.sourceforge.kolmafia.adventure.AdventureRequest(client),
+            fightRequest = net.sourceforge.kolmafia.adventure.FightRequest(client),
+            choiceRequest = net.sourceforge.kolmafia.adventure.ChoiceRequest(client),
+            characterRequest = net.sourceforge.kolmafia.request.CharacterRequest(client),
+            character = net.sourceforge.kolmafia.character.KoLCharacter(),
+            preferences = prefs(),
+            eventBus = net.sourceforge.kolmafia.event.GameEventBus(),
+        )
+        val lib = GameRuntimeLibrary(adventureManager = mgr)
+        assertEquals("false", outputLib(lib, """print(to_string(adv1(to_location("Totally Fake Zone Name"), 1)));"""))
     }
 }
