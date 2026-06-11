@@ -7,7 +7,14 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.familiar.FamiliarData
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.familiar.FamiliarState
+import net.sourceforge.kolmafia.inventory.InventoryItem
+import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.inventory.ItemType
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -104,5 +111,35 @@ class GameRuntimeLibraryFamiliarTest {
     fun myFamiliar_returnsNoneWhenNoFamiliarManager() {
         val lib = GameRuntimeLibrary.forTesting()
         assertEquals("none", outputLib(lib, "print(my_familiar());"))
+    }
+
+    @Test
+    fun steal_returnsInventoryGain() {
+        val itemId = 88
+        val stealReq = object : FamiliarRequest(HttpClient(MockEngine { respond("ok") })) {
+            override suspend fun stealItem(itemId: Int) = Result.success("ok")
+        }
+        val inv = object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+            private val _s = MutableStateFlow(InventoryState())
+            override val state: StateFlow<InventoryState> = _s
+            override suspend fun fetchInventory() {
+                _s.value = InventoryState(items = mapOf(
+                    itemId to InventoryItem(itemId, "stolen thing", 1, ItemType.OTHER)
+                ))
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = itemId, name = "stolen thing", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            familiarRequest = stealReq,
+            inventoryManager = inv,
+            gameDatabase = db,
+        )
+        assertEquals("1", outputLib(lib, """print(to_string(steal(to_item("stolen thing"), 1)));"""))
     }
 }

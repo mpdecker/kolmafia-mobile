@@ -6,6 +6,7 @@ import io.ktor.http.*
 import kotlinx.coroutines.test.runTest
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class FamiliarRequestTest {
@@ -26,5 +27,11 @@ class FamiliarRequestTest {
         val client = HttpClient(MockEngine { respond("", HttpStatusCode.OK) })
         val result = FamiliarRequest(client).bjornify(0)
         assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun stealItem_postsStealAction() = runTest {
+        val client = HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) })
+        assertTrue(FamiliarRequest(client).stealItem(42).isSuccess)
     }
 }

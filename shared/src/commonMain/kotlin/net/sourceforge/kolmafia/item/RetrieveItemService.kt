@@ -9,6 +9,7 @@ import net.sourceforge.kolmafia.data.isSuseCraftable
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
+import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.CraftRequest
@@ -31,6 +32,7 @@ open class RetrieveItemService(
     private val useItemRequest: UseItemRequest? = null,
     private val gameDatabase: GameDatabase?,
     private val hermitRequest: HermitRequest? = null,
+    private val familiarRequest: FamiliarRequest? = null,
 ) {
     open suspend fun retrieve(itemId: Int, qty: Int): Int {
         val itemName = gameDatabase?.item(itemId)?.name ?: return 0
@@ -80,6 +82,10 @@ open class RetrieveItemService(
             remaining -= coinmasterManager.buyItem(itemId, remaining)
         }
 
+        if (remaining > 0 && familiarRequest != null) {
+            remaining -= stealFromFamiliar(itemId, remaining)
+        }
+
         if (remaining > 0 && hermitRequest != null) {
             remaining -= withdrawFromHermit(itemId, remaining)
         }
@@ -93,6 +99,19 @@ open class RetrieveItemService(
         }
 
         return qty - remaining
+    }
+
+    private suspend fun stealFromFamiliar(itemId: Int, qty: Int): Int {
+        var gained = 0
+        repeat(qty) {
+            val before = inventoryCount(itemId)
+            if (familiarRequest!!.stealItem(itemId).isFailure) return gained
+            inventoryManager?.fetchInventory()
+            val delta = (inventoryCount(itemId) - before).coerceAtLeast(0)
+            if (delta <= 0) return gained
+            gained += delta
+        }
+        return gained.coerceAtMost(qty)
     }
 
     private suspend fun withdrawFromHermit(itemId: Int, qty: Int): Int {

@@ -12,13 +12,15 @@ import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.preferences.Preferences
 
-private const val SCRIPTS_PREF_KEY = "ashScripts"
-
 class ScriptManager(
     private val library: GameRuntimeLibrary,
     private val preferences: Preferences,
     private val eventBus: GameEventBus
 ) {
+    companion object {
+        const val SCRIPTS_PREF_KEY = "ashScripts"
+    }
+
     private val _state = MutableStateFlow(ScriptState())
     val state: StateFlow<ScriptState> = _state.asStateFlow()
 

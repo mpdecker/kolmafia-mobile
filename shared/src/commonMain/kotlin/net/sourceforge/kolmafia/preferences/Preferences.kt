@@ -58,6 +58,9 @@ class Preferences(private val settings: Settings) {
 
         // Adventure location tracking
         const val LAST_LOCATION            = "_lastLocation"
+        const val USER_NOTE                = "userNote"
+        const val CURRENT_CHAT_CHANNEL     = "currentChatChannel"
+        const val AUTO_SCRIPTING           = "autoScripting"
 
         // Breakfast — user-controlled guard prefs (match desktop names exactly)
         const val HARVEST_GARDEN_SOFTCORE   = "harvestGardenSoftcore"   // "none"|"any"; default "none" (matches desktop)

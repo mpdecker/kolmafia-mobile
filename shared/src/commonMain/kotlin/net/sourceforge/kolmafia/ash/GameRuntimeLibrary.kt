@@ -2,6 +2,8 @@ package net.sourceforge.kolmafia.ash
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
@@ -18,15 +20,18 @@ import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.location.LocationDatabase
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.ChewRequest
+import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
@@ -43,6 +48,7 @@ import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
 import kotlin.math.abs
@@ -89,8 +95,11 @@ class GameRuntimeLibrary(
     internal val recoveryManager: RecoveryManager? = null,
     internal val adventureRequest: AdventureRequest? = null,
     internal val uneffectRequest: net.sourceforge.kolmafia.request.UneffectRequest? = null,
-    internal val questDatabase: net.sourceforge.kolmafia.quest.QuestDatabase? = null,
+    internal val questDatabase: QuestDatabase? = null,
     internal val questLogRequest: QuestLogRequest? = null,
+    internal val clanLoungeRequest: ClanLoungeRequest? = null,
+    internal val familiarRequest: FamiliarRequest? = null,
+    internal val chatSender: ChatSender? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -98,7 +107,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase24"
+        const val REVISION = "phase28"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -385,8 +394,27 @@ class GameRuntimeLibrary(
         },
 
         // questlog / quests — sync quest log pages
-        Regex("^(?:questlog|quests)$", RegexOption.IGNORE_CASE) to { _, _ ->
+        Regex("^(?:questlog|quests|quest)$", RegexOption.IGNORE_CASE) to { _, _ ->
             kotlinx.coroutines.runBlocking { questLogRequest?.syncAll() }
+        },
+
+        // quest NAME — print current step for one quest
+        Regex("^quest\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val quest = resolveQuest(m.groupValues[1]) ?: run {
+                rt.print(QuestDatabase.UNSTARTED)
+                return@to
+            }
+            rt.print(questDatabase?.getProgress(quest) ?: QuestDatabase.UNSTARTED)
+        },
+
+        // whatis item — alias for description
+        Regex("^whatis\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val item = gameDatabase?.item(m.groupValues[1].trim())
+            if (item == null) {
+                rt.print("Unknown item: ${m.groupValues[1].trim()}")
+            } else {
+                rt.print("${item.name} (${item.primaryUse.name.lowercase()}, autosell ${item.autosellPrice} meat)")
+            }
         },
 
         // skills / effects / inv — refresh cached state
@@ -411,12 +439,124 @@ class GameRuntimeLibrary(
             visitKolPage("mail.php")
         },
 
-        // description / desc item — print item summary from database
-        Regex("^(?:description|desc)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+        // description / desc / show item — print item summary from database
+        Regex("^(?:description|desc|show)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val item = gameDatabase?.item(m.groupValues[1].trim())
             if (item != null) {
                 rt.print("${item.name} [${item.primaryUse.name.lowercase()}] autosell=${item.autosellPrice}")
             }
+        },
+
+        // pool — play one VIP lounge pool game
+        Regex("^pool$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { clanLoungeRequest?.playPoolGame() }
+        },
+
+        // refreshshop / refresh shop — refresh mall store prices
+        Regex("^refresh\\s*shop$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { manageStoreRequest?.refreshPrices() }
+        },
+
+        // itemnotify on/off — pref toggle (headless stub)
+        Regex("^itemnotify\\s+(on|off)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            preferences?.setBoolean("itemNotify", m.groupValues[1].equals("on", ignoreCase = true))
+        },
+
+        // vendor / managestore / mall — visit store pages
+        Regex("^(?:vendor|managestore)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("managestore.php")
+        },
+        Regex("^mall$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("mallstore.php")
+        },
+
+        // familiars — refresh familiar list
+        Regex("^familiars$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { familiarManager?.fetchFamiliars() }
+        },
+
+        // steal N item — familiar steal
+        Regex("^steal\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            val req = familiarRequest ?: return@to
+            kotlinx.coroutines.runBlocking {
+                repeat(qty) {
+                    if (req.stealItem(itemId).isFailure) return@runBlocking
+                    inventoryManager?.fetchInventory()
+                }
+            }
+        },
+
+        // sendmsg channel message — public chat
+        Regex("^sendmsg\\s+(\\S+)\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val channel = m.groupValues[1].trim()
+            val message = m.groupValues[2]
+            kotlinx.coroutines.runBlocking { chatSender?.send(channel, message) }
+        },
+
+        // msg player message — private chat
+        Regex("^msg\\s+(\\S+)\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val recipient = m.groupValues[1].trim()
+            val message = m.groupValues[2]
+            kotlinx.coroutines.runBlocking { chatSender?.sendPrivate(recipient, message) }
+        },
+
+        // note — print user note; note text — save user note
+        Regex("^note$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print(preferences?.getString(Preferences.USER_NOTE, "") ?: "")
+        },
+        Regex("^note\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            preferences?.setString(Preferences.USER_NOTE, m.groupValues[1])
+        },
+
+        // absorb — refresh character state (Grey path sync)
+        Regex("^absorb$", RegexOption.IGNORE_CASE) to { _, rt ->
+            visitKolPage("charpane.php")
+            kotlinx.coroutines.runBlocking {
+                characterRequest?.fetchCharacterState()?.onSuccess { resp ->
+                    character?.updateFromApiResponse(resp)
+                }
+            }
+            rt.print((character?.state?.value?.absorbs ?: 0).toString())
+        },
+
+        // version / cli — print mobile version string
+        Regex("^(?:version|cli)$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print(GameRuntimeLibrary.VERSION)
+        },
+
+        // charpane — visit character pane
+        Regex("^charpane$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("charpane.php")
+        },
+
+        // run scriptname — execute saved ASH script from preferences
+        Regex("^run(?:script)?\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val scriptName = m.groupValues[1].trim()
+            if (!runSavedScript(scriptName, rt)) {
+                rt.print("Script '$scriptName' not found")
+            }
+        },
+
+        // maximizer — stub (desktop outfit optimizer not ported)
+        Regex("^maximizer$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print("Maximizer is not available in KoLmafia Mobile.")
+        },
+        Regex("^maximize(?:\\s+.+)?$", RegexOption.IGNORE_CASE) to { _, _ ->
+            // no-op; ASH maximize() returns false
+        },
+
+        // autoscript on/off — persist preference stub
+        Regex("^autoscript\\s+(on|off)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val on = m.groupValues[1].equals("on", ignoreCase = true)
+            preferences?.setBoolean(Preferences.AUTO_SCRIPTING, on)
+            rt.print(if (on) "autoscript enabled" else "autoscript disabled")
+        },
+
+        // sync — alias for full refresh (character + quest log)
+        Regex("^sync$", RegexOption.IGNORE_CASE) to { _, rt ->
+            dispatchCli("refresh", rt)
         },
 
         // recover / rest — force recovery loop once
@@ -489,7 +629,7 @@ class GameRuntimeLibrary(
             visitKolPage("main.php")
         },
         Regex("^council$", RegexOption.IGNORE_CASE) to { _, _ ->
-            visitKolPage("council.php")
+            visitKolPage("council.php", applyQuestHooks = true)
         },
         Regex("^campground$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("campground.php")
@@ -771,11 +911,17 @@ class GameRuntimeLibrary(
         return "https://wiki.a.kolmafia.us/wiki/$slug"
     }
 
-    private fun visitKolPage(path: String) {
+    private fun visitKolPage(path: String, applyQuestHooks: Boolean = false) {
         val client = httpClient ?: return
+        val db = questDatabase
         kotlinx.coroutines.runBlocking {
             try {
-                client.get("$KOL_BASE_URL/$path")
+                val response = client.get("$KOL_BASE_URL/$path")
+                if (!response.status.isSuccess()) return@runBlocking
+                val html = response.bodyAsText()
+                if (applyQuestHooks && db != null) {
+                    net.sourceforge.kolmafia.quest.QuestLogSync.processResponse(html, db, questLogRequest)
+                }
             } catch (_: Exception) {
                 // best-effort page visit
             }
@@ -868,6 +1014,8 @@ class GameRuntimeLibrary(
         registerEnvironmentQueries(scope)
         registerUneffectActions(scope)
         registerQuestQueries(scope)
+        registerChatQueries(scope)
+        registerScriptFunctions(scope)
     }
 
     // ──────────────────────────────────────────────────────────────

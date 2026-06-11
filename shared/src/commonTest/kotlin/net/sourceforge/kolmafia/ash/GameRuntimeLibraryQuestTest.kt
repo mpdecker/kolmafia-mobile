@@ -66,4 +66,28 @@ class GameRuntimeLibraryQuestTest {
         db.setProgress(Quest.BAT, QuestDatabase.FINISHED)
         assertTrue(db.isFinished(Quest.BAT.prefKey))
     }
+
+    @Test
+    fun questStarted_falseWhenUnstarted() {
+        val lib = libWithQuest(QuestDatabase.UNSTARTED)
+        assertEquals("false", outputLib(lib, """print(to_string(quest_started("LARVA")));"""))
+    }
+
+    @Test
+    fun questStarted_trueWhenStarted() {
+        val lib = libWithQuest(QuestDatabase.STARTED)
+        assertEquals("true", outputLib(lib, """print(to_string(quest_started("LARVA")));"""))
+    }
+
+    @Test
+    fun questIsUnstarted_trueWhenUnstarted() {
+        val lib = libWithQuest(QuestDatabase.UNSTARTED)
+        assertEquals("true", outputLib(lib, """print(to_string(quest_is_unstarted("LARVA")));"""))
+    }
+
+    @Test
+    fun questIsUnstarted_falseWhenStarted() {
+        val lib = libWithQuest(QuestDatabase.STARTED)
+        assertEquals("false", outputLib(lib, """print(to_string(quest_is_unstarted("LARVA")));"""))
+    }
 }
