@@ -14,6 +14,12 @@ object QuestLogSync {
         "Well done!  You have slain the Boss Bat",
         "Thank you for slaying the Goblin King",
         "Thanks for the larva",
+        "old guy by the sea",
+        "The Sea Monkees",
+        "Party Fair",
+        "telegram for you",
+        "doctor bag",
+        "Pirate Realm",
     )
 
     fun shouldSync(responseText: String): Boolean =

@@ -58,6 +58,14 @@ object QuestAdvanceRules {
         Rule(Quest.GOBLIN.prefKey, QuestDatabase.STARTED, "neutralizing the Goblin King"),
         Rule(Quest.FRIAR.prefKey, QuestDatabase.STARTED, "Deep Fat Friars"),
         Rule(Quest.CYRPT.prefKey, QuestDatabase.STARTED, "Bonerdagon"),
+        // Guild / misc quest signals
+        Rule(Quest.SEA_OLD_GUY.prefKey, QuestDatabase.STARTED, "old guy by the sea"),
+        Rule(Quest.SEA_MONKEES.prefKey, QuestDatabase.STARTED, "The Sea Monkees"),
+        Rule(Quest.PARTY_FAIR.prefKey, QuestDatabase.STARTED, "Party Fair"),
+        Rule(Quest.TELEGRAM.prefKey, QuestDatabase.STARTED, "telegram for you"),
+        Rule(Quest.DOCTOR_BAG.prefKey, QuestDatabase.STARTED, "doctor bag"),
+        Rule(Quest.PIRATEREALM.prefKey, QuestDatabase.STARTED, "Pirate Realm"),
+        Rule(Quest.GARBAGE.prefKey, "step2", "You acquire an item: swanky swag"),
     )
 
     /** Apply matching rules; returns true if any quest was advanced. */

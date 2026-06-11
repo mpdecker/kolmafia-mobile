@@ -44,6 +44,12 @@ class VampOutSolverImplTest {
     @Test fun step0_goal8_noVlad_returnsMasqueradeAt2() =
         assertEquals(2, solver().autoVampOut(8, 0, noVladHtml))
 
+    @Test fun step0_allVisited_returnsNull() {
+        val html = "Finally, the sun has set." +
+            """<a href="choice.php?option=1">skip ahead</a>"""
+        assertNull(solver().autoVampOut(1, 0, html))
+    }
+
     @Test fun step0_setsInterviewPrefs() {
         val (prefs, s) = prefsAndSolver()
         s.autoVampOut(1, 0, allLocationsHtml)
@@ -59,8 +65,8 @@ class VampOutSolverImplTest {
     // No option links at all — all visited
     private val noLocationsHtml = "Finally, the sun has set."
 
-    @Test fun step0_allLocationsVisited_returns1() =
-        assertEquals(1, solver().autoVampOut(8, 0, noLocationsHtml))
+    @Test fun step0_allLocationsVisited_returnsNull() =
+        assertNull(solver().autoVampOut(8, 0, noLocationsHtml))
 
     @Test fun goalZero_returnsNull() = assertNull(solver().autoVampOut(0, 0, ""))
     @Test fun goal14_returnsNull() = assertNull(solver().autoVampOut(14, 0, ""))

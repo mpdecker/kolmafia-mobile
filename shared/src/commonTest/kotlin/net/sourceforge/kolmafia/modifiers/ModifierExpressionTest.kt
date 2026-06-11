@@ -1,7 +1,11 @@
 package net.sourceforge.kolmafia.modifiers
 
+import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class ModifierExpressionTest {
 
@@ -141,5 +145,47 @@ class ModifierExpressionTest {
         assertEquals(6.0, ModifierExpression.evaluate(
             "[3+3*min(1,effect(Leash of Linguini))]", base
         ))
+    }
+
+    // ── mod / res / mainhand / fam (Phase 29) ─────────────────────────────────
+
+    @Test fun `mod returns current modifier value`() {
+        val values = ModifierValues(doubles = mapOf(DoubleModifier.MUS to 5.0))
+        val ctx = base.copy(currentModifiers = values)
+        assertEquals(5.0, eval("mod(Muscle)", ctx))
+    }
+
+    @Test fun `mod with item returns item modifier`() = runBlocking {
+        ItemDatabase.load()
+        ModifierDatabase.load()
+        val ctx = base.copy(currentModifiers = ModifierValues.EMPTY)
+        // chef's hat: +2 Mysticality in modifiers.txt
+        assertEquals(2.0, eval("mod(Mysticality, chef's hat)", ctx))
+    }
+
+    @Test fun `mod with item id returns item modifier`() = runBlocking {
+        ItemDatabase.load()
+        ModifierDatabase.load()
+        val hat = ItemDatabase.getByName("chef's hat") ?: error("chef's hat not in items.txt")
+        val ctx = base.copy(currentModifiers = ModifierValues.EMPTY)
+        assertEquals(2.0, eval("mod(Mysticality, ${hat.id})", ctx))
+    }
+
+    @Test fun `res maps cold to resistance`() {
+        val values = ModifierValues(doubles = mapOf(DoubleModifier.COLD_RESISTANCE to 10.0))
+        val ctx = base.copy(currentModifiers = values)
+        assertEquals(10.0, eval("res(Cold)", ctx))
+    }
+
+    @Test fun `mainhand returns weapon modifier`() = runBlocking {
+        ModifierDatabase.load()
+        val ctx = base.copy(mainhandItemName = "chef's hat")
+        assertEquals(2.0, eval("mainhand(Mysticality)", ctx))
+    }
+
+    @Test fun `fam returns familiar attribute`() = runBlocking {
+        ModifierDatabase.load()
+        val ctx = base.copy(familiarName = "leprechaun")
+        assertTrue(eval("fam(Leprechaun)", ctx) >= 0.0)
     }
 }

@@ -132,4 +132,25 @@ class QuestAdvanceRulesTest {
         val db = QuestDatabase(Preferences(MapSettings()))
         assertFalse(QuestAdvanceRules.apply("You fight a seal.", db))
     }
+
+    @Test
+    fun apply_seaOldGuyStartedOnSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("Talk to the old guy by the sea.", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.SEA_OLD_GUY))
+    }
+
+    @Test
+    fun apply_pirateRealmStartedOnSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("Welcome to the Pirate Realm!", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.PIRATEREALM))
+    }
+
+    @Test
+    fun apply_telegramStartedOnSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("A telegram for you, Adventurer.", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.TELEGRAM))
+    }
 }

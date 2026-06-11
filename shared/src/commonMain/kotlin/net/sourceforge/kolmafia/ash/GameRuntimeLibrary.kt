@@ -41,6 +41,7 @@ import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPriceManager
+import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
@@ -100,6 +101,8 @@ class GameRuntimeLibrary(
     internal val clanLoungeRequest: ClanLoungeRequest? = null,
     internal val familiarRequest: FamiliarRequest? = null,
     internal val chatSender: ChatSender? = null,
+    internal val maximizerManager: MaximizerManager? = null,
+    internal val sessionLogger: net.sourceforge.kolmafia.session.SessionLogger? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -107,7 +110,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase28"
+        const val REVISION = "phase29"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -331,6 +334,67 @@ class GameRuntimeLibrary(
             goalManager?.setLevelGoal(m.groupValues[1].toIntOrNull() ?: return@to)
         },
 
+        Regex("^goal\\s+choice\\s+(\\d+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            goalManager?.setChoiceGoal(m.groupValues[1].toIntOrNull() ?: return@to)
+        },
+
+        Regex("^goal\\s+substats$", RegexOption.IGNORE_CASE) to { _, _ ->
+            goalManager?.setSubstatsGoal(true)
+        },
+
+        // set pref value — bare preference alias
+        Regex("^set\\s+(\\S+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            preferences?.setString(m.groupValues[1].trim(), m.groupValues[2])
+        },
+
+        // get pref value
+        Regex("^get\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            rt.print(preferences?.getString(m.groupValues[1].trim(), "") ?: "")
+        },
+
+        // counter — print or set a named counter pref
+        Regex("^counter\\s+(\\S+)(?:\\s+(\\d+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val name = m.groupValues[1].trim()
+            val value = m.groupValues.getOrNull(2)?.trim()
+            if (value.isNullOrBlank()) {
+                rt.print(preferences?.getInt("counter_$name", 0).toString())
+            } else {
+                preferences?.setInt("counter_$name", value.toIntOrNull() ?: 0)
+            }
+        },
+
+        // ccs / ccprep — store combat macro script text
+        Regex("^ccs\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            preferences?.setString("combatMacro", m.groupValues[1])
+        },
+        Regex("^ccprep$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print(preferences?.getString("combatMacro", "") ?: "")
+        },
+
+        // location shortcuts
+        Regex("^spooky$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("adventure.php?snarfblat=61")
+        },
+        Regex("^cellar2?$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("cellar.php")
+        },
+        Regex("^tower$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("tower.php")
+        },
+        Regex("^guild$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("guild.php", applyQuestHooks = true)
+        },
+
+        // macro — print stored combat macro
+        Regex("^macro$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print(preferences?.getString("combatMacro", "") ?: "")
+        },
+
+        // jukebox — visit jukebox (campground)
+        Regex("^jukebox$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("campground.php?action=jukebox")
+        },
+
         Regex("^(?:adventure|adv)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val turns = m.groupValues[1].toIntOrNull() ?: return@to
             val zoneName = m.groupValues[2].trim()
@@ -539,12 +603,14 @@ class GameRuntimeLibrary(
             }
         },
 
-        // maximizer — stub (desktop outfit optimizer not ported)
         Regex("^maximizer$", RegexOption.IGNORE_CASE) to { _, rt ->
-            rt.print("Maximizer is not available in KoLmafia Mobile.")
+            rt.print("Usage: maximize <goal>  (e.g. maximize mysticality)")
         },
-        Regex("^maximize(?:\\s+.+)?$", RegexOption.IGNORE_CASE) to { _, _ ->
-            // no-op; ASH maximize() returns false
+        Regex("^maximize(?:\\s+(.+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val goal = m.groupValues.getOrNull(1)?.trim().orEmpty().ifBlank { "all" }
+            val mgr = maximizerManager ?: return@to
+            val result = kotlinx.coroutines.runBlocking { mgr.maximize(goal) }
+            rt.print(if (result.success) "Maximized for $goal" else "No improvement for $goal")
         },
 
         // autoscript on/off — persist preference stub
@@ -1016,6 +1082,7 @@ class GameRuntimeLibrary(
         registerQuestQueries(scope)
         registerChatQueries(scope)
         registerScriptFunctions(scope)
+        registerSessionLog(scope)
     }
 
     // ──────────────────────────────────────────────────────────────

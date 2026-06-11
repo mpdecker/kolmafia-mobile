@@ -65,8 +65,24 @@ class GameRuntimeLibraryScriptTest {
     }
 
     @Test
-    fun maximize_returnsFalseStub() {
+    fun maximize_returnsFalseWithoutManager() {
         val lib = GameRuntimeLibrary.forTesting()
         assertEquals("false", outputLib(lib, """print(to_string(maximize()));"""))
+    }
+
+    @Test
+    fun maximize_returnsTrueWhenManagerSucceeds() {
+        val client = HttpClient(MockEngine { respond("") })
+        val mgr = object : net.sourceforge.kolmafia.maximizer.MaximizerManager(
+            net.sourceforge.kolmafia.data.GameDatabase(),
+            net.sourceforge.kolmafia.inventory.InventoryManager(client, net.sourceforge.kolmafia.event.GameEventBus()),
+            net.sourceforge.kolmafia.request.EquipmentRequest(client),
+            net.sourceforge.kolmafia.character.KoLCharacter(),
+        ) {
+            override suspend fun maximize(goalText: String) =
+                net.sourceforge.kolmafia.maximizer.MaximizeResult(true, goalText, 1.0, 5.0)
+        }
+        val lib = GameRuntimeLibrary(maximizerManager = mgr)
+        assertEquals("true", outputLib(lib, """print(to_string(maximize("mysticality")));"""))
     }
 }

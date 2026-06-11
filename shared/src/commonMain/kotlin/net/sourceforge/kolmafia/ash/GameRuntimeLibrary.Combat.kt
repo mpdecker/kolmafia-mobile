@@ -4,14 +4,12 @@ import net.sourceforge.kolmafia.preferences.Preferences
 
 internal fun GameRuntimeLibrary.registerCombatStubs(scope: AshScope) {
 
-    // in_multi_fight() → boolean  (stub — always false on mobile)
     regFn(scope, "in_multi_fight", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(false)
+        AshValue.of(adventureManager?.inMultiFight ?: false)
     }
 
-    // fight_follows_choice() → boolean  (stub — always false on mobile)
     regFn(scope, "fight_follows_choice", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(false)
+        AshValue.of(adventureManager?.fightFollowsChoice ?: false)
     }
 
     // last_monster() → monster  — reads _lastMonster preference

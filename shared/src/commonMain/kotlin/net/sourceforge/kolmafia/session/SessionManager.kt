@@ -43,6 +43,7 @@ class SessionManager(
     private val banishManager: BanishManager? = null,
     private val breakfastManager: BreakfastManager? = null,
     private val outfitManager: OutfitManager? = null,
+    private val sessionLogger: SessionLogger? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -65,6 +66,7 @@ class SessionManager(
                             preferences.setInt(Preferences.LAST_DAYCOUNT, charState.dayCount)
                         }
 
+                        sessionLogger?.start(appScope)
                         inventoryManager.initialize(appScope)
                         familiarManager.initialize(appScope)
                         skillManager.initialize(appScope)

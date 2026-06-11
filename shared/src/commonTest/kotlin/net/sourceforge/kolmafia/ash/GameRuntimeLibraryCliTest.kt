@@ -815,10 +815,52 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
-    fun cliExecute_maximizer_printsStubMessage() {
+    fun cliExecute_maximizer_printsUsage() {
         val lib = GameRuntimeLibrary.forTesting()
         val out = outputLib(lib, """cli_execute("maximizer");""")
-        assertTrue(out.contains("Maximizer is not available"))
+        assertTrue(out.contains("maximize"))
+    }
+
+    @Test
+    fun cliExecute_goalChoice_setsChoiceGoal() {
+        val goals = net.sourceforge.kolmafia.session.GoalManager()
+        val lib = GameRuntimeLibrary(goalManager = goals)
+        runLib(lib, """cli_execute("goal choice 3");""")
+        assertTrue(goals.hasChoiceGoal(3))
+    }
+
+    @Test
+    fun cliExecute_goalSubstats_setsSubstatsGoal() {
+        val goals = net.sourceforge.kolmafia.session.GoalManager()
+        val lib = GameRuntimeLibrary(goalManager = goals)
+        runLib(lib, """cli_execute("goal substats");""")
+        assertTrue(goals.hasSubstatsGoal())
+    }
+
+    @Test
+    fun cliExecute_setAndGet_prefRoundTrip() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("set myPref hello");""")
+        assertEquals("hello", outputLib(lib, """cli_execute("get myPref");"""))
+    }
+
+    @Test
+    fun cliExecute_counter_getAndSet() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        assertEquals("0", outputLib(lib, """cli_execute("counter kills");"""))
+        runLib(lib, """cli_execute("counter kills 5");""")
+        assertEquals("5", outputLib(lib, """cli_execute("counter kills");"""))
+    }
+
+    @Test
+    fun cliExecute_ccsAndMacro_storeCombatMacro() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("ccs attack");""")
+        assertEquals("attack", outputLib(lib, """cli_execute("macro");"""))
+        assertEquals("attack", outputLib(lib, """cli_execute("ccprep");"""))
     }
 
     @Test

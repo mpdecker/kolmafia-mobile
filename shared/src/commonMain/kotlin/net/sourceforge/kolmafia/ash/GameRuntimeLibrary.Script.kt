@@ -14,7 +14,15 @@ internal fun GameRuntimeLibrary.registerScriptFunctions(scope: AshScope) {
     }
 
     regFn(scope, "maximize", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(false)
+        val mgr = maximizerManager ?: return@regFn AshValue.of(false)
+        val result = kotlinx.coroutines.runBlocking { mgr.maximize("all") }
+        AshValue.of(result.success)
+    }
+
+    regFn(scope, "maximize", AshType.BOOLEAN, listOf("goal" to AshType.STRING)) { _, args ->
+        val mgr = maximizerManager ?: return@regFn AshValue.of(false)
+        val result = kotlinx.coroutines.runBlocking { mgr.maximize(args[0].toString()) }
+        AshValue.of(result.success)
     }
 }
 

@@ -45,9 +45,9 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
         AshValue.of(false)
     }
 
-    // Stub: no THRALL AshType yet
-    regFn(scope, "my_thrall", AshType.STRING, emptyList()) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "my_thrall", AshType.THRALL, emptyList()) { _, _ ->
+        val name = preferences?.getString("_currentThrall", "") ?: ""
+        AshValue(AshType.THRALL, name)
     }
 
     regFn(scope, "turnsleft", AshType.INT, emptyList()) { _, _ ->

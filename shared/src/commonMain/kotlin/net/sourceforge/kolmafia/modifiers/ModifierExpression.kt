@@ -123,8 +123,15 @@ class ModifierExpression(private val src: String) {
         "path"     -> if (ctx.pathContains(readStringArg())) 1.0 else 0.0
         "class"    -> if (ctx.classContains(readStringArg())) 1.0 else 0.0
         "interact" -> if (!ctx.isRestricted) 1.0 else 0.0
-        // Not implemented in mobile — return 0.0 and drain args
-        "fam", "famattr", "mainhand", "res", "mod" -> { readStringArg(); 0.0 }
+        "mod" -> {
+            val stat = readStringArg()
+            val item = if (peek() == ',') { skipComma(); readStringArg() } else null
+            ctx.modValue(stat, item?.ifBlank { null })
+        }
+        "fam" -> ctx.famValue(readStringArg())
+        "famattr" -> ctx.famattrValue(readStringArg())
+        "mainhand" -> ctx.mainhandValue(readStringArg())
+        "res" -> ctx.resValue(readStringArg())
         else -> { readStringArg(); 0.0 }
     }
 

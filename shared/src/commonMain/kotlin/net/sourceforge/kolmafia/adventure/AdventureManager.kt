@@ -75,6 +75,16 @@ class AdventureManager(
     private var skillUses: Int = 0
     private var lastTurnResponseText: String = ""
     private var itemGoalMetThisTurn = false
+    private var _inMultiFight = false
+    private var _fightFollowsChoice = false
+
+    val inMultiFight: Boolean get() = _inMultiFight
+    val fightFollowsChoice: Boolean get() = _fightFollowsChoice
+
+    internal fun testSetCombatFlags(inMultiFight: Boolean, fightFollowsChoice: Boolean) {
+        _inMultiFight = inMultiFight
+        _fightFollowsChoice = fightFollowsChoice
+    }
 
     fun setSkillUses(n: Int) { skillUses = n }
 
@@ -153,6 +163,12 @@ class AdventureManager(
                     if (goalManager.matchesFactoid(lastTurnResponseText)) {
                         eventBus.emit(GameEvent.TurnConsumed(location, result))
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("factoid goal met")))
+                        return@launch
+                    }
+                    if (goalManager.matchesSubstats(lastTurnResponseText)) {
+                        goalManager.clearSubstatsGoal()
+                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("substats goal met")))
                         return@launch
                     }
 
@@ -237,7 +253,11 @@ class AdventureManager(
         lastTurnResponseText = html
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
             is AdventureResult.Combat -> resolveCombat(location)
-            is AdventureResult.Choice -> resolveChoice(parsed.choiceId, parsed.responseText)
+            is AdventureResult.Choice -> {
+                val choiceResult = resolveChoice(parsed.choiceId, parsed.responseText)
+                if (_fightFollowsChoice && _inMultiFight) resolveCombat(location) ?: choiceResult
+                else choiceResult
+            }
             is AdventureResult.NonCombat -> parsed.also { emitItemEvents(it.itemsGained) }
         }
     }
@@ -248,7 +268,9 @@ class AdventureManager(
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(it)))
             return null
         }
+        _inMultiFight = AdventureParser.isInMultiFight(fightHtml)
         val result = AdventureParser.parseFightResult(fightHtml)
+        if (!_inMultiFight) _fightFollowsChoice = false
         eventBus.emit(GameEvent.CombatFinished(result.won, result.monster))
         if (result.monster.isNotEmpty()) {
             preferences.setString(Preferences.LAST_MONSTER, result.monster)
@@ -309,8 +331,18 @@ class AdventureManager(
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
+            if (goalManager.hasChoiceGoal(currentChoiceId)) {
+                goalManager.clearChoiceGoal()
+                eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("choice goal met: $currentChoiceId")))
+                return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
+            }
 
             val next = AdventureParser.parseAdventureResponse(html, "")
+            if (next is AdventureResult.Combat) {
+                _fightFollowsChoice = true
+                _inMultiFight = true
+                break
+            }
             if (next is AdventureResult.Choice) {
                 currentChoiceId     = next.choiceId
                 currentResponseText = next.responseText

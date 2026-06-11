@@ -116,6 +116,10 @@ object AdventureParser {
         else -> parseNonCombat(html)
     }
 
+    fun isInMultiFight(html: String): Boolean =
+        (html.contains("fight.php") || html.contains("You're fighting")) &&
+            !WIN_PATTERN.containsMatchIn(html)
+
     fun parseFightResult(html: String): AdventureResult.Combat {
         val won = WIN_PATTERN.containsMatchIn(html)
         val monster = MONSTER_NAME.find(html)?.groupValues?.get(1) ?: "Unknown"

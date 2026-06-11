@@ -30,6 +30,10 @@ object BreakfastItemIds {
     const val APRIL_SHOWER_THOUGHTS_SHIELD = 11884
     const val MR_STORE_2002_CATALOG_ID    = 11257
     const val REPLICA_MR_STORE_CATALOG_ID = 11280
+    const val JACKASS_PLUMBER_GAME_ID     = 5501
+
+    // ── Familiars ─────────────────────────────────────────────────────────────
+    const val SPACE_JELLYFISH_ID          = 209
 
     // ── 34-toy map: item ID → daily use count ─────────────────────────────────
     val TOYS: Map<Int, Int> = mapOf(

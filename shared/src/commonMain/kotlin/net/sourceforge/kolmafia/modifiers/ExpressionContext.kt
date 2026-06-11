@@ -38,7 +38,14 @@ data class ExpressionContext(
     val currentLocation: String = "",
     val currentZone: String = "",
     val environment: String = "",
-    val isRestricted: Boolean = false   // in Ronin or HC
+    val isRestricted: Boolean = false,   // in Ronin or HC
+
+    /** Accumulated modifiers so far (for mod(stat) during incremental parsing). */
+    val currentModifiers: ModifierValues? = null,
+    /** Lowercase familiar name for fam()/famattr(). */
+    val familiarName: String = "",
+    /** Lowercase main-hand weapon item name for mainhand(). */
+    val mainhandItemName: String = "",
 ) {
     fun variable(c: Char): Double = when (c) {
         'A' -> ascensions.toDouble()
@@ -78,6 +85,61 @@ data class ExpressionContext(
     fun classContains(text: String): Boolean =
         className.contains(text, ignoreCase = true)
 
+    /** mod(stat) or mod(stat, itemName) — numeric modifier lookup. */
+    fun modValue(stat: String, itemName: String? = null): Double {
+        val dm = DoubleModifier.byTag(stat) ?: return 0.0
+        if (itemName != null) {
+            val entry = resolveItemModifierEntry(itemName) ?: return 0.0
+            return ModifierParser.parse(entry.modifiers, this).get(dm)
+        }
+        return currentModifiers?.get(dm) ?: 0.0
+    }
+
+    /** fam(attr) — familiar weight for matching familiar sub-type attribute. */
+    fun famValue(attr: String): Double {
+        if (familiarName.isBlank()) return 0.0
+        val dm = DoubleModifier.byTag(attr) ?: return 0.0
+        val entry = net.sourceforge.kolmafia.data.ModifierDatabase.getFamiliar(familiarName)
+            ?: return 0.0
+        return ModifierParser.parse(entry.modifiers, this).get(dm)
+    }
+
+    /** famattr(attr) — numeric attribute from current familiar modifiers. */
+    fun famattrValue(attr: String): Double = famValue(attr)
+
+    /** mainhand(attr) — modifier from equipped main-hand weapon. */
+    fun mainhandValue(attr: String): Double {
+        if (mainhandItemName.isBlank()) return 0.0
+        val dm = DoubleModifier.byTag(attr) ?: return 0.0
+        val entry = net.sourceforge.kolmafia.data.ModifierDatabase.getItem(mainhandItemName)
+            ?: return 0.0
+        return ModifierParser.parse(entry.modifiers, this).get(dm)
+    }
+
+    /** res(stat) — elemental resistance from current modifiers. */
+    fun resValue(stat: String): Double {
+        val tag = when {
+            stat.equals("Cold", ignoreCase = true) -> "Cold Resistance"
+            stat.equals("Hot", ignoreCase = true) -> "Hot Resistance"
+            stat.equals("Sleaze", ignoreCase = true) -> "Sleaze Resistance"
+            stat.equals("Spooky", ignoreCase = true) -> "Spooky Resistance"
+            stat.equals("Stench", ignoreCase = true) -> "Stench Resistance"
+            stat.endsWith("Resistance", ignoreCase = true) -> stat
+            else -> "$stat Resistance"
+        }
+        return modValue(tag)
+    }
+
+    private fun resolveItemModifierEntry(itemRef: String): net.sourceforge.kolmafia.data.ModifierEntry? {
+        val trimmed = itemRef.trim()
+        trimmed.toIntOrNull()?.let { id ->
+            net.sourceforge.kolmafia.data.ItemDatabase.getById(id)?.name?.let { name ->
+                return net.sourceforge.kolmafia.data.ModifierDatabase.getItem(name)
+            }
+        }
+        return net.sourceforge.kolmafia.data.ModifierDatabase.getItem(trimmed)
+    }
+
     companion object {
         val EMPTY = ExpressionContext()
 
@@ -101,7 +163,10 @@ data class ExpressionContext(
             skills = passiveSkillNames,
             challengePath = state.challengePath,
             className = state.className,
-            isRestricted = state.isRestricted
+            isRestricted = state.isRestricted,
+            familiarName = state.familiarName.lowercase(),
+            mainhandItemName = state.equipment[net.sourceforge.kolmafia.character.EquipmentSlot.WEAPON]
+                ?.lowercase() ?: "",
         )
     }
 }
