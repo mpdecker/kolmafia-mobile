@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-06-10 after Phase 23: CLI batch 6, quest rules, turnsleft ASH)*
+*Generated: 2026-06-03 (updated 2026-06-10 after Phase 28: quest depth, council hooks, quest_is_unstarted)*
 
 ## Scale Comparison
 
@@ -409,12 +409,11 @@ Mobile has a 10-file `modifiers/` package covering the full passive prediction a
 
 ## Top Priorities
 
-*Phase 24 closed CLI batch 7, hermit retrieve hop, and quest finished rules. Updated priorities:*
+*Phase 28 closed quest tracking depth (QuestLogSync, council visit hooks, council turn-in rules), ASH quest_is_unstarted(), CLI quest/whatis. Updated priorities:*
 
-1. **`cli_execute` remaining dispatch** — ~10 patterns still echo (itemnotify, absorb, pool, vendor, etc.).
-2. **Quest tracking depth** — Per-quest state machines; NPC-visit step advances beyond inline rules.
-3. **Full `InventoryManager.retrieveItem`** — familiar-steal script path still absent.
-4. **Maximizer / full relay / session logging** — large deferred subsystems.
+1. **Maximizer / full relay / session logging** — large deferred subsystems.
+2. **`cli_execute` remaining dispatch** — rare echo patterns only.
+3. **Quest tracking depth** — additional guild/misc quest signals; post-visit sync on more pages.
 
 ---
 
@@ -435,5 +434,9 @@ Phase 21 → cli_execute_output + uneffect CLI/ASH + dump/batch/take_closet/take
 Phase 22 → canAdventureAtZone stat gates + prepare/loop preflight; CLI zone/count/put_storage/goal autostop; goal_exists factoid/autostop; QuestAdvanceRules expansion; 1,414 tests
 Phase 23 → CLI hermit/turns/turnsleft/homepage/javadoc/relay stub; ASH turnsleft(); QuestAdvanceRules council quest expansion; 1,421 tests
 Phase 24 → CLI questlog/skills/effects/inv/contacts/mail/desc + refresh full sync; ASH my_absorbs(); RetrieveItemService hermit hop; QuestAdvanceRules bat/friar/cyrpt/trapper/manor finished; 1,429 tests
+Phase 25 → CLI pool/refreshshop/itemnotify/vendor/mall/familiars/steal/show; ASH steal(); RetrieveItemService familiar steal hop; QuestAdvanceRules topping/worship/palindome/shen/black step2; DI ClanLounge/Campground/Rumpus; 1,437 tests
+Phase 26 → CLI sendmsg/msg/note/absorb/version/charpane; ASH say/msg/quest_started(); QuestAdvanceRules macguffin/pyramid/black step3; 1,448 tests
+Phase 27 → CLI run/runscript/maximize/maximizer/autoscript/sync; ASH runscript/sync_quests/maximize(); QuestAdvanceRules larva council turn-in; 1,460 tests
+Phase 28 → QuestLogSync + council visit hooks; QuestAdvanceRules rat/bat/goblin council rules; ASH quest_is_unstarted(); CLI quest/whatis; 1,473 tests
 ```
 

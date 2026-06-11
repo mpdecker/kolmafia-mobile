@@ -39,9 +39,13 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.http.createKoLHttpClient
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.ClanLoungeRequest
+import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
@@ -140,6 +144,10 @@ val sharedModule = module {
     singleOf(::ManageStoreRequest)
     singleOf(::EquipmentRequest)
     singleOf(::CustomOutfitRequest)
+    singleOf(::CampgroundRequest)
+    singleOf(::ClanRumpusRequest)
+    singleOf(::ClanLoungeRequest)
+    singleOf(::FamiliarRequest)
     singleOf(::BreakfastManager)
     single {
         InventoryManager(
@@ -224,6 +232,9 @@ val sharedModule = module {
             uneffectRequest     = get(),
             questDatabase       = get(),
             questLogRequest     = get(),
+            clanLoungeRequest   = get(),
+            familiarRequest     = get(),
+            chatSender          = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -278,6 +289,7 @@ val sharedModule = module {
             useItemRequest   = get(),
             gameDatabase     = get(),
             hermitRequest    = get(),
+            familiarRequest  = get(),
         )
     }
     single {

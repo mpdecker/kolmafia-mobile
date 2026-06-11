@@ -10,7 +10,9 @@ object QuestAdvanceRules {
 
     private val rules = listOf(
         Rule(Quest.LARVA.prefKey, QuestDatabase.STARTED, "You acquire an item: larva"),
+        Rule(Quest.LARVA.prefKey, QuestDatabase.FINISHED, "Thanks for the larva"),
         Rule(Quest.RAT.prefKey, QuestDatabase.STARTED, "You acquire an item: rat appendix"),
+        Rule(Quest.RAT.prefKey, QuestDatabase.FINISHED, "You've solved the rat problem at the Typical Tavern"),
         Rule(Quest.BAT.prefKey, QuestDatabase.STARTED, "You acquire an item: bat guano"),
         Rule(Quest.GOBLIN.prefKey, QuestDatabase.STARTED, "You acquire an item: goblin ear"),
         Rule(Quest.FRIAR.prefKey, QuestDatabase.STARTED, "You acquire an item: bottle of wine"),
@@ -24,7 +26,10 @@ object QuestAdvanceRules {
         Rule(Quest.MANOR.prefKey, QuestDatabase.STARTED, "You acquire an item: Spookyraven library key"),
         Rule(Quest.PALINDOME.prefKey, QuestDatabase.STARTED, "You acquire an item: photograph of a dog"),
         Rule(Quest.GOBLIN.prefKey, QuestDatabase.FINISHED, "You have slain the Goblin King"),
+        Rule(Quest.GOBLIN.prefKey, QuestDatabase.FINISHED, "Thank you for slaying the Goblin King"),
         Rule(Quest.BAT.prefKey, QuestDatabase.FINISHED, "You have slain the Boss Bat"),
+        Rule(Quest.BAT.prefKey, QuestDatabase.FINISHED, "Well done!  You have slain the Boss Bat"),
+        Rule(Quest.BAT.prefKey, QuestDatabase.FINISHED, "You really did kill the Boss Bat"),
         Rule(Quest.FRIAR.prefKey, QuestDatabase.FINISHED, "You have cleansed the taint"),
         Rule(Quest.CYRPT.prefKey, QuestDatabase.FINISHED, "You acquire an item: boné"),
         Rule(Quest.TRAPPER.prefKey, "step2", "You acquire an item: Groar's fur"),
@@ -35,8 +40,24 @@ object QuestAdvanceRules {
         Rule(Quest.PYRAMID.prefKey, QuestDatabase.STARTED, "You acquire an item: wet stunt nut stew"),
         Rule(Quest.SHEN.prefKey, QuestDatabase.STARTED, "You acquire an item: small leather briefcase"),
         Rule(Quest.GARBAGE.prefKey, QuestDatabase.FINISHED, "You have stopped the rain of giant garbage"),
+        Rule(Quest.TOPPING.prefKey, QuestDatabase.FINISHED, "pizza delivered to his stupid tower"),
+        Rule(Quest.TOPPING.prefKey, "step2", "signal fires"),
+        Rule(Quest.WORSHIP.prefKey, QuestDatabase.FINISHED, "claimed his ancient amulet"),
+        Rule(Quest.PALINDOME.prefKey, QuestDatabase.FINISHED, "recovered the long-lost Staff of Fats"),
+        Rule(Quest.PYRAMID.prefKey, QuestDatabase.FINISHED, "Ed the Undying has fallen"),
+        Rule(Quest.SHEN.prefKey, QuestDatabase.FINISHED, "Talisman o' Namsilat from Shen Copperhead"),
+        Rule(Quest.BLACK.prefKey, "step3", "travel agency on Desert Beach"),
+        Rule(Quest.MACGUFFIN.prefKey, QuestDatabase.STARTED, "find the Black Market"),
+        Rule(Quest.MACGUFFIN.prefKey, "step2", "picked up your father's diary"),
+        Rule(Quest.BLACK.prefKey, "step2", "forged identification documents"),
         Rule(Quest.MACGUFFIN.prefKey, QuestDatabase.FINISHED, "You have unlocked the Forbidden Zone"),
         Rule(Quest.FINAL.prefKey, QuestDatabase.FINISHED, "You have defeated the Naughty Sorceress"),
+        // Council assignment text — bump unstarted → started on first visit
+        Rule(Quest.RAT.prefKey, QuestDatabase.STARTED, "owner of The Typical Tavern"),
+        Rule(Quest.BAT.prefKey, QuestDatabase.STARTED, "You must slay the Boss Bat"),
+        Rule(Quest.GOBLIN.prefKey, QuestDatabase.STARTED, "neutralizing the Goblin King"),
+        Rule(Quest.FRIAR.prefKey, QuestDatabase.STARTED, "Deep Fat Friars"),
+        Rule(Quest.CYRPT.prefKey, QuestDatabase.STARTED, "Bonerdagon"),
     )
 
     /** Apply matching rules; returns true if any quest was advanced. */

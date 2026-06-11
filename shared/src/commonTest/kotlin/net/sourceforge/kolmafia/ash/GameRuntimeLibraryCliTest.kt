@@ -9,6 +9,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.familiar.FamiliarManager
@@ -16,6 +17,7 @@ import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillType
+import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -688,5 +690,198 @@ class GameRuntimeLibraryCliTest {
         val lib = GameRuntimeLibrary(inventoryManager = inv)
         runLib(lib, """cli_execute("inv");""")
         assertTrue(fetched)
+    }
+
+    @Test
+    fun cliExecute_pool_callsClanLounge() {
+        var played = false
+        val lounge = object : net.sourceforge.kolmafia.request.ClanLoungeRequest(
+            HttpClient(MockEngine { respond("") })
+        ) {
+            override suspend fun playPoolGame(): Result<Unit> {
+                played = true
+                return Result.success(Unit)
+            }
+        }
+        runLib(GameRuntimeLibrary(clanLoungeRequest = lounge), """cli_execute("pool");""")
+        assertTrue(played)
+    }
+
+    @Test
+    fun cliExecute_itemnotify_setsPref() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("itemnotify on");""")
+        assertTrue(p.getBoolean("itemNotify", false))
+        runLib(lib, """cli_execute("itemnotify off");""")
+        assertFalse(p.getBoolean("itemNotify", true))
+    }
+
+    @Test
+    fun cliExecute_steal_callsFamiliarRequest() {
+        var stealItemId = 0
+        val stealReq = object : net.sourceforge.kolmafia.familiar.FamiliarRequest(
+            HttpClient(MockEngine { respond("ok") })
+        ) {
+            override suspend fun stealItem(itemId: Int) = run {
+                stealItemId = itemId
+                Result.success("ok")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 88, name = "knob goblin firecracker", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        runLib(
+            GameRuntimeLibrary(familiarRequest = stealReq, gameDatabase = db),
+            """cli_execute("steal 2 knob goblin firecracker");"""
+        )
+        assertEquals(88, stealItemId)
+    }
+
+    @Test
+    fun cliExecute_sendmsg_callsChatSender() {
+        var channel = ""
+        var message = ""
+        val sender = object : net.sourceforge.kolmafia.chat.ChatSender(
+            HttpClient(MockEngine { respond("") })
+        ) {
+            override suspend fun send(ch: String, msg: String): Result<Unit> {
+                channel = ch
+                message = msg
+                return Result.success(Unit)
+            }
+        }
+        runLib(GameRuntimeLibrary(chatSender = sender), """cli_execute("sendmsg clan hello there");""")
+        assertEquals("clan", channel)
+        assertEquals("hello there", message)
+    }
+
+    @Test
+    fun cliExecute_note_savesAndPrintsUserNote() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("note remember this");""")
+        assertEquals("remember this", p.getString(Preferences.USER_NOTE, ""))
+        assertEquals("remember this", outputLib(lib, """cli_execute("note");"""))
+    }
+
+    @Test
+    fun cliExecute_absorb_printsAbsorbCount() {
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateClassResource(absorbs = 3)
+        val lib = GameRuntimeLibrary(character = char, httpClient = HttpClient(MockEngine { respond("") }))
+        assertEquals("3", outputLib(lib, """cli_execute("absorb");"""))
+    }
+
+    @Test
+    fun cliExecute_version_printsMobileVersion() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals(GameRuntimeLibrary.VERSION, outputLib(lib, """cli_execute("version");"""))
+    }
+
+    @Test
+    fun cliExecute_run_executesSavedScript() {
+        val p = prefs()
+        p.setString(
+            ScriptManager.SCRIPTS_PREF_KEY,
+            Json.encodeToString(listOf(ScriptEntry("demo", """print("cli run ok");"""))),
+        )
+        val lib = GameRuntimeLibrary(preferences = p)
+        val out = outputLib(lib, """cli_execute("run demo");""")
+        assertTrue(out.contains("cli run ok"))
+    }
+
+    @Test
+    fun cliExecute_runscript_aliasWorks() {
+        val p = prefs()
+        p.setString(
+            ScriptManager.SCRIPTS_PREF_KEY,
+            Json.encodeToString(listOf(ScriptEntry("alias", """print("alias ok");"""))),
+        )
+        val lib = GameRuntimeLibrary(preferences = p)
+        val out = outputLib(lib, """cli_execute("runscript alias");""")
+        assertTrue(out.contains("alias ok"))
+    }
+
+    @Test
+    fun cliExecute_run_missingScriptPrintsError() {
+        val lib = GameRuntimeLibrary(preferences = prefs())
+        val out = outputLib(lib, """cli_execute("run missing");""")
+        assertTrue(out.contains("Script 'missing' not found"))
+    }
+
+    @Test
+    fun cliExecute_maximizer_printsStubMessage() {
+        val lib = GameRuntimeLibrary.forTesting()
+        val out = outputLib(lib, """cli_execute("maximizer");""")
+        assertTrue(out.contains("Maximizer is not available"))
+    }
+
+    @Test
+    fun cliExecute_autoscript_setsPref() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("autoscript on");""")
+        assertTrue(p.getBoolean(Preferences.AUTO_SCRIPTING, false))
+        runLib(lib, """cli_execute("autoscript off");""")
+        assertFalse(p.getBoolean(Preferences.AUTO_SCRIPTING, true))
+    }
+
+    @Test
+    fun cliExecute_sync_runsRefresh() {
+        var questSynced = false
+        val questLog = object : net.sourceforge.kolmafia.request.QuestLogRequest(
+            HttpClient(MockEngine { respond("") }),
+            net.sourceforge.kolmafia.quest.QuestDatabase(prefs()),
+        ) {
+            override suspend fun syncAll() {
+                questSynced = true
+            }
+        }
+        val lib = GameRuntimeLibrary(questLogRequest = questLog)
+        runLib(lib, """cli_execute("sync");""")
+        assertTrue(questSynced)
+    }
+
+    @Test
+    fun cliExecute_quest_printsQuestStatus() {
+        val db = net.sourceforge.kolmafia.quest.QuestDatabase(prefs())
+        db.setProgress(net.sourceforge.kolmafia.quest.Quest.BAT, "step2")
+        val lib = GameRuntimeLibrary(questDatabase = db)
+        assertEquals("step2", outputLib(lib, """cli_execute("quest BAT");"""))
+    }
+
+    @Test
+    fun cliExecute_questBare_syncsQuestLog() {
+        var synced = false
+        val questLog = object : net.sourceforge.kolmafia.request.QuestLogRequest(
+            HttpClient(MockEngine { respond("") }),
+            net.sourceforge.kolmafia.quest.QuestDatabase(prefs()),
+        ) {
+            override suspend fun syncAll() {
+                synced = true
+            }
+        }
+        val lib = GameRuntimeLibrary(questLogRequest = questLog)
+        runLib(lib, """cli_execute("quest");""")
+        assertTrue(synced)
+    }
+
+    @Test
+    fun cliExecute_whatis_printsItemSummary() {
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 1, name = "seal tooth", descId = "x", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 50, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        val out = outputLib(lib, """cli_execute("whatis seal tooth");""")
+        assertTrue(out.contains("seal tooth"))
     }
 }

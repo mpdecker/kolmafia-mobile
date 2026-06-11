@@ -30,7 +30,7 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
-import net.sourceforge.kolmafia.quest.QuestAdvanceRules
+import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
@@ -77,13 +77,6 @@ class AdventureManager(
     private var itemGoalMetThisTurn = false
 
     fun setSkillUses(n: Int) { skillUses = n }
-
-    companion object {
-        private val QUEST_ADVANCE_SIGNALS = listOf(
-            "Quest Completed", "Quest Updated",
-            "added to your Quest Log", "Your quest log has been updated",
-        )
-    }
 
     fun runAdventures(location: AdventureLocation, turns: Int, scope: CoroutineScope): Job =
         scope.launch {
@@ -233,9 +226,7 @@ class AdventureManager(
     fun stop() { currentJob?.cancel() }
 
     internal suspend fun checkQuestAdvancement(responseText: String) {
-        QuestAdvanceRules.apply(responseText, questDatabase)
-        if (QUEST_ADVANCE_SIGNALS.none { responseText.contains(it, ignoreCase = true) }) return
-        questLogRequest?.syncAll()
+        QuestLogSync.processResponse(responseText, questDatabase, questLogRequest)
     }
 
     private suspend fun doOneTurn(location: AdventureLocation): AdventureResult? {

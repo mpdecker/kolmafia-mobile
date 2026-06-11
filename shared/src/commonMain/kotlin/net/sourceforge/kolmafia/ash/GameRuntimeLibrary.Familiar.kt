@@ -55,4 +55,26 @@ internal fun GameRuntimeLibrary.registerFamiliarQueries(scope: AshScope) {
         val success = runBlocking { fm.setBjornified(args[0].toString()) }.isSuccess
         AshValue.of(success)
     }
+
+    // steal(it: item, n: int) → int — familiar steal; returns count gained
+    regFn(scope, "steal", AshType.INT,
+        listOf("it" to AshType.ITEM, "n" to AshType.INT)) { _, args ->
+        val itemId = gameDatabase?.item(args[0].toString())?.id ?: return@regFn AshValue.of(0L)
+        val count = args[1].toLong().toInt().coerceAtLeast(0)
+        if (count == 0) return@regFn AshValue.of(0L)
+        val req = familiarRequest ?: return@regFn AshValue.of(0L)
+        var gained = 0L
+        runBlocking {
+            repeat(count) {
+                val before = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+                if (req.stealItem(itemId).isFailure) return@runBlocking
+                inventoryManager?.fetchInventory()
+                val after = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: before
+                val delta = (after - before).coerceAtLeast(0)
+                if (delta <= 0) return@runBlocking
+                gained += delta
+            }
+        }
+        AshValue.of(gained)
+    }
 }

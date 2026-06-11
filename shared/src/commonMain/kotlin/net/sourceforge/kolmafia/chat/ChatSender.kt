@@ -6,9 +6,9 @@ import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
-class ChatSender(private val httpClient: HttpClient) {
+open class ChatSender(private val httpClient: HttpClient) {
 
-    suspend fun send(channel: String, message: String): Result<Unit> = try {
+    open suspend fun send(channel: String, message: String): Result<Unit> = try {
         httpClient.submitForm(
             url = "$KOL_BASE_URL/submitnewchat.php",
             formParameters = parameters {
@@ -23,7 +23,7 @@ class ChatSender(private val httpClient: HttpClient) {
         Result.failure(e)
     }
 
-    suspend fun sendPrivate(recipient: String, message: String): Result<Unit> = try {
+    open suspend fun sendPrivate(recipient: String, message: String): Result<Unit> = try {
         httpClient.submitForm(
             url = "$KOL_BASE_URL/submitnewchat.php",
             formParameters = parameters {

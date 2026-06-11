@@ -124,6 +124,11 @@ private fun hermitFails(): net.sourceforge.kolmafia.request.HermitRequest =
             Result.failure<String>(Exception("not tradable"))
     }
 
+private fun familiarSteals(qtyOnFetch: Int): net.sourceforge.kolmafia.familiar.FamiliarRequest =
+    object : net.sourceforge.kolmafia.familiar.FamiliarRequest(HttpClient(MockEngine { respond("ok") })) {
+        override suspend fun stealItem(itemId: Int) = Result.success("ok")
+    }
+
 private fun mallSucceeds(qty: Int): MallManager {
     val dummyClient = HttpClient(MockEngine { respond("") })
     return object : MallManager(MallSearchRequest(dummyClient), MallPurchaseRequest(dummyClient), null) {
@@ -247,6 +252,20 @@ class RetrieveItemServiceTest {
             hermitRequest = hermitFails(),
         )
         assertEquals(0, service.retrieve(ITEM_ID, 1))
+    }
+
+    @Test
+    fun retrieve_stealsFromFamiliar_whenEarlierSourcesFail() = runTest {
+        val service = RetrieveItemService(
+            inventoryManager = inventoryGainingOnFetch(qtyOnFetch = 2),
+            closetRequest = closetFails(),
+            storageRequest = storageFails(),
+            npcBuyRequest = npcFails(),
+            mallManager = null,
+            gameDatabase = dbNoNpc(),
+            familiarRequest = familiarSteals(2),
+        )
+        assertEquals(2, service.retrieve(ITEM_ID, 2))
     }
 
     @Test

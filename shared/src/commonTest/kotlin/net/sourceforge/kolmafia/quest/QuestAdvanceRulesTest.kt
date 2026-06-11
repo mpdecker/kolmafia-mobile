@@ -18,6 +18,45 @@ class QuestAdvanceRulesTest {
     }
 
     @Test
+    fun apply_larvaFinishedOnCouncilTurnIn() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.LARVA, QuestDatabase.STARTED)
+        assertTrue(QuestAdvanceRules.apply("Thanks for the larva, Adventurer.", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.LARVA))
+    }
+
+    @Test
+    fun apply_ratFinishedOnTavernComplete() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.RAT, QuestDatabase.STARTED)
+        assertTrue(QuestAdvanceRules.apply("You've solved the rat problem at the Typical Tavern. Way to go!", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.RAT))
+    }
+
+    @Test
+    fun apply_batStartedOnCouncilAssignment() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("You must slay the Boss Bat in the Bat Hole.", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.BAT))
+    }
+
+    @Test
+    fun apply_batFinishedOnCouncilTurnIn() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.BAT, QuestDatabase.STARTED)
+        assertTrue(QuestAdvanceRules.apply("Well done!  You have slain the Boss Bat.", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.BAT))
+    }
+
+    @Test
+    fun apply_goblinFinishedOnCouncilThanks() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.GOBLIN, QuestDatabase.STARTED)
+        assertTrue(QuestAdvanceRules.apply("Thank you for slaying the Goblin King, Adventurer.", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.GOBLIN))
+    }
+
+    @Test
     fun apply_doesNotRegressFinishedQuest() {
         val db = QuestDatabase(Preferences(MapSettings()))
         db.setProgress(Quest.LARVA, QuestDatabase.FINISHED)
@@ -58,6 +97,34 @@ class QuestAdvanceRulesTest {
         val db = QuestDatabase(Preferences(MapSettings()))
         assertTrue(QuestAdvanceRules.apply("You acquire an item: Eye of Ed", db))
         assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.MANOR))
+    }
+
+    @Test
+    fun apply_palindomeFinishedOnStaffOfFats() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("recovered the long-lost Staff of Fats", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.PALINDOME))
+    }
+
+    @Test
+    fun apply_worshipFinishedOnAmulet() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("claimed his ancient amulet", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.WORSHIP))
+    }
+
+    @Test
+    fun apply_macguffinStartedOnBlackMarket() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("Your first step is to find the Black Market", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.MACGUFFIN))
+    }
+
+    @Test
+    fun apply_pyramidFinishedOnEdFallen() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("Ed the Undying has fallen", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.PYRAMID))
     }
 
     @Test
