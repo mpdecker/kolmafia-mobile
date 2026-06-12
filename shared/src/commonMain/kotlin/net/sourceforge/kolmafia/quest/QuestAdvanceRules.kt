@@ -6,7 +6,13 @@ package net.sourceforge.kolmafia.quest
  */
 object QuestAdvanceRules {
 
-    data class Rule(val prefKey: String, val step: String, val signal: String)
+    data class Rule(
+        val prefKey: String,
+        val step: String,
+        val signal: String,
+        val requiresStep: String? = null,
+        val excludeSignal: String? = null,
+    )
 
     private val rules = listOf(
         Rule(Quest.LARVA.prefKey, QuestDatabase.STARTED, "You acquire an item: larva"),
@@ -52,13 +58,12 @@ object QuestAdvanceRules {
         Rule(Quest.BLACK.prefKey, "step2", "forged identification documents"),
         Rule(Quest.MACGUFFIN.prefKey, QuestDatabase.FINISHED, "You have unlocked the Forbidden Zone"),
         Rule(Quest.FINAL.prefKey, QuestDatabase.FINISHED, "You have defeated the Naughty Sorceress"),
-        // Council assignment text — bump unstarted → started on first visit
         Rule(Quest.RAT.prefKey, QuestDatabase.STARTED, "owner of The Typical Tavern"),
         Rule(Quest.BAT.prefKey, QuestDatabase.STARTED, "You must slay the Boss Bat"),
         Rule(Quest.GOBLIN.prefKey, QuestDatabase.STARTED, "neutralizing the Goblin King"),
         Rule(Quest.FRIAR.prefKey, QuestDatabase.STARTED, "Deep Fat Friars"),
         Rule(Quest.CYRPT.prefKey, QuestDatabase.STARTED, "Bonerdagon"),
-        // Guild quests — signals from desktop GuildRequest.handleGuildQuests()
+        // Guild quests
         Rule(Quest.MEATCAR.prefKey, QuestDatabase.STARTED, "Degrassi Knoll"),
         Rule(Quest.MEATCAR.prefKey, QuestDatabase.FINISHED, "South of the Border"),
         Rule(Quest.CITADEL.prefKey, QuestDatabase.STARTED, "Whitey's Grove"),
@@ -73,14 +78,17 @@ object QuestAdvanceRules {
         Rule(Quest.NEMESIS.prefKey, QuestDatabase.STARTED, "The Tomb is within the Misspelled"),
         Rule(Quest.NEMESIS.prefKey, "step5", "Clownlord Beelzebozo"),
         Rule(Quest.NEMESIS.prefKey, "step7", "a Meatsmithing hammer"),
-        Rule(Quest.NEMESIS.prefKey, "step10", "in the Big Mountains"),
+        Rule(
+            Quest.NEMESIS.prefKey, "step10", "in the Big Mountains",
+            excludeSignal = "not the required mettle to defeat",
+        ),
         Rule(Quest.MUSCLE.prefKey, QuestDatabase.STARTED, "biggest sausage"),
         Rule(Quest.MUSCLE.prefKey, QuestDatabase.FINISHED, "Eleven inches"),
         Rule(Quest.MYST.prefKey, QuestDatabase.STARTED, "poltersandwich"),
         Rule(Quest.MYST.prefKey, QuestDatabase.FINISHED, "captured poltersandwich"),
         Rule(Quest.MOXIE.prefKey, QuestDatabase.STARTED, "check out the Sleazy Back Alley"),
         Rule(Quest.MOXIE.prefKey, QuestDatabase.FINISHED, "stole my own pants"),
-        // Guild / misc quest signals
+        // Misc NPC quests
         Rule(Quest.SEA_OLD_GUY.prefKey, QuestDatabase.STARTED, "I lost my favorite boot"),
         Rule(Quest.SEA_OLD_GUY.prefKey, QuestDatabase.STARTED, "old guy by the sea"),
         Rule(Quest.SEA_OLD_GUY.prefKey, QuestDatabase.FINISHED, "The old man snores fitfully"),
@@ -99,7 +107,13 @@ object QuestAdvanceRules {
     fun apply(responseText: String, questDatabase: QuestDatabase): Boolean {
         var advanced = false
         for (rule in rules) {
+            if (rule.requiresStep != null &&
+                questDatabase.progressFor(rule.prefKey) != rule.requiresStep
+            ) continue
             if (!responseText.contains(rule.signal, ignoreCase = true)) continue
+            if (rule.excludeSignal != null &&
+                responseText.contains(rule.excludeSignal, ignoreCase = true)
+            ) continue
             val current = questDatabase.progressFor(rule.prefKey)
             if (QuestDatabase.stepOrdinal(rule.step) > QuestDatabase.stepOrdinal(current)) {
                 questDatabase.setProgressByPrefKey(rule.prefKey, rule.step)

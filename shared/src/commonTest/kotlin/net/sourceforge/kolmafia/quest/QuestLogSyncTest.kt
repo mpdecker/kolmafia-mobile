@@ -85,6 +85,59 @@ class QuestLogSyncTest {
     }
 
     @Test
+    fun applyPlaceHooks_nemesisStep8To9OnScgVisit() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step8")
+        QuestLogSync.applyPlaceHooks("scg", db, QuestLogSync.QuestSyncContext())
+        assertEquals("step9", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
+    fun applyPlaceHooks_nemesisStep16ToStep16_5OnScgVisit() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step16")
+        QuestLogSync.applyPlaceHooks("scg", db, QuestLogSync.QuestSyncContext())
+        assertEquals("step16.5", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
+    fun applyPlaceHooks_nemesisStep16_5To17OnScgVisit() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step16.5")
+        QuestLogSync.applyPlaceHooks("scg", db, QuestLogSync.QuestSyncContext())
+        assertEquals("step17", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
+    fun applyPlaceHooks_factoryFinishedWhenEnvelopeInInventory() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.FACTORY, QuestDatabase.STARTED)
+        val context = QuestLogSync.QuestSyncContext(
+            hasItemId = { it == QuestLogSync.FACTORY_ENVELOPE_ID },
+            place = "paco",
+        )
+        QuestLogSync.applyPlaceHooks("paco", db, context)
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.FACTORY))
+    }
+
+    @Test
+    fun apply_nemesisStep10_excludesMettleFailureSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step9")
+        val text = "in the Big Mountains but you do not have not the required mettle to defeat"
+        assertFalse(QuestAdvanceRules.apply(text, db))
+        assertEquals("step9", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
+    fun apply_nemesisStep10_onBigMountainsSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step9")
+        assertTrue(QuestAdvanceRules.apply("You are in the Big Mountains now.", db))
+        assertEquals("step10", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
     fun councilVisit_appliesQuestHooksFromHtml() {
         val prefs = Preferences(MapSettings())
         val db = QuestDatabase(prefs)

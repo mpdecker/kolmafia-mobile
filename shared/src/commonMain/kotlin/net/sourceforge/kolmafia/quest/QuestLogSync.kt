@@ -5,6 +5,11 @@ import net.sourceforge.kolmafia.request.QuestLogRequest
 /** Shared quest-log sync triggers from KoL page/adventure response text. */
 object QuestLogSync {
 
+    data class QuestSyncContext(
+        val hasItemId: (Int) -> Boolean = { false },
+        val place: String? = null,
+    )
+
     val SYNC_SIGNALS = listOf(
         "Quest Completed",
         "Quest Updated",
@@ -46,10 +51,42 @@ object QuestLogSync {
         responseText: String,
         questDatabase: QuestDatabase,
         questLogRequest: QuestLogRequest?,
+        context: QuestSyncContext = QuestSyncContext(),
     ) {
         QuestAdvanceRules.apply(responseText, questDatabase)
+        applyPlaceHooks(context.place, questDatabase, context)
         if (shouldSync(responseText)) {
             questLogRequest?.syncAll()
         }
     }
+
+    internal fun applyPlaceHooks(
+        place: String?,
+        questDatabase: QuestDatabase,
+        context: QuestSyncContext,
+    ) {
+        when (place?.lowercase()) {
+            "paco" -> applyFactoryFinish(questDatabase, context)
+            "scg" -> applyNemesisVisitSteps(questDatabase)
+        }
+    }
+
+    private fun applyFactoryFinish(questDatabase: QuestDatabase, context: QuestSyncContext) {
+        if (!context.hasItemId(FACTORY_ENVELOPE_ID)) return
+        val current = questDatabase.getProgress(Quest.FACTORY)
+        if (QuestDatabase.stepOrdinal(QuestDatabase.FINISHED) > QuestDatabase.stepOrdinal(current)) {
+            questDatabase.setProgress(Quest.FACTORY, QuestDatabase.FINISHED)
+        }
+    }
+
+    private fun applyNemesisVisitSteps(questDatabase: QuestDatabase) {
+        when (questDatabase.getProgress(Quest.NEMESIS)) {
+            "step8" -> questDatabase.setProgress(Quest.NEMESIS, "step9")
+            "step16" -> questDatabase.setProgress(Quest.NEMESIS, "step16.5")
+            "step16.5" -> questDatabase.setProgress(Quest.NEMESIS, "step17")
+        }
+    }
+
+    /** thick padded envelope — guild FACTORY turn-in item */
+    const val FACTORY_ENVELOPE_ID = 3201
 }

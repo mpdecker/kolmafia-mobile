@@ -13,12 +13,31 @@ class QuestDatabase(private val preferences: Preferences) {
             UNSTARTED -> -1
             STARTED   ->  0
             FINISHED  ->  Int.MAX_VALUE
-            else      -> step.removePrefix("step").toIntOrNull() ?: -1
+            else -> {
+                val raw = step.removePrefix("step")
+                if (raw.contains('.')) {
+                    val parts = raw.split('.')
+                    val major = parts[0].toIntOrNull()
+                    val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                    if (major == null) -1 else major * 10 + minor
+                } else {
+                    val n = raw.toIntOrNull()
+                    if (n == null) -1 else n * 10
+                }
+            }
+        }
+
+        /** Major step number for ASH `quest_step()` (step16.5 → 16). */
+        fun questStepNumber(step: String): Int = when (step) {
+            UNSTARTED -> -1
+            STARTED   ->  0
+            FINISHED  ->  Int.MAX_VALUE
+            else      -> step.removePrefix("step").substringBefore('.').toIntOrNull() ?: -1
         }
 
         fun validateStep(step: String): String = when {
             step == UNSTARTED || step == STARTED || step == FINISHED -> step
-            step.matches(Regex("step\\d+")) -> step
+            step.matches(Regex("step\\d+(\\.\\d+)?")) -> step
             else -> UNSTARTED
         }
     }

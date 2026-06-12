@@ -45,7 +45,9 @@ import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
+import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.request.QuestLogRequest
+import net.sourceforge.kolmafia.request.SendMailRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.BreakfastManager
@@ -105,6 +107,7 @@ class GameRuntimeLibrary(
     internal val maximizerManager: MaximizerManager? = null,
     internal val sessionLogger: net.sourceforge.kolmafia.session.SessionLogger? = null,
     internal val breakfastManager: BreakfastManager? = null,
+    internal val sendMailRequest: SendMailRequest? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -112,7 +115,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase30"
+        const val REVISION = "phase31"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -159,8 +162,8 @@ class GameRuntimeLibrary(
             rt.print(value)
         },
 
-        // "cast N skill-name" — cast a skill N times (count form: silent no-op if unknown)
-        Regex("^cast\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+        // "cast|skill N skill-name" — cast a skill N times (count form: silent no-op if unknown)
+        Regex("^(?:cast|skill)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val count = m.groupValues[1].toIntOrNull() ?: 1
             val skillName = m.groupValues[2].trim()
             val skill = skillManager?.state?.value?.skills
@@ -171,8 +174,8 @@ class GameRuntimeLibrary(
             // skill not found → silent no-op (no echo for count form)
         },
 
-        // "cast skill-name" — cast a skill once (no count prefix; echo if unknown)
-        Regex("^cast\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+        // "cast|skill skill-name" — cast a skill once (no count prefix; echo if unknown)
+        Regex("^(?:cast|skill)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val skillName = m.groupValues[1].trim()
             val skill = skillManager?.state?.value?.skills
                 ?.find { it.name.equals(skillName, ignoreCase = true) }
@@ -584,6 +587,13 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { chatSender?.sendPrivate(recipient, message) }
         },
 
+        // kmail recipient message — text-only kmail via sendmessage.php
+        Regex("^kmail\\s+(\\S+)\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val recipient = m.groupValues[1].trim()
+            val message = m.groupValues[2]
+            kotlinx.coroutines.runBlocking { sendMailRequest?.send(recipient, message) }
+        },
+
         // note — print user note; note text — save user note
         Regex("^note$", RegexOption.IGNORE_CASE) to { _, rt ->
             rt.print(preferences?.getString(Preferences.USER_NOTE, "") ?: "")
@@ -971,6 +981,16 @@ class GameRuntimeLibrary(
             }
         },
 
+        // "coinmaster buy N <nick> <item>" — quantity buy
+        Regex("^coinmaster\\s+buy\\s+(\\d+)\\s+(\\S+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: return@to
+            val nickname = m.groupValues[2].trim()
+            val itemName = m.groupValues[3].trim()
+            val master = coinmasterManager?.resolveMaster(nickname) ?: return@to
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { coinmasterManager?.buy(master, itemId, qty) }
+        },
+
         // "coinmaster buy <nick> <item>" / "coinmaster sell <nick> <item>"
         Regex("^coinmaster\\s+(buy|sell)\\s+(\\S+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val isBuy = m.groupValues[1].equals("buy", ignoreCase = true)
@@ -999,8 +1019,8 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
         },
 
-        // "buy N item[@limit]" — checkpoint-wrapped mall purchase
-        Regex("^buy\\s+(\\d+)\\s+(.+?)(?:@(\\d+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
+        // "buy|mallbuy N item[@limit]" — checkpoint-wrapped mall purchase
+        Regex("^(?:buy|mallbuy)\\s+(\\d+)\\s+(.+?)(?:@(\\d+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
             val count = m.groupValues[1].toIntOrNull() ?: return@to
             val itemName = m.groupValues[2].trim()
             val limit = m.groupValues[3].toIntOrNull() ?: Int.MAX_VALUE
@@ -1036,12 +1056,25 @@ class GameRuntimeLibrary(
         return "https://wiki.a.kolmafia.us/wiki/$slug"
     }
 
-    internal fun processVisitQuestHooks(html: String) {
+    internal fun processVisitQuestHooks(html: String, url: String? = null) {
         val db = questDatabase ?: return
         kotlinx.coroutines.runBlocking {
-            net.sourceforge.kolmafia.quest.QuestLogSync.processResponse(html, db, questLogRequest)
+            QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext(url))
         }
     }
+
+    internal fun buildQuestSyncContext(urlOrPath: String? = null): QuestLogSync.QuestSyncContext =
+        QuestLogSync.QuestSyncContext(
+            hasItemId = { id -> inventoryManager?.state?.value?.items?.containsKey(id) == true },
+            place = urlOrPath?.let { extractGuildPlace(it) },
+        )
+
+    internal fun extractGuildPlace(urlOrPath: String): String? =
+        Regex("(?:^|[?&])place=([a-z]+)", RegexOption.IGNORE_CASE)
+            .find(urlOrPath)
+            ?.groupValues
+            ?.get(1)
+            ?.lowercase()
 
     internal fun cliEquip(rest: String) {
         val spaceIdx = rest.indexOf(' ')
@@ -1080,7 +1113,7 @@ class GameRuntimeLibrary(
                 if (!response.status.isSuccess()) return@runBlocking
                 val html = response.bodyAsText()
                 if (applyQuestHooks && db != null) {
-                    net.sourceforge.kolmafia.quest.QuestLogSync.processResponse(html, db, questLogRequest)
+                    QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext(path))
                 }
             } catch (_: Exception) {
                 // best-effort page visit

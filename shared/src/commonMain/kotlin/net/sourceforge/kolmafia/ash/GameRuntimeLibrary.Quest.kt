@@ -24,7 +24,7 @@ internal fun GameRuntimeLibrary.registerQuestQueries(scope: AshScope) {
     regFn(scope, "quest_step", AshType.INT, listOf("quest" to AshType.STRING)) { _, args ->
         val quest = resolveQuest(args[0].toString()) ?: return@regFn AshValue.of(-1L)
         val step = db()?.getProgress(quest) ?: QuestDatabase.UNSTARTED
-        AshValue.of(QuestDatabase.stepOrdinal(step).toLong())
+        AshValue.of(QuestDatabase.questStepNumber(step).toLong())
     }
 
     regFn(scope, "quest_finished", AshType.BOOLEAN, listOf("quest" to AshType.STRING)) { _, args ->

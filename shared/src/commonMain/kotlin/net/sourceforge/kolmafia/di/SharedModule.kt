@@ -72,6 +72,7 @@ import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.SendMailRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -143,6 +144,7 @@ val sharedModule = module {
     singleOf(::StorageRequest)
     singleOf(::DisplayCaseRequest)
     singleOf(::ClanStashRequest)
+    singleOf(::SendMailRequest)
     singleOf(::ManageStoreRequest)
     singleOf(::EquipmentRequest)
     singleOf(::CustomOutfitRequest)
@@ -158,6 +160,8 @@ val sharedModule = module {
             character = get(),
             closetRequest = get(),
             storageRequest = get(),
+            displayCaseRequest = get(),
+            clanStashRequest = get(),
         )
     }
     singleOf(::SessionLogger)
@@ -263,6 +267,7 @@ val sharedModule = module {
             maximizerManager    = get(),
             sessionLogger       = get(),
             breakfastManager    = get(),
+            sendMailRequest     = get(),
         )
     }
     singleOf(::ScriptManager)

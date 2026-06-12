@@ -966,6 +966,100 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_skillAlias_callsSkillManager() {
+        val castCalls = mutableListOf<Pair<String, Int>>()
+        val fakeSkillMgr = fakeSkillManager(
+            skills = listOf(
+                SkillData(id = 6003, name = "Leash of Linguini", type = SkillType.BUFF,
+                    mpCost = 1, dailyLimit = 0, timesCast = 0)
+            ),
+            castCalls = castCalls
+        )
+        val lib = GameRuntimeLibrary(skillManager = fakeSkillMgr)
+        runLib(lib, """cli_execute("skill 2 Leash of Linguini");""")
+        assertEquals(listOf("Leash of Linguini" to 2), castCalls)
+    }
+
+    @Test
+    fun cliExecute_mallbuyAlias_wrapsPurchase() {
+        var buyCount = 0
+        val dummyClient = HttpClient(MockEngine { respond("", HttpStatusCode.OK) })
+        val mall = object : net.sourceforge.kolmafia.mall.MallManager(
+            net.sourceforge.kolmafia.mall.MallSearchRequest(dummyClient),
+            net.sourceforge.kolmafia.mall.MallPurchaseRequest(dummyClient),
+            null,
+        ) {
+            override suspend fun buy(itemId: Int, count: Int, maxPrice: Int): Int {
+                buyCount = count
+                return count
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 99, name = "test widget", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            character = net.sourceforge.kolmafia.character.KoLCharacter(),
+            gameDatabase = db,
+            mallManager = mall,
+            equipmentRequest = net.sourceforge.kolmafia.request.EquipmentRequest(dummyClient),
+        )
+        runLib(lib, """cli_execute("mallbuy 3 test widget");""")
+        assertEquals(3, buyCount)
+    }
+
+    @Test
+    fun cliExecute_kmail_sendsViaSendMailRequest() {
+        var sent: Pair<String, String>? = null
+        val mail = object : net.sourceforge.kolmafia.request.SendMailRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun send(recipient: String, message: String): Result<Unit> {
+                sent = recipient to message
+                return Result.success(Unit)
+            }
+        }
+        val lib = GameRuntimeLibrary(sendMailRequest = mail)
+        runLib(lib, """cli_execute("kmail SomePlayer hello there");""")
+        assertEquals("SomePlayer" to "hello there", sent)
+    }
+
+    @Test
+    fun cliExecute_coinmasterBuyQty_callsManager() {
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+        var bought: Triple<String, Int, Int>? = null
+        val client = HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) })
+        val manager = object : net.sourceforge.kolmafia.shop.CoinmasterManager(
+            net.sourceforge.kolmafia.shop.CoinmasterRequest(client),
+            null,
+            net.sourceforge.kolmafia.data.GameDatabase(),
+            client,
+        ) {
+            override suspend fun buy(
+                master: net.sourceforge.kolmafia.shop.CoinmasterData,
+                itemId: Int,
+                quantity: Int,
+            ): Int {
+                bought = Triple(master.nickname, itemId, quantity)
+                return quantity
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = if (name == "dinghy plans") {
+                net.sourceforge.kolmafia.data.ItemData(
+                    id = 146, name = "dinghy plans", descId = "", image = "",
+                    primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                    secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+                )
+            } else null
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, coinmasterManager = manager)
+        runLib(lib, """cli_execute("coinmaster buy 2 shore dinghy plans");""")
+        assertEquals(Triple("shore", 146, 2), bought)
+    }
+
+    @Test
     fun cliExecute_whatis_printsItemSummary() {
         val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
             override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(

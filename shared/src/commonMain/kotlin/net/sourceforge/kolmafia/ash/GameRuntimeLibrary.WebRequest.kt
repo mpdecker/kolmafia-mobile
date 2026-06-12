@@ -17,7 +17,7 @@ internal fun GameRuntimeLibrary.registerWebRequests(scope: AshScope) {
             try {
                 val response = client.get(fullUrl)
                 val body = response.body<String>()
-                if (body.isNotBlank()) processVisitQuestHooks(body)
+                if (body.isNotBlank()) processVisitQuestHooks(body, url = fullUrl)
                 body
             } catch (e: Exception) {
                 ""
@@ -45,7 +45,7 @@ internal fun GameRuntimeLibrary.registerWebRequests(scope: AshScope) {
                     },
                 )
                 val body = response.body<String>()
-                if (body.isNotBlank()) processVisitQuestHooks(body)
+                if (body.isNotBlank()) processVisitQuestHooks(body, url = fullUrl)
                 body
             } catch (e: Exception) {
                 ""

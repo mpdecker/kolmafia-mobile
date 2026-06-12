@@ -167,4 +167,10 @@ class QuestAdvanceRulesTest {
         assertTrue(QuestAdvanceRules.apply("A telegram for you, Adventurer.", db))
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.TELEGRAM))
     }
+
+    @Test
+    fun stepOrdinal_supportsFractionalSteps() {
+        assertTrue(QuestDatabase.stepOrdinal("step16.5") > QuestDatabase.stepOrdinal("step16"))
+        assertTrue(QuestDatabase.stepOrdinal("step17") > QuestDatabase.stepOrdinal("step16.5"))
+    }
 }

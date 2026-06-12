@@ -10,13 +10,15 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.modifiers.ModifierParser
+import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
+import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 
 /**
- * Greedy per-slot maximizer. Scores inventory + closet + storage, pulls from collections
- * before equipping, and restores an outfit checkpoint on failure.
+ * Greedy per-slot maximizer. Scores inventory + closet + storage + display + stash,
+ * pulls from collections before equipping, and restores an outfit checkpoint on failure.
  */
 open class MaximizerManager(
     private val gameDatabase: GameDatabase,
@@ -25,6 +27,8 @@ open class MaximizerManager(
     private val character: KoLCharacter,
     private val closetRequest: ClosetRequest? = null,
     private val storageRequest: StorageRequest? = null,
+    private val displayCaseRequest: DisplayCaseRequest? = null,
+    private val clanStashRequest: ClanStashRequest? = null,
 ) {
     private val equipSlots = listOf(
         EquipmentSlot.HAT,
@@ -48,9 +52,14 @@ open class MaximizerManager(
         val invState = inventoryManager.state.value
         val closetContents = closetRequest?.fetchContents().orEmpty()
         val storageContents = storageRequest?.fetchContents().orEmpty()
+        val displayContents = displayCaseRequest?.fetchContents().orEmpty()
+        val stashContents = clanStashRequest?.fetchContents().orEmpty()
         val scoreBefore = scoreEquipped(charState.equipment, modifier)
 
-        val bestPerSlot = findBestPerSlot(modifier, charState.equipment, invState, closetContents, storageContents)
+        val bestPerSlot = findBestPerSlot(
+            modifier, charState.equipment, invState,
+            closetContents, storageContents, displayContents, stashContents,
+        )
         val scoreAfter = bestPerSlot.values.sumOf { it.second }
         if (scoreAfter <= scoreBefore) {
             return MaximizeResult(false, goal, scoreBefore, scoreBefore)
@@ -95,11 +104,15 @@ open class MaximizerManager(
         invState: InventoryState,
         closetContents: Map<Int, Int>,
         storageContents: Map<Int, Int>,
+        displayContents: Map<Int, Int>,
+        stashContents: Map<Int, Int>,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val candidateIds = buildSet {
             addAll(invState.items.keys)
             addAll(closetContents.keys)
             addAll(storageContents.keys)
+            addAll(displayContents.keys)
+            addAll(stashContents.keys)
         }
         val bestPerSlot = mutableMapOf<EquipmentSlot, Pair<String, Double>>()
         val usedItems = mutableSetOf<String>()
@@ -136,6 +149,20 @@ open class MaximizerManager(
         if (storageRequest != null) {
             val before = inventoryCount(itemId)
             if (storageRequest.withdraw(itemId, 1).isSuccess) {
+                inventoryManager.fetchInventory()
+                if (inventoryCount(itemId) > before) return true
+            }
+        }
+        if (displayCaseRequest != null) {
+            val before = inventoryCount(itemId)
+            if (displayCaseRequest.takeOut(itemId, 1).isSuccess) {
+                inventoryManager.fetchInventory()
+                if (inventoryCount(itemId) > before) return true
+            }
+        }
+        if (clanStashRequest != null) {
+            val before = inventoryCount(itemId)
+            if (clanStashRequest.takeOut(itemId, 1).isSuccess) {
                 inventoryManager.fetchInventory()
                 if (inventoryCount(itemId) > before) return true
             }
