@@ -27,7 +27,9 @@ import net.sourceforge.kolmafia.adventure.choice.solvers.LostKeySolverImpl
 import net.sourceforge.kolmafia.adventure.choice.solvers.ArcadeGameSolverImpl
 import net.sourceforge.kolmafia.adventure.choice.solvers.GameproSolverImpl
 import net.sourceforge.kolmafia.adventure.choice.solvers.VampOutSolverImpl
+import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.session.BreakfastManager
+import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.quest.QuestDatabase
@@ -70,6 +72,8 @@ import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.SendGiftRequest
+import net.sourceforge.kolmafia.request.SendMailRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -141,6 +145,8 @@ val sharedModule = module {
     singleOf(::StorageRequest)
     singleOf(::DisplayCaseRequest)
     singleOf(::ClanStashRequest)
+    singleOf(::SendMailRequest)
+    singleOf(::SendGiftRequest)
     singleOf(::ManageStoreRequest)
     singleOf(::EquipmentRequest)
     singleOf(::CustomOutfitRequest)
@@ -148,7 +154,33 @@ val sharedModule = module {
     singleOf(::ClanRumpusRequest)
     singleOf(::ClanLoungeRequest)
     singleOf(::FamiliarRequest)
-    singleOf(::BreakfastManager)
+    single {
+        MaximizerManager(
+            gameDatabase = get(),
+            inventoryManager = get(),
+            equipmentRequest = get(),
+            character = get(),
+            closetRequest = get(),
+            storageRequest = get(),
+            displayCaseRequest = get(),
+            clanStashRequest = get(),
+            familiarManager = get(),
+        )
+    }
+    singleOf(::SessionLogger)
+    single {
+        BreakfastManager(
+            campgroundRequest = get(),
+            clanRumpusRequest = get(),
+            clanLoungeRequest = get(),
+            preferences = get(),
+            useItemRequest = get(),
+            hermitRequest = get(),
+            httpClient = get(),
+            familiarManager = get(),
+            questDatabase = get(),
+        )
+    }
     single {
         InventoryManager(
             client = get(),
@@ -235,6 +267,11 @@ val sharedModule = module {
             clanLoungeRequest   = get(),
             familiarRequest     = get(),
             chatSender          = get(),
+            maximizerManager    = get(),
+            sessionLogger       = get(),
+            breakfastManager    = get(),
+            sendMailRequest     = get(),
+            sendGiftRequest     = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -256,6 +293,7 @@ val sharedModule = module {
             banishManager        = get(),
             breakfastManager     = get(),
             outfitManager        = get(),
+            sessionLogger        = get(),
         )
     }
     singleOf(::ShopRequest)

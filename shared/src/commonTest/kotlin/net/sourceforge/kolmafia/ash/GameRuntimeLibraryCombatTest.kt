@@ -21,16 +21,37 @@ import kotlin.test.assertEquals
 class GameRuntimeLibraryCombatTest {
 
     @Test
-    fun inMultiFight_alwaysFalse() {
-        assertEquals("false",
-            outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(in_multi_fight()));"))
+    fun inMultiFight_reflectsAdventureManagerState() {
+        val mgr = stubAdventureManager()
+        mgr.testSetCombatFlags(inMultiFight = true, fightFollowsChoice = false)
+        val lib = GameRuntimeLibrary(adventureManager = mgr)
+        assertEquals("true", outputLib(lib, "print(to_string(in_multi_fight()));"))
     }
 
     @Test
-    fun fightFollowsChoice_alwaysFalse() {
-        assertEquals("false",
-            outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(fight_follows_choice()));"))
+    fun fightFollowsChoice_reflectsAdventureManagerState() {
+        val mgr = stubAdventureManager()
+        mgr.testSetCombatFlags(inMultiFight = true, fightFollowsChoice = true)
+        val lib = GameRuntimeLibrary(adventureManager = mgr)
+        assertEquals("true", outputLib(lib, "print(to_string(fight_follows_choice()));"))
     }
+
+    @Test
+    fun combatFlags_falseWithoutAdventureManager() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("false", outputLib(lib, "print(to_string(in_multi_fight()));"))
+        assertEquals("false", outputLib(lib, "print(to_string(fight_follows_choice()));"))
+    }
+
+    private fun stubAdventureManager() = net.sourceforge.kolmafia.adventure.AdventureManager(
+        adventureRequest = net.sourceforge.kolmafia.adventure.AdventureRequest(HttpClient(MockEngine { respond("") })),
+        fightRequest = net.sourceforge.kolmafia.adventure.FightRequest(HttpClient(MockEngine { respond("") })),
+        choiceRequest = net.sourceforge.kolmafia.adventure.ChoiceRequest(HttpClient(MockEngine { respond("") })),
+        characterRequest = net.sourceforge.kolmafia.request.CharacterRequest(HttpClient(MockEngine { respond("") })),
+        character = net.sourceforge.kolmafia.character.KoLCharacter(),
+        preferences = prefs(),
+        eventBus = GameEventBus(),
+    )
 
     @Test
     fun lastMonster_readsFromPref() {

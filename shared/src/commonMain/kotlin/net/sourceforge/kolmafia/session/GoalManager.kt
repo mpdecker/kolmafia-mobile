@@ -10,6 +10,8 @@ class GoalManager {
     private var meatGoal: Int?  = null
     private var levelGoal: Int? = null
     private var factoidGoal: String? = null
+    private var choiceGoalId: Int? = null
+    private var substatsGoal: Boolean = false
 
     // ── Factoid goal (response text match) ────────────────────────────────────
 
@@ -61,6 +63,21 @@ class GoalManager {
 
     fun hasFactoidGoal(): Boolean = factoidGoal != null
 
+    // ── Choice goal (stop after resolving a specific choice adventure) ────────
+
+    fun setChoiceGoal(choiceId: Int) { choiceGoalId = choiceId }
+    fun clearChoiceGoal() { choiceGoalId = null }
+    fun hasChoiceGoal(choiceId: Int): Boolean = choiceGoalId == choiceId
+
+    // ── Substats goal (stop when a substat is gained) ─────────────────────────
+
+    fun setSubstatsGoal(enabled: Boolean = true) { substatsGoal = enabled }
+    fun clearSubstatsGoal() { substatsGoal = false }
+    fun hasSubstatsGoal(): Boolean = substatsGoal
+    fun matchesSubstats(responseText: String): Boolean =
+        substatsGoal && responseText.contains("You gain", ignoreCase = true) &&
+            Regex("""You gain \d+ \w+ \(\d+ exp\)""").containsMatchIn(responseText)
+
     /** Remove the first item goal matching [itemName] (case-insensitive). */
     fun removeGoal(itemName: String) { removeItemGoalByName(itemName) }
 
@@ -71,6 +88,8 @@ class GoalManager {
         meatGoal?.let  { add("meat:$it") }
         levelGoal?.let { add("level:$it") }
         factoidGoal?.let { add("factoid:$it") }
+        choiceGoalId?.let { add("choice:$it") }
+        if (substatsGoal) add("substats")
     }
 
     // ── Clear all ─────────────────────────────────────────────────────────────
@@ -78,6 +97,8 @@ class GoalManager {
     fun clearGoals() {
         _itemGoalIds.clear()
         _itemGoalNames.clear()
+        choiceGoalId = null
+        substatsGoal = false
         meatGoal = null
         levelGoal = null
         factoidGoal = null

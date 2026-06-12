@@ -71,6 +71,9 @@ class QuestDatabaseTest {
     @Test fun validateStep_acceptsStep42() =
         assertEquals("step42", QuestDatabase.validateStep("step42"))
 
+    @Test fun validateStep_acceptsStep16_5() =
+        assertEquals("step16.5", QuestDatabase.validateStep("step16.5"))
+
     @Test fun validateStep_rejectsGarbage_returnsUnstarted() =
         assertEquals(QuestDatabase.UNSTARTED, QuestDatabase.validateStep("bogus"))
 

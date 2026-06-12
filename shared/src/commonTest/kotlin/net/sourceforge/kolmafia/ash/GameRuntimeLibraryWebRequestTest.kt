@@ -3,7 +3,11 @@ package net.sourceforge.kolmafia.ash
 import io.ktor.client.*
 import io.ktor.client.engine.mock.*
 import io.ktor.http.*
+import com.russhwolf.settings.MapSettings
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.Quest
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -123,5 +127,18 @@ class GameRuntimeLibraryWebRequestTest {
         })
         outputLib(lib, """visit_url("api.php", "whichitem=42&name=hello%20world");""")
         assertEquals(listOf("whichitem" to "42", "name" to "hello+world"), captured)
+    }
+
+    @Test
+    fun visit_url_appliesQuestHooks() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        val lib = GameRuntimeLibrary(
+            httpClient = makeClient {
+                respond("<html>Welcome to Degrassi Knoll!</html>", HttpStatusCode.OK)
+            },
+            questDatabase = db,
+        )
+        outputLib(lib, """visit_url("guild.php?place=paco");""")
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.MEATCAR))
     }
 }

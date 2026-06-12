@@ -216,40 +216,42 @@ class CurrentModifiers(
     private fun accumulate(): ModifierValues {
         var total = ModifierValues.EMPTY
 
+        fun ctxWithAccumulated() = context.copy(currentModifiers = total)
+
         // 1. Equipped items
         for ((_, itemName) in state.equippedItems()) {
             val raw = ModifierDatabase.getItem(itemName)?.modifiers ?: continue
-            total = total + ModifierParser.parse(raw, context)
+            total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 
         // 2. Active effects
         for (effect in activeEffects) {
             val raw = ModifierDatabase.getEffect(effect.name)?.modifiers ?: continue
-            total = total + ModifierParser.parse(raw, context)
+            total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 
         // 3. Passive skills
         for (skillName in passiveSkillNames) {
             val raw = ModifierDatabase.getSkill(skillName)?.modifiers ?: continue
-            total = total + ModifierParser.parse(raw, context)
+            total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 
         // 4. Zodiac sign
         if (state.zodiacSign.isNotBlank()) {
             val raw = ModifierDatabase.getSign(state.zodiacSign)?.modifiers
-            if (raw != null) total = total + ModifierParser.parse(raw, context)
+            if (raw != null) total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 
         // 5. Challenge path
         if (state.challengePath.isNotBlank() && state.challengePath != "None") {
             val raw = ModifierDatabase.getPath(state.challengePath)?.modifiers
-            if (raw != null) total = total + ModifierParser.parse(raw, context)
+            if (raw != null) total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 
         // 6. Current familiar
         if (state.familiarName.isNotBlank()) {
             val raw = ModifierDatabase.getFamiliar(state.familiarName)?.modifiers
-            if (raw != null) total = total + ModifierParser.parse(raw, context)
+            if (raw != null) total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 
         // 7. Complete outfits (slot-aware multiset)
@@ -257,7 +259,7 @@ class CurrentModifiers(
             if (outfit.equipment.isEmpty()) continue
             if (OutfitManager.isWearingPieces(outfit.equipment, state.equipment)) {
                 val raw = ModifierDatabase.getOutfit(outfit.name)?.modifiers
-                if (raw != null) total = total + ModifierParser.parse(raw, context)
+                if (raw != null) total = total + ModifierParser.parse(raw, ctxWithAccumulated())
             }
         }
 
@@ -266,7 +268,7 @@ class CurrentModifiers(
         for (synergy in ModifierDatabase.synergies()) {
             val parts = synergy.name.split('/').map { it.trim().lowercase() }
             if (parts.isNotEmpty() && parts.all { part -> part in equippedLower }) {
-                total = total + ModifierParser.parse(synergy.modifiers, context)
+                total = total + ModifierParser.parse(synergy.modifiers, ctxWithAccumulated())
             }
         }
 

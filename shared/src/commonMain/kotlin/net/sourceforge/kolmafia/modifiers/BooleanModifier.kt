@@ -44,6 +44,12 @@ enum class BooleanModifier(val tag: String) {
         private val byTagLower: Map<String, BooleanModifier> =
             entries.associateBy { it.tag.lowercase() }
 
-        fun byTag(tag: String): BooleanModifier? = byTagLower[tag.lowercase()]
+        private val aliases: Map<String, BooleanModifier> = mapOf(
+            "volleyball" to VOLLEYBALL_OR_SOMBRERO,
+            "sombrero" to VOLLEYBALL_OR_SOMBRERO,
+        )
+
+        fun byTag(tag: String): BooleanModifier? =
+            byTagLower[tag.lowercase()] ?: aliases[tag.lowercase()]
     }
 }

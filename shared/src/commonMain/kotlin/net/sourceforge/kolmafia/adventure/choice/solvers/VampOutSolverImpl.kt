@@ -45,7 +45,7 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
         return resolveScriptChar(ch, responseText)
     }
 
-    private fun pickStartingLocation(goalIdx: Int, responseText: String): Int {
+    private fun pickStartingLocation(goalIdx: Int, responseText: String): Int? {
         val vladAvailable       = responseText.contains("Visit Vlad's Boutique")
         val isabellaAvailable   = responseText.contains("Visit Isabella's")
         val masqueradeAvailable = responseText.contains("Visit The Masquerade")
@@ -54,20 +54,25 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
         preferences.setBoolean(Preferences.INTERVIEW_ISABELLA,   !isabellaAvailable)
         preferences.setBoolean(Preferences.INTERVIEW_MASQUERADE, !masqueradeAvailable)
 
-        // Desktop behavior: on a 4th visit when all 3 locations have already been used,
-        // return option 1 (the "skip" / advance choice on that no-op page).
-        if (!vladAvailable && !isabellaAvailable && !masqueradeAvailable) return 1
+        // All locations visited — defer to manual choice handling (avoid submitting option 0).
+        if (!vladAvailable && !isabellaAvailable && !masqueradeAvailable) return null
 
         val vladChoice       = if (vladAvailable) 1 else 0
         val isabellaChoice   = if (isabellaAvailable) 2 - (if (vladAvailable) 0 else 1) else 0
         val masqueradeChoice =
             if (masqueradeAvailable) 3 - (if (isabellaAvailable) 0 else 1) - (if (vladAvailable) 0 else 1) else 0
 
-        return when (goalIdx) {
+        val choice = when (goalIdx) {
             in vladGoals     -> vladChoice.coerceAtLeast(firstAvailable(vladAvailable, isabellaAvailable, masqueradeAvailable))
             in isabellaGoals -> isabellaChoice.coerceAtLeast(firstAvailable(isabellaAvailable, masqueradeAvailable, vladAvailable))
             else             -> masqueradeChoice.coerceAtLeast(firstAvailable(masqueradeAvailable, isabellaAvailable, vladAvailable))
-        }.let { choice -> if (choice > 0) choice else firstAvailable(vladAvailable, isabellaAvailable, masqueradeAvailable) }
+        }
+        return when {
+            choice > 0 -> choice
+            vladAvailable || isabellaAvailable || masqueradeAvailable ->
+                firstAvailable(vladAvailable, isabellaAvailable, masqueradeAvailable).takeIf { it > 0 }
+            else -> null
+        }
     }
 
     private fun firstAvailable(vararg flags: Boolean): Int =
@@ -80,7 +85,7 @@ class VampOutSolverImpl(private val preferences: Preferences) : VampOutSolver {
                 if (flags.getOrNull(1) == true) option++
                 option
             }
-            else -> 1
+            else -> 0
         }
 
     private fun resolveScriptChar(ch: Char, responseText: String): Int? {

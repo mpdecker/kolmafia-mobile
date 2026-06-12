@@ -71,6 +71,10 @@ class Preferences(private val settings: Settings) {
         const val VISIT_LOUNGE_HARDCORE     = "visitLoungeHardcore"     // boolean; default true
         const val READ_MANUAL_SOFTCORE      = "readManualSoftcore"      // boolean; default true
         const val READ_MANUAL_HARDCORE      = "readManualHardcore"      // boolean; default true
+        const val CHECK_JACKASS_SOFTCORE    = "checkJackassSoftcore"    // boolean; default true
+        const val CHECK_JACKASS_HARDCORE    = "checkJackassHardcore"    // boolean; default true
+        const val COLLECT_SEA_JELLY_SOFTCORE = "collectSeaJellySoftcore" // boolean; default true
+        const val COLLECT_SEA_JELLY_HARDCORE = "collectSeaJellyHardcore" // boolean; default true
 
         // Breakfast — done-today sentinels (cleared at rollover)
         const val BREAKFAST_COMPLETED       = "breakfastCompleted"      // boolean
@@ -116,6 +120,8 @@ class Preferences(private val settings: Settings) {
         const val HARDWOOD_COLLECTED         = "_hardwoodCollected"         // boolean
         const val MR_STORE_CREDITS_COLLECTED = "_2002MrStoreCreditsCollected" // boolean
         const val SERVER_ROOM_VISITED        = "_serverRoomVisited"         // boolean
+        const val JACKASS_PLUMBER_USED       = "_jackassPlumberGame"        // boolean; daily limit sentinel
+        const val SEA_JELLY_COLLECTED        = "_seaJellyCollected"         // boolean
         // Per-toy sentinels are dynamic: "_toyUsed_$toyId" — no compile-time constant needed
     }
 }

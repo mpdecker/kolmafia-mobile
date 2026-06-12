@@ -15,6 +15,9 @@ import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
 import net.sourceforge.kolmafia.request.HermitRequest
+import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.quest.Quest
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.UseItemRequest
 
 open class BreakfastManager(
@@ -25,6 +28,8 @@ open class BreakfastManager(
     private val useItemRequest: UseItemRequest,
     private val hermitRequest: HermitRequest,
     private val httpClient: HttpClient,
+    private val familiarManager: FamiliarManager? = null,
+    private val questDatabase: QuestDatabase? = null,
 ) {
     companion object {
         const val VIP_LOUNGE_KEY_ID   = 5479
@@ -58,6 +63,8 @@ open class BreakfastManager(
         useBookOfEverySkill(inventoryState)
         useReplicaBooks(inventoryState)
         makeHandheldRadios(inventoryState)
+        checkJackass(suffix, inventoryState)
+        collectSeaJelly(suffix, charState)
 
         preferences.setBoolean(Preferences.BREAKFAST_COMPLETED, true)
     }
@@ -89,6 +96,8 @@ open class BreakfastManager(
         preferences.setBoolean(Preferences.HARDWOOD_COLLECTED, false)
         preferences.setBoolean(Preferences.MR_STORE_CREDITS_COLLECTED, false)
         preferences.setBoolean(Preferences.SERVER_ROOM_VISITED, false)
+        preferences.setBoolean(Preferences.JACKASS_PLUMBER_USED, false)
+        preferences.setBoolean(Preferences.SEA_JELLY_COLLECTED, false)
         // Clear per-toy sentinels
         for (toyId in BreakfastItemIds.TOYS.keys) {
             preferences.setBoolean("_toyUsed_$toyId", false)
@@ -358,6 +367,40 @@ open class BreakfastManager(
         if (preferences.getBoolean(Preferences.SERVER_ROOM_VISITED, false)) return
         httpGet("place.php?whichplace=airport_spooky_bunker").onSuccess {
             preferences.setBoolean(Preferences.SERVER_ROOM_VISITED, true)
+        }
+    }
+
+    private suspend fun checkJackass(suffix: String, inventoryState: InventoryState) {
+        val prefKey = if (suffix == "Softcore") Preferences.CHECK_JACKASS_SOFTCORE
+                      else Preferences.CHECK_JACKASS_HARDCORE
+        if (!preferences.getBoolean(prefKey, true)) return
+        if (preferences.getBoolean(Preferences.JACKASS_PLUMBER_USED, false)) return
+        if (!inventoryState.items.containsKey(BreakfastItemIds.JACKASS_PLUMBER_GAME_ID)) return
+        useItemRequest.use(BreakfastItemIds.JACKASS_PLUMBER_GAME_ID, 1).onSuccess {
+            preferences.setBoolean(Preferences.JACKASS_PLUMBER_USED, true)
+        }
+    }
+
+    private suspend fun collectSeaJelly(suffix: String, charState: CharacterState) {
+        val prefKey = if (suffix == "Softcore") Preferences.COLLECT_SEA_JELLY_SOFTCORE
+                      else Preferences.COLLECT_SEA_JELLY_HARDCORE
+        if (!preferences.getBoolean(prefKey, true)) return
+        if (preferences.getBoolean(Preferences.SEA_JELLY_COLLECTED, false)) return
+        if (charState.adventuresLeft <= 0) return
+        val db = questDatabase ?: return
+        val seaStarted = db.progressFor(Quest.SEA_OLD_GUY.prefKey) != QuestDatabase.UNSTARTED
+        if (!seaStarted) return
+        val familiar = familiarManager ?: return
+        val hasJellyfish = familiar.state.value.ownedFamiliars
+            .any { it.id == BreakfastItemIds.SPACE_JELLYFISH_ID }
+        if (!hasJellyfish) return
+        familiar.setFamiliar("Space Jellyfish")
+        httpGet("adventure.php?snarfblat=143").onSuccess { html ->
+            if (html.contains("sea jelly", ignoreCase = true) ||
+                html.contains("You acquire an item: sea jelly", ignoreCase = true)
+            ) {
+                preferences.setBoolean(Preferences.SEA_JELLY_COLLECTED, true)
+            }
         }
     }
 }

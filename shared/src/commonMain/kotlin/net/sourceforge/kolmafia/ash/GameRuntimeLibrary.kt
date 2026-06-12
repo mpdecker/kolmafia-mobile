@@ -41,12 +41,17 @@ import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPriceManager
+import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
+import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.request.QuestLogRequest
+import net.sourceforge.kolmafia.request.SendGiftRequest
+import net.sourceforge.kolmafia.request.SendMailRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -100,6 +105,11 @@ class GameRuntimeLibrary(
     internal val clanLoungeRequest: ClanLoungeRequest? = null,
     internal val familiarRequest: FamiliarRequest? = null,
     internal val chatSender: ChatSender? = null,
+    internal val maximizerManager: MaximizerManager? = null,
+    internal val sessionLogger: net.sourceforge.kolmafia.session.SessionLogger? = null,
+    internal val breakfastManager: BreakfastManager? = null,
+    internal val sendMailRequest: SendMailRequest? = null,
+    internal val sendGiftRequest: SendGiftRequest? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -107,7 +117,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase28"
+        const val REVISION = "phase34"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -154,8 +164,8 @@ class GameRuntimeLibrary(
             rt.print(value)
         },
 
-        // "cast N skill-name" — cast a skill N times (count form: silent no-op if unknown)
-        Regex("^cast\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+        // "cast|skill N skill-name" — cast a skill N times (count form: silent no-op if unknown)
+        Regex("^(?:cast|skill)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val count = m.groupValues[1].toIntOrNull() ?: 1
             val skillName = m.groupValues[2].trim()
             val skill = skillManager?.state?.value?.skills
@@ -166,8 +176,8 @@ class GameRuntimeLibrary(
             // skill not found → silent no-op (no echo for count form)
         },
 
-        // "cast skill-name" — cast a skill once (no count prefix; echo if unknown)
-        Regex("^cast\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+        // "cast|skill skill-name" — cast a skill once (no count prefix; echo if unknown)
+        Regex("^(?:cast|skill)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val skillName = m.groupValues[1].trim()
             val skill = skillManager?.state?.value?.skills
                 ?.find { it.name.equals(skillName, ignoreCase = true) }
@@ -201,6 +211,13 @@ class GameRuntimeLibrary(
             val count = m.groupValues[1].toIntOrNull() ?: return@to
             val itemName = m.groupValues[2].trim()
             val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+        },
+
+        // acquire / find — aliases for retrieve
+        Regex("^(?:acquire|find)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val count = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
             kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
         },
 
@@ -331,6 +348,89 @@ class GameRuntimeLibrary(
             goalManager?.setLevelGoal(m.groupValues[1].toIntOrNull() ?: return@to)
         },
 
+        Regex("^goal\\s+choice\\s+(\\d+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            goalManager?.setChoiceGoal(m.groupValues[1].toIntOrNull() ?: return@to)
+        },
+
+        Regex("^goal\\s+substats$", RegexOption.IGNORE_CASE) to { _, _ ->
+            goalManager?.setSubstatsGoal(true)
+        },
+
+        // set location zone — must precede generic set pref handler
+        Regex("^set\\s+location\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val zoneName = m.groupValues[1].trim()
+            val location = resolveLocation(zoneName) ?: return@to
+            preferences?.setString(Preferences.LAST_LOCATION, location.name)
+            kotlinx.coroutines.runBlocking {
+                adventureRequest?.travel(location.id)
+            }
+        },
+
+        // set pref value — bare preference alias
+        Regex("^set\\s+(\\S+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            preferences?.setString(m.groupValues[1].trim(), m.groupValues[2])
+        },
+
+        // get pref value
+        Regex("^get\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            rt.print(preferences?.getString(m.groupValues[1].trim(), "") ?: "")
+        },
+
+        // counter — print/set named pref, or list relay counters
+        Regex("^counter\\s+relay$", RegexOption.IGNORE_CASE) to { _, rt ->
+            val currentRun = character?.state?.value?.currentRun ?: 0
+            val prefs = preferences ?: return@to
+            val formatted = net.sourceforge.kolmafia.session.TurnCounter.formatRelayCounters(prefs, currentRun)
+            if (formatted.isNotBlank()) rt.print(formatted)
+        },
+        Regex("^counter\\s+(\\S+)(?:\\s+(\\d+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val name = m.groupValues[1].trim()
+            val value = m.groupValues.getOrNull(2)?.trim()
+            if (value.isNullOrBlank()) {
+                rt.print(preferences?.getInt("counter_$name", 0).toString())
+            } else {
+                preferences?.setInt("counter_$name", value.toIntOrNull() ?: 0)
+            }
+        },
+
+        // ccs / ccprep — store combat macro script text
+        Regex("^ccs\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            preferences?.setString("combatMacro", m.groupValues[1])
+        },
+        Regex("^ccprep$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print(preferences?.getString("combatMacro", "") ?: "")
+        },
+
+        // location shortcuts
+        Regex("^spooky$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("adventure.php?snarfblat=61")
+        },
+        Regex("^cellar2?$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("cellar.php")
+        },
+        Regex("^tower$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("tower.php", applyQuestHooks = true)
+        },
+        Regex("^fern$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("tower.php", applyQuestHooks = true)
+        },
+        Regex("^guild$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("guild.php", applyQuestHooks = true)
+        },
+        Regex("^guild\\s+(paco|ocg|scg|challenge)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            visitKolPage("guild.php?place=${m.groupValues[1].lowercase()}", applyQuestHooks = true)
+        },
+
+        // macro — print stored combat macro
+        Regex("^macro$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print(preferences?.getString("combatMacro", "") ?: "")
+        },
+
+        // jukebox — visit jukebox (campground)
+        Regex("^jukebox$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("campground.php?action=jukebox")
+        },
+
         Regex("^(?:adventure|adv)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val turns = m.groupValues[1].toIntOrNull() ?: return@to
             val zoneName = m.groupValues[2].trim()
@@ -367,16 +467,6 @@ class GameRuntimeLibrary(
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
             kotlinx.coroutines.runBlocking { storageRequest?.deposit(itemId, qty) }
-        },
-
-        // set location zone — travel without adventuring
-        Regex("^set\\s+location\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val zoneName = m.groupValues[1].trim()
-            val location = resolveLocation(zoneName) ?: return@to
-            preferences?.setString(Preferences.LAST_LOCATION, location.name)
-            kotlinx.coroutines.runBlocking {
-                adventureRequest?.travel(location.id)
-            }
         },
 
         // refresh — sync character, inventory, skills, effects, familiars, quest log
@@ -425,6 +515,12 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { effectManager?.fetchEffects() }
         },
         Regex("^inv$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                inventoryManager?.fetchInventory()
+                inventoryManager?.syncCharacterEquipment()
+            }
+        },
+        Regex("^inventory$", RegexOption.IGNORE_CASE) to { _, _ ->
             kotlinx.coroutines.runBlocking {
                 inventoryManager?.fetchInventory()
                 inventoryManager?.syncCharacterEquipment()
@@ -502,6 +598,28 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { chatSender?.sendPrivate(recipient, message) }
         },
 
+        // kmail recipient message — text-only kmail via sendmessage.php
+        Regex("^kmail\\s+(\\S+)\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val recipient = m.groupValues[1].trim()
+            val message = m.groupValues[2]
+            kotlinx.coroutines.runBlocking { sendMailRequest?.send(recipient, message) }
+        },
+
+        // send item(s) to recipient [|| message]
+        Regex("^send\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSend(m.groupValues[1], isMeat = false, rt)
+        },
+
+        // csend meat to recipient [|| message]
+        Regex("^csend\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSend(m.groupValues[1], isMeat = true, rt)
+        },
+
+        // gift item(s) to recipient [|| message] — town_sendgift.php
+        Regex("^gift\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliGift(m.groupValues[1], rt)
+        },
+
         // note — print user note; note text — save user note
         Regex("^note$", RegexOption.IGNORE_CASE) to { _, rt ->
             rt.print(preferences?.getString(Preferences.USER_NOTE, "") ?: "")
@@ -539,12 +657,14 @@ class GameRuntimeLibrary(
             }
         },
 
-        // maximizer — stub (desktop outfit optimizer not ported)
         Regex("^maximizer$", RegexOption.IGNORE_CASE) to { _, rt ->
-            rt.print("Maximizer is not available in KoLmafia Mobile.")
+            rt.print("Usage: maximize <goal>  (e.g. maximize mysticality)")
         },
-        Regex("^maximize(?:\\s+.+)?$", RegexOption.IGNORE_CASE) to { _, _ ->
-            // no-op; ASH maximize() returns false
+        Regex("^maximize(?:\\s+(.+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val goal = m.groupValues.getOrNull(1)?.trim().orEmpty().ifBlank { "all" }
+            val mgr = maximizerManager ?: return@to
+            val result = kotlinx.coroutines.runBlocking { mgr.maximize(goal) }
+            rt.print(if (result.success) "Maximized for $goal" else "No improvement for $goal")
         },
 
         // autoscript on/off — persist preference stub
@@ -559,8 +679,8 @@ class GameRuntimeLibrary(
             dispatchCli("refresh", rt)
         },
 
-        // recover / rest — force recovery loop once
-        Regex("^(?:recover|rest)$", RegexOption.IGNORE_CASE) to { _, _ ->
+        // recover / rest / restore / check — force recovery loop once
+        Regex("^(?:recover|rest|restore|check)$", RegexOption.IGNORE_CASE) to { _, _ ->
             val rm = recoveryManager ?: return@to
             val char = character ?: return@to
             kotlinx.coroutines.runBlocking {
@@ -634,6 +754,19 @@ class GameRuntimeLibrary(
         Regex("^campground$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("campground.php")
         },
+        Regex("^camp$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("campground.php")
+        },
+
+        // breakfast — run daily breakfast sequence
+        Regex("^breakfast$", RegexOption.IGNORE_CASE) to { _, _ ->
+            val mgr = breakfastManager ?: return@to
+            val char = character ?: return@to
+            val inv = inventoryManager ?: return@to
+            kotlinx.coroutines.runBlocking {
+                mgr.runBreakfast(char.state.value, inv.state.value)
+            }
+        },
 
         // wiki / javadoc item — print Kol Wiki URL (headless has no browser)
         Regex("^wiki\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
@@ -694,11 +827,52 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { storageRequest?.withdraw(itemId, qty) }
         },
 
+        // pull / hagnk — aliases for storage take
+        Regex("^(?:pull|hagnk)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { storageRequest?.withdraw(itemId, qty) }
+        },
+
+        // searchmall [with limit N] item — print cheapest mall price
+        Regex("^searchmall(?:\\s+with\\s+limit\\s+(\\d+))?\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val itemName = m.groupValues[2].trim()
+            val price = kotlinx.coroutines.runBlocking { mallManager?.cheapestPrice(itemName) ?: -1L }
+            rt.print(price.toString())
+        },
+
+        // reprice N item[@limit] — mall store reprice
+        Regex("^reprice\\s+(\\d+)\\s+(.+?)(?:@(\\d+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val price = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            val limit = m.groupValues[3].toIntOrNull() ?: 0
+            kotlinx.coroutines.runBlocking { manageStoreRequest?.repriceItem(itemId, price, limit) }
+        },
+
+        // checkpoint / checkpoint clear — save or clear outfit checkpoint
+        Regex("^checkpoint(?:\\s+clear)?$", RegexOption.IGNORE_CASE) to { m, _ ->
+            if (m.value.endsWith("clear", ignoreCase = true)) {
+                OutfitCheckpoint.clearSaved()
+                return@to
+            }
+            val char = character ?: return@to
+            val equip = equipmentRequest ?: return@to
+            val db = gameDatabase ?: return@to
+            kotlinx.coroutines.runBlocking {
+                OutfitCheckpoint.snapshot(char, equip, db)
+            }
+        },
+
         // uneffect name / uneffect all
         Regex("^uneffect\\s+all$", RegexOption.IGNORE_CASE) to { _, _ ->
             uneffectAll()
         },
         Regex("^uneffect\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            uneffectByName(m.groupValues[1].trim())
+        },
+
+        // shrug / remedy — aliases for uneffect
+        Regex("^(?:shrug|remedy)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             uneffectByName(m.groupValues[1].trim())
         },
 
@@ -746,40 +920,20 @@ class GameRuntimeLibrary(
             }
         },
 
+        // wear / wield — aliases for equip
+        Regex("^(?:wear|wield)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            cliEquip(m.groupValues[1].trim())
+        },
+
         // "equip [<slot>] <item-name>" — equip item, optionally into a named slot.
-        // If the first word after "equip" is a known slot apiKey, treat it as a slot and the
-        // remainder as the item name; if that item lookup fails, fall back to trying the full
-        // remainder as an item name with "default" slot. Unknown item → silent no-op.
         Regex("^equip\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val rest = m.groupValues[1].trim()
-            val spaceIdx = rest.indexOf(' ')
+            cliEquip(m.groupValues[1].trim())
+        },
 
-            if (spaceIdx > 0) {
-                val firstToken = rest.substring(0, spaceIdx)
-                val afterFirst = rest.substring(spaceIdx + 1).trim()
-                val knownSlot = EquipmentSlot.entries.find { s ->
-                    s.apiKey.equals(firstToken, ignoreCase = true)
-                }
-                if (knownSlot != null) {
-                    // "equip <slot> <item>" — try afterFirst as item name in named slot
-                    val item = inventoryManager?.state?.value?.items?.values
-                        ?.find { it.name.equals(afterFirst, ignoreCase = true) }
-                    if (item != null) {
-                        kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, knownSlot.apiKey) }
-                        return@to
-                    }
-                    // slot was recognised but item not found — could be item name starting with a slot word
-                    // fall through to try full rest as item name with "default" slot
-                }
-            }
-
-            // "equip <item>" — no slot, or slot+item fallback
-            val item = inventoryManager?.state?.value?.items?.values
-                ?.find { it.name.equals(rest, ignoreCase = true) }
-            if (item != null) {
-                kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, "default") }
-            }
-            // not in backpack → silent no-op
+        // remove slot — unequip (after goal remove)
+        Regex("^remove\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val slotName = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking { inventoryManager?.unequipSlot(slotName) }
         },
 
         // "unequip <slot>" — remove equipped item from a slot
@@ -853,6 +1007,16 @@ class GameRuntimeLibrary(
             }
         },
 
+        // "coinmaster buy N <nick> <item>" — quantity buy
+        Regex("^coinmaster\\s+buy\\s+(\\d+)\\s+(\\S+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: return@to
+            val nickname = m.groupValues[2].trim()
+            val itemName = m.groupValues[3].trim()
+            val master = coinmasterManager?.resolveMaster(nickname) ?: return@to
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { coinmasterManager?.buy(master, itemId, qty) }
+        },
+
         // "coinmaster buy <nick> <item>" / "coinmaster sell <nick> <item>"
         Regex("^coinmaster\\s+(buy|sell)\\s+(\\S+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val isBuy = m.groupValues[1].equals("buy", ignoreCase = true)
@@ -874,8 +1038,15 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
         },
 
-        // "buy N item[@limit]" — checkpoint-wrapped mall purchase
-        Regex("^buy\\s+(\\d+)\\s+(.+?)(?:@(\\d+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
+        // make / bake / mix / smith / tinker / ply — aliases for create
+        Regex("^(?:make|bake|mix|smith|tinker|ply)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val count = m.groupValues[1].toIntOrNull() ?: return@to
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+        },
+
+        // "buy|mallbuy N item[@limit]" — checkpoint-wrapped mall purchase
+        Regex("^(?:buy|mallbuy)\\s+(\\d+)\\s+(.+?)(?:@(\\d+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
             val count = m.groupValues[1].toIntOrNull() ?: return@to
             val itemName = m.groupValues[2].trim()
             val limit = m.groupValues[3].toIntOrNull() ?: Int.MAX_VALUE
@@ -911,6 +1082,194 @@ class GameRuntimeLibrary(
         return "https://wiki.a.kolmafia.us/wiki/$slug"
     }
 
+    internal fun processVisitQuestHooks(html: String, url: String? = null) {
+        val db = questDatabase ?: return
+        kotlinx.coroutines.runBlocking {
+            QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext(url))
+        }
+    }
+
+    internal fun buildQuestSyncContext(urlOrPath: String? = null): QuestLogSync.QuestSyncContext =
+        QuestLogSync.QuestSyncContext(
+            hasItemId = { id -> inventoryManager?.state?.value?.items?.containsKey(id) == true },
+            place = urlOrPath?.let { extractQuestPlace(it) },
+            preferences = preferences,
+            currentRun = character?.state?.value?.currentRun ?: 0,
+        )
+
+    internal fun extractQuestPlace(urlOrPath: String): String? =
+        extractGuildPlace(urlOrPath)
+            ?: if (urlOrPath.contains("tower.php", ignoreCase = true)) "fern" else null
+
+    internal fun extractGuildPlace(urlOrPath: String): String? =
+        Regex("(?:^|[?&])place=([a-z]+)", RegexOption.IGNORE_CASE)
+            .find(urlOrPath)
+            ?.groupValues
+            ?.get(1)
+            ?.lowercase()
+
+    internal fun cliSend(parameters: String, isMeat: Boolean, rt: AshRuntimeContext) {
+        val normalized = parameters.replace(Regex("(?i)(?:^| )to "), " => ")
+        val parts = normalized.split(" => ", limit = 2)
+        if (parts.size != 2) {
+            rt.print("Invalid send request.")
+            return
+        }
+        var recipientPart = parts[1].trim()
+        var message = net.sourceforge.kolmafia.request.SendMailRequest.DEFAULT_MESSAGE
+        val sep = recipientPart.indexOf("||")
+        if (sep >= 0) {
+            message = recipientPart.substring(sep + 2).trim()
+            recipientPart = recipientPart.substring(0, sep).trim()
+        }
+        val recipient = recipientPart
+        val itemPart = parts[0].trim().trimEnd(',')
+        if (itemPart.isBlank()) {
+            kotlinx.coroutines.runBlocking { sendMailRequest?.send(recipient, message) }
+            return
+        }
+        var meat = 0L
+        val attachments = mutableListOf<net.sourceforge.kolmafia.request.MailAttachment>()
+        val itemSpecs = if (itemPart.contains(',')) {
+            itemPart.split(',').map { it.trim() }.filter { it.isNotBlank() }
+        } else {
+            listOf(itemPart)
+        }
+        for (spec in itemSpecs) {
+            val match = Regex("^(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE).find(spec) ?: continue
+            val qty = match.groupValues[1].toLongOrNull() ?: continue
+            val name = match.groupValues[2].trim()
+            if (name.equals("meat", ignoreCase = true)) {
+                if (!isMeat) {
+                    rt.print("Please use 'csend' if you need to transfer meat.")
+                    return
+                }
+                meat += qty
+                continue
+            }
+            if (isMeat) continue
+            val itemId = gameDatabase?.item(name)?.id
+            if (itemId == null) {
+                rt.print("Unknown item: $name")
+                return
+            }
+            val available = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+            if (available < qty) {
+                rt.print("[$qty $name] requested, but only $available available.")
+                return
+            }
+            attachments.add(net.sourceforge.kolmafia.request.MailAttachment(itemId, qty.toInt()))
+        }
+        if (attachments.size > net.sourceforge.kolmafia.request.SendMailRequest.MAX_ATTACHMENTS) {
+            rt.print("Too many attachments.")
+            return
+        }
+        kotlinx.coroutines.runBlocking {
+            val mailResult = sendMailRequest?.send(recipient, message, attachments, meat)
+            if (mailResult?.isFailure == true && attachments.isNotEmpty() && meat == 0L) {
+                sendGiftRequest?.send(recipient, message, attachments)
+                    ?: mailResult
+            } else {
+                mailResult
+            }
+        }
+    }
+
+    internal fun cliGift(parameters: String, rt: AshRuntimeContext) {
+        val normalized = parameters.replace(Regex("(?i)(?:^| )to "), " => ")
+        val parts = normalized.split(" => ", limit = 2)
+        if (parts.size != 2) {
+            rt.print("Invalid gift request.")
+            return
+        }
+        var recipientPart = parts[1].trim()
+        var message = SendMailRequest.DEFAULT_MESSAGE
+        val sep = recipientPart.indexOf("||")
+        if (sep >= 0) {
+            message = recipientPart.substring(sep + 2).trim()
+            recipientPart = recipientPart.substring(0, sep).trim()
+        }
+        val recipient = recipientPart
+        val itemPart = parts[0].trim().trimEnd(',')
+        if (itemPart.isBlank()) {
+            rt.print("Invalid gift request.")
+            return
+        }
+        val attachments = parseSendAttachments(itemPart, rt) ?: return
+        if (attachments.isEmpty()) {
+            rt.print("Invalid gift request.")
+            return
+        }
+        kotlinx.coroutines.runBlocking {
+            sendGiftRequest?.send(recipient, message, attachments)
+        }
+    }
+
+    private fun parseSendAttachments(
+        itemPart: String,
+        rt: AshRuntimeContext,
+    ): List<net.sourceforge.kolmafia.request.MailAttachment>? {
+        val attachments = mutableListOf<net.sourceforge.kolmafia.request.MailAttachment>()
+        val itemSpecs = if (itemPart.contains(',')) {
+            itemPart.split(',').map { it.trim() }.filter { it.isNotBlank() }
+        } else {
+            listOf(itemPart)
+        }
+        for (spec in itemSpecs) {
+            val match = Regex("^(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE).find(spec) ?: continue
+            val qty = match.groupValues[1].toLongOrNull() ?: continue
+            val name = match.groupValues[2].trim()
+            if (name.equals("meat", ignoreCase = true)) {
+                rt.print("Please use 'csend' if you need to transfer meat.")
+                return null
+            }
+            val itemId = gameDatabase?.item(name)?.id
+            if (itemId == null) {
+                rt.print("Unknown item: $name")
+                return null
+            }
+            val available = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+            if (available < qty) {
+                rt.print("[$qty $name] requested, but only $available available.")
+                return null
+            }
+            attachments.add(net.sourceforge.kolmafia.request.MailAttachment(itemId, qty.toInt()))
+        }
+        if (attachments.size > SendMailRequest.MAX_ATTACHMENTS) {
+            rt.print("Too many attachments.")
+            return null
+        }
+        return attachments
+    }
+
+    internal fun cliEquip(rest: String) {
+        val spaceIdx = rest.indexOf(' ')
+        if (spaceIdx > 0) {
+            val firstToken = rest.substring(0, spaceIdx)
+            val afterFirst = rest.substring(spaceIdx + 1).trim()
+            val knownSlot = EquipmentSlot.entries.find { s ->
+                s.apiKey.equals(firstToken, ignoreCase = true)
+            } ?: if (firstToken.equals("familiar", ignoreCase = true)) {
+                EquipmentSlot.FAMILIAR
+            } else {
+                null
+            }
+            if (knownSlot != null) {
+                val item = inventoryManager?.state?.value?.items?.values
+                    ?.find { it.name.equals(afterFirst, ignoreCase = true) }
+                if (item != null) {
+                    kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, knownSlot.apiKey) }
+                    return
+                }
+            }
+        }
+        val item = inventoryManager?.state?.value?.items?.values
+            ?.find { it.name.equals(rest, ignoreCase = true) }
+        if (item != null) {
+            kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, "default") }
+        }
+    }
+
     private fun visitKolPage(path: String, applyQuestHooks: Boolean = false) {
         val client = httpClient ?: return
         val db = questDatabase
@@ -920,7 +1279,7 @@ class GameRuntimeLibrary(
                 if (!response.status.isSuccess()) return@runBlocking
                 val html = response.bodyAsText()
                 if (applyQuestHooks && db != null) {
-                    net.sourceforge.kolmafia.quest.QuestLogSync.processResponse(html, db, questLogRequest)
+                    QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext(path))
                 }
             } catch (_: Exception) {
                 // best-effort page visit
@@ -1016,6 +1375,7 @@ class GameRuntimeLibrary(
         registerQuestQueries(scope)
         registerChatQueries(scope)
         registerScriptFunctions(scope)
+        registerSessionLog(scope)
     }
 
     // ──────────────────────────────────────────────────────────────

@@ -132,4 +132,59 @@ class QuestAdvanceRulesTest {
         val db = QuestDatabase(Preferences(MapSettings()))
         assertFalse(QuestAdvanceRules.apply("You fight a seal.", db))
     }
+
+    @Test
+    fun apply_seaOldGuyStartedOnSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("I lost my favorite boot in the ocean.", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.SEA_OLD_GUY))
+    }
+
+    @Test
+    fun apply_meatcarStartedOnGuildSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("Welcome to Degrassi Knoll!", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.MEATCAR))
+    }
+
+    @Test
+    fun apply_egoStartedOnGuildSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("the location of the Cemetary is", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.EGO))
+    }
+
+    @Test
+    fun apply_egoTowerProgressionSignals() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.EGO, "step2")
+        assertTrue(QuestAdvanceRules.apply("You've unlocked Fernswarthy's tower.", db))
+        assertEquals("step3", db.getProgress(Quest.EGO))
+        assertTrue(QuestAdvanceRules.apply("You found some stairs in Fernswarthy's tower.", db))
+        assertEquals("step4", db.getProgress(Quest.EGO))
+        assertTrue(QuestAdvanceRules.apply("You found a trapdoor to Fernswarthy's basement.", db))
+        assertEquals("step5", db.getProgress(Quest.EGO))
+        assertTrue(QuestAdvanceRules.apply("You found some kind of dusty old book.", db))
+        assertEquals("step6", db.getProgress(Quest.EGO))
+    }
+
+    @Test
+    fun apply_pirateRealmStartedOnSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("Welcome to the Pirate Realm!", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.PIRATEREALM))
+    }
+
+    @Test
+    fun apply_telegramStartedOnSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("A telegram for you, Adventurer.", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.TELEGRAM))
+    }
+
+    @Test
+    fun stepOrdinal_supportsFractionalSteps() {
+        assertTrue(QuestDatabase.stepOrdinal("step16.5") > QuestDatabase.stepOrdinal("step16"))
+        assertTrue(QuestDatabase.stepOrdinal("step17") > QuestDatabase.stepOrdinal("step16.5"))
+    }
 }

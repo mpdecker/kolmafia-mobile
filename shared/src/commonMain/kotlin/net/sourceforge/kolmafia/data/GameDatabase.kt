@@ -72,7 +72,11 @@ open class GameDatabase {
     fun spleen(name: String) = ConsumableDatabase.getSpleen(name)
     fun restore(name: String) = RestoreDatabase.getByName(name)
     fun modifier(type: String, name: String) = ModifierDatabase.get(type, name)
-    fun itemModifier(name: String) = ModifierDatabase.getItem(name)
+    open fun itemModifier(name: String) = ModifierDatabase.getItem(name)
+    open fun itemModifier(id: Int): ModifierEntry? {
+        val item = item(id) ?: return null
+        return ModifierDatabase.getItem(item.name)
+    }
     fun effectModifier(name: String) = ModifierDatabase.getEffect(name)
     open fun zone(locationName: String) = AdventureDatabase.getByName(locationName)
     open fun monster(id: Int) = MonsterDatabase.getById(id)

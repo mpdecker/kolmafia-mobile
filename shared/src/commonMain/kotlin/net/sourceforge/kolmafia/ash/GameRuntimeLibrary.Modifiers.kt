@@ -10,7 +10,9 @@ internal fun GameRuntimeLibrary.registerModifierQueries(scope: AshScope) {
     // ── numeric_modifier(item, string) → float ────────────────────────────────
     regFn(scope, "numeric_modifier", AshType.FLOAT,
         listOf("it" to AshType.ITEM, "modifier" to AshType.STRING)) { _, args ->
-        val entry = gameDatabase?.itemModifier(args[0].toString())
+        val itemRef = args[0].toString()
+        val entry = gameDatabase?.itemModifier(itemRef)
+            ?: itemRef.toIntOrNull()?.let { gameDatabase?.itemModifier(it) }
         val dm = DoubleModifier.byTag(args[1].toString())
         val value = if (entry != null && dm != null)
             ModifierParser.parse(entry.modifiers).get(dm)
