@@ -34,16 +34,19 @@ class MaximizerManagerTest {
         override fun item(id: Int): ItemData? = when (id) {
             1 -> ItemData(1, "myst hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
             2 -> ItemData(2, "plain hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+            4614 -> ItemData(4614, "Crown of Thrones", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
             else -> null
         }
         override fun item(name: String): ItemData? = when (name.lowercase()) {
             "myst hat" -> item(1)
             "plain hat" -> item(2)
+            "crown of thrones" -> item(4614)
             else -> null
         }
         override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
             "myst hat" -> ModifierEntry("Item", "myst hat", "Mysticality: +5")
             "plain hat" -> ModifierEntry("Item", "plain hat", "Mysticality: +1")
+            "crown of thrones" -> ModifierEntry("Item", "Crown of Thrones", "Mysticality: +10")
             else -> null
         }
     }
@@ -238,5 +241,48 @@ class MaximizerManagerTest {
         assertTrue(result.success)
         assertEquals("Miniature Donkey", result.familiarSwitched)
         assertEquals("Miniature Donkey", switched)
+    }
+
+    @Test fun maximize_enthroneCarriesCrownOfThrones() = runBlocking {
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    4614 to InventoryItem(4614, "Crown of Thrones", 1, ItemType.HAT),
+                ))
+            )
+        }
+        var equippedId: Int? = null
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                equippedId = itemId
+                return Result.success(Unit)
+            }
+        }
+        val familiar = object : FamiliarManager(
+            HttpClient(MockEngine { respond("ok") }),
+            GameEventBus(),
+        ) {
+            override suspend fun setEnthroned(name: String): Result<Unit> = Result.success(Unit)
+        }.also {
+            it.testSetState(
+                FamiliarState(
+                    ownedFamiliars = listOf(
+                        FamiliarData(1, "Mosquito", "Mosquito", 5, 0, 0),
+                    ),
+                ),
+            )
+        }
+        val mgr = MaximizerManager(StubDb(), inv, equip, character, familiarManager = familiar)
+        val result = mgr.maximize("mysticality, enthrone Mosquito")
+        assertTrue(result.success)
+        assertEquals(4614, equippedId)
+        assertEquals("Mosquito", result.enthronedSwitched)
     }
 }

@@ -47,6 +47,7 @@ import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.request.QuestLogRequest
+import net.sourceforge.kolmafia.request.SendGiftRequest
 import net.sourceforge.kolmafia.request.SendMailRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -108,6 +109,7 @@ class GameRuntimeLibrary(
     internal val sessionLogger: net.sourceforge.kolmafia.session.SessionLogger? = null,
     internal val breakfastManager: BreakfastManager? = null,
     internal val sendMailRequest: SendMailRequest? = null,
+    internal val sendGiftRequest: SendGiftRequest? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -115,7 +117,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase32"
+        const val REVISION = "phase34"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -374,7 +376,13 @@ class GameRuntimeLibrary(
             rt.print(preferences?.getString(m.groupValues[1].trim(), "") ?: "")
         },
 
-        // counter — print or set a named counter pref
+        // counter — print/set named pref, or list relay counters
+        Regex("^counter\\s+relay$", RegexOption.IGNORE_CASE) to { _, rt ->
+            val currentRun = character?.state?.value?.currentRun ?: 0
+            val prefs = preferences ?: return@to
+            val formatted = net.sourceforge.kolmafia.session.TurnCounter.formatRelayCounters(prefs, currentRun)
+            if (formatted.isNotBlank()) rt.print(formatted)
+        },
         Regex("^counter\\s+(\\S+)(?:\\s+(\\d+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             val name = m.groupValues[1].trim()
             val value = m.groupValues.getOrNull(2)?.trim()
@@ -401,7 +409,10 @@ class GameRuntimeLibrary(
             visitKolPage("cellar.php")
         },
         Regex("^tower$", RegexOption.IGNORE_CASE) to { _, _ ->
-            visitKolPage("tower.php")
+            visitKolPage("tower.php", applyQuestHooks = true)
+        },
+        Regex("^fern$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("tower.php", applyQuestHooks = true)
         },
         Regex("^guild$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("guild.php", applyQuestHooks = true)
@@ -602,6 +613,11 @@ class GameRuntimeLibrary(
         // csend meat to recipient [|| message]
         Regex("^csend\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliSend(m.groupValues[1], isMeat = true, rt)
+        },
+
+        // gift item(s) to recipient [|| message] — town_sendgift.php
+        Regex("^gift\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliGift(m.groupValues[1], rt)
         },
 
         // note — print user note; note text — save user note
@@ -1076,10 +1092,14 @@ class GameRuntimeLibrary(
     internal fun buildQuestSyncContext(urlOrPath: String? = null): QuestLogSync.QuestSyncContext =
         QuestLogSync.QuestSyncContext(
             hasItemId = { id -> inventoryManager?.state?.value?.items?.containsKey(id) == true },
-            place = urlOrPath?.let { extractGuildPlace(it) },
+            place = urlOrPath?.let { extractQuestPlace(it) },
             preferences = preferences,
             currentRun = character?.state?.value?.currentRun ?: 0,
         )
+
+    internal fun extractQuestPlace(urlOrPath: String): String? =
+        extractGuildPlace(urlOrPath)
+            ?: if (urlOrPath.contains("tower.php", ignoreCase = true)) "fern" else null
 
     internal fun extractGuildPlace(urlOrPath: String): String? =
         Regex("(?:^|[?&])place=([a-z]+)", RegexOption.IGNORE_CASE)
@@ -1145,8 +1165,81 @@ class GameRuntimeLibrary(
             return
         }
         kotlinx.coroutines.runBlocking {
-            sendMailRequest?.send(recipient, message, attachments, meat)
+            val mailResult = sendMailRequest?.send(recipient, message, attachments, meat)
+            if (mailResult?.isFailure == true && attachments.isNotEmpty() && meat == 0L) {
+                sendGiftRequest?.send(recipient, message, attachments)
+                    ?: mailResult
+            } else {
+                mailResult
+            }
         }
+    }
+
+    internal fun cliGift(parameters: String, rt: AshRuntimeContext) {
+        val normalized = parameters.replace(Regex("(?i)(?:^| )to "), " => ")
+        val parts = normalized.split(" => ", limit = 2)
+        if (parts.size != 2) {
+            rt.print("Invalid gift request.")
+            return
+        }
+        var recipientPart = parts[1].trim()
+        var message = SendMailRequest.DEFAULT_MESSAGE
+        val sep = recipientPart.indexOf("||")
+        if (sep >= 0) {
+            message = recipientPart.substring(sep + 2).trim()
+            recipientPart = recipientPart.substring(0, sep).trim()
+        }
+        val recipient = recipientPart
+        val itemPart = parts[0].trim().trimEnd(',')
+        if (itemPart.isBlank()) {
+            rt.print("Invalid gift request.")
+            return
+        }
+        val attachments = parseSendAttachments(itemPart, rt) ?: return
+        if (attachments.isEmpty()) {
+            rt.print("Invalid gift request.")
+            return
+        }
+        kotlinx.coroutines.runBlocking {
+            sendGiftRequest?.send(recipient, message, attachments)
+        }
+    }
+
+    private fun parseSendAttachments(
+        itemPart: String,
+        rt: AshRuntimeContext,
+    ): List<net.sourceforge.kolmafia.request.MailAttachment>? {
+        val attachments = mutableListOf<net.sourceforge.kolmafia.request.MailAttachment>()
+        val itemSpecs = if (itemPart.contains(',')) {
+            itemPart.split(',').map { it.trim() }.filter { it.isNotBlank() }
+        } else {
+            listOf(itemPart)
+        }
+        for (spec in itemSpecs) {
+            val match = Regex("^(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE).find(spec) ?: continue
+            val qty = match.groupValues[1].toLongOrNull() ?: continue
+            val name = match.groupValues[2].trim()
+            if (name.equals("meat", ignoreCase = true)) {
+                rt.print("Please use 'csend' if you need to transfer meat.")
+                return null
+            }
+            val itemId = gameDatabase?.item(name)?.id
+            if (itemId == null) {
+                rt.print("Unknown item: $name")
+                return null
+            }
+            val available = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+            if (available < qty) {
+                rt.print("[$qty $name] requested, but only $available available.")
+                return null
+            }
+            attachments.add(net.sourceforge.kolmafia.request.MailAttachment(itemId, qty.toInt()))
+        }
+        if (attachments.size > SendMailRequest.MAX_ATTACHMENTS) {
+            rt.print("Too many attachments.")
+            return null
+        }
+        return attachments
     }
 
     internal fun cliEquip(rest: String) {

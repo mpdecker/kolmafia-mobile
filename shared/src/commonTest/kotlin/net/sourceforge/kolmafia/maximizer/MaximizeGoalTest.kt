@@ -31,4 +31,14 @@ class MaximizeGoalTest {
         assertNotNull(spec)
         assertEquals(listOf("myst hat"), spec.equipRequired)
     }
+
+    @Test
+    fun parseSpec_meleeHandsEnthroneBjornify() {
+        val spec = MaximizeGoal.parseSpec("muscle, +melee, +hands, enthrone Mosquito, bjornify none")
+        assertNotNull(spec)
+        assertTrue(spec.requireMelee)
+        assertTrue(spec.requireHands)
+        assertEquals(listOf("Mosquito"), spec.enthronedFamiliars)
+        assertEquals(listOf("none"), spec.bjornifiedFamiliars)
+    }
 }

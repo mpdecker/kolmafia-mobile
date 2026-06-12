@@ -40,6 +40,8 @@ object QuestLogSync {
         "7-foot Dwarves",
         "the location of the Cemetary",
         "Fernswarthy's key",
+        "unlocked Fernswarthy's tower",
+        "dusty old book",
         "Manual of Dexterity",
         "The Tomb is within the Misspelled",
         "Clownlord Beelzebozo",
@@ -69,9 +71,29 @@ object QuestLogSync {
         questDatabase: QuestDatabase,
         context: QuestSyncContext,
     ) {
+        applyEgoKeyTurnIn(questDatabase, context)
         when (place?.lowercase()) {
+            "fern" -> applyFernTowerUnlock(questDatabase, context)
             "paco" -> applyFactoryFinish(questDatabase, context)
             "scg" -> applyNemesisVisitSteps(questDatabase, context)
+        }
+    }
+
+    private fun applyFernTowerUnlock(questDatabase: QuestDatabase, context: QuestSyncContext) {
+        if (!context.hasItemId(FERNSWARTHY_KEY_ID)) return
+        if (questDatabase.getProgress(Quest.EGO) == "step2") {
+            questDatabase.setProgress(Quest.EGO, "step3")
+        }
+    }
+
+    private fun applyEgoKeyTurnIn(questDatabase: QuestDatabase, context: QuestSyncContext) {
+        val place = context.place?.lowercase() ?: return
+        if (place !in GUILD_PLACES) return
+        if (!context.hasItemId(FERNSWARTHY_KEY_ID)) return
+        val current = questDatabase.getProgress(Quest.EGO)
+        if (current != QuestDatabase.STARTED) return
+        if (QuestDatabase.stepOrdinal("step1") > QuestDatabase.stepOrdinal(current)) {
+            questDatabase.setProgress(Quest.EGO, "step1")
         }
     }
 
@@ -98,4 +120,9 @@ object QuestLogSync {
 
     /** thick padded envelope — guild FACTORY turn-in item */
     const val FACTORY_ENVELOPE_ID = 3201
+
+    /** Fernswarthy's key — guild EGO turn-in item */
+    const val FERNSWARTHY_KEY_ID = 2277
+
+    val GUILD_PLACES = setOf("paco", "ocg", "scg", "challenge")
 }

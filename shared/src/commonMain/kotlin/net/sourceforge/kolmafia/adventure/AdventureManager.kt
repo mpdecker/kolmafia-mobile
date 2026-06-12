@@ -219,6 +219,7 @@ class AdventureManager(
                         }
                     }
                     checkQuestAdvancement(lastTurnResponseText)
+                    TurnCounter.removeExpired(preferences, character.state.value.currentRun)
                     eventBus.emit(GameEvent.TurnConsumed(location, result))
 
                     when {
@@ -245,8 +246,20 @@ class AdventureManager(
     fun stop() { currentJob?.cancel() }
 
     internal suspend fun checkQuestAdvancement(responseText: String) {
-        QuestLogSync.processResponse(responseText, questDatabase, questLogRequest)
+        QuestLogSync.processResponse(
+            responseText,
+            questDatabase,
+            questLogRequest,
+            buildQuestSyncContext(),
+        )
     }
+
+    private fun buildQuestSyncContext(): QuestLogSync.QuestSyncContext =
+        QuestLogSync.QuestSyncContext(
+            hasItemId = { id -> inventory?.state?.value?.items?.containsKey(id) == true },
+            preferences = preferences,
+            currentRun = character.state.value.currentRun,
+        )
 
     private suspend fun doOneTurn(location: AdventureLocation): AdventureResult? {
         val (html, url) = adventureRequest.adventure(location).getOrElse {

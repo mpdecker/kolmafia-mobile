@@ -1132,6 +1132,123 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_gift_callsSendGiftRequest() {
+        val gifts = mutableListOf<Pair<String, Int>>()
+        val gift = object : net.sourceforge.kolmafia.request.SendGiftRequest(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) })
+        ) {
+            override suspend fun send(
+                recipient: String,
+                message: String,
+                attachments: List<net.sourceforge.kolmafia.request.MailAttachment>,
+                fromStorage: Boolean,
+            ): Result<Unit> {
+                gifts.add(recipient to attachments.single().itemId)
+                return Result.success(Unit)
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 99, name = "seal tooth", descId = "x", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 1, plural = null
+            )
+        }
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+            HttpClient(MockEngine { respond("ok") }),
+            GameEventBus(),
+        ) {
+            override val state = kotlinx.coroutines.flow.MutableStateFlow(
+                net.sourceforge.kolmafia.inventory.InventoryState(
+                    items = mapOf(
+                        99 to net.sourceforge.kolmafia.inventory.InventoryItem(
+                            99, "seal tooth", 1, net.sourceforge.kolmafia.inventory.ItemType.OTHER,
+                        ),
+                    ),
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, inventoryManager = inv, sendGiftRequest = gift)
+        runLib(lib, """cli_execute("gift 1 seal tooth to Buffy");""")
+        assertEquals(listOf("Buffy" to 99), gifts)
+    }
+
+    @Test
+    fun cliExecute_send_fallsBackToGiftOnMailFailure() {
+        val giftCalls = mutableListOf<String>()
+        val mail = object : net.sourceforge.kolmafia.request.SendMailRequest(
+            HttpClient(MockEngine { respond("fail", HttpStatusCode.BadRequest) })
+        ) {
+            override suspend fun send(
+                recipient: String,
+                message: String,
+                attachments: List<net.sourceforge.kolmafia.request.MailAttachment>,
+                meat: Long,
+            ): Result<Unit> = Result.failure(Exception("kmail failed"))
+        }
+        val gift = object : net.sourceforge.kolmafia.request.SendGiftRequest(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) })
+        ) {
+            override suspend fun send(
+                recipient: String,
+                message: String,
+                attachments: List<net.sourceforge.kolmafia.request.MailAttachment>,
+                fromStorage: Boolean,
+            ): Result<Unit> {
+                giftCalls.add(recipient)
+                return Result.success(Unit)
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 99, name = "seal tooth", descId = "x", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 1, plural = null
+            )
+        }
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+            HttpClient(MockEngine { respond("ok") }),
+            GameEventBus(),
+        ) {
+            override val state = kotlinx.coroutines.flow.MutableStateFlow(
+                net.sourceforge.kolmafia.inventory.InventoryState(
+                    items = mapOf(
+                        99 to net.sourceforge.kolmafia.inventory.InventoryItem(
+                            99, "seal tooth", 1, net.sourceforge.kolmafia.inventory.ItemType.OTHER,
+                        ),
+                    ),
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            inventoryManager = inv,
+            sendMailRequest = mail,
+            sendGiftRequest = gift,
+        )
+        runLib(lib, """cli_execute("send 1 seal tooth to Buffy");""")
+        assertEquals(listOf("Buffy"), giftCalls)
+    }
+
+    @Test
+    fun cliExecute_counterRelay_listsRelayCounters() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        net.sourceforge.kolmafia.session.TurnCounter.startCounting(preferences, 10, 5, "Test Counter loc=*", "x.gif")
+        val lib = GameRuntimeLibrary(
+            character = net.sourceforge.kolmafia.character.KoLCharacter().also {
+                it.updateFromApiResponse(
+                    net.sourceforge.kolmafia.character.CharacterApiResponse(currentrun = "10", adventures = "40"),
+                )
+            },
+            preferences = preferences,
+        )
+        val out = outputLib(lib, """cli_execute("counter relay");""")
+        assertTrue(out.contains("Test Counter"))
+        assertTrue(out.contains("5 turns"))
+    }
+
+    @Test
     fun cliExecute_whatis_printsItemSummary() {
         val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
             override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(

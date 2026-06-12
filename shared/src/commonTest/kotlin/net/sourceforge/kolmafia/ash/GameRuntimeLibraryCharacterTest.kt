@@ -85,6 +85,25 @@ class GameRuntimeLibraryCharacterTest {
     }
 
     @Test
+    fun turnsleft_labeledRelayCounter() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        net.sourceforge.kolmafia.session.TurnCounter.startCounting(preferences, 100, 12, "Test Counter loc=*", "x.gif")
+        val lib = GameRuntimeLibrary(
+            character = net.sourceforge.kolmafia.character.KoLCharacter().also {
+                it.updateFromApiResponse(
+                    net.sourceforge.kolmafia.character.CharacterApiResponse(
+                        currentrun = "100",
+                        adventures = "40",
+                    ),
+                )
+            },
+            preferences = preferences,
+        )
+        assertEquals("12", outputLib(lib, """print(turnsleft("Test Counter"));"""))
+    }
+
+    @Test
     fun canAdventure_trueWhenAdventuresLeft() {
         val lib = libWith { copy(adventures = "5") }
         assertEquals("true", outputLib(lib, """print(to_string(can_adventure(to_location("The Haunted Pantry"))));"""))

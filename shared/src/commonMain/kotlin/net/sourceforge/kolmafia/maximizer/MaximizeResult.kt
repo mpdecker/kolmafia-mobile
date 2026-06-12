@@ -9,4 +9,6 @@ data class MaximizeResult(
     val scoreAfter: Double,
     val equipped: Map<EquipmentSlot, String> = emptyMap(),
     val familiarSwitched: String? = null,
+    val enthronedSwitched: String? = null,
+    val bjornifiedSwitched: String? = null,
 )

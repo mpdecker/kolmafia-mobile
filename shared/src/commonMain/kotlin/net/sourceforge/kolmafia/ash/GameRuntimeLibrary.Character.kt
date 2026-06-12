@@ -54,6 +54,15 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
         AshValue.of((character?.state?.value?.adventuresLeft ?: 0).toLong())
     }
 
+    regFn(scope, "turnsleft", AshType.INT, listOf("label" to AshType.STRING)) { _, args ->
+        val label = args[0].toString()
+        val prefs = preferences
+        if (prefs == null) return@regFn AshValue.of(-1L)
+        val currentRun = character?.state?.value?.currentRun ?: 0
+        val entry = net.sourceforge.kolmafia.session.TurnCounter.findByLabel(prefs, label)
+        AshValue.of(net.sourceforge.kolmafia.session.TurnCounter.turnsRemaining(entry, currentRun).toLong())
+    }
+
     regFn(scope, "my_absorbs", AshType.INT, emptyList()) { _, _ ->
         AshValue.of((character?.state?.value?.absorbs ?: 0).toLong())
     }

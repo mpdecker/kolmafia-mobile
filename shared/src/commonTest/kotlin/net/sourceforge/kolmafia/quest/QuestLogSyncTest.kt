@@ -132,6 +132,30 @@ class QuestLogSyncTest {
     }
 
     @Test
+    fun applyPlaceHooks_egoKeyTurnInAtGuild() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.EGO, QuestDatabase.STARTED)
+        val context = QuestLogSync.QuestSyncContext(
+            hasItemId = { it == QuestLogSync.FERNSWARTHY_KEY_ID },
+            place = "ocg",
+        )
+        QuestLogSync.applyPlaceHooks("ocg", db, context)
+        assertEquals("step1", db.getProgress(Quest.EGO))
+    }
+
+    @Test
+    fun applyPlaceHooks_fernTowerUnlockWithKeyAtStep2() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.EGO, "step2")
+        val context = QuestLogSync.QuestSyncContext(
+            hasItemId = { it == QuestLogSync.FERNSWARTHY_KEY_ID },
+            place = "fern",
+        )
+        QuestLogSync.applyPlaceHooks("fern", db, context)
+        assertEquals("step3", db.getProgress(Quest.EGO))
+    }
+
+    @Test
     fun apply_nemesisStep10_excludesMettleFailureSignal() {
         val db = QuestDatabase(Preferences(MapSettings()))
         db.setProgress(Quest.NEMESIS, "step9")

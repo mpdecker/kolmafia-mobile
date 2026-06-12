@@ -10,6 +10,10 @@ data class MaximizeSpec(
     val forbiddenBooleans: Set<BooleanModifier> = emptySet(),
     val equipRequired: List<String> = emptyList(),
     val switchFamiliars: List<String> = emptyList(),
+    val enthronedFamiliars: List<String> = emptyList(),
+    val bjornifiedFamiliars: List<String> = emptyList(),
+    val requireMelee: Boolean = false,
+    val requireHands: Boolean = false,
 )
 
 /** Parses desktop-style maximize goal strings into modifier tags and constraints. */
@@ -27,6 +31,10 @@ object MaximizeGoal {
         val forbidden = mutableSetOf<BooleanModifier>()
         val equip = mutableListOf<String>()
         val switches = mutableListOf<String>()
+        val enthrones = mutableListOf<String>()
+        val bjorns = mutableListOf<String>()
+        var requireMelee = false
+        var requireHands = false
         for (term in splitTerms(trimmed)) {
             val t = term.trim()
             if (t.isBlank()) continue
@@ -35,6 +43,12 @@ object MaximizeGoal {
                     equip.add(unquote(t.substring(6).trim()))
                 t.startsWith("switch ", ignoreCase = true) ->
                     switches.add(unquote(t.substring(7).trim()))
+                t.startsWith("enthrone ", ignoreCase = true) ->
+                    enthrones.add(unquote(t.substring(9).trim()))
+                t.startsWith("bjornify ", ignoreCase = true) ->
+                    bjorns.add(unquote(t.substring(9).trim()))
+                t.equals("+melee", ignoreCase = true) -> requireMelee = true
+                t.equals("+hands", ignoreCase = true) -> requireHands = true
                 t.startsWith('-') -> {
                     val tag = unquote(t.drop(1).trim())
                     BooleanModifier.byTag(tag)?.let { forbidden.add(it) }
@@ -56,6 +70,10 @@ object MaximizeGoal {
             forbiddenBooleans = forbidden,
             equipRequired = equip,
             switchFamiliars = switches,
+            enthronedFamiliars = enthrones,
+            bjornifiedFamiliars = bjorns,
+            requireMelee = requireMelee,
+            requireHands = requireHands,
         )
     }
 

@@ -63,6 +63,32 @@ object TurnCounter {
         save(preferences, entries)
     }
 
+    /** Remove counters whose absolute turn has been reached or passed. */
+    fun removeExpired(preferences: Preferences, currentRun: Int) {
+        val entries = load(preferences).filter { it.absoluteTurn > currentRun }
+        if (entries.size != load(preferences).size) {
+            save(preferences, entries)
+        }
+    }
+
+    fun turnsRemaining(entry: Entry?, currentRun: Int): Int =
+        if (entry == null) -1 else (entry.absoluteTurn - currentRun).coerceAtLeast(0)
+
+    fun findByLabel(preferences: Preferences, label: String): Entry? =
+        load(preferences).firstOrNull {
+            it.parsedLabel().equals(label, ignoreCase = true) ||
+                it.label.contains(label, ignoreCase = true)
+        }
+
+    fun formatRelayCounters(preferences: Preferences, currentRun: Int): String {
+        val entries = load(preferences)
+        if (entries.isEmpty()) return ""
+        return entries.joinToString("\n") { entry ->
+            val turns = turnsRemaining(entry, currentRun)
+            "${entry.parsedLabel()}: $turns turns (${entry.image})"
+        }
+    }
+
     fun resetNemesisAssassinWindow(preferences: Preferences, currentRun: Int) {
         stopCounting(preferences, "Nemesis Assassin window begin")
         stopCounting(preferences, "Nemesis Assassin window end")

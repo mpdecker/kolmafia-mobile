@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
@@ -17,10 +18,6 @@ import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 
-/**
- * Greedy per-slot maximizer. Scores inventory + collections, applies boolean/equip/switch
- * constraints, pulls before equipping, and restores an outfit checkpoint on failure.
- */
 open class MaximizerManager(
     private val gameDatabase: GameDatabase,
     private val inventoryManager: InventoryManager,
@@ -32,6 +29,11 @@ open class MaximizerManager(
     private val clanStashRequest: ClanStashRequest? = null,
     private val familiarManager: FamiliarManager? = null,
 ) {
+    companion object {
+        const val CROWN_OF_THRONES = "Crown of Thrones"
+        const val BUDDY_BJORN = "Buddy Bjorn"
+    }
+
     private val equipSlots = listOf(
         EquipmentSlot.HAT,
         EquipmentSlot.WEAPON,
@@ -49,6 +51,7 @@ open class MaximizerManager(
         val goal = goalText.trim()
         val spec = MaximizeGoal.parseSpec(goal)
             ?: return MaximizeResult(false, goal, 0.0, 0.0)
+        val effectiveSpec = spec.withCarryEquipment()
 
         val charState = character.state.value
         val invState = inventoryManager.state.value
@@ -56,14 +59,17 @@ open class MaximizerManager(
         val storageContents = storageRequest?.fetchContents().orEmpty()
         val displayContents = displayCaseRequest?.fetchContents().orEmpty()
         val stashContents = clanStashRequest?.fetchContents().orEmpty()
-        val scoreBefore = scoreEquipped(charState.equipment, spec.primary)
+        val scoreBefore = scoreEquipped(charState.equipment, effectiveSpec.primary) +
+            scoreFamiliarBonuses(charState, effectiveSpec.primary)
 
         var bestPerSlot = findBestPerSlot(
-            spec, charState.equipment, invState,
+            effectiveSpec, charState.equipment, invState,
             closetContents, storageContents, displayContents, stashContents,
         )
-        bestPerSlot = applyEquipRequired(spec, bestPerSlot, charState.equipment)
-        val scoreAfter = bestPerSlot.values.sumOf { it.second }
+        bestPerSlot = applyEquipRequired(effectiveSpec, bestPerSlot, charState.equipment)
+        val enthronedBonus = scoreFamiliarList(effectiveSpec.enthronedFamiliars, effectiveSpec.primary)
+        val bjornBonus = scoreFamiliarList(effectiveSpec.bjornifiedFamiliars, effectiveSpec.primary)
+        val scoreAfter = bestPerSlot.values.sumOf { it.second } + enthronedBonus + bjornBonus
         if (scoreAfter <= scoreBefore) {
             return MaximizeResult(false, goal, scoreBefore, scoreBefore)
         }
@@ -72,11 +78,23 @@ open class MaximizerManager(
         val equipped = mutableMapOf<EquipmentSlot, String>()
         var anyFailure = false
         var familiarSwitched: String? = null
+        var enthronedSwitched: String? = null
+        var bjornifiedSwitched: String? = null
 
-        val familiarRace = resolveFamiliarSwitch(spec)
+        val familiarRace = resolveFamiliarSwitch(effectiveSpec)
         if (familiarRace != null) {
             familiarManager?.setFamiliar(familiarRace)?.onSuccess {
                 familiarSwitched = familiarRace
+            }?.onFailure { anyFailure = true }
+        }
+        effectiveSpec.enthronedFamiliars.firstOrNull()?.let { race ->
+            familiarManager?.setEnthroned(race)?.onSuccess {
+                enthronedSwitched = race
+            }?.onFailure { anyFailure = true }
+        }
+        effectiveSpec.bjornifiedFamiliars.firstOrNull()?.let { race ->
+            familiarManager?.setBjornified(race)?.onSuccess {
+                bjornifiedSwitched = race
             }?.onFailure { anyFailure = true }
         }
 
@@ -107,6 +125,8 @@ open class MaximizerManager(
             scoreAfter = scoreAfter,
             equipped = equipped,
             familiarSwitched = familiarSwitched,
+            enthronedSwitched = enthronedSwitched,
+            bjornifiedSwitched = bjornifiedSwitched,
         )
     }
 
@@ -160,6 +180,12 @@ open class MaximizerManager(
                 val itemData = gameDatabase.item(itemId) ?: continue
                 if (!itemData.isEquipment || itemData.name in usedItems) continue
                 if (!fitsSlot(itemData, slot)) continue
+                if (spec.requireMelee && slot == EquipmentSlot.WEAPON &&
+                    itemData.primaryUse == ItemPrimaryUse.SIXGUN
+                ) continue
+                if (spec.requireHands && slot == EquipmentSlot.OFFHAND &&
+                    itemData.primaryUse != ItemPrimaryUse.OFFHAND
+                ) continue
                 if (!itemMeetsConstraints(itemData.name, spec)) continue
                 val score = scoreItem(itemData.name, spec.primary)
                 if (score > bestScore) {
@@ -257,4 +283,38 @@ open class MaximizerManager(
         equipment: Map<EquipmentSlot, String>,
         modifier: DoubleModifier,
     ): Double = equipSlots.sumOf { scoreItem(equipment[it], modifier) }
+
+    private fun scoreFamiliarBonuses(
+        charState: net.sourceforge.kolmafia.character.CharacterState,
+        modifier: DoubleModifier,
+    ): Double {
+        var total = 0.0
+        if (charState.enthronedFamiliarName.isNotBlank()) {
+            total += scoreFamiliarList(listOf(charState.enthronedFamiliarName), modifier)
+        }
+        if (charState.bjornedFamiliarName.isNotBlank()) {
+            total += scoreFamiliarList(listOf(charState.bjornedFamiliarName), modifier)
+        }
+        return total
+    }
+
+    private fun scoreFamiliarList(races: List<String>, modifier: DoubleModifier): Double =
+        races.sumOf { race ->
+            ModifierDatabase.getFamiliar(race)?.let { entry ->
+                ModifierParser.parse(entry.modifiers).get(modifier)
+            } ?: 0.0
+        }
+
+    private fun MaximizeSpec.withCarryEquipment(): MaximizeSpec {
+        val carry = buildList {
+            if (enthronedFamiliars.any { !it.equals("none", ignoreCase = true) }) {
+                add(CROWN_OF_THRONES)
+            }
+            if (bjornifiedFamiliars.any { !it.equals("none", ignoreCase = true) }) {
+                add(BUDDY_BJORN)
+            }
+        }
+        if (carry.isEmpty()) return this
+        return copy(equipRequired = (equipRequired + carry).distinct())
+    }
 }

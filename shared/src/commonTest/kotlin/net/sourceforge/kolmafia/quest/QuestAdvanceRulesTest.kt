@@ -155,6 +155,20 @@ class QuestAdvanceRulesTest {
     }
 
     @Test
+    fun apply_egoTowerProgressionSignals() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.EGO, "step2")
+        assertTrue(QuestAdvanceRules.apply("You've unlocked Fernswarthy's tower.", db))
+        assertEquals("step3", db.getProgress(Quest.EGO))
+        assertTrue(QuestAdvanceRules.apply("You found some stairs in Fernswarthy's tower.", db))
+        assertEquals("step4", db.getProgress(Quest.EGO))
+        assertTrue(QuestAdvanceRules.apply("You found a trapdoor to Fernswarthy's basement.", db))
+        assertEquals("step5", db.getProgress(Quest.EGO))
+        assertTrue(QuestAdvanceRules.apply("You found some kind of dusty old book.", db))
+        assertEquals("step6", db.getProgress(Quest.EGO))
+    }
+
+    @Test
     fun apply_pirateRealmStartedOnSignal() {
         val db = QuestDatabase(Preferences(MapSettings()))
         assertTrue(QuestAdvanceRules.apply("Welcome to the Pirate Realm!", db))
