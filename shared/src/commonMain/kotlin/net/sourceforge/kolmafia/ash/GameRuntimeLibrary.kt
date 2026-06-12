@@ -115,7 +115,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase31"
+        const val REVISION = "phase32"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -594,6 +594,16 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { sendMailRequest?.send(recipient, message) }
         },
 
+        // send item(s) to recipient [|| message]
+        Regex("^send\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSend(m.groupValues[1], isMeat = false, rt)
+        },
+
+        // csend meat to recipient [|| message]
+        Regex("^csend\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSend(m.groupValues[1], isMeat = true, rt)
+        },
+
         // note — print user note; note text — save user note
         Regex("^note$", RegexOption.IGNORE_CASE) to { _, rt ->
             rt.print(preferences?.getString(Preferences.USER_NOTE, "") ?: "")
@@ -1067,6 +1077,8 @@ class GameRuntimeLibrary(
         QuestLogSync.QuestSyncContext(
             hasItemId = { id -> inventoryManager?.state?.value?.items?.containsKey(id) == true },
             place = urlOrPath?.let { extractGuildPlace(it) },
+            preferences = preferences,
+            currentRun = character?.state?.value?.currentRun ?: 0,
         )
 
     internal fun extractGuildPlace(urlOrPath: String): String? =
@@ -1075,6 +1087,67 @@ class GameRuntimeLibrary(
             ?.groupValues
             ?.get(1)
             ?.lowercase()
+
+    internal fun cliSend(parameters: String, isMeat: Boolean, rt: AshRuntimeContext) {
+        val normalized = parameters.replace(Regex("(?i)(?:^| )to "), " => ")
+        val parts = normalized.split(" => ", limit = 2)
+        if (parts.size != 2) {
+            rt.print("Invalid send request.")
+            return
+        }
+        var recipientPart = parts[1].trim()
+        var message = net.sourceforge.kolmafia.request.SendMailRequest.DEFAULT_MESSAGE
+        val sep = recipientPart.indexOf("||")
+        if (sep >= 0) {
+            message = recipientPart.substring(sep + 2).trim()
+            recipientPart = recipientPart.substring(0, sep).trim()
+        }
+        val recipient = recipientPart
+        val itemPart = parts[0].trim().trimEnd(',')
+        if (itemPart.isBlank()) {
+            kotlinx.coroutines.runBlocking { sendMailRequest?.send(recipient, message) }
+            return
+        }
+        var meat = 0L
+        val attachments = mutableListOf<net.sourceforge.kolmafia.request.MailAttachment>()
+        val itemSpecs = if (itemPart.contains(',')) {
+            itemPart.split(',').map { it.trim() }.filter { it.isNotBlank() }
+        } else {
+            listOf(itemPart)
+        }
+        for (spec in itemSpecs) {
+            val match = Regex("^(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE).find(spec) ?: continue
+            val qty = match.groupValues[1].toLongOrNull() ?: continue
+            val name = match.groupValues[2].trim()
+            if (name.equals("meat", ignoreCase = true)) {
+                if (!isMeat) {
+                    rt.print("Please use 'csend' if you need to transfer meat.")
+                    return
+                }
+                meat += qty
+                continue
+            }
+            if (isMeat) continue
+            val itemId = gameDatabase?.item(name)?.id
+            if (itemId == null) {
+                rt.print("Unknown item: $name")
+                return
+            }
+            val available = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+            if (available < qty) {
+                rt.print("[$qty $name] requested, but only $available available.")
+                return
+            }
+            attachments.add(net.sourceforge.kolmafia.request.MailAttachment(itemId, qty.toInt()))
+        }
+        if (attachments.size > net.sourceforge.kolmafia.request.SendMailRequest.MAX_ATTACHMENTS) {
+            rt.print("Too many attachments.")
+            return
+        }
+        kotlinx.coroutines.runBlocking {
+            sendMailRequest?.send(recipient, message, attachments, meat)
+        }
+    }
 
     internal fun cliEquip(rest: String) {
         val spaceIdx = rest.indexOf(' ')

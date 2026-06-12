@@ -109,6 +109,17 @@ class QuestLogSyncTest {
     }
 
     @Test
+    fun applyPlaceHooks_nemesisStep17_startsAssassinCounters() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.NEMESIS, "step16.5")
+        val context = QuestLogSync.QuestSyncContext(preferences = prefs, currentRun = 42)
+        QuestLogSync.applyPlaceHooks("scg", db, context)
+        assertEquals("step17", db.getProgress(Quest.NEMESIS))
+        assertTrue(prefs.getString("relayCounters", "").contains("Nemesis Assassin window begin"))
+    }
+
+    @Test
     fun applyPlaceHooks_factoryFinishedWhenEnvelopeInInventory() {
         val db = QuestDatabase(Preferences(MapSettings()))
         db.setProgress(Quest.FACTORY, QuestDatabase.STARTED)

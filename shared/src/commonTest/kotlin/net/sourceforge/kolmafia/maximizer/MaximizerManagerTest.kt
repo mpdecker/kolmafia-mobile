@@ -16,6 +16,9 @@ import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
+import net.sourceforge.kolmafia.familiar.FamiliarData
+import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.familiar.FamiliarState
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
@@ -194,5 +197,46 @@ class MaximizerManagerTest {
         val mgr = MaximizerManager(StubDb(), inv, equip, character, clanStashRequest = stash)
         assertTrue(mgr.maximize("mysticality").success)
         assertEquals(1, equippedId)
+    }
+
+    @Test fun maximize_switchFamiliar_beforeEquip() = runBlocking {
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    1 to InventoryItem(1, "myst hat", 1, ItemType.HAT),
+                ))
+            )
+        }
+        var switched: String? = null
+        val familiar = object : FamiliarManager(
+            HttpClient(MockEngine { respond("ok") }),
+            GameEventBus(),
+        ) {
+            override suspend fun setFamiliar(name: String): Result<Unit> {
+                switched = name
+                return Result.success(Unit)
+            }
+        }.also {
+            it.testSetState(
+                FamiliarState(
+                    ownedFamiliars = listOf(
+                        FamiliarData(1, "Donkey", "Miniature Donkey", 5, 0, 0),
+                    ),
+                ),
+            )
+        }
+        val equip = EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        )
+        val mgr = MaximizerManager(StubDb(), inv, equip, character, familiarManager = familiar)
+        val result = mgr.maximize("mysticality, switch Miniature Donkey")
+        assertTrue(result.success)
+        assertEquals("Miniature Donkey", result.familiarSwitched)
+        assertEquals("Miniature Donkey", switched)
     }
 }

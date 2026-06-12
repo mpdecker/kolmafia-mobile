@@ -30,8 +30,11 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestChoiceRules
+import net.sourceforge.kolmafia.quest.QuestFightRules
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.GoalManager
@@ -275,6 +278,18 @@ class AdventureManager(
         if (result.monster.isNotEmpty()) {
             preferences.setString(Preferences.LAST_MONSTER, result.monster)
         }
+        if (TurnCounter.NEMESIS_ASSASSIN_MONSTERS.any {
+                result.monster.equals(it, ignoreCase = true)
+            }
+        ) {
+            TurnCounter.resetNemesisAssassinWindow(
+                preferences,
+                character.state.value.currentRun,
+            )
+        }
+        questDatabase?.let {
+            QuestFightRules.applyCombat(it, result.monster, result.won, result.itemsGained)
+        }
         emitItemEvents(result.itemsGained)
         if (result.banished) {
             eventBus.emit(GameEvent.MonsterBanished(result.monster, result.banisher.canonicalName))
@@ -330,6 +345,7 @@ class AdventureManager(
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(e)))
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
+            questDatabase?.let { QuestChoiceRules.apply(currentChoiceId, html, it) }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
             if (goalManager.hasChoiceGoal(currentChoiceId)) {
                 goalManager.clearChoiceGoal()

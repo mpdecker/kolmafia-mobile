@@ -162,6 +162,7 @@ val sharedModule = module {
             storageRequest = get(),
             displayCaseRequest = get(),
             clanStashRequest = get(),
+            familiarManager = get(),
         )
     }
     singleOf(::SessionLogger)

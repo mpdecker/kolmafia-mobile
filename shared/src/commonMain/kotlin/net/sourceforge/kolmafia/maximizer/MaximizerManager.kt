@@ -6,6 +6,7 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
@@ -17,8 +18,8 @@ import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 
 /**
- * Greedy per-slot maximizer. Scores inventory + closet + storage + display + stash,
- * pulls from collections before equipping, and restores an outfit checkpoint on failure.
+ * Greedy per-slot maximizer. Scores inventory + collections, applies boolean/equip/switch
+ * constraints, pulls before equipping, and restores an outfit checkpoint on failure.
  */
 open class MaximizerManager(
     private val gameDatabase: GameDatabase,
@@ -29,6 +30,7 @@ open class MaximizerManager(
     private val storageRequest: StorageRequest? = null,
     private val displayCaseRequest: DisplayCaseRequest? = null,
     private val clanStashRequest: ClanStashRequest? = null,
+    private val familiarManager: FamiliarManager? = null,
 ) {
     private val equipSlots = listOf(
         EquipmentSlot.HAT,
@@ -45,7 +47,7 @@ open class MaximizerManager(
 
     open suspend fun maximize(goalText: String): MaximizeResult {
         val goal = goalText.trim()
-        val modifier = MaximizeGoal.parse(goal)
+        val spec = MaximizeGoal.parseSpec(goal)
             ?: return MaximizeResult(false, goal, 0.0, 0.0)
 
         val charState = character.state.value
@@ -54,12 +56,13 @@ open class MaximizerManager(
         val storageContents = storageRequest?.fetchContents().orEmpty()
         val displayContents = displayCaseRequest?.fetchContents().orEmpty()
         val stashContents = clanStashRequest?.fetchContents().orEmpty()
-        val scoreBefore = scoreEquipped(charState.equipment, modifier)
+        val scoreBefore = scoreEquipped(charState.equipment, spec.primary)
 
-        val bestPerSlot = findBestPerSlot(
-            modifier, charState.equipment, invState,
+        var bestPerSlot = findBestPerSlot(
+            spec, charState.equipment, invState,
             closetContents, storageContents, displayContents, stashContents,
         )
+        bestPerSlot = applyEquipRequired(spec, bestPerSlot, charState.equipment)
         val scoreAfter = bestPerSlot.values.sumOf { it.second }
         if (scoreAfter <= scoreBefore) {
             return MaximizeResult(false, goal, scoreBefore, scoreBefore)
@@ -68,6 +71,14 @@ open class MaximizerManager(
         val checkpoint = OutfitCheckpoint.snapshot(character, equipmentRequest, gameDatabase)
         val equipped = mutableMapOf<EquipmentSlot, String>()
         var anyFailure = false
+        var familiarSwitched: String? = null
+
+        val familiarRace = resolveFamiliarSwitch(spec)
+        if (familiarRace != null) {
+            familiarManager?.setFamiliar(familiarRace)?.onSuccess {
+                familiarSwitched = familiarRace
+            }?.onFailure { anyFailure = true }
+        }
 
         for ((slot, pair) in bestPerSlot) {
             val (name, _) = pair
@@ -95,11 +106,37 @@ open class MaximizerManager(
             scoreBefore = scoreBefore,
             scoreAfter = scoreAfter,
             equipped = equipped,
+            familiarSwitched = familiarSwitched,
         )
     }
 
+    private fun applyEquipRequired(
+        spec: MaximizeSpec,
+        bestPerSlot: Map<EquipmentSlot, Pair<String, Double>>,
+        equipment: Map<EquipmentSlot, String>,
+    ): Map<EquipmentSlot, Pair<String, Double>> {
+        if (spec.equipRequired.isEmpty()) return bestPerSlot
+        val updated = bestPerSlot.toMutableMap()
+        for (name in spec.equipRequired) {
+            val item = gameDatabase.item(name) ?: continue
+            if (!itemMeetsConstraints(name, spec)) continue
+            val slot = slotForItem(item) ?: continue
+            updated[slot] = name to scoreItem(name, spec.primary)
+        }
+        return updated
+    }
+
+    private fun resolveFamiliarSwitch(spec: MaximizeSpec): String? {
+        if (spec.switchFamiliars.isEmpty()) return null
+        val owned = familiarManager?.state?.value?.ownedFamiliars.orEmpty()
+        for (race in spec.switchFamiliars) {
+            if (owned.any { it.race.equals(race, ignoreCase = true) }) return race
+        }
+        return null
+    }
+
     private fun findBestPerSlot(
-        modifier: DoubleModifier,
+        spec: MaximizeSpec,
         equipment: Map<EquipmentSlot, String>,
         invState: InventoryState,
         closetContents: Map<Int, Int>,
@@ -118,12 +155,13 @@ open class MaximizerManager(
         val usedItems = mutableSetOf<String>()
         for (slot in equipSlots) {
             var bestName = ""
-            var bestScore = scoreItem(equipment[slot], modifier)
+            var bestScore = scoreItem(equipment[slot], spec.primary)
             for (itemId in candidateIds) {
                 val itemData = gameDatabase.item(itemId) ?: continue
                 if (!itemData.isEquipment || itemData.name in usedItems) continue
                 if (!fitsSlot(itemData, slot)) continue
-                val score = scoreItem(itemData.name, modifier)
+                if (!itemMeetsConstraints(itemData.name, spec)) continue
+                val score = scoreItem(itemData.name, spec.primary)
                 if (score > bestScore) {
                     bestScore = score
                     bestName = itemData.name
@@ -135,6 +173,18 @@ open class MaximizerManager(
             }
         }
         return bestPerSlot
+    }
+
+    private fun itemMeetsConstraints(itemName: String, spec: MaximizeSpec): Boolean {
+        val entry = gameDatabase.itemModifier(itemName) ?: return spec.requiredBooleans.isEmpty()
+        val mods = ModifierParser.parse(entry.modifiers)
+        for (req in spec.requiredBooleans) {
+            if (!mods.get(req)) return false
+        }
+        for (forbid in spec.forbiddenBooleans) {
+            if (mods.get(forbid)) return false
+        }
+        return true
     }
 
     private suspend fun ensureInInventory(itemId: Int): Boolean {
@@ -177,6 +227,18 @@ open class MaximizerManager(
         if (itemName.isNullOrBlank()) return 0.0
         val entry = gameDatabase.itemModifier(itemName) ?: return 0.0
         return ModifierParser.parse(entry.modifiers).get(modifier)
+    }
+
+    private fun slotForItem(item: ItemData): EquipmentSlot? = when (item.primaryUse) {
+        ItemPrimaryUse.HAT -> EquipmentSlot.HAT
+        ItemPrimaryUse.WEAPON, ItemPrimaryUse.SIXGUN -> EquipmentSlot.WEAPON
+        ItemPrimaryUse.OFFHAND -> EquipmentSlot.OFFHAND
+        ItemPrimaryUse.SHIRT -> EquipmentSlot.SHIRT
+        ItemPrimaryUse.PANTS -> EquipmentSlot.PANTS
+        ItemPrimaryUse.ACCESSORY -> EquipmentSlot.ACC1
+        ItemPrimaryUse.FAMILIAR -> EquipmentSlot.FAMILIAR
+        ItemPrimaryUse.CONTAINER -> EquipmentSlot.CONTAINER
+        else -> null
     }
 
     private fun fitsSlot(item: ItemData, slot: EquipmentSlot): Boolean = when (slot) {

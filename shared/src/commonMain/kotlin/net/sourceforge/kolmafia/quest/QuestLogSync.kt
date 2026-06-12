@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.QuestLogRequest
+import net.sourceforge.kolmafia.session.TurnCounter
 
 /** Shared quest-log sync triggers from KoL page/adventure response text. */
 object QuestLogSync {
@@ -8,6 +10,8 @@ object QuestLogSync {
     data class QuestSyncContext(
         val hasItemId: (Int) -> Boolean = { false },
         val place: String? = null,
+        val preferences: Preferences? = null,
+        val currentRun: Int = 0,
     )
 
     val SYNC_SIGNALS = listOf(
@@ -67,7 +71,7 @@ object QuestLogSync {
     ) {
         when (place?.lowercase()) {
             "paco" -> applyFactoryFinish(questDatabase, context)
-            "scg" -> applyNemesisVisitSteps(questDatabase)
+            "scg" -> applyNemesisVisitSteps(questDatabase, context)
         }
     }
 
@@ -79,11 +83,16 @@ object QuestLogSync {
         }
     }
 
-    private fun applyNemesisVisitSteps(questDatabase: QuestDatabase) {
+    private fun applyNemesisVisitSteps(questDatabase: QuestDatabase, context: QuestSyncContext) {
         when (questDatabase.getProgress(Quest.NEMESIS)) {
             "step8" -> questDatabase.setProgress(Quest.NEMESIS, "step9")
             "step16" -> questDatabase.setProgress(Quest.NEMESIS, "step16.5")
-            "step16.5" -> questDatabase.setProgress(Quest.NEMESIS, "step17")
+            "step16.5" -> {
+                questDatabase.setProgress(Quest.NEMESIS, "step17")
+                context.preferences?.let {
+                    TurnCounter.startNemesisAssassinUnlock(it, context.currentRun)
+                }
+            }
         }
     }
 

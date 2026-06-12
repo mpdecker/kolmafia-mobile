@@ -1060,6 +1060,78 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_send_withAttachment_callsSendMailRequest() {
+        var sent: Triple<String, List<net.sourceforge.kolmafia.request.MailAttachment>, Long>? = null
+        val mail = object : net.sourceforge.kolmafia.request.SendMailRequest(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) })
+        ) {
+            override suspend fun send(
+                recipient: String,
+                message: String,
+                attachments: List<net.sourceforge.kolmafia.request.MailAttachment>,
+                meat: Long,
+            ): Result<Unit> {
+                sent = Triple(recipient, attachments, meat)
+                return Result.success(Unit)
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 5, name = "seal tooth", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+            )
+        }
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+            HttpClient(MockEngine { respond("") }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ) {
+            override val state = kotlinx.coroutines.flow.MutableStateFlow(
+                net.sourceforge.kolmafia.inventory.InventoryState(
+                    items = mapOf(
+                        5 to net.sourceforge.kolmafia.inventory.InventoryItem(
+                            5, "seal tooth", 3, net.sourceforge.kolmafia.inventory.ItemType.OTHER,
+                        ),
+                    ),
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, inventoryManager = inv, sendMailRequest = mail)
+        runLib(lib, """cli_execute("send 1 seal tooth to Buffy");""")
+        assertEquals("Buffy", sent?.first)
+        assertEquals(1, sent?.second?.size)
+        assertEquals(5, sent?.second?.first()?.itemId)
+    }
+
+    @Test
+    fun cliExecute_send_meatRequiresCsend() {
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(lib, """cli_execute("send 100 meat to Buffy");""")
+        assertEquals("Please use 'csend' if you need to transfer meat.", out)
+    }
+
+    @Test
+    fun cliExecute_csend_meat_callsSendMailRequest() {
+        val meatSent = mutableListOf<Long>()
+        val mail = object : net.sourceforge.kolmafia.request.SendMailRequest(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) })
+        ) {
+            override suspend fun send(
+                recipient: String,
+                message: String,
+                attachments: List<net.sourceforge.kolmafia.request.MailAttachment>,
+                meat: Long,
+            ): Result<Unit> {
+                meatSent.add(meat)
+                return Result.success(Unit)
+            }
+        }
+        val lib = GameRuntimeLibrary(sendMailRequest = mail)
+        runLib(lib, """cli_execute("csend 500 meat to Buffy");""")
+        assertEquals(listOf(500L), meatSent)
+    }
+
+    @Test
     fun cliExecute_whatis_printsItemSummary() {
         val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
             override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
