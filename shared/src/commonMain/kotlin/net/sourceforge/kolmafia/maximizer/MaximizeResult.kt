@@ -11,4 +11,5 @@ data class MaximizeResult(
     val familiarSwitched: String? = null,
     val enthronedSwitched: String? = null,
     val bjornifiedSwitched: String? = null,
+    val thrallSwitched: String? = null,
 )

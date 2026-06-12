@@ -10,6 +10,7 @@ data class MaximizeSpec(
     val forbiddenBooleans: Set<BooleanModifier> = emptySet(),
     val equipRequired: List<String> = emptyList(),
     val switchFamiliars: List<String> = emptyList(),
+    val switchThralls: List<String> = emptyList(),
     val enthronedFamiliars: List<String> = emptyList(),
     val bjornifiedFamiliars: List<String> = emptyList(),
     val requireMelee: Boolean = false,
@@ -31,6 +32,7 @@ object MaximizeGoal {
         val forbidden = mutableSetOf<BooleanModifier>()
         val equip = mutableListOf<String>()
         val switches = mutableListOf<String>()
+        val switchThralls = mutableListOf<String>()
         val enthrones = mutableListOf<String>()
         val bjorns = mutableListOf<String>()
         var requireMelee = false
@@ -41,6 +43,8 @@ object MaximizeGoal {
             when {
                 t.startsWith("equip ", ignoreCase = true) ->
                     equip.add(unquote(t.substring(6).trim()))
+                t.startsWith("switch thrall ", ignoreCase = true) ->
+                    switchThralls.add(unquote(t.substring(14).trim()))
                 t.startsWith("switch ", ignoreCase = true) ->
                     switches.add(unquote(t.substring(7).trim()))
                 t.startsWith("enthrone ", ignoreCase = true) ->
@@ -70,6 +74,7 @@ object MaximizeGoal {
             forbiddenBooleans = forbidden,
             equipRequired = equip,
             switchFamiliars = switches,
+            switchThralls = switchThralls,
             enthronedFamiliars = enthrones,
             bjornifiedFamiliars = bjorns,
             requireMelee = requireMelee,

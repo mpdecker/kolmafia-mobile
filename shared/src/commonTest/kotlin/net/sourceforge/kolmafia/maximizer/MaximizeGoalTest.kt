@@ -41,4 +41,11 @@ class MaximizeGoalTest {
         assertEquals(listOf("Mosquito"), spec.enthronedFamiliars)
         assertEquals(listOf("none"), spec.bjornifiedFamiliars)
     }
+
+    @Test fun parseSpec_switchThrall() {
+        val spec = MaximizeGoal.parseSpec("item, switch thrall Spice Ghost")
+        assertNotNull(spec)
+        assertEquals(DoubleModifier.ITEMDROP, spec.primary)
+        assertEquals(listOf("Spice Ghost"), spec.switchThralls)
+    }
 }

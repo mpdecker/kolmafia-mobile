@@ -32,6 +32,7 @@ import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.QuestChoiceRules
 import net.sourceforge.kolmafia.quest.QuestFightRules
+import net.sourceforge.kolmafia.quest.QuestItemRules
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.session.TurnCounter
@@ -246,6 +247,12 @@ class AdventureManager(
     fun stop() { currentJob?.cancel() }
 
     internal suspend fun checkQuestAdvancement(responseText: String) {
+        questDatabase?.let { db ->
+            val itemCount: (Int) -> Int = { id ->
+                inventory?.state?.value?.items?.get(id)?.quantity ?: 0
+            }
+            QuestItemRules.applyInventory(itemCount, db)
+        }
         QuestLogSync.processResponse(
             responseText,
             questDatabase,
@@ -270,6 +277,7 @@ class AdventureManager(
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
             is AdventureResult.Combat -> resolveCombat(location)
             is AdventureResult.Choice -> {
+                preferences.setInt(LAST_CHOICE_ID, parsed.choiceId)
                 val choiceResult = resolveChoice(parsed.choiceId, parsed.responseText)
                 if (_fightFollowsChoice && _inMultiFight) resolveCombat(location) ?: choiceResult
                 else choiceResult
@@ -302,6 +310,7 @@ class AdventureManager(
         }
         questDatabase?.let {
             QuestFightRules.applyCombat(it, result.monster, result.won, result.itemsGained)
+            QuestItemRules.applyItemsGained(result.itemsGained, it)
         }
         emitItemEvents(result.itemsGained)
         if (result.banished) {
@@ -386,6 +395,10 @@ class AdventureManager(
             ))
         }
         return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = lastChosenOption)
+    }
+
+    companion object {
+        const val LAST_CHOICE_ID = "_lastChoiceId"
     }
 
     private suspend fun emitItemEvents(items: List<String>) {

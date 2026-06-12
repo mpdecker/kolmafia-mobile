@@ -18,6 +18,8 @@ import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillType
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.Quest
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -1246,6 +1248,53 @@ class GameRuntimeLibraryCliTest {
         val out = outputLib(lib, """cli_execute("counter relay");""")
         assertTrue(out.contains("Test Counter"))
         assertTrue(out.contains("5 turns"))
+    }
+
+    @Test
+    fun cliExecute_thralls_printsPastaThrallLevels() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setString("pastaThrall7", "10,Spice Ghost")
+        val lib = GameRuntimeLibrary(preferences = preferences)
+        val out = outputLib(lib, """cli_execute("thralls");""")
+        assertTrue(out.contains("Spice Ghost"))
+        assertTrue(out.contains("level 10"))
+    }
+
+    @Test
+    fun cliExecute_counters_listsNamedCounters() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setInt("counter_fights", 3)
+        preferences.registerCounterName("fights")
+        val lib = GameRuntimeLibrary(preferences = preferences)
+        val out = outputLib(lib, """cli_execute("counters");""")
+        assertTrue(out.contains("fights: 3"))
+    }
+
+    @Test
+    fun cliExecute_clear_resetsCapturedOutput() {
+        val lib = GameRuntimeLibrary()
+        runLib(lib, """cli_execute("echo hello");""")
+        assertTrue(lib.lastCliOutput.toString().contains("hello"))
+        runLib(lib, """cli_execute("clear");""")
+        assertEquals("", lib.lastCliOutput.toString())
+    }
+
+    @Test
+    fun cliExecute_choice_appliesQuestChoiceRules() {
+        val prefs = Preferences(com.russhwolf.settings.MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.NEMESIS, "step12")
+        val choiceReq = net.sourceforge.kolmafia.adventure.ChoiceRequest(
+            HttpClient(io.ktor.client.engine.mock.MockEngine { respond("You enter the cave.") }),
+        )
+        val lib = GameRuntimeLibrary(
+            questDatabase = db,
+            choiceRequest = choiceReq,
+        )
+        runLib(lib, """cli_execute("choice 1088 1");""")
+        assertEquals("step13", db.getProgress(Quest.NEMESIS))
     }
 
     @Test

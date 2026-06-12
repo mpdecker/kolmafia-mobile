@@ -3,6 +3,12 @@ package net.sourceforge.kolmafia.maximizer
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.character.EquipmentSlot
@@ -284,5 +290,56 @@ class MaximizerManagerTest {
         assertTrue(result.success)
         assertEquals(4614, equippedId)
         assertEquals("Mosquito", result.enthronedSwitched)
+    }
+
+    @Test fun maximize_switchThrall_bindsSkill() = runBlocking {
+        net.sourceforge.kolmafia.data.ModifierDatabase.load()
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setString("_currentThrall", "Vampieroghi")
+        preferences.setString("pastaThrall7", "10,Spice Ghost")
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        var castSkillId: Int? = null
+        val skillJson = """{"3039":{"name":"Bind Spice Ghost","type":1,"dailylimit":0,"timescast":0,"mpcost":250}}"""
+        val skillEngine = MockEngine { request ->
+            when {
+                request.url.parameters["what"] == "skills" ->
+                    respond(skillJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                else -> respond("ok", HttpStatusCode.OK)
+            }
+        }
+        val skillClient = HttpClient(skillEngine) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val skills = object : net.sourceforge.kolmafia.skill.SkillManager(
+            skillClient,
+            net.sourceforge.kolmafia.skill.SkillCastRequest(skillClient),
+            GameEventBus(),
+        ) {
+            override suspend fun cast(skill: net.sourceforge.kolmafia.skill.SkillData, quantity: Int): Result<Unit> {
+                castSkillId = skill.id
+                return Result.success(Unit)
+            }
+        }
+        skills.fetchSkills()
+        val equip = EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        )
+        val mgr = MaximizerManager(
+            StubDb(), inv, equip, character,
+            preferences = preferences,
+            skillManager = skills,
+        )
+        val result = mgr.maximize("item, switch thrall Spice Ghost")
+        assertTrue(result.success)
+        assertEquals("Spice Ghost", result.thrallSwitched)
+        assertEquals(3039, castSkillId)
     }
 }

@@ -156,6 +156,32 @@ class QuestLogSyncTest {
     }
 
     @Test
+    fun applyPlaceHooks_fernruinUnlocksTowerAtStep2() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.EGO, "step2")
+        val context = QuestLogSync.QuestSyncContext(
+            hasItemId = { it == QuestLogSync.FERNSWARTHY_KEY_ID },
+        )
+        QuestLogSync.applyPlaceHooks("fernruin", db, context)
+        assertEquals("step3", db.getProgress(Quest.EGO))
+    }
+
+    @Test
+    fun processResponse_setsFrCemeteryUnlockedOnSnarfblat507() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        kotlinx.coroutines.runBlocking {
+            QuestLogSync.processResponse(
+                "Visit place.php?snarfblat=507 for the cemetery.",
+                db,
+                null,
+                QuestLogSync.QuestSyncContext(preferences = prefs),
+            )
+        }
+        assertTrue(prefs.getBoolean(QuestLogSync.FR_CEMETERY_UNLOCKED_PREF, false))
+    }
+
+    @Test
     fun apply_nemesisStep10_excludesMettleFailureSignal() {
         val db = QuestDatabase(Preferences(MapSettings()))
         db.setProgress(Quest.NEMESIS, "step9")

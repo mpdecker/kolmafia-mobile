@@ -11,7 +11,11 @@ import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.modifiers.ExpressionContext
 import net.sourceforge.kolmafia.modifiers.ModifierParser
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.PastaThrall
+import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
@@ -28,6 +32,8 @@ open class MaximizerManager(
     private val displayCaseRequest: DisplayCaseRequest? = null,
     private val clanStashRequest: ClanStashRequest? = null,
     private val familiarManager: FamiliarManager? = null,
+    private val preferences: Preferences? = null,
+    private val skillManager: SkillManager? = null,
 ) {
     companion object {
         const val CROWN_OF_THRONES = "Crown of Thrones"
@@ -60,7 +66,8 @@ open class MaximizerManager(
         val displayContents = displayCaseRequest?.fetchContents().orEmpty()
         val stashContents = clanStashRequest?.fetchContents().orEmpty()
         val scoreBefore = scoreEquipped(charState.equipment, effectiveSpec.primary) +
-            scoreFamiliarBonuses(charState, effectiveSpec.primary)
+            scoreFamiliarBonuses(charState, effectiveSpec.primary) +
+            scoreCurrentThrall(effectiveSpec.primary)
 
         var bestPerSlot = findBestPerSlot(
             effectiveSpec, charState.equipment, invState,
@@ -69,7 +76,8 @@ open class MaximizerManager(
         bestPerSlot = applyEquipRequired(effectiveSpec, bestPerSlot, charState.equipment)
         val enthronedBonus = scoreFamiliarList(effectiveSpec.enthronedFamiliars, effectiveSpec.primary)
         val bjornBonus = scoreFamiliarList(effectiveSpec.bjornifiedFamiliars, effectiveSpec.primary)
-        val scoreAfter = bestPerSlot.values.sumOf { it.second } + enthronedBonus + bjornBonus
+        val (targetThrall, thrallBonus) = resolveTargetThrall(effectiveSpec)
+        val scoreAfter = bestPerSlot.values.sumOf { it.second } + enthronedBonus + bjornBonus + thrallBonus
         if (scoreAfter <= scoreBefore) {
             return MaximizeResult(false, goal, scoreBefore, scoreBefore)
         }
@@ -80,6 +88,7 @@ open class MaximizerManager(
         var familiarSwitched: String? = null
         var enthronedSwitched: String? = null
         var bjornifiedSwitched: String? = null
+        var thrallSwitched: String? = null
 
         val familiarRace = resolveFamiliarSwitch(effectiveSpec)
         if (familiarRace != null) {
@@ -95,6 +104,13 @@ open class MaximizerManager(
         effectiveSpec.bjornifiedFamiliars.firstOrNull()?.let { race ->
             familiarManager?.setBjornified(race)?.onSuccess {
                 bjornifiedSwitched = race
+            }?.onFailure { anyFailure = true }
+        }
+        if (targetThrall != null &&
+            !targetThrall.equals(preferences?.getString("_currentThrall", ""), ignoreCase = true)
+        ) {
+            bindThrall(targetThrall)?.onSuccess {
+                thrallSwitched = targetThrall
             }?.onFailure { anyFailure = true }
         }
 
@@ -113,7 +129,12 @@ open class MaximizerManager(
         }
         inventoryManager.syncCharacterEquipment()
 
-        if (anyFailure || equipped.isEmpty()) {
+        val madeChange = equipped.isNotEmpty() ||
+            familiarSwitched != null ||
+            enthronedSwitched != null ||
+            bjornifiedSwitched != null ||
+            thrallSwitched != null
+        if (anyFailure || !madeChange) {
             checkpoint.restore()
             return MaximizeResult(false, goal, scoreBefore, scoreBefore)
         }
@@ -127,7 +148,56 @@ open class MaximizerManager(
             familiarSwitched = familiarSwitched,
             enthronedSwitched = enthronedSwitched,
             bjornifiedSwitched = bjornifiedSwitched,
+            thrallSwitched = thrallSwitched,
         )
+    }
+
+    private fun resolveTargetThrall(spec: MaximizeSpec): Pair<String?, Double> {
+        val prefs = preferences ?: return null to 0.0
+        if (spec.switchThralls.isNotEmpty()) {
+            val name = spec.switchThralls.first()
+            val level = PastaThrall.thrallLevel(prefs, name)
+            return name to scoreThrall(name, level, spec.primary)
+        }
+        return bestThrallScore(spec.primary, prefs)
+    }
+
+    private fun bestThrallScore(modifier: DoubleModifier, prefs: Preferences): Pair<String?, Double> {
+        val currentName = prefs.getString("_currentThrall", "")
+        var bestName: String? = currentName.takeIf { it.isNotBlank() }
+        var bestScore = if (currentName.isBlank()) 0.0 else scoreThrall(
+            currentName,
+            PastaThrall.thrallLevel(prefs, currentName),
+            modifier,
+        )
+        for (index in 1..8) {
+            val parsed = PastaThrall.parsePref(prefs.getString(PastaThrall.prefKey(index), "")) ?: continue
+            val score = scoreThrall(parsed.second, parsed.first, modifier)
+            if (score > bestScore) {
+                bestScore = score
+                bestName = parsed.second
+            }
+        }
+        return bestName to bestScore
+    }
+
+    private fun scoreCurrentThrall(modifier: DoubleModifier): Double {
+        val prefs = preferences ?: return 0.0
+        val name = prefs.getString("_currentThrall", "")
+        if (name.isBlank()) return 0.0
+        return scoreThrall(name, PastaThrall.thrallLevel(prefs, name), modifier)
+    }
+
+    private fun scoreThrall(name: String, level: Int, modifier: DoubleModifier): Double {
+        val entry = ModifierDatabase.getThrall(name) ?: return 0.0
+        val ctx = ExpressionContext(thrallLevel = level)
+        return ModifierParser.parse(entry.modifiers, ctx).get(modifier)
+    }
+
+    private suspend fun bindThrall(thrallName: String): Result<Unit>? {
+        val skillId = PastaThrall.bindSkillId(thrallName) ?: return null
+        val skill = skillManager?.state?.value?.skills?.find { it.id == skillId } ?: return null
+        return skillManager.cast(skill)
     }
 
     private fun applyEquipRequired(
