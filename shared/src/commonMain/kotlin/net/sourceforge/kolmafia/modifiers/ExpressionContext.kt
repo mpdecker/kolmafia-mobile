@@ -46,9 +46,12 @@ data class ExpressionContext(
     val familiarName: String = "",
     /** Lowercase main-hand weapon item name for mainhand(). */
     val mainhandItemName: String = "",
+    /** Pasta thrall level for [P] in modifier expressions. */
+    val thrallLevel: Int = 0,
 ) {
     fun variable(c: Char): Double = when (c) {
         'A' -> ascensions.toDouble()
+        'P' -> thrallLevel.toDouble()
         'D' -> inebriety.toDouble()
         'E' -> effectsCount.toDouble()
         'F' -> fullness.toDouble()

@@ -22,6 +22,16 @@ class Preferences(private val settings: Settings) {
     fun setInt(key: String, value: Int) =
         settings.putInt(key, value)
 
+    fun registerCounterName(name: String) {
+        val existing = getString(COUNTER_NAMES, "").split('|').filter { it.isNotBlank() }.toMutableSet()
+        if (existing.add(name)) {
+            setString(COUNTER_NAMES, existing.sorted().joinToString("|"))
+        }
+    }
+
+    fun counterNames(): List<String> =
+        getString(COUNTER_NAMES, "").split('|').filter { it.isNotBlank() }
+
     companion object Keys {
         const val LAST_USERNAME = "lastUsername"
 
@@ -37,6 +47,7 @@ class Preferences(private val settings: Settings) {
 
         // Combat tracking
         const val LAST_MONSTER             = "_lastMonster"   // string; last monster fought
+        const val COUNTER_NAMES            = "counterNames"   // pipe-separated counter pref names
 
         // Mood
         const val AUTO_BUFF                = "autoBuff"

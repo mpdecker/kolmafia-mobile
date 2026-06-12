@@ -60,6 +60,7 @@ object QuestLogSync {
         context: QuestSyncContext = QuestSyncContext(),
     ) {
         QuestAdvanceRules.apply(responseText, questDatabase)
+        applyFantasyRealmHooks(responseText, context)
         applyPlaceHooks(context.place, questDatabase, context)
         if (shouldSync(responseText)) {
             questLogRequest?.syncAll()
@@ -73,9 +74,18 @@ object QuestLogSync {
     ) {
         applyEgoKeyTurnIn(questDatabase, context)
         when (place?.lowercase()) {
-            "fern" -> applyFernTowerUnlock(questDatabase, context)
+            "fern", "fernruin" -> applyFernTowerUnlock(questDatabase, context)
             "paco" -> applyFactoryFinish(questDatabase, context)
             "scg" -> applyNemesisVisitSteps(questDatabase, context)
+        }
+    }
+
+    private fun applyFantasyRealmHooks(
+        responseText: String,
+        context: QuestSyncContext,
+    ) {
+        if (responseText.contains("snarfblat=507")) {
+            context.preferences?.setBoolean(FR_CEMETERY_UNLOCKED_PREF, true)
         }
     }
 
@@ -125,4 +135,6 @@ object QuestLogSync {
     const val FERNSWARTHY_KEY_ID = 2277
 
     val GUILD_PLACES = setOf("paco", "ocg", "scg", "challenge")
+
+    const val FR_CEMETERY_UNLOCKED_PREF = "frCemetaryUnlocked"
 }

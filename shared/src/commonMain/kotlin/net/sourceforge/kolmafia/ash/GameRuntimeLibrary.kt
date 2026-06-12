@@ -8,6 +8,7 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.adventure.AdventureRequest
+import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.CharacterState
@@ -26,6 +27,7 @@ import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.location.LocationDatabase
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestChoiceRules
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AutosellRequest
@@ -53,6 +55,7 @@ import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.session.PastaThrall
 import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
@@ -110,6 +113,7 @@ class GameRuntimeLibrary(
     internal val breakfastManager: BreakfastManager? = null,
     internal val sendMailRequest: SendMailRequest? = null,
     internal val sendGiftRequest: SendGiftRequest? = null,
+    internal val choiceRequest: ChoiceRequest? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -117,7 +121,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase34"
+        const val REVISION = "phase35"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -383,6 +387,12 @@ class GameRuntimeLibrary(
             val formatted = net.sourceforge.kolmafia.session.TurnCounter.formatRelayCounters(prefs, currentRun)
             if (formatted.isNotBlank()) rt.print(formatted)
         },
+        Regex("^counters$", RegexOption.IGNORE_CASE) to { _, rt ->
+            val prefs = preferences ?: return@to
+            for (name in prefs.counterNames()) {
+                rt.print("$name: ${prefs.getInt("counter_$name", 0)}")
+            }
+        },
         Regex("^counter\\s+(\\S+)(?:\\s+(\\d+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             val name = m.groupValues[1].trim()
             val value = m.groupValues.getOrNull(2)?.trim()
@@ -390,7 +400,31 @@ class GameRuntimeLibrary(
                 rt.print(preferences?.getInt("counter_$name", 0).toString())
             } else {
                 preferences?.setInt("counter_$name", value.toIntOrNull() ?: 0)
+                preferences?.registerCounterName(name)
             }
+        },
+
+        Regex("^choice\\s+(\\d+)\\s+(\\d+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            cliChoice(m.groupValues[1].toIntOrNull() ?: return@to, m.groupValues[2].toIntOrNull() ?: return@to)
+        },
+        Regex("^choice\\s+(\\d+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val choiceId = preferences?.getInt(AdventureManager.LAST_CHOICE_ID, 0) ?: return@to
+            if (choiceId <= 0) return@to
+            cliChoice(choiceId, m.groupValues[1].toIntOrNull() ?: return@to)
+        },
+
+        Regex("^thralls$", RegexOption.IGNORE_CASE) to { _, rt ->
+            val prefs = preferences ?: return@to
+            val table = PastaThrall.formatTable(prefs)
+            if (table.isNotBlank()) rt.print(table)
+        },
+
+        Regex("^cemet(?:ery|ary)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("place.php?whichplace=cemetery", applyQuestHooks = true)
+        },
+
+        Regex("^(?:clear|cls)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            lastCliOutput.clear()
         },
 
         // ccs / ccprep — store combat macro script text
@@ -1099,7 +1133,12 @@ class GameRuntimeLibrary(
 
     internal fun extractQuestPlace(urlOrPath: String): String? =
         extractGuildPlace(urlOrPath)
-            ?: if (urlOrPath.contains("tower.php", ignoreCase = true)) "fern" else null
+            ?: when {
+                urlOrPath.contains("tower.php", ignoreCase = true) -> "fern"
+                urlOrPath.contains("fernruin", ignoreCase = true) -> "fernruin"
+                urlOrPath.contains("whichplace=cemetery", ignoreCase = true) -> "cemetery"
+                else -> null
+            }
 
     internal fun extractGuildPlace(urlOrPath: String): String? =
         Regex("(?:^|[?&])place=([a-z]+)", RegexOption.IGNORE_CASE)
@@ -1240,6 +1279,17 @@ class GameRuntimeLibrary(
             return null
         }
         return attachments
+    }
+
+    internal fun cliChoice(choiceId: Int, option: Int) {
+        val req = choiceRequest ?: return
+        val db = questDatabase ?: return
+        kotlinx.coroutines.runBlocking {
+            req.choose(choiceId, option).onSuccess { html ->
+                QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext())
+                QuestChoiceRules.apply(choiceId, html, db)
+            }
+        }
     }
 
     internal fun cliEquip(rest: String) {

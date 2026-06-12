@@ -74,6 +74,8 @@ object QuestAdvanceRules {
         Rule(Quest.EGO.prefKey, "step1", "hand over Fernswarthy's key"),
         Rule(Quest.EGO.prefKey, "step1", "returned with Fernswarthy's key"),
         Rule(Quest.EGO.prefKey, "step2", "gives you the key"),
+        Rule(Quest.EGO.prefKey, "step2", "returns the key"),
+        Rule(Quest.EGO.prefKey, "step2", "Here's the key"),
         Rule(Quest.EGO.prefKey, "step3", "unlocked Fernswarthy's tower"),
         Rule(Quest.EGO.prefKey, "step4", "found some stairs"),
         Rule(Quest.EGO.prefKey, "step5", "trapdoor to Fernswarthy's basement"),
@@ -81,6 +83,9 @@ object QuestAdvanceRules {
         Rule(Quest.EGO.prefKey, QuestDatabase.FINISHED, "turned in the old book"),
         Rule(Quest.EGO.prefKey, QuestDatabase.FINISHED, "Manual of Dexterity"),
         Rule(Quest.NEMESIS.prefKey, QuestDatabase.STARTED, "The Tomb is within the Misspelled"),
+        Rule(Quest.NEMESIS.prefKey, QuestDatabase.STARTED, "not recovered the Epic Weapon yet"),
+        Rule(Quest.NEMESIS.prefKey, QuestDatabase.STARTED, "not yet claimed the Epic Weapon"),
+        Rule(Quest.NEMESIS.prefKey, QuestDatabase.STARTED, "the delay on that Epic Weapon"),
         Rule(Quest.NEMESIS.prefKey, "step5", "Clownlord Beelzebozo"),
         Rule(Quest.NEMESIS.prefKey, "step7", "a Meatsmithing hammer"),
         Rule(

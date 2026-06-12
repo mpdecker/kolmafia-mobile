@@ -9,6 +9,22 @@ import kotlin.test.assertTrue
 class QuestFightRulesTest {
 
     @Test
+    fun applyCombat_unknownClassWinAdvancesStep2() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step1")
+        assertTrue(QuestFightRules.applyCombat(db, "The Unknown Seal Clubber", won = true))
+        assertEquals("step2", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
+    fun applyCombat_beelzebozoWinAdvancesStep6() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step5")
+        assertTrue(QuestFightRules.applyCombat(db, "Clownlord Beelzebozo", won = true))
+        assertEquals("step6", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
     fun applyCombat_lossAdvancesToStep18() {
         val db = QuestDatabase(Preferences(MapSettings()))
         db.setProgress(Quest.NEMESIS, "step17")

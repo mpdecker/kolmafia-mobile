@@ -165,6 +165,8 @@ val sharedModule = module {
             displayCaseRequest = get(),
             clanStashRequest = get(),
             familiarManager = get(),
+            preferences = get(),
+            skillManager = get(),
         )
     }
     singleOf(::SessionLogger)
@@ -272,6 +274,7 @@ val sharedModule = module {
             breakfastManager    = get(),
             sendMailRequest     = get(),
             sendGiftRequest     = get(),
+            choiceRequest       = get(),
         )
     }
     singleOf(::ScriptManager)

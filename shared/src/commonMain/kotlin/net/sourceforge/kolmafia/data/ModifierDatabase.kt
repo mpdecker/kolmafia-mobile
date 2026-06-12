@@ -44,6 +44,10 @@ object ModifierDatabase {
     fun getSign(name: String): ModifierEntry?     = get("Sign",    name)
     fun getPath(name: String): ModifierEntry?     = get("Path",    name)
     fun getFamiliar(name: String): ModifierEntry? = get("Familiar",name)
+    fun getThrall(name: String): ModifierEntry? {
+        val map = _byTypeAndName["Thrall"] ?: return null
+        return map[name] ?: map.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value
+    }
     fun getOutfit(name: String): ModifierEntry?   = get("Outfit",  name)
     fun getZone(name: String): ModifierEntry?     = get("Zone",    name)
     fun getLocation(name: String): ModifierEntry? = get("Loc",     name)

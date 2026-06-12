@@ -36,6 +36,12 @@ class ModifierExpressionTest {
 
     // ── Literals ──────────────────────────────────────────────────────────────
 
+    @Test fun `P variable is thrall level`() {
+        val ctx = ExpressionContext(thrallLevel = 10)
+        assertEquals(10.0, eval("P", ctx))
+        assertEquals(20.0, eval("10+P", ctx))
+    }
+
     @Test fun `integer literal`()   { assertEquals(42.0,  eval("42"))   }
     @Test fun `negative literal`()  { assertEquals(-5.0,  eval("-5"))   }
     @Test fun `decimal literal`()   { assertEquals(3.14,  eval("3.14")) }

@@ -22,12 +22,17 @@ object QuestFightRules {
         return advanced
     }
 
-    private fun winStep(monster: String): String? = when (monster.lowercase()) {
-        "menacing thug" -> "step19"
-        "mob penguin hitman" -> "step21"
-        "hunting seal", "turtle trapper", "evil spaghetti cult assassin",
-        "béarnaise zombie", "flock of seagulls", "mariachi bandolero" -> "step23"
-        else -> null
+    private fun winStep(monster: String): String? {
+        val lower = monster.lowercase()
+        if (lower.startsWith("the unknown ")) return "step2"
+        return when (lower) {
+            "clownlord beelzebozo" -> "step6"
+            "menacing thug" -> "step19"
+            "mob penguin hitman" -> "step21"
+            "hunting seal", "turtle trapper", "evil spaghetti cult assassin",
+            "béarnaise zombie", "flock of seagulls", "mariachi bandolero" -> "step23"
+            else -> null
+        }
     }
 
     private fun lossStep(monster: String): String? = when (monster.lowercase()) {

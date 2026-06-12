@@ -21,30 +21,28 @@ object QuestChoiceRules {
                 }
             }
             1049 -> {
-                if (responseText.contains("Epic Weapon", ignoreCase = true)) {
+                if (responseText.contains("Epic Weapon's yours", ignoreCase = true) ||
+                    responseText.contains("Epic Weapon is yours", ignoreCase = true)
+                ) {
+                    advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step3") || advanced
+                } else if (responseText.contains("Epic Weapon", ignoreCase = true)) {
                     advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step4") || advanced
                 } else if (responseText.contains("ghost", ignoreCase = true)) {
                     advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step1") || advanced
                 }
             }
             1087 -> {
+                advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step11") || advanced
                 if (responseText.contains("passed", ignoreCase = true) ||
                     responseText.contains("continue", ignoreCase = true)
                 ) {
                     advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step12") || advanced
-                } else if (responseText.contains("puzzle", ignoreCase = true) ||
-                    responseText.contains("cave", ignoreCase = true)
-                ) {
-                    advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step11") || advanced
                 }
             }
             1088 -> {
+                advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step13") || advanced
                 if (responseText.contains("BOOOOOOM", ignoreCase = true)) {
                     advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step15") || advanced
-                } else if (responseText.contains("rubble", ignoreCase = true) ||
-                    responseText.contains("spore", ignoreCase = true)
-                ) {
-                    advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step13") || advanced
                 }
             }
         }
