@@ -187,4 +187,26 @@ class QuestAdvanceRulesTest {
         assertTrue(QuestDatabase.stepOrdinal("step16.5") > QuestDatabase.stepOrdinal("step16"))
         assertTrue(QuestDatabase.stepOrdinal("step17") > QuestDatabase.stepOrdinal("step16.5"))
     }
+
+    @Test
+    fun apply_citadelStep1OnSignSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.CITADEL, QuestDatabase.STARTED)
+        assertTrue(QuestAdvanceRules.apply("It's A Sign! You should visit Whitey's Grove.", db))
+        assertEquals("step1", db.getProgress(Quest.CITADEL))
+    }
+
+    @Test
+    fun apply_doctorStartedOnGalaktikSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("You meet Doc Galaktik in the store.", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.DOCTOR))
+    }
+
+    @Test
+    fun apply_hiddenApartmentStartsCurses() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("Welcome to the Hidden Apartment.", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.CURSES))
+    }
 }

@@ -3,9 +3,22 @@ package net.sourceforge.kolmafia.quest
 /** Quest step bumps from choice adventure response text. */
 object QuestChoiceRules {
 
-    fun apply(choiceId: Int, responseText: String, questDatabase: QuestDatabase): Boolean {
+    fun apply(
+        choiceId: Int,
+        responseText: String,
+        questDatabase: QuestDatabase,
+        decision: Int = 0,
+    ): Boolean {
         var advanced = false
         when (choiceId) {
+            189 -> {
+                advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step26") || advanced
+            }
+            542 -> {
+                if (responseText.contains("oddly chilly", ignoreCase = true)) {
+                    advanced = setIfBetter(questDatabase, Quest.MOXIE, "step1") || advanced
+                }
+            }
             930 -> {
                 if (responseText.contains("lucky rabbit's foot", ignoreCase = true)) {
                     advanced = setIfBetter(questDatabase, Quest.CITADEL, QuestDatabase.FINISHED) || advanced
@@ -15,8 +28,19 @@ object QuestChoiceRules {
                     advanced = setIfBetter(questDatabase, Quest.CITADEL, QuestDatabase.STARTED) || advanced
                 }
             }
+            931 -> {
+                if (responseText.contains("Life Ain't Nothin But Witches and Mummies", ignoreCase = true) ||
+                    responseText.contains("Witches and Mummies", ignoreCase = true)
+                ) {
+                    advanced = setIfBetter(questDatabase, Quest.CITADEL, "step6") || advanced
+                }
+            }
             932 -> {
-                if (responseText.contains("White Citadel", ignoreCase = true)) {
+                if (responseText.contains("No Whammies", ignoreCase = true)) {
+                    advanced = setIfBetter(questDatabase, Quest.CITADEL, "step8") || advanced
+                } else if (responseText.contains("steel your nerves", ignoreCase = true) ||
+                    responseText.contains("White Citadel", ignoreCase = true)
+                ) {
                     advanced = setIfBetter(questDatabase, Quest.CITADEL, "step9") || advanced
                 }
             }
@@ -29,6 +53,22 @@ object QuestChoiceRules {
                     advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step4") || advanced
                 } else if (responseText.contains("ghost", ignoreCase = true)) {
                     advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step1") || advanced
+                }
+            }
+            1061 -> {
+                if (responseText.contains("Heart of Madness", ignoreCase = true)) {
+                    advanced = setIfBetter(questDatabase, Quest.ARMORER, "step1") || advanced
+                }
+            }
+            1065 -> {
+                if (decision == 1 || decision == 3) {
+                    advanced = setIfBetter(questDatabase, Quest.ARMORER, QuestDatabase.STARTED) || advanced
+                }
+            }
+            1064 -> {
+                when (decision) {
+                    1 -> advanced = setIfBetter(questDatabase, Quest.DOC, QuestDatabase.STARTED) || advanced
+                    2 -> advanced = setIfBetter(questDatabase, Quest.DOC, QuestDatabase.FINISHED) || advanced
                 }
             }
             1087 -> {

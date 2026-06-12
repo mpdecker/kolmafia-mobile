@@ -121,7 +121,8 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase35"
+        const val REVISION = "phase39"
+        internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -423,8 +424,70 @@ class GameRuntimeLibrary(
             visitKolPage("place.php?whichplace=cemetery", applyQuestHooks = true)
         },
 
-        Regex("^(?:clear|cls)$", RegexOption.IGNORE_CASE) to { _, _ ->
+        Regex("^(?:clear|cls|reset)$", RegexOption.IGNORE_CASE) to { _, _ ->
             lastCliOutput.clear()
+        },
+
+        Regex("^alias$", RegexOption.IGNORE_CASE) to { _, rt ->
+            for ((name, command) in listCliAliases()) {
+                rt.print("$name => $command")
+            }
+        },
+        Regex("^alias\\s+(\\S+)\\s*=>\\s*(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            setCliAlias(m.groupValues[1].trim(), m.groupValues[2].trim())
+            rt.print("Alias set.")
+        },
+
+        Regex("^enable\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            preferences?.setBoolean(m.groupValues[1].trim(), true)
+        },
+        Regex("^disable\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            preferences?.setBoolean(m.groupValues[1].trim(), false)
+        },
+
+        Regex("^volcano\\s+visit$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("bigisland.php")
+            preferences?.setBoolean(Preferences.VOLCANO_ISLAND_VISITED, true)
+        },
+
+        Regex("^factory$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("guild.php?place=paco", applyQuestHooks = true)
+        },
+
+        Regex("^(?:meatcar|knoll)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("guild.php?place=paco", applyQuestHooks = true)
+        },
+
+        Regex("^(?:citadel|ocg)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("guild.php?place=ocg", applyQuestHooks = true)
+        },
+
+        Regex("^unalias\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            if (removeCliAlias(m.groupValues[1].trim())) {
+                rt.print("Alias removed.")
+            } else {
+                rt.print("No such alias.")
+            }
+        },
+
+        Regex("^scg$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("guild.php?place=scg", applyQuestHooks = true)
+        },
+
+        Regex("^challenge$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("guild.php?place=challenge", applyQuestHooks = true)
+        },
+
+        Regex("^canadia$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("adventure.php?snarfblat=43")
+        },
+
+        Regex("^friars$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("friars.php", applyQuestHooks = true)
+        },
+
+        Regex("^desert$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("place.php?whichplace=desertbeach")
         },
 
         // ccs / ccprep — store combat macro script text
@@ -815,11 +878,15 @@ class GameRuntimeLibrary(
             rt.print((character?.state?.value?.adventuresLeft ?: 0).toString())
         },
 
-        // relay on/off — headless stub; scripts check pref only
-        Regex("^relay(?:\\s+(on|off|open|close))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+        // relay on/off/status — headless stub; scripts check pref only
+        Regex("^relay(?:\\s+(on|off|open|close|status))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             when (m.groupValues.getOrNull(1)?.lowercase()) {
                 "on", "open" -> preferences?.setBoolean("relayActive", true)
                 "off", "close" -> preferences?.setBoolean("relayActive", false)
+                "status" -> {
+                    val active = preferences?.getBoolean("relayActive", false) == true
+                    rt.print(if (active) "Relay is on." else "Relay is off.")
+                }
                 else -> rt.print("Relay is not available in KoLmafia Mobile.")
             }
         },
@@ -1287,7 +1354,7 @@ class GameRuntimeLibrary(
         kotlinx.coroutines.runBlocking {
             req.choose(choiceId, option).onSuccess { html ->
                 QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext())
-                QuestChoiceRules.apply(choiceId, html, db)
+                QuestChoiceRules.apply(choiceId, html, db, option)
             }
         }
     }
@@ -1368,12 +1435,56 @@ class GameRuntimeLibrary(
     }
 
     internal fun dispatchCli(cmd: String, rt: AshRuntimeContext) {
-        val matched = cliDispatch.firstOrNull { (regex, _) -> regex.matches(cmd) }
+        val expanded = expandCliAlias(cmd.trim())
+        val matched = cliDispatch.firstOrNull { (regex, _) -> regex.matches(expanded) }
         if (matched != null) {
-            matched.second(matched.first.find(cmd)!!, rt)
+            matched.second(matched.first.find(expanded)!!, rt)
         } else {
-            rt.print("[cli] $cmd")
+            rt.print("[cli] $expanded")
         }
+    }
+
+    internal fun listCliAliases(): Map<String, String> {
+        val prefs = preferences ?: return emptyMap()
+        return prefs.getString(CLI_ALIASES_PREF, "")
+            .split('|')
+            .mapNotNull { entry ->
+                val sep = entry.indexOf("=>")
+                if (sep <= 0) return@mapNotNull null
+                val name = entry.substring(0, sep).trim()
+                val command = entry.substring(sep + 2).trim()
+                if (name.isBlank() || command.isBlank()) null else name to command
+            }
+            .toMap()
+    }
+
+    internal fun setCliAlias(name: String, command: String) {
+        val prefs = preferences ?: return
+        val updated = listCliAliases().toMutableMap()
+        updated[name.lowercase()] = command
+        prefs.setString(
+            CLI_ALIASES_PREF,
+            updated.entries.joinToString("|") { "${it.key}=>${it.value}" },
+        )
+    }
+
+    internal fun removeCliAlias(name: String): Boolean {
+        val prefs = preferences ?: return false
+        val updated = listCliAliases().toMutableMap()
+        if (updated.remove(name.lowercase()) == null) return false
+        prefs.setString(
+            CLI_ALIASES_PREF,
+            updated.entries.joinToString("|") { "${it.key}=>${it.value}" },
+        )
+        return true
+    }
+
+    internal fun expandCliAlias(cmd: String): String {
+        val firstSpace = cmd.indexOf(' ')
+        val name = if (firstSpace < 0) cmd else cmd.substring(0, firstSpace)
+        val rest = if (firstSpace < 0) "" else cmd.substring(firstSpace + 1)
+        val alias = listCliAliases()[name.lowercase()] ?: return cmd
+        return if (rest.isBlank()) alias else "$alias $rest"
     }
 
     /** Bridges the protected [register] so extension functions in this module can call it. */

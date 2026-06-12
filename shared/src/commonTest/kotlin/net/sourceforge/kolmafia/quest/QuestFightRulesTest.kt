@@ -51,4 +51,79 @@ class QuestFightRulesTest {
         )
         assertEquals("step25", db.getProgress(Quest.NEMESIS))
     }
+
+    @Test
+    fun applyFightStarted_volcanicCaveAdvancesStep28() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step27")
+        assertTrue(
+            QuestFightRules.applyFightStarted(
+                db, "Gorgolok, the Infernal Seal (Volcanic Cave)",
+            )
+        )
+        assertEquals("step28", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
+    fun applyCombat_volcanicWinAdvancesStep29() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step28")
+        assertTrue(
+            QuestFightRules.applyCombat(
+                db, "Spice Ghost (Volcanic Cave)", won = true,
+            )
+        )
+        assertEquals("step29", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
+    fun applyCombat_volcanoMapByItemIdAdvancesStep25() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step24")
+        assertTrue(
+            QuestFightRules.applyCombat(
+                db, "", won = true, itemIdsGained = listOf(QuestFightRules.VOLCANO_MAP_ID),
+            )
+        )
+        assertEquals("step25", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
+    fun applyFightStarted_cakeLordAdvancesArmorerStep2() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.ARMORER, QuestDatabase.STARTED)
+        assertTrue(QuestFightRules.applyFightStarted(db, "Cake Lord"))
+        assertEquals("step2", db.getProgress(Quest.ARMORER))
+    }
+
+    @Test
+    fun applyCombat_cakeLordWinAdvancesArmorerStep3() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.ARMORER, "step2")
+        assertTrue(QuestFightRules.applyCombat(db, "Cake Lord", won = true))
+        assertEquals("step3", db.getProgress(Quest.ARMORER))
+    }
+
+    @Test
+    fun applyCombat_biclopsWinAdvancesCitadelStep5() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.CITADEL, "step4")
+        assertTrue(QuestFightRules.applyCombat(db, "biclops", won = true))
+        assertEquals("step5", db.getProgress(Quest.CITADEL))
+    }
+
+    @Test
+    fun applyCombat_burnoutsCounterReachesStep4() {
+        val prefs = Preferences(MapSettings())
+        prefs.setInt(QuestFightRules.BURNOUTS_DEFEATED_PREF, 29)
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.CITADEL, "step3")
+        assertTrue(
+            QuestFightRules.applyCombat(
+                db, "pair of burnouts", won = true, preferences = prefs,
+            )
+        )
+        assertEquals("step4", db.getProgress(Quest.CITADEL))
+        assertEquals(30, prefs.getInt(QuestFightRules.BURNOUTS_DEFEATED_PREF, 0))
+    }
 }

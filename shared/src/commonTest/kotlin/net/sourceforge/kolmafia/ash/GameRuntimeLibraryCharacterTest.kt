@@ -7,6 +7,7 @@ import net.sourceforge.kolmafia.adventure.AdventurePrep
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.AdventureZone
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -190,5 +191,75 @@ class GameRuntimeLibraryCharacterTest {
         char.updateClassResource(absorbs = 4)
         val lib = GameRuntimeLibrary(character = char)
         assertEquals("4", outputLib(lib, "print(to_string(my_absorbs()));"))
+    }
+
+    @Test
+    fun guildAvailable_trueForStandardClass() {
+        val lib = libWith { copy(classId = "1") }
+        assertEquals("true", outputLib(lib, "print(to_string(guild_available()));"))
+    }
+
+    @Test
+    fun knollAvailable_trueForKnollSign() {
+        val lib = libWith { copy(sign = "Mongoose") }
+        assertEquals("true", outputLib(lib, "print(to_string(knoll_available()));"))
+    }
+
+    @Test
+    fun whiteCitadelAvailable_falseWhenUnstarted() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val db = net.sourceforge.kolmafia.quest.QuestDatabase(
+            net.sourceforge.kolmafia.preferences.Preferences(prefs),
+        )
+        val lib = GameRuntimeLibrary(questDatabase = db)
+        assertEquals("false", outputLib(lib, "print(to_string(white_citadel_available()));"))
+    }
+
+    @Test
+    fun canadiaAvailable_trueForCanadiaSign() {
+        val lib = libWith { copy(sign = "Platypus") }
+        assertEquals("true", outputLib(lib, "print(to_string(canadia_available()));"))
+    }
+
+    @Test
+    fun gnomadsAvailable_trueForGnomadsSign() {
+        val lib = libWith { copy(sign = "Wombat") }
+        assertEquals("true", outputLib(lib, "print(to_string(gnomads_available()));"))
+    }
+
+    @Test
+    fun friarsAvailable_trueWhenFriarQuestFinished() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val db = net.sourceforge.kolmafia.quest.QuestDatabase(
+            net.sourceforge.kolmafia.preferences.Preferences(prefs),
+        )
+        db.setProgress(net.sourceforge.kolmafia.quest.Quest.FRIAR, QuestDatabase.FINISHED)
+        val lib = GameRuntimeLibrary(
+            questDatabase = db,
+            character = libWith { copy(ascensions = "7") }.character,
+        )
+        assertEquals("true", outputLib(lib, "print(to_string(friars_available()));"))
+    }
+
+    @Test
+    fun blackMarketAvailable_trueWhenMacGuffinStarted() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        val db = net.sourceforge.kolmafia.quest.QuestDatabase(preferences)
+        db.setProgress(net.sourceforge.kolmafia.quest.Quest.MACGUFFIN, "step1")
+        val lib = GameRuntimeLibrary(questDatabase = db, preferences = preferences)
+        assertEquals("true", outputLib(lib, "print(to_string(black_market_available()));"))
+    }
+
+    @Test
+    fun guildStoreAvailable_trueWhenPrefMatchesAscension() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setInt("lastGuildStoreOpen", 3)
+        val lib = GameRuntimeLibrary(
+            preferences = preferences,
+            character = libWith { copy(classId = "1", ascensions = "3") }.character,
+        )
+        assertEquals("true", outputLib(lib, "print(to_string(guild_store_available()));"))
     }
 }

@@ -38,7 +38,29 @@ open class MaximizerManager(
     companion object {
         const val CROWN_OF_THRONES = "Crown of Thrones"
         const val BUDDY_BJORN = "Buddy Bjorn"
+        const val COMBINATION_LIMIT_PREF = "maximizerCombinationLimit"
+        private const val DEFAULT_COMBO_LIMIT = 64
+        private const val TOP_ACCESSORY_CANDIDATES = 4
+        private const val TOP_WEAPON_OFFHAND_CANDIDATES = 4
+        private const val TOP_ARMOR_CANDIDATES = 3
     }
+
+    private val armorSlots = listOf(
+        EquipmentSlot.HAT,
+        EquipmentSlot.SHIRT,
+        EquipmentSlot.PANTS,
+    )
+
+    private val weaponOffhandSlots = listOf(
+        EquipmentSlot.WEAPON,
+        EquipmentSlot.OFFHAND,
+    )
+
+    private val accessorySlots = listOf(
+        EquipmentSlot.ACC1,
+        EquipmentSlot.ACC2,
+        EquipmentSlot.ACC3,
+    )
 
     private val equipSlots = listOf(
         EquipmentSlot.HAT,
@@ -72,6 +94,24 @@ open class MaximizerManager(
         var bestPerSlot = findBestPerSlot(
             effectiveSpec, charState.equipment, invState,
             closetContents, storageContents, displayContents, stashContents,
+        )
+        val comboBudget = ComboBudget(
+            preferences?.getInt(COMBINATION_LIMIT_PREF, DEFAULT_COMBO_LIMIT) ?: DEFAULT_COMBO_LIMIT,
+        )
+        bestPerSlot = refineAccessoryCombinations(
+            effectiveSpec, charState.equipment, invState,
+            closetContents, storageContents, displayContents, stashContents,
+            bestPerSlot, comboBudget,
+        )
+        bestPerSlot = refineWeaponOffhandCombinations(
+            effectiveSpec, charState.equipment, invState,
+            closetContents, storageContents, displayContents, stashContents,
+            bestPerSlot, comboBudget,
+        )
+        bestPerSlot = refineArmorCombinations(
+            effectiveSpec, charState.equipment, invState,
+            closetContents, storageContents, displayContents, stashContents,
+            bestPerSlot, comboBudget,
         )
         bestPerSlot = applyEquipRequired(effectiveSpec, bestPerSlot, charState.equipment)
         val enthronedBonus = scoreFamiliarList(effectiveSpec.enthronedFamiliars, effectiveSpec.primary)
@@ -234,13 +274,9 @@ open class MaximizerManager(
         displayContents: Map<Int, Int>,
         stashContents: Map<Int, Int>,
     ): Map<EquipmentSlot, Pair<String, Double>> {
-        val candidateIds = buildSet {
-            addAll(invState.items.keys)
-            addAll(closetContents.keys)
-            addAll(storageContents.keys)
-            addAll(displayContents.keys)
-            addAll(stashContents.keys)
-        }
+        val candidateIds = buildCandidateIds(
+            invState, closetContents, storageContents, displayContents, stashContents,
+        )
         val bestPerSlot = mutableMapOf<EquipmentSlot, Pair<String, Double>>()
         val usedItems = mutableSetOf<String>()
         for (slot in equipSlots) {
@@ -269,6 +305,200 @@ open class MaximizerManager(
             }
         }
         return bestPerSlot
+    }
+
+    private fun refineAccessoryCombinations(
+        spec: MaximizeSpec,
+        equipment: Map<EquipmentSlot, String>,
+        invState: InventoryState,
+        closetContents: Map<Int, Int>,
+        storageContents: Map<Int, Int>,
+        displayContents: Map<Int, Int>,
+        stashContents: Map<Int, Int>,
+        greedy: Map<EquipmentSlot, Pair<String, Double>>,
+        budget: ComboBudget,
+    ): Map<EquipmentSlot, Pair<String, Double>> {
+        val candidateIds = buildCandidateIds(
+            invState, closetContents, storageContents, displayContents, stashContents,
+        )
+        val nonAccessory = greedy.filterKeys { it !in accessorySlots }
+        val usedElsewhere = nonAccessory.values.map { it.first }.toSet()
+        val accCandidates = mutableListOf<Pair<String, Double>>()
+        for (itemId in candidateIds) {
+            val itemData = gameDatabase.item(itemId) ?: continue
+            if (itemData.primaryUse != ItemPrimaryUse.ACCESSORY || itemData.name in usedElsewhere) continue
+            if (!itemMeetsConstraints(itemData.name, spec)) continue
+            accCandidates.add(itemData.name to scoreItem(itemData.name, spec.primary))
+        }
+        accCandidates.sortByDescending { it.second }
+        val top = accCandidates.take(TOP_ACCESSORY_CANDIDATES)
+        if (top.size < 2) return greedy
+
+        var bestAssignment = greedy
+        var bestScore = scoreAssignment(greedy, spec.primary)
+        for (a in top) {
+            for (b in top) {
+                for (c in top) {
+                    if (a.first == b.first || a.first == c.first || b.first == c.first) continue
+                    if (budget.tick()) return bestAssignment
+                    val combo = nonAccessory + mapOf(
+                        EquipmentSlot.ACC1 to (a.first to a.second),
+                        EquipmentSlot.ACC2 to (b.first to b.second),
+                        EquipmentSlot.ACC3 to (c.first to c.second),
+                    )
+                    val score = scoreAssignment(combo, spec.primary)
+                    if (score > bestScore) {
+                        bestScore = score
+                        bestAssignment = combo
+                    }
+                }
+            }
+        }
+        return bestAssignment
+    }
+
+    private fun refineWeaponOffhandCombinations(
+        spec: MaximizeSpec,
+        equipment: Map<EquipmentSlot, String>,
+        invState: InventoryState,
+        closetContents: Map<Int, Int>,
+        storageContents: Map<Int, Int>,
+        displayContents: Map<Int, Int>,
+        stashContents: Map<Int, Int>,
+        greedy: Map<EquipmentSlot, Pair<String, Double>>,
+        budget: ComboBudget,
+    ): Map<EquipmentSlot, Pair<String, Double>> {
+        val candidateIds = buildCandidateIds(
+            invState, closetContents, storageContents, displayContents, stashContents,
+        )
+        val nonWeaponOffhand = greedy.filterKeys { it !in weaponOffhandSlots }
+        val usedElsewhere = nonWeaponOffhand.values.map { it.first }.toSet()
+        val weaponCandidates = mutableListOf<Pair<String, Double>>()
+        val offhandCandidates = mutableListOf<Pair<String, Double>>()
+        for (itemId in candidateIds) {
+            val itemData = gameDatabase.item(itemId) ?: continue
+            if (itemData.name in usedElsewhere || !itemMeetsConstraints(itemData.name, spec)) continue
+            when (itemData.primaryUse) {
+                ItemPrimaryUse.WEAPON, ItemPrimaryUse.SIXGUN -> {
+                    if (spec.requireMelee && itemData.primaryUse == ItemPrimaryUse.SIXGUN) continue
+                    weaponCandidates.add(itemData.name to scoreItem(itemData.name, spec.primary))
+                }
+                ItemPrimaryUse.OFFHAND -> {
+                    offhandCandidates.add(itemData.name to scoreItem(itemData.name, spec.primary))
+                }
+                else -> Unit
+            }
+        }
+        weaponCandidates.sortByDescending { it.second }
+        offhandCandidates.sortByDescending { it.second }
+        val topWeapons = weaponCandidates.take(TOP_WEAPON_OFFHAND_CANDIDATES)
+        val topOffhands = offhandCandidates.take(TOP_WEAPON_OFFHAND_CANDIDATES)
+        if (topWeapons.isEmpty() || topOffhands.isEmpty()) return greedy
+
+        var bestAssignment = greedy
+        var bestScore = scoreAssignment(greedy, spec.primary)
+        for (weapon in topWeapons) {
+            for (offhand in topOffhands) {
+                if (weapon.first == offhand.first) continue
+                if (budget.tick()) return bestAssignment
+                val combo = nonWeaponOffhand + mapOf(
+                    EquipmentSlot.WEAPON to (weapon.first to weapon.second),
+                    EquipmentSlot.OFFHAND to (offhand.first to offhand.second),
+                )
+                val score = scoreAssignment(combo, spec.primary)
+                if (score > bestScore) {
+                    bestScore = score
+                    bestAssignment = combo
+                }
+            }
+        }
+        return bestAssignment
+    }
+
+    private fun refineArmorCombinations(
+        spec: MaximizeSpec,
+        equipment: Map<EquipmentSlot, String>,
+        invState: InventoryState,
+        closetContents: Map<Int, Int>,
+        storageContents: Map<Int, Int>,
+        displayContents: Map<Int, Int>,
+        stashContents: Map<Int, Int>,
+        greedy: Map<EquipmentSlot, Pair<String, Double>>,
+        budget: ComboBudget,
+    ): Map<EquipmentSlot, Pair<String, Double>> {
+        val candidateIds = buildCandidateIds(
+            invState, closetContents, storageContents, displayContents, stashContents,
+        )
+        val nonArmor = greedy.filterKeys { it !in armorSlots }
+        val usedElsewhere = nonArmor.values.map { it.first }.toSet()
+        val hatCandidates = mutableListOf<Pair<String, Double>>()
+        val shirtCandidates = mutableListOf<Pair<String, Double>>()
+        val pantsCandidates = mutableListOf<Pair<String, Double>>()
+        for (itemId in candidateIds) {
+            val itemData = gameDatabase.item(itemId) ?: continue
+            if (itemData.name in usedElsewhere || !itemMeetsConstraints(itemData.name, spec)) continue
+            when (itemData.primaryUse) {
+                ItemPrimaryUse.HAT ->
+                    hatCandidates.add(itemData.name to scoreItem(itemData.name, spec.primary))
+                ItemPrimaryUse.SHIRT ->
+                    shirtCandidates.add(itemData.name to scoreItem(itemData.name, spec.primary))
+                ItemPrimaryUse.PANTS ->
+                    pantsCandidates.add(itemData.name to scoreItem(itemData.name, spec.primary))
+                else -> Unit
+            }
+        }
+        hatCandidates.sortByDescending { it.second }
+        shirtCandidates.sortByDescending { it.second }
+        pantsCandidates.sortByDescending { it.second }
+        val topHats = hatCandidates.take(TOP_ARMOR_CANDIDATES)
+        val topShirts = shirtCandidates.take(TOP_ARMOR_CANDIDATES)
+        val topPants = pantsCandidates.take(TOP_ARMOR_CANDIDATES)
+        if (topHats.isEmpty() || topShirts.isEmpty() || topPants.isEmpty()) return greedy
+
+        var bestAssignment = greedy
+        var bestScore = scoreAssignment(greedy, spec.primary)
+        for (hat in topHats) {
+            for (shirt in topShirts) {
+                for (pants in topPants) {
+                    if (hat.first == shirt.first || hat.first == pants.first || shirt.first == pants.first) {
+                        continue
+                    }
+                    if (budget.tick()) return bestAssignment
+                    val combo = nonArmor + mapOf(
+                        EquipmentSlot.HAT to (hat.first to hat.second),
+                        EquipmentSlot.SHIRT to (shirt.first to shirt.second),
+                        EquipmentSlot.PANTS to (pants.first to pants.second),
+                    )
+                    val score = scoreAssignment(combo, spec.primary)
+                    if (score > bestScore) {
+                        bestScore = score
+                        bestAssignment = combo
+                    }
+                }
+            }
+        }
+        return bestAssignment
+    }
+
+    private fun buildCandidateIds(
+        invState: InventoryState,
+        closetContents: Map<Int, Int>,
+        storageContents: Map<Int, Int>,
+        displayContents: Map<Int, Int>,
+        stashContents: Map<Int, Int>,
+    ): Set<Int> = buildSet {
+        addAll(invState.items.keys)
+        addAll(closetContents.keys)
+        addAll(storageContents.keys)
+        addAll(displayContents.keys)
+        addAll(stashContents.keys)
+    }
+
+    private fun scoreAssignment(
+        assignment: Map<EquipmentSlot, Pair<String, Double>>,
+        modifier: DoubleModifier,
+    ): Double = assignment.values.sumOf { (name, _) ->
+        if (name.isBlank()) 0.0 else scoreItem(name, modifier)
     }
 
     private fun itemMeetsConstraints(itemName: String, spec: MaximizeSpec): Boolean {
@@ -386,5 +616,16 @@ open class MaximizerManager(
         }
         if (carry.isEmpty()) return this
         return copy(equipRequired = (equipRequired + carry).distinct())
+    }
+
+    private class ComboBudget(private val limit: Int) {
+        private var checked = 0
+
+        /** Returns true when the shared combination budget is exhausted. */
+        fun tick(): Boolean {
+            if (limit <= 0) return false
+            checked++
+            return checked > limit
+        }
     }
 }
