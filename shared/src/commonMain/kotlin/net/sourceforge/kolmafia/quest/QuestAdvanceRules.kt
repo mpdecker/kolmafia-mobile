@@ -67,6 +67,9 @@ object QuestAdvanceRules {
         Rule(Quest.MEATCAR.prefKey, QuestDatabase.STARTED, "Degrassi Knoll"),
         Rule(Quest.MEATCAR.prefKey, QuestDatabase.FINISHED, "South of the Border"),
         Rule(Quest.CITADEL.prefKey, QuestDatabase.STARTED, "Whitey's Grove"),
+        Rule(Quest.CITADEL.prefKey, "step1", "It's A Sign!", requiresStep = QuestDatabase.STARTED),
+        Rule(Quest.CITADEL.prefKey, "step3", "Existential Blues Brothers", requiresStep = "step2"),
+        Rule(Quest.CITADEL.prefKey, "step2", "White Citadel", requiresStep = "step1"),
         Rule(Quest.FACTORY.prefKey, QuestDatabase.STARTED, "7-foot Dwarves"),
         Rule(Quest.FACTORY.prefKey, QuestDatabase.STARTED, "McLargeHuge"),
         Rule(Quest.EGO.prefKey, QuestDatabase.STARTED, "the location of the Cemetary"),
@@ -110,6 +113,10 @@ object QuestAdvanceRules {
         Rule(Quest.PIRATEREALM.prefKey, QuestDatabase.STARTED, "You grab an eyepatch"),
         Rule(Quest.PIRATEREALM.prefKey, QuestDatabase.STARTED, "Pirate Realm"),
         Rule(Quest.PIRATEREALM.prefKey, QuestDatabase.FINISHED, "an envelope with your name on it"),
+        Rule(Quest.DOCTOR.prefKey, QuestDatabase.STARTED, "Doc Galaktik"),
+        Rule(Quest.CURSES.prefKey, QuestDatabase.STARTED, "Hidden Apartment"),
+        Rule(Quest.BUSINESS.prefKey, QuestDatabase.STARTED, "Hidden Office"),
+        Rule(Quest.SPARE.prefKey, QuestDatabase.STARTED, "Hidden Bowling Alley"),
         Rule(Quest.GARBAGE.prefKey, "step2", "You acquire an item: swanky swag"),
     )
 

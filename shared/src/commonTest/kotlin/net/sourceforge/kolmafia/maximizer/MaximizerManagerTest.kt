@@ -342,4 +342,195 @@ class MaximizerManagerTest {
         assertEquals("Spice Ghost", result.thrallSwitched)
         assertEquals(3039, castSkillId)
     }
+
+    @Test fun maximize_accessoryCombination_equipsMultipleAccessories() = runBlocking {
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    101 to InventoryItem(101, "acc alpha", 1, ItemType.ACCESSORY),
+                    102 to InventoryItem(102, "acc beta", 1, ItemType.ACCESSORY),
+                    103 to InventoryItem(103, "acc gamma", 1, ItemType.ACCESSORY),
+                    104 to InventoryItem(104, "acc delta", 1, ItemType.ACCESSORY),
+                ))
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = when (id) {
+                101 -> ItemData(101, "acc alpha", "", "", ItemPrimaryUse.ACCESSORY, emptySet(), setOf('t'), 0, null)
+                102 -> ItemData(102, "acc beta", "", "", ItemPrimaryUse.ACCESSORY, emptySet(), setOf('t'), 0, null)
+                103 -> ItemData(103, "acc gamma", "", "", ItemPrimaryUse.ACCESSORY, emptySet(), setOf('t'), 0, null)
+                104 -> ItemData(104, "acc delta", "", "", ItemPrimaryUse.ACCESSORY, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String): ItemData? = when (name.lowercase()) {
+                "acc alpha" -> item(101)
+                "acc beta" -> item(102)
+                "acc gamma" -> item(103)
+                "acc delta" -> item(104)
+                else -> null
+            }
+            override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+                "acc alpha" -> ModifierEntry("Item", "acc alpha", "Mysticality: +5")
+                "acc beta" -> ModifierEntry("Item", "acc beta", "Mysticality: +4")
+                "acc gamma" -> ModifierEntry("Item", "acc gamma", "Mysticality: +3")
+                "acc delta" -> ModifierEntry("Item", "acc delta", "Mysticality: +2")
+                else -> null
+            }
+        }
+        var equippedCount = 0
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                equippedCount++
+                return Result.success(Unit)
+            }
+        }
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setInt(MaximizerManager.COMBINATION_LIMIT_PREF, 64)
+        val mgr = MaximizerManager(db, inv, equip, character, preferences = preferences)
+        val result = mgr.maximize("mysticality")
+        assertTrue(result.success)
+        assertTrue(equippedCount >= 3)
+    }
+
+    @Test fun maximize_weaponOffhandCombination_equipsBoth() = runBlocking {
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    201 to InventoryItem(201, "big sword", 1, ItemType.WEAPON),
+                    202 to InventoryItem(202, "better sword", 1, ItemType.WEAPON),
+                    301 to InventoryItem(301, "small shield", 1, ItemType.OFFHAND),
+                    302 to InventoryItem(302, "big shield", 1, ItemType.OFFHAND),
+                ))
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = when (id) {
+                201 -> ItemData(201, "big sword", "", "", ItemPrimaryUse.WEAPON, emptySet(), setOf('t'), 0, null)
+                202 -> ItemData(202, "better sword", "", "", ItemPrimaryUse.WEAPON, emptySet(), setOf('t'), 0, null)
+                301 -> ItemData(301, "small shield", "", "", ItemPrimaryUse.OFFHAND, emptySet(), setOf('t'), 0, null)
+                302 -> ItemData(302, "big shield", "", "", ItemPrimaryUse.OFFHAND, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String): ItemData? = when (name.lowercase()) {
+                "big sword" -> item(201)
+                "better sword" -> item(202)
+                "small shield" -> item(301)
+                "big shield" -> item(302)
+                else -> null
+            }
+            override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+                "big sword" -> ModifierEntry("Item", "big sword", "Mysticality: +3")
+                "better sword" -> ModifierEntry("Item", "better sword", "Mysticality: +5")
+                "small shield" -> ModifierEntry("Item", "small shield", "Mysticality: +2")
+                "big shield" -> ModifierEntry("Item", "big shield", "Mysticality: +4")
+                else -> null
+            }
+        }
+        var weaponEquipped = false
+        var offhandEquipped = false
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                if (slot == EquipmentSlot.WEAPON) weaponEquipped = true
+                if (slot == EquipmentSlot.OFFHAND) offhandEquipped = true
+                return Result.success(Unit)
+            }
+        }
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setInt(MaximizerManager.COMBINATION_LIMIT_PREF, 64)
+        val mgr = MaximizerManager(db, inv, equip, character, preferences = preferences)
+        val result = mgr.maximize("mysticality")
+        assertTrue(result.success)
+        assertTrue(weaponEquipped)
+        assertTrue(offhandEquipped)
+    }
+
+    @Test fun maximize_armorCombination_equipsHatShirtPants() = runBlocking {
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    401 to InventoryItem(401, "good hat", 1, ItemType.HAT),
+                    402 to InventoryItem(402, "best hat", 1, ItemType.HAT),
+                    501 to InventoryItem(501, "good shirt", 1, ItemType.SHIRT),
+                    502 to InventoryItem(502, "best shirt", 1, ItemType.SHIRT),
+                    601 to InventoryItem(601, "good pants", 1, ItemType.PANTS),
+                    602 to InventoryItem(602, "best pants", 1, ItemType.PANTS),
+                ))
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = when (id) {
+                401 -> ItemData(401, "good hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+                402 -> ItemData(402, "best hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+                501 -> ItemData(501, "good shirt", "", "", ItemPrimaryUse.SHIRT, emptySet(), setOf('t'), 0, null)
+                502 -> ItemData(502, "best shirt", "", "", ItemPrimaryUse.SHIRT, emptySet(), setOf('t'), 0, null)
+                601 -> ItemData(601, "good pants", "", "", ItemPrimaryUse.PANTS, emptySet(), setOf('t'), 0, null)
+                602 -> ItemData(602, "best pants", "", "", ItemPrimaryUse.PANTS, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String): ItemData? = when (name.lowercase()) {
+                "good hat" -> item(401)
+                "best hat" -> item(402)
+                "good shirt" -> item(501)
+                "best shirt" -> item(502)
+                "good pants" -> item(601)
+                "best pants" -> item(602)
+                else -> null
+            }
+            override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+                "good hat" -> ModifierEntry("Item", "good hat", "Mysticality: +2")
+                "best hat" -> ModifierEntry("Item", "best hat", "Mysticality: +4")
+                "good shirt" -> ModifierEntry("Item", "good shirt", "Mysticality: +3")
+                "best shirt" -> ModifierEntry("Item", "best shirt", "Mysticality: +5")
+                "good pants" -> ModifierEntry("Item", "good pants", "Mysticality: +2")
+                "best pants" -> ModifierEntry("Item", "best pants", "Mysticality: +4")
+                else -> null
+            }
+        }
+        var hatEquipped = false
+        var shirtEquipped = false
+        var pantsEquipped = false
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                when (slot) {
+                    EquipmentSlot.HAT -> hatEquipped = true
+                    EquipmentSlot.SHIRT -> shirtEquipped = true
+                    EquipmentSlot.PANTS -> pantsEquipped = true
+                    else -> Unit
+                }
+                return Result.success(Unit)
+            }
+        }
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setInt(MaximizerManager.COMBINATION_LIMIT_PREF, 64)
+        val mgr = MaximizerManager(db, inv, equip, character, preferences = preferences)
+        val result = mgr.maximize("mysticality")
+        assertTrue(result.success)
+        assertTrue(hatEquipped)
+        assertTrue(shirtEquipped)
+        assertTrue(pantsEquipped)
+    }
 }

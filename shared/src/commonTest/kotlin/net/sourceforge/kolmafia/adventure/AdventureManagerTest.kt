@@ -432,7 +432,9 @@ class AdventureManagerTest {
             banishManager = bm,
             zoneLookup = FakeZoneLookup(zoneData),
         )
-        val collectJob = launch { bus.events.collect { received.add(it) } }
+        val collectJob = launch(Dispatchers.Unconfined) {
+            bus.events.collect { received.add(it) }
+        }
 
         manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
 
@@ -459,7 +461,9 @@ class AdventureManagerTest {
             banishManager = null,
             zoneLookup = FakeZoneLookup(zoneData),
         )
-        val collectJob = launch { bus.events.collect { received.add(it) } }
+        val collectJob = launch(Dispatchers.Unconfined) {
+            bus.events.collect { received.add(it) }
+        }
 
         manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
 
@@ -480,7 +484,9 @@ class AdventureManagerTest {
             banishManager = bm,
             zoneLookup = null,
         )
-        val collectJob = launch { bus.events.collect { received.add(it) } }
+        val collectJob = launch(Dispatchers.Unconfined) {
+            bus.events.collect { received.add(it) }
+        }
 
         manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
 
@@ -505,7 +511,9 @@ class AdventureManagerTest {
             banishManager = bm,
             zoneLookup = FakeZoneLookup(zoneData),
         )
-        val collectJob = launch { bus.events.collect { received.add(it) } }
+        val collectJob = launch(Dispatchers.Unconfined) {
+            bus.events.collect { received.add(it) }
+        }
 
         manager.runAdventures(testLocation, 1, CoroutineScope(Dispatchers.Default)).join()
 

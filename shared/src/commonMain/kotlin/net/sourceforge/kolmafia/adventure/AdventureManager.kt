@@ -299,9 +299,11 @@ class AdventureManager(
         if (result.monster.isNotEmpty()) {
             preferences.setString(Preferences.LAST_MONSTER, result.monster)
         }
+        val gainedVolcanoMap = result.itemsGained.any { it.contains("volcano map", ignoreCase = true) } ||
+            result.itemsGained.any { gameDatabase?.item(it)?.id == QuestFightRules.VOLCANO_MAP_ID }
         if (TurnCounter.NEMESIS_ASSASSIN_MONSTERS.any {
                 result.monster.equals(it, ignoreCase = true)
-            }
+            } || gainedVolcanoMap
         ) {
             TurnCounter.resetNemesisAssassinWindow(
                 preferences,
@@ -309,7 +311,12 @@ class AdventureManager(
             )
         }
         questDatabase?.let {
-            QuestFightRules.applyCombat(it, result.monster, result.won, result.itemsGained)
+            QuestFightRules.applyFightStarted(it, result.monster)
+            val itemIdsGained = result.itemsGained.mapNotNull { name -> gameDatabase?.item(name)?.id }
+            QuestFightRules.applyCombat(
+                it, result.monster, result.won, result.itemsGained, itemIdsGained,
+                preferences,
+            )
             QuestItemRules.applyItemsGained(result.itemsGained, it)
         }
         emitItemEvents(result.itemsGained)
@@ -367,7 +374,7 @@ class AdventureManager(
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(e)))
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
-            questDatabase?.let { QuestChoiceRules.apply(currentChoiceId, html, it) }
+            questDatabase?.let { QuestChoiceRules.apply(currentChoiceId, html, it, option) }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
             if (goalManager.hasChoiceGoal(currentChoiceId)) {
                 goalManager.clearChoiceGoal()

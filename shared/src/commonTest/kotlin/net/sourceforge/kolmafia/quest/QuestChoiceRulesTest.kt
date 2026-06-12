@@ -38,4 +38,60 @@ class QuestChoiceRulesTest {
         assertTrue(QuestChoiceRules.apply(930, "Welcome to the White Citadel quest.", db))
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.CITADEL))
     }
+
+    @Test
+    fun apply_choice189_advancesStep26() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.NEMESIS, "step25")
+        assertTrue(QuestChoiceRules.apply(189, "O Cap'm, My Cap'm", db))
+        assertEquals("step26", db.getProgress(Quest.NEMESIS))
+    }
+
+    @Test
+    fun apply_choice931_advancesCitadelStep6() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.CITADEL, "step5")
+        assertTrue(
+            QuestChoiceRules.apply(
+                931, "Life Ain't Nothin But Witches and Mummies", db,
+            )
+        )
+        assertEquals("step6", db.getProgress(Quest.CITADEL))
+    }
+
+    @Test
+    fun apply_choice932_noWhammiesAdvancesStep8() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.CITADEL, "step7")
+        assertTrue(QuestChoiceRules.apply(932, "No Whammies!", db))
+        assertEquals("step8", db.getProgress(Quest.CITADEL))
+    }
+
+    @Test
+    fun apply_choice542_advancesMoxieStep1() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestChoiceRules.apply(542, "It is oddly chilly in here.", db))
+        assertEquals("step1", db.getProgress(Quest.MOXIE))
+    }
+
+    @Test
+    fun apply_choice1061_advancesArmorerStep1() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestChoiceRules.apply(1061, "Heart of Madness", db))
+        assertEquals("step1", db.getProgress(Quest.ARMORER))
+    }
+
+    @Test
+    fun choice1065_decision1StartsArmorer() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestChoiceRules.apply(1065, "Lending a Hand", db, decision = 1))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.ARMORER))
+    }
+
+    @Test
+    fun choice1064_decision1StartsDoc() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestChoiceRules.apply(1064, "The Doctor is Out", db, decision = 1))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.DOC))
+    }
 }

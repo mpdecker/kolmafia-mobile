@@ -1298,6 +1298,105 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_reset_clearsCapturedOutput() {
+        val lib = GameRuntimeLibrary()
+        runLib(lib, """cli_execute("echo hello");""")
+        runLib(lib, """cli_execute("reset");""")
+        assertEquals("", lib.lastCliOutput.toString())
+    }
+
+    @Test
+    fun cliExecute_alias_listsAndExpands() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        val lib = GameRuntimeLibrary(preferences = preferences)
+        lib.setCliAlias("hi", "echo hello")
+        val listed = outputLib(lib, """cli_execute("alias");""")
+        assertTrue(listed.contains("hi => echo hello"))
+        val out = outputLib(lib, """cli_execute("hi");""")
+        assertTrue(out.contains("hello"))
+    }
+
+    @Test
+    fun cliExecute_enable_disable_togglesBooleanPref() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        val lib = GameRuntimeLibrary(preferences = preferences)
+        runLib(lib, """cli_execute("enable autoScripting");""")
+        assertTrue(preferences.getBoolean("autoScripting", false))
+        runLib(lib, """cli_execute("disable autoScripting");""")
+        assertFalse(preferences.getBoolean("autoScripting", true))
+    }
+
+    @Test
+    fun cliExecute_factory_visitsPacoGuild() {
+        val prefs = Preferences(com.russhwolf.settings.MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.FACTORY, QuestDatabase.UNSTARTED)
+        val html = "<html>7-foot Dwarves are working hard.</html>"
+        val lib = GameRuntimeLibrary(
+            httpClient = HttpClient(io.ktor.client.engine.mock.MockEngine { respond(html) }),
+            questDatabase = db,
+        )
+        runLib(lib, """cli_execute("factory");""")
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.FACTORY))
+    }
+
+    @Test
+    fun cliExecute_meatcar_visitsPacoGuild() {
+        val html = "<html>Degrassi Knoll welcomes you.</html>"
+        val lib = GameRuntimeLibrary(
+            httpClient = HttpClient(io.ktor.client.engine.mock.MockEngine { respond(html) }),
+        )
+        runLib(lib, """cli_execute("meatcar");""")
+    }
+
+    @Test
+    fun cliExecute_unalias_removesAlias() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        val lib = GameRuntimeLibrary(preferences = preferences)
+        lib.setCliAlias("go", "echo hi")
+        val out = outputLib(lib, """cli_execute("unalias go");""")
+        assertTrue(out.contains("Alias removed"))
+        assertTrue(lib.listCliAliases().isEmpty())
+    }
+
+    @Test
+    fun cliExecute_scg_visitsSealClubberGuild() {
+        val lib = GameRuntimeLibrary(
+            httpClient = HttpClient(io.ktor.client.engine.mock.MockEngine { respond("ok") }),
+        )
+        runLib(lib, """cli_execute("scg");""")
+    }
+
+    @Test
+    fun cliExecute_friars_visitsFriarsPage() {
+        val lib = GameRuntimeLibrary(
+            httpClient = HttpClient(io.ktor.client.engine.mock.MockEngine { respond("ok") }),
+        )
+        runLib(lib, """cli_execute("friars");""")
+    }
+
+    @Test
+    fun cliExecute_desert_visitsDesertBeach() {
+        val lib = GameRuntimeLibrary(
+            httpClient = HttpClient(io.ktor.client.engine.mock.MockEngine { respond("ok") }),
+        )
+        runLib(lib, """cli_execute("desert");""")
+    }
+
+    @Test
+    fun cliExecute_relayStatus_printsPrefState() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setBoolean("relayActive", true)
+        val lib = GameRuntimeLibrary(preferences = preferences)
+        val out = outputLib(lib, """cli_execute("relay status");""")
+        assertTrue(out.contains("Relay is on"))
+    }
+
+    @Test
     fun cliExecute_whatis_printsItemSummary() {
         val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
             override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(

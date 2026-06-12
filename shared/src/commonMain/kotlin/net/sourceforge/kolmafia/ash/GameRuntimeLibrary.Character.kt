@@ -2,6 +2,8 @@ package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.adventure.AdventurePrep
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.Quest
+import net.sourceforge.kolmafia.quest.QuestDatabase
 
 internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
 
@@ -110,5 +112,63 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
             adventureRequest?.travel(loc.id)?.isSuccess ?: false
         }
         AshValue.of(ok)
+    }
+
+    regFn(scope, "guild_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val cls = character?.state?.value?.characterClassEnum
+        AshValue.of(cls?.isStandardClass == true)
+    }
+
+    regFn(scope, "knoll_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val sign = character?.state?.value?.zodiacSign.orEmpty()
+        AshValue.of(sign.equals("Mongoose", ignoreCase = true) ||
+            sign.equals("Wallaby", ignoreCase = true) ||
+            sign.equals("Vole", ignoreCase = true))
+    }
+
+    regFn(scope, "white_citadel_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val progress = questDatabase?.getProgress(Quest.CITADEL) ?: QuestDatabase.UNSTARTED
+        AshValue.of(progress != QuestDatabase.UNSTARTED)
+    }
+
+    regFn(scope, "canadia_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val sign = character?.state?.value?.zodiacSign.orEmpty()
+        AshValue.of(sign.equals("Platypus", ignoreCase = true) ||
+            sign.equals("Opossum", ignoreCase = true) ||
+            sign.equals("Marmot", ignoreCase = true))
+    }
+
+    regFn(scope, "gnomads_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val sign = character?.state?.value?.zodiacSign.orEmpty()
+        AshValue.of(sign.equals("Wombat", ignoreCase = true) ||
+            sign.equals("Blender", ignoreCase = true) ||
+            sign.equals("Packrat", ignoreCase = true))
+    }
+
+    regFn(scope, "friars_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val available = questDatabase?.isQuestFinished(Quest.FRIAR) == true
+        if (available) {
+            val asc = character?.state?.value?.ascensionNumber ?: 0
+            preferences?.setInt("lastFriarCeremonyAscension", asc)
+        }
+        AshValue.of(available)
+    }
+
+    regFn(scope, "black_market_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val asc = character?.state?.value?.ascensionNumber ?: 0
+        if (preferences?.getInt("lastWuTangDefeated", -1) == asc) {
+            return@regFn AshValue.of(false)
+        }
+        val progress = questDatabase?.getProgress(Quest.MACGUFFIN) ?: QuestDatabase.UNSTARTED
+        AshValue.of(
+            progress == QuestDatabase.FINISHED || progress.contains("step"),
+        )
+    }
+
+    regFn(scope, "guild_store_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val cls = character?.state?.value?.characterClassEnum
+        if (cls?.isStandardClass != true) return@regFn AshValue.of(false)
+        val asc = character?.state?.value?.ascensionNumber ?: 0
+        AshValue.of(preferences?.getInt("lastGuildStoreOpen", -1) == asc)
     }
 }
