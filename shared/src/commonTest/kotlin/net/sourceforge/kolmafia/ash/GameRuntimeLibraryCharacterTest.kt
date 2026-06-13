@@ -75,6 +75,71 @@ class GameRuntimeLibraryCharacterTest {
     }
 
     @Test
+    fun toPath_roundTripsPathName() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("none", outputLib(lib, """print(to_string(to_path("none")));""").trim())
+    }
+
+    @Test
+    fun getPath_returnsMyPath() {
+        val lib = libWith { copy(path = "Standard") }
+        assertEquals("Standard", outputLib(lib, """print(to_string(get_path()));""").trim())
+    }
+
+    @Test
+    fun getPath_matchesMyPath() {
+        val lib = libWith { copy(path = "Teetotaler") }
+        assertEquals(
+            outputLib(lib, """print(to_string(my_path()));""").trim(),
+            outputLib(lib, """print(to_string(get_path()));""").trim(),
+        )
+    }
+
+    @Test
+    fun myStat_returnsBuffedMuscle() {
+        val lib = libWith { copy(buffedmus = "75") }
+        assertEquals("75",
+            outputLib(lib, """print(to_string(my_stat(to_stat("muscle"))));"""))
+    }
+
+    @Test
+    fun myBuffedstat_matchesMyStat() {
+        val lib = libWith { copy(buffedmys = "42") }
+        assertEquals(
+            outputLib(lib, """print(to_string(my_stat(to_stat("mysticality"))));"""),
+            outputLib(lib, """print(to_string(my_buffedstat(to_stat("mysticality"))));"""),
+        )
+    }
+
+    @Test
+    fun myDiscoball_trueWhenOwned() {
+        val disco = net.sourceforge.kolmafia.familiar.FamiliarData(
+            id = 87, name = "Disco", race = "Autonomous Disco Ball",
+            weight = 3, experience = 0, kills = 0,
+        )
+        val fm = net.sourceforge.kolmafia.familiar.FamiliarManager(
+            io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine { respond("") }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        )
+        fm.testSetState(net.sourceforge.kolmafia.familiar.FamiliarState(ownedFamiliars = listOf(disco)))
+        val lib = GameRuntimeLibrary(familiarManager = fm)
+        assertEquals("true", outputLib(lib, "print(to_string(my_discoball()));"))
+    }
+
+    @Test
+    fun myDiscoball_falseWhenNotOwned() {
+        assertEquals("false", outputLib(GameRuntimeLibrary.forTesting(), "print(to_string(my_discoball()));"))
+    }
+
+    @Test
+    fun myRolodex_readsPreference() {
+        val p = prefs()
+        p.setBoolean("hasRolodex", true)
+        val lib = GameRuntimeLibrary(preferences = p)
+        assertEquals("true", outputLib(lib, "print(to_string(my_rolodex()));"))
+    }
+
+    @Test
     fun ascensionNumber_returns42() {
         val lib = libWith { copy(ascensions = "42") }
         assertEquals("42", outputLib(lib, "print(to_string(ascension_number()));"))
@@ -261,5 +326,28 @@ class GameRuntimeLibraryCharacterTest {
             character = libWith { copy(classId = "1", ascensions = "3") }.character,
         )
         assertEquals("true", outputLib(lib, "print(to_string(guild_store_available()));"))
+    }
+
+    @Test
+    fun hippyStoreAvailable_falseDuringWarStep1() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val db = net.sourceforge.kolmafia.quest.QuestDatabase(
+            net.sourceforge.kolmafia.preferences.Preferences(prefs),
+        )
+        db.setProgress(net.sourceforge.kolmafia.quest.Quest.ISLAND_WAR, "step1")
+        val lib = GameRuntimeLibrary(questDatabase = db)
+        assertEquals("false", outputLib(lib, "print(to_string(hippy_store_available()));"))
+    }
+
+    @Test
+    fun hiddenTempleUnlocked_trueWhenPrefMatchesAscension() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setInt("lastTempleUnlock", 5)
+        val lib = GameRuntimeLibrary(
+            preferences = preferences,
+            character = libWith { copy(ascensions = "5") }.character,
+        )
+        assertEquals("true", outputLib(lib, "print(to_string(hidden_temple_unlocked()));"))
     }
 }

@@ -199,6 +199,15 @@ class QuestLogSyncTest {
     }
 
     @Test
+    fun applyDerivedQuestStatus_pyramidStartedFinishesDesert() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.DESERT, QuestDatabase.STARTED)
+        db.setProgress(Quest.PYRAMID, QuestDatabase.STARTED)
+        QuestLogSync.applyDerivedQuestStatus(db)
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.DESERT))
+    }
+
+    @Test
     fun councilVisit_appliesQuestHooksFromHtml() {
         val prefs = Preferences(MapSettings())
         val db = QuestDatabase(prefs)

@@ -42,6 +42,7 @@ import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
+import net.sourceforge.kolmafia.ash.ScriptHookRunner
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
 
@@ -71,6 +72,7 @@ class AdventureManager(
     private val retrieveItemService: RetrieveItemService? = null,
     private val useItemRequest: UseItemRequest? = null,
     private val familiarManager: FamiliarManager? = null,
+    private val scriptHookRunner: ScriptHookRunner? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -91,6 +93,11 @@ class AdventureManager(
     }
 
     fun setSkillUses(n: Int) { skillUses = n }
+
+    private suspend fun emitTurnConsumed(location: AdventureLocation, result: AdventureResult) {
+        eventBus.emit(GameEvent.TurnConsumed(location, result))
+        scriptHookRunner?.onTurnConsumed()
+    }
 
     fun runAdventures(location: AdventureLocation, turns: Int, scope: CoroutineScope): Job =
         scope.launch {
@@ -143,7 +150,7 @@ class AdventureManager(
                     val result = doOneTurn(location) ?: return@launch
 
                     if (itemGoalMetThisTurn) {
-                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        emitTurnConsumed(location, result)
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("item goal met")))
                         return@launch
                     }
@@ -155,23 +162,23 @@ class AdventureManager(
                     // Numeric goal checks (meat, level) — evaluated on up-to-date character state
                     val charAfterTurn = character.state.value
                     if (goalManager.hasMeatGoal(charAfterTurn.meat)) {
-                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        emitTurnConsumed(location, result)
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("meat goal met: ${charAfterTurn.meat}")))
                         return@launch
                     }
                     if (goalManager.hasLevelGoal(charAfterTurn.level)) {
-                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        emitTurnConsumed(location, result)
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("level goal met: ${charAfterTurn.level}")))
                         return@launch
                     }
                     if (goalManager.matchesFactoid(lastTurnResponseText)) {
-                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        emitTurnConsumed(location, result)
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("factoid goal met")))
                         return@launch
                     }
                     if (goalManager.matchesSubstats(lastTurnResponseText)) {
                         goalManager.clearSubstatsGoal()
-                        eventBus.emit(GameEvent.TurnConsumed(location, result))
+                        emitTurnConsumed(location, result)
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("substats goal met")))
                         return@launch
                     }
@@ -221,7 +228,7 @@ class AdventureManager(
                     }
                     checkQuestAdvancement(lastTurnResponseText)
                     TurnCounter.removeExpired(preferences, character.state.value.currentRun)
-                    eventBus.emit(GameEvent.TurnConsumed(location, result))
+                    emitTurnConsumed(location, result)
 
                     when {
                         character.state.value.adventuresLeft <= 0 -> {

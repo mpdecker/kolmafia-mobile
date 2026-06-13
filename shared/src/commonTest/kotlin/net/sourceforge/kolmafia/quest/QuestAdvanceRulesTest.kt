@@ -209,4 +209,12 @@ class QuestAdvanceRulesTest {
         assertTrue(QuestAdvanceRules.apply("Welcome to the Hidden Apartment.", db))
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.CURSES))
     }
+
+    @Test
+    fun apply_worshipStep2OnPomPomsSignal() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.WORSHIP, QuestDatabase.STARTED)
+        assertTrue(QuestAdvanceRules.apply("put your pom-poms down", db))
+        assertEquals("step2", db.getProgress(Quest.WORSHIP))
+    }
 }

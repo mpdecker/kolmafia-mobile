@@ -65,6 +65,16 @@ object QuestLogSync {
         if (shouldSync(responseText)) {
             questLogRequest?.syncAll()
         }
+        applyDerivedQuestStatus(questDatabase)
+    }
+
+    /** Cross-quest status links mirrored from desktop QuestLogRequest. */
+    fun applyDerivedQuestStatus(questDatabase: QuestDatabase) {
+        if (questDatabase.isAtLeast(Quest.PYRAMID, QuestDatabase.STARTED) &&
+            !questDatabase.isQuestFinished(Quest.DESERT)
+        ) {
+            questDatabase.setProgress(Quest.DESERT, QuestDatabase.FINISHED)
+        }
     }
 
     internal fun applyPlaceHooks(

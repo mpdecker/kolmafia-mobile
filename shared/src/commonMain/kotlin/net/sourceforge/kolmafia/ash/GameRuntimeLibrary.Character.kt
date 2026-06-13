@@ -17,6 +17,11 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
             character?.state?.value?.ascensionPath?.apiName ?: "None")
     }
 
+    regFn(scope, "get_path", AshType.PATH, emptyList()) { _, _ ->
+        AshValue(AshType.PATH,
+            character?.state?.value?.ascensionPath?.apiName ?: "None")
+    }
+
     regFn(scope, "my_sign", AshType.STRING, emptyList()) { _, _ ->
         AshValue.of(character?.state?.value?.zodiacSign ?: "")
     }
@@ -170,5 +175,62 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
         if (cls?.isStandardClass != true) return@regFn AshValue.of(false)
         val asc = character?.state?.value?.ascensionNumber ?: 0
         AshValue.of(preferences?.getInt("lastGuildStoreOpen", -1) == asc)
+    }
+
+    regFn(scope, "hippy_store_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val progress = questDatabase?.getProgress(Quest.ISLAND_WAR) ?: QuestDatabase.UNSTARTED
+        AshValue.of(progress != "step1")
+    }
+
+    regFn(scope, "dispensary_available", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val asc = character?.state?.value?.ascensionNumber ?: 0
+        if (preferences?.getInt("lastDispensaryOpen", -1) != asc) {
+            return@regFn AshValue.of(false)
+        }
+        val hasLabKey = inventoryManager?.state?.value?.items?.containsKey(339) == true
+        AshValue.of(hasLabKey)
+    }
+
+    regFn(scope, "hidden_temple_unlocked", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val asc = character?.state?.value?.ascensionNumber ?: 0
+        AshValue.of(preferences?.getInt("lastTempleUnlock", -1) == asc)
+    }
+
+    regFn(scope, "my_stat", AshType.INT, listOf("stat" to AshType.STAT)) { _, args ->
+        AshValue.of(buffedStatValue(args[0]))
+    }
+
+    regFn(scope, "my_stat", AshType.INT, listOf("stat" to AshType.STRING)) { _, args ->
+        AshValue.of(buffedStatValue(AshValue(AshType.STAT, args[0].toString())))
+    }
+
+    regFn(scope, "my_buffedstat", AshType.INT, listOf("stat" to AshType.STAT)) { _, args ->
+        AshValue.of(buffedStatValue(args[0]))
+    }
+
+    regFn(scope, "my_buffedstat", AshType.INT, listOf("stat" to AshType.STRING)) { _, args ->
+        AshValue.of(buffedStatValue(AshValue(AshType.STAT, args[0].toString())))
+    }
+
+    regFn(scope, "my_discoball", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val has = familiarManager?.state?.value?.ownedFamiliars?.any {
+            it.race.equals("Autonomous Disco Ball", ignoreCase = true)
+        } ?: false
+        AshValue.of(has)
+    }
+
+    regFn(scope, "my_rolodex", AshType.BOOLEAN, emptyList()) { _, _ ->
+        AshValue.of(preferences?.getBoolean("hasRolodex", false) ?: false)
+    }
+}
+
+private fun GameRuntimeLibrary.buffedStatValue(stat: AshValue): Long {
+    val statName = stat.toString().lowercase()
+    val cs = character?.state?.value
+    return when (statName) {
+        "muscle", "mus" -> (cs?.buffedMusc ?: 0).toLong()
+        "mysticality", "myst", "mys" -> (cs?.buffedMyst ?: 0).toLong()
+        "moxie", "mox" -> (cs?.buffedMoxie ?: 0).toLong()
+        else -> 0L
     }
 }
