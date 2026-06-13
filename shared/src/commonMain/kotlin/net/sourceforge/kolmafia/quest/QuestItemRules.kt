@@ -19,6 +19,8 @@ object QuestItemRules {
     const val DRIPPING_STONE_SPHERE_ID = 6698
     const val CRACKLING_STONE_SPHERE_ID = 6699
     const val SCORCHED_STONE_SPHERE_ID = 6700
+    const val ANCIENT_AMULET_ID = 2180
+    const val DESERT_PAMPHLET_ID = 6854
     const val DOC_HERB_COUNT = 3
     const val SPORE_POD_COUNT = 6
 
@@ -53,6 +55,12 @@ object QuestItemRules {
             }
             if (name.contains("exorcised sandwich", ignoreCase = true)) {
                 advanced = setIfBetter(questDatabase, Quest.MYST, "step1") || advanced
+            }
+            if (name.contains("ancient amulet", ignoreCase = true)) {
+                advanced = setIfBetter(questDatabase, Quest.WORSHIP, QuestDatabase.FINISHED) || advanced
+            }
+            if (name.contains("desert sightseeing pamphlet", ignoreCase = true)) {
+                advanced = setIfBetter(questDatabase, Quest.DESERT, QuestDatabase.STARTED) || advanced
             }
             advanced = applyHiddenHospitalItemName(name, questDatabase) || advanced
         }
@@ -115,6 +123,12 @@ object QuestItemRules {
         }
         if (itemCount(SCORCHED_STONE_SPHERE_ID) >= 1) {
             advanced = setIfBetter(questDatabase, Quest.SPARE, QuestDatabase.FINISHED) || advanced
+        }
+        if (itemCount(ANCIENT_AMULET_ID) >= 1) {
+            advanced = setIfBetter(questDatabase, Quest.WORSHIP, QuestDatabase.FINISHED) || advanced
+        }
+        if (itemCount(DESERT_PAMPHLET_ID) >= 1) {
+            advanced = setIfBetter(questDatabase, Quest.DESERT, QuestDatabase.STARTED) || advanced
         }
         advanced = maybeAdvanceWorshipStep4(questDatabase) || advanced
         return advanced

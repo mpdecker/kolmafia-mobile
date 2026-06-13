@@ -169,6 +169,13 @@ class GameRuntimeLibraryTest {
         """.trimIndent())
     )
 
+    @Test
+    fun abort_throwsScriptExceptionWithMessage() {
+        val ex = kotlin.runCatching { run("""abort("bad item");""") }.exceptionOrNull()
+        assertTrue(ex is ScriptException)
+        assertTrue(ex!!.message!!.contains("bad item"))
+    }
+
     // --- Familiar ---
 
     @Test

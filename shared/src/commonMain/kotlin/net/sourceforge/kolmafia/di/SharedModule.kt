@@ -36,6 +36,7 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
+import net.sourceforge.kolmafia.ash.ScriptHookRunner
 import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.effect.EffectManager
@@ -226,6 +227,7 @@ val sharedModule = module {
             retrieveItemService = get(),
             useItemRequest   = get(),
             familiarManager  = get(),
+            scriptHookRunner = get(),
         )
     }
     single {
@@ -278,6 +280,7 @@ val sharedModule = module {
         )
     }
     singleOf(::ScriptManager)
+    singleOf(::ScriptHookRunner)
     single {
         SessionManager(
             loginRequest         = get(),

@@ -65,15 +65,10 @@ class ScriptManager(
 
         runJob = scope.launch {
             try {
-                val runtime = AshRuntime(library)
-                val nodes = AshParser().parse(entry.source)
-                runtime.execute(nodes)
-                val out = runtime.output.toString()
-                // Emit each output line to the event bus before persisting
+                val out = executeScript(entry)
                 out.lines().filter { it.isNotEmpty() }.forEach { line ->
                     eventBus.tryEmit(GameEvent.ScriptOutput(line))
                 }
-                // Update lastRunAt
                 val updatedScripts = _state.value.scripts.map {
                     if (it.name == name) it.copy(lastRunAt = currentTimeMillis()) else it
                 }
@@ -91,9 +86,39 @@ class ScriptManager(
         }
     }
 
+    /** Synchronous run for autoscript hooks — must finish before the adventure loop continues. */
+    fun runScriptSync(name: String) {
+        val entry = _state.value.scripts.find { it.name == name } ?: return
+        try {
+            val out = executeScript(entry)
+            val updatedScripts = _state.value.scripts.map {
+                if (it.name == name) it.copy(lastRunAt = currentTimeMillis()) else it
+            }
+            persistScripts(updatedScripts)
+            _state.value = _state.value.copy(output = out, error = null)
+        } catch (e: ScriptException) {
+            _state.value = _state.value.copy(error = e.message)
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(error = e.message ?: "Unknown error")
+        }
+    }
+
+    private fun executeScript(entry: ScriptEntry): String {
+        val runtime = AshRuntime(library)
+        val nodes = AshParser().parse(entry.source)
+        runtime.execute(nodes)
+        return runtime.output.toString()
+    }
+
     fun stopScript() {
         runJob?.cancel()
         runJob = null
         _state.value = _state.value.copy(runningScript = null)
     }
+
+    fun activeAutoscript(): ScriptEntry? =
+        _state.value.scripts.firstOrNull { it.type == ScriptType.AUTOSCRIPT }
+
+    fun activeCombatScript(): ScriptEntry? =
+        _state.value.scripts.firstOrNull { it.type == ScriptType.COMBAT }
 }

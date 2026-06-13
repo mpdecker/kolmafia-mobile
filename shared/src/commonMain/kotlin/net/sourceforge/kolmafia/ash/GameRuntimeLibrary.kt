@@ -121,7 +121,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase39"
+        const val REVISION = "ash-p5"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -488,6 +488,22 @@ class GameRuntimeLibrary(
 
         Regex("^desert$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("place.php?whichplace=desertbeach")
+        },
+
+        Regex("^woods$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("place.php?whichplace=woods", applyQuestHooks = true)
+        },
+
+        Regex("^mountains$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("place.php?whichplace=mountains", applyQuestHooks = true)
+        },
+
+        Regex("^beach$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("place.php?whichplace=desertbeach")
+        },
+
+        Regex("^pyramid$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("place.php?whichplace=desertbeach&action=db_pyramid1", applyQuestHooks = true)
         },
 
         // ccs / ccprep — store combat macro script text
@@ -1502,6 +1518,7 @@ class GameRuntimeLibrary(
         registerStringUtils(scope)
         registerMathUtils(scope)
         registerAggregateUtils(scope)
+        registerAggregateExtensions(scope)
         registerPrintUtils(scope)
         registerCharacterQueries(scope)
         registerItemQueries(scope)
@@ -1528,6 +1545,7 @@ class GameRuntimeLibrary(
         registerCraftFunctions(scope)
         registerBanishQueries(scope)
         registerWebRequests(scope)
+        registerWebHtml(scope)
         registerHermit(scope)
         registerTimingAndLogging(scope)
         registerCliOutput(scope)
@@ -1625,6 +1643,18 @@ class GameRuntimeLibrary(
 
         register(scope, "to_coinmaster", AshType.COINMASTER, listOf("name" to AshType.STRING)) { _, args ->
             AshValue(AshType.COINMASTER, args[0].toString())
+        }
+
+        register(scope, "to_path", AshType.PATH, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.PATH, args[0].toString())
+        }
+
+        register(scope, "to_stat", AshType.STAT, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.STAT, args[0].toString())
+        }
+
+        register(scope, "to_thrall", AshType.THRALL, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.THRALL, args[0].toString())
         }
     }
 
@@ -1773,6 +1803,9 @@ class GameRuntimeLibrary(
         register(scope, "print_to_string", AshType.STRING, listOf("value" to AshType.STRING)) { _, args ->
             args[0]
         }
+        register(scope, "abort", AshType.VOID, listOf("msg" to AshType.STRING)) { _, args ->
+            throw ScriptException(args[0].toString())
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -1849,11 +1882,18 @@ class GameRuntimeLibrary(
             AshValue.of(qty.toLong())
         }
         register(scope, "available_amount", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
-            // same as item_amount for mobile (no closet/storage distinction yet)
             val name = args[0].toString()
-            val qty = inventoryManager?.state?.value?.items?.values
-                ?.find { it.name.equals(name, ignoreCase = true) }?.quantity ?: 0
-            AshValue.of(qty.toLong())
+            val itemId = gameDatabase?.item(name)?.id
+                ?: inventoryManager?.state?.value?.items?.values
+                    ?.find { it.name.equals(name, ignoreCase = true) }?.itemId
+            if (itemId == null) return@register AshValue.of(0L)
+            val count = outfitManager?.let { om ->
+                kotlinx.coroutines.runBlocking { om.accessibleCount(itemId, name) }
+            } ?: run {
+                inventoryManager?.state?.value?.items?.values
+                    ?.find { it.itemId == itemId }?.quantity ?: 0
+            }
+            AshValue.of(count.toLong())
         }
         register(scope, "to_item", AshType.ITEM, listOf("name" to AshType.STRING)) { _, args ->
             AshValue.item(args[0].toString())

@@ -119,4 +119,21 @@ class QuestItemRulesTest {
         assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.SPARE))
         assertEquals("step4", db.getProgress(Quest.WORSHIP))
     }
+
+    @Test
+    fun applyInventory_ancientAmuletFinishesWorship() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.WORSHIP, "step4")
+        val counts = mapOf(QuestItemRules.ANCIENT_AMULET_ID to 1)
+        assertTrue(QuestItemRules.applyInventory({ counts[it] ?: 0 }, db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.WORSHIP))
+    }
+
+    @Test
+    fun applyInventory_desertPamphletStartsDesert() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        val counts = mapOf(QuestItemRules.DESERT_PAMPHLET_ID to 1)
+        assertTrue(QuestItemRules.applyInventory({ counts[it] ?: 0 }, db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.DESERT))
+    }
 }

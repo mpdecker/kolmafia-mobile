@@ -94,4 +94,20 @@ class QuestChoiceRulesTest {
         assertTrue(QuestChoiceRules.apply(1064, "The Doctor is Out", db, decision = 1))
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.DOC))
     }
+
+    @Test
+    fun choice125_decision3AdvancesWorshipStep3() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.WORSHIP, "step2")
+        assertTrue(QuestChoiceRules.apply(125, "No visible means of support", db, decision = 3))
+        assertEquals("step3", db.getProgress(Quest.WORSHIP))
+    }
+
+    @Test
+    fun choice584_decision4AdvancesWorshipStep2() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.WORSHIP, QuestDatabase.STARTED)
+        assertTrue(QuestChoiceRules.apply(584, "Unconfusing Buttons", db, decision = 4))
+        assertEquals("step2", db.getProgress(Quest.WORSHIP))
+    }
 }

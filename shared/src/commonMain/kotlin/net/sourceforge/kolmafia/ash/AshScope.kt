@@ -57,4 +57,7 @@ class AshScope(val parent: AshScope? = null) {
     }
 
     fun child(): AshScope = AshScope(this)
+
+    /** Test-only: total registered overloads across all function names. */
+    fun debugFunctionCount(): Int = functions.values.sumOf { it.size }
 }

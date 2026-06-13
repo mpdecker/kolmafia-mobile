@@ -136,4 +136,28 @@ class GameRuntimeLibraryMallTest {
         val lib = GameRuntimeLibrary(gameDatabase = stubDb(), mallManager = null)
         assertEquals("-1", outputLib(lib, """print(to_string(mall_price(to_item("$TEST_ITEM"))));"""))
     }
+
+    @Test
+    fun availableAmount_usesOutfitManagerAccessibleCount() {
+        val manager = object : OutfitManager(
+            retrieveItemService = null,
+            equipmentRequest = net.sourceforge.kolmafia.request.EquipmentRequest(
+                HttpClient(MockEngine { respond("") })
+            ),
+            customOutfitRequest = net.sourceforge.kolmafia.request.CustomOutfitRequest(
+                HttpClient(MockEngine { respond("") })
+            ),
+            character = net.sourceforge.kolmafia.character.KoLCharacter(),
+            gameDatabase = stubDb(),
+            closetRequest = null,
+            storageRequest = null,
+            displayCaseRequest = null,
+            clanStashRequest = null,
+            inventoryManager = null,
+        ) {
+            override suspend fun accessibleCount(itemId: Int, itemName: String) = 7
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = stubDb(), outfitManager = manager)
+        assertEquals("7", outputLib(lib, """print(to_string(available_amount(to_item("$TEST_ITEM"))));"""))
+    }
 }

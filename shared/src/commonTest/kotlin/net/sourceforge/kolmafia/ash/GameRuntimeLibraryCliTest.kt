@@ -1397,6 +1397,22 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_woods_visitsDistantWoods() {
+        val lib = GameRuntimeLibrary(
+            httpClient = HttpClient(io.ktor.client.engine.mock.MockEngine { respond("ok") }),
+        )
+        runLib(lib, """cli_execute("woods");""")
+    }
+
+    @Test
+    fun cliExecute_pyramid_visitsBuriedPyramid() {
+        val lib = GameRuntimeLibrary(
+            httpClient = HttpClient(io.ktor.client.engine.mock.MockEngine { respond("ok") }),
+        )
+        runLib(lib, """cli_execute("pyramid");""")
+    }
+
+    @Test
     fun cliExecute_whatis_printsItemSummary() {
         val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
             override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(

@@ -71,6 +71,21 @@ object QuestChoiceRules {
                     2 -> advanced = setIfBetter(questDatabase, Quest.DOC, QuestDatabase.FINISHED) || advanced
                 }
             }
+            125 -> {
+                if (decision == 3) {
+                    advanced = setIfBetter(questDatabase, Quest.WORSHIP, "step3") || advanced
+                }
+            }
+            584 -> {
+                if (decision == 4) {
+                    advanced = setIfBetter(questDatabase, Quest.WORSHIP, "step2") || advanced
+                }
+            }
+            1002 -> {
+                if (responseText.contains("spectre nods emphatically", ignoreCase = true)) {
+                    advanced = setIfBetter(questDatabase, Quest.WORSHIP, QuestDatabase.FINISHED) || advanced
+                }
+            }
             1087 -> {
                 advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step11") || advanced
                 if (responseText.contains("passed", ignoreCase = true) ||

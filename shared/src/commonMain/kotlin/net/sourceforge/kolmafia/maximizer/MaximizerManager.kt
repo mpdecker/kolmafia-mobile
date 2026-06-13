@@ -117,7 +117,10 @@ open class MaximizerManager(
         val enthronedBonus = scoreFamiliarList(effectiveSpec.enthronedFamiliars, effectiveSpec.primary)
         val bjornBonus = scoreFamiliarList(effectiveSpec.bjornifiedFamiliars, effectiveSpec.primary)
         val (targetThrall, thrallBonus) = resolveTargetThrall(effectiveSpec)
-        val scoreAfter = bestPerSlot.values.sumOf { it.second } + enthronedBonus + bjornBonus + thrallBonus
+        val familiarRace = resolveFamiliarSwitch(effectiveSpec)
+        val familiarBonus = familiarRace?.let { scoreFamiliarList(listOf(it), effectiveSpec.primary) } ?: 0.0
+        val scoreAfter = bestPerSlot.values.sumOf { it.second } +
+            enthronedBonus + bjornBonus + thrallBonus + familiarBonus
         if (scoreAfter <= scoreBefore) {
             return MaximizeResult(false, goal, scoreBefore, scoreBefore)
         }
@@ -130,7 +133,6 @@ open class MaximizerManager(
         var bjornifiedSwitched: String? = null
         var thrallSwitched: String? = null
 
-        val familiarRace = resolveFamiliarSwitch(effectiveSpec)
         if (familiarRace != null) {
             familiarManager?.setFamiliar(familiarRace)?.onSuccess {
                 familiarSwitched = familiarRace
@@ -259,10 +261,17 @@ open class MaximizerManager(
     private fun resolveFamiliarSwitch(spec: MaximizeSpec): String? {
         if (spec.switchFamiliars.isEmpty()) return null
         val owned = familiarManager?.state?.value?.ownedFamiliars.orEmpty()
+        var bestRace: String? = null
+        var bestScore = Double.NEGATIVE_INFINITY
         for (race in spec.switchFamiliars) {
-            if (owned.any { it.race.equals(race, ignoreCase = true) }) return race
+            if (!owned.any { it.race.equals(race, ignoreCase = true) }) continue
+            val score = scoreFamiliarList(listOf(race), spec.primary)
+            if (score > bestScore) {
+                bestScore = score
+                bestRace = race
+            }
         }
-        return null
+        return bestRace
     }
 
     private fun findBestPerSlot(
