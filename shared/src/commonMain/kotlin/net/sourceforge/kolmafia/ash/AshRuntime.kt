@@ -7,6 +7,7 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
     var controlFlow = ControlFlow.NORMAL
     var returnValue: AshValue = AshValue.VOID
     val output = StringBuilder()
+    private var combatAction = ""
 
     private val globalScope = AshScope().also { library.registerAll(it) }
 
@@ -263,4 +264,10 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
     }
 
     override fun print(msg: String) { output.append(msg).append('\n') }
+
+    override fun lastCombatAction(): String = combatAction
+
+    override fun setCombatAction(action: String) {
+        combatAction = action
+    }
 }

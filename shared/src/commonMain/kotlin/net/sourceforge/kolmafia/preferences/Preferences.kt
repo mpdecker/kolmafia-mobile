@@ -69,6 +69,11 @@ class Preferences(private val settings: Settings) {
 
         // Adventure location tracking
         const val LAST_LOCATION            = "_lastLocation"
+        const val CACHED_CLOSET            = "_cachedCloset"
+        const val CACHED_STORAGE           = "_cachedStorage"
+        const val CACHED_STASH             = "_cachedStash"
+        const val CACHED_DISPLAY           = "_cachedDisplay"
+        const val COMBAT_SCRIPT           = "combatScript"
         const val USER_NOTE                = "userNote"
         const val CURRENT_CHAT_CHANNEL     = "currentChatChannel"
         const val AUTO_SCRIPTING           = "autoScripting"

@@ -120,6 +120,13 @@ object AdventureParser {
         (html.contains("fight.php") || html.contains("You're fighting")) &&
             !WIN_PATTERN.containsMatchIn(html)
 
+    // Sourced from desktop FightRequest.CAN_STEAL_PATTERN
+    private val CAN_STEAL_PATTERN = Regex(
+        """value="(Pick (?:His|Her|Their|Its) Pocket(?: Again)?|Look for Shiny Objects|Steal \(for research\))""""
+    )
+
+    fun canStillSteal(html: String): Boolean = CAN_STEAL_PATTERN.containsMatchIn(html)
+
     fun parseFightResult(html: String): AdventureResult.Combat {
         val won = WIN_PATTERN.containsMatchIn(html)
         val monster = MONSTER_NAME.find(html)?.groupValues?.get(1) ?: "Unknown"

@@ -8,6 +8,7 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.adventure.AdventureRequest
+import net.sourceforge.kolmafia.adventure.MacroStrategy
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
@@ -66,6 +67,8 @@ import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.math.sqrt
 import kotlin.random.Random
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class GameRuntimeLibrary(
     internal val character: KoLCharacter? = null,
@@ -121,12 +124,60 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "ash-p5"
+        const val REVISION = "ash-p8"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
     internal val lastCliOutput = StringBuilder()
+
+    fun resolveCombatMacro(zoneId: String): String {
+        evaluateCombatAction()?.takeIf { it.isNotBlank() }?.let { return it }
+        val prefs = preferences ?: return MacroStrategy.SAFE_DEFAULT
+        return MacroStrategy.forLocation(zoneId, prefs)
+    }
+
+    fun evaluateCombatAction(): String? {
+        val entry = activeCombatScriptEntry() ?: return null
+        val runtime = AshRuntime(this)
+        if (!runSavedScript(entry.name, runtime)) return null
+        return runtime.lastCombatAction().takeIf { it.isNotBlank() }
+    }
+
+    fun activeCombatScriptEntry(): ScriptEntry? {
+        val json = preferences?.getString(ScriptManager.SCRIPTS_PREF_KEY, "[]") ?: return null
+        val scripts = try {
+            Json.decodeFromString<List<ScriptEntry>>(json)
+        } catch (_: Exception) {
+            return null
+        }
+        val named = preferences?.getString(Preferences.COMBAT_SCRIPT, "")?.takeIf { it.isNotBlank() }
+        if (named != null) {
+            scripts.find { it.name.equals(named, ignoreCase = true) }?.let { return it }
+        }
+        return scripts.firstOrNull { it.type == ScriptType.COMBAT }
+    }
+
+    internal fun assignCombatScript(name: String) {
+        preferences?.setString("combatMacro", name)
+        preferences?.setString(Preferences.COMBAT_SCRIPT, name)
+        val prefs = preferences ?: return
+        val json = prefs.getString(ScriptManager.SCRIPTS_PREF_KEY, "[]")
+        val scripts = try {
+            Json.decodeFromString<List<ScriptEntry>>(json)
+        } catch (_: Exception) {
+            return
+        }
+        if (scripts.none { it.name.equals(name, ignoreCase = true) }) return
+        val updated = scripts.map { entry ->
+            when {
+                entry.name.equals(name, ignoreCase = true) -> entry.copy(type = ScriptType.COMBAT)
+                entry.type == ScriptType.COMBAT -> entry.copy(type = ScriptType.NORMAL)
+                else -> entry
+            }
+        }
+        prefs.setString(ScriptManager.SCRIPTS_PREF_KEY, Json.encodeToString(updated))
+    }
 
     private val cliDispatch: List<Pair<Regex, (MatchResult, AshRuntimeContext) -> Unit>> = listOf(
 
@@ -381,6 +432,22 @@ class GameRuntimeLibrary(
             rt.print(preferences?.getString(m.groupValues[1].trim(), "") ?: "")
         },
 
+        // counter add/set — named integer counters
+        Regex("^counter\\s+(\\S+)\\s+add\\s+(-?\\d+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val name = m.groupValues[1].trim()
+            val delta = m.groupValues[2].toIntOrNull() ?: 0
+            val prefs = preferences ?: return@to
+            val key = "counter_$name"
+            prefs.setInt(key, prefs.getInt(key, 0) + delta)
+            prefs.registerCounterName(name)
+        },
+        Regex("^counter\\s+(\\S+)\\s+set\\s+(-?\\d+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val name = m.groupValues[1].trim()
+            val value = m.groupValues[2].toIntOrNull() ?: 0
+            preferences?.setInt("counter_$name", value)
+            preferences?.registerCounterName(name)
+        },
+
         // counter — print/set named pref, or list relay counters
         Regex("^counter\\s+relay$", RegexOption.IGNORE_CASE) to { _, rt ->
             val currentRun = character?.state?.value?.currentRun ?: 0
@@ -506,9 +573,9 @@ class GameRuntimeLibrary(
             visitKolPage("place.php?whichplace=desertbeach&action=db_pyramid1", applyQuestHooks = true)
         },
 
-        // ccs / ccprep — store combat macro script text
+        // ccs / ccprep — combat macro text + optional saved COMBAT script
         Regex("^ccs\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            preferences?.setString("combatMacro", m.groupValues[1])
+            assignCombatScript(m.groupValues[1].trim())
         },
         Regex("^ccprep$", RegexOption.IGNORE_CASE) to { _, rt ->
             rt.print(preferences?.getString("combatMacro", "") ?: "")
@@ -649,6 +716,9 @@ class GameRuntimeLibrary(
         },
 
         // description / desc / show item — print item summary from database
+        Regex("^show\\s+all$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print(buildShowAllSummary())
+        },
         Regex("^(?:description|desc|show)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val item = gameDatabase?.item(m.groupValues[1].trim())
             if (item != null) {
@@ -656,9 +726,49 @@ class GameRuntimeLibrary(
             }
         },
 
+        // pool <skill> — cast a skill (billiards lounge pool game is bare "pool")
+        Regex("^pool\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val skillName = m.groupValues[1].trim()
+            val skill = skillManager?.state?.value?.skills
+                ?.find { it.name.equals(skillName, ignoreCase = true) }
+            if (skill != null) {
+                kotlinx.coroutines.runBlocking { skillManager!!.cast(skill, 1) }
+            }
+        },
+
         // pool — play one VIP lounge pool game
         Regex("^pool$", RegexOption.IGNORE_CASE) to { _, _ ->
             kotlinx.coroutines.runBlocking { clanLoungeRequest?.playPoolGame() }
+        },
+
+        // profam <item> — use one copy (professional familiar leaflet pattern)
+        Regex("^profam\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemName = m.groupValues[1].trim()
+            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
+            kotlinx.coroutines.runBlocking { useItemRequest?.use(itemId, 1) }
+        },
+
+        // pvp attack <player> — PvP out of scope; must not crash scripts
+        Regex("^pvp\\s+attack\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            rt.print("PvP not available on mobile (target=${m.groupValues[1]}).")
+        },
+
+        // tags — list registered counter/mood tag names
+        Regex("^tags$", RegexOption.IGNORE_CASE) to { _, rt ->
+            val prefs = preferences ?: return@to
+            for (name in prefs.counterNames()) {
+                rt.print(name)
+            }
+            prefs.getString(Preferences.MOOD_LIBRARY_NAMES, "")
+                .split('|')
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .forEach { rt.print(it) }
+        },
+
+        // joke — harmless no-op for script compatibility
+        Regex("^joke$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print("That's funny.")
         },
 
         // refreshshop / refresh shop — refresh mall store prices
@@ -1437,6 +1547,20 @@ class GameRuntimeLibrary(
         }
     }
 
+    internal fun buildShowAllSummary(): String {
+        val cs = character?.state?.value ?: return "Not logged in."
+        return buildString {
+            append("${cs.name} (#${cs.playerId}) — Level ${cs.level} ${cs.className}")
+            append("; HP ${cs.currentHp}/${cs.maxHp}")
+            append("; MP ${cs.currentMp}/${cs.maxMp}")
+            append("; Mus ${cs.buffedMusc} Mys ${cs.buffedMyst} Mox ${cs.buffedMoxie}")
+            append("; ${cs.adventuresLeft} adv; ${cs.meat} meat")
+            val loc = preferences?.getString(Preferences.LAST_LOCATION, "") ?: ""
+            if (loc.isNotBlank()) append("; loc=$loc")
+            if (cs.familiarName.isNotBlank()) append("; familiar=${cs.familiarName}")
+        }
+    }
+
     internal fun buildDumpSummary(): String {
         val cs = character?.state?.value
         val loc = preferences?.getString(Preferences.LAST_LOCATION, "") ?: ""
@@ -1527,6 +1651,7 @@ class GameRuntimeLibrary(
         registerGameActions(scope)
         // new extension calls (added as tasks T4–T13 are implemented):
         registerCharacterExtensions(scope)
+        registerLocationQueries(scope)
         registerFamiliarQueries(scope)
         registerEquipmentQueries(scope)
         registerModifierQueries(scope)
@@ -1536,6 +1661,8 @@ class GameRuntimeLibrary(
         registerMoodQueries(scope)
         registerPreferenceAccess(scope)
         registerCombatStubs(scope)
+        registerCombatScript(scope)
+        registerLongTailStubs(scope)
         registerItemActions(scope)
         registerPricingQueries(scope)
         registerMallFunctions(scope)
@@ -1655,6 +1782,22 @@ class GameRuntimeLibrary(
 
         register(scope, "to_thrall", AshType.THRALL, listOf("name" to AshType.STRING)) { _, args ->
             AshValue(AshType.THRALL, args[0].toString())
+        }
+
+        register(scope, "to_servant", AshType.SERVANT, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.SERVANT, args[0].toString())
+        }
+
+        register(scope, "to_vykea", AshType.VYKEA, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.VYKEA, args[0].toString())
+        }
+
+        register(scope, "to_bounty", AshType.BOUNTY, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.BOUNTY, args[0].toString())
+        }
+
+        register(scope, "to_modifier", AshType.MODIFIER, listOf("name" to AshType.STRING)) { _, args ->
+            AshValue(AshType.MODIFIER, args[0].toString())
         }
     }
 
@@ -1875,11 +2018,17 @@ class GameRuntimeLibrary(
     // ──────────────────────────────────────────────────────────────
 
     private fun registerItemQueries(scope: AshScope) {
-        register(scope, "item_amount", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
-            val name = args[0].toString()
+        fun inventoryQty(name: String): Long {
             val qty = inventoryManager?.state?.value?.items?.values
                 ?.find { it.name.equals(name, ignoreCase = true) }?.quantity ?: 0
-            AshValue.of(qty.toLong())
+            return qty.toLong()
+        }
+
+        register(scope, "item_amount", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
+            AshValue.of(inventoryQty(args[0].toString()))
+        }
+        register(scope, "item_count", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
+            AshValue.of(inventoryQty(args[0].toString()))
         }
         register(scope, "available_amount", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
             val name = args[0].toString()
@@ -2038,6 +2187,14 @@ class GameRuntimeLibrary(
         override fun print(msg: String) {
             buffer.append(msg).append('\n')
             delegate.print(msg)
+        }
+
+        override fun lastCombatAction(): String =
+            if (delegate is AshRuntime) delegate.lastCombatAction() else delegate.lastCombatAction()
+
+        override fun setCombatAction(action: String) {
+            if (delegate is AshRuntime) delegate.setCombatAction(action)
+            else delegate.setCombatAction(action)
         }
     }
 

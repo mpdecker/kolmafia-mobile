@@ -228,6 +228,7 @@ val sharedModule = module {
             useItemRequest   = get(),
             familiarManager  = get(),
             scriptHookRunner = get(),
+            combatMacroResolver = { zoneId -> get<GameRuntimeLibrary>().resolveCombatMacro(zoneId) },
         )
     }
     single {

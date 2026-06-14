@@ -46,6 +46,10 @@ open class AshType(val name: String) {
         val PHYLUM = AshType("phylum")
         val PATH = AshType("path")
         val THRALL = AshType("thrall")
+        val SERVANT = AshType("servant")
+        val VYKEA = AshType("vykea")
+        val BOUNTY = AshType("bounty")
+        val MODIFIER = AshType("modifier")
 
         private val PRIMITIVES: Map<String, AshType> = mapOf(
             "void" to VOID, "boolean" to BOOLEAN, "int" to INT, "float" to FLOAT,
@@ -54,7 +58,8 @@ open class AshType(val name: String) {
             "skill" to SKILL, "effect" to EFFECT, "familiar" to FAMILIAR,
             "slot" to SLOT, "monster" to MONSTER, "element" to ELEMENT,
             "coinmaster" to COINMASTER, "phylum" to PHYLUM, "path" to PATH,
-            "thrall" to THRALL
+            "thrall" to THRALL, "servant" to SERVANT, "vykea" to VYKEA,
+            "bounty" to BOUNTY, "modifier" to MODIFIER,
         )
 
         fun fromName(name: String, records: Map<String, RecordType> = emptyMap()): AshType? =
