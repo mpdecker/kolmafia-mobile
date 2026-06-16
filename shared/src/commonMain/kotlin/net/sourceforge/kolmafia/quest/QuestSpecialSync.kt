@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.adventure.RufusManager
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 
@@ -120,6 +121,7 @@ object QuestSpecialSync {
         if (applyShen(responseText, questDatabase, preferences)) advanced = true
         if (applyDoctorBag(responseText, questDatabase, preferences)) advanced = true
         if (applyGuzzlr(responseText, questDatabase, preferences, gameDatabase)) advanced = true
+        if (applyRufus(responseText, questDatabase, preferences, gameDatabase)) advanced = true
         if (applyPrimordial(responseText, questDatabase, preferences)) advanced = true
         if (applyCompetitionStatus(responseText, questDatabase, preferences)) advanced = true
         if (applyFinalQuestLog(responseText, questDatabase)) advanced = true
@@ -267,6 +269,7 @@ object QuestSpecialSync {
         questDatabase: QuestDatabase,
         preferences: Preferences?,
     ): Boolean {
+        if (completeDoctorBagDelivery(text, questDatabase, preferences)) return true
         if (text.contains("Acquire ", ignoreCase = true)) {
             val match = doctorBagItemPattern.find(text) ?: return false
             preferences?.setString("doctorBagQuestItem", match.groupValues[1].trim())
@@ -293,6 +296,7 @@ object QuestSpecialSync {
         preferences: Preferences?,
         gameDatabase: GameDatabase?,
     ): Boolean {
+        if (completeGuzzlrDelivery(text, questDatabase, preferences)) return true
         if (text.contains("Craft a personalized Guzzlr cocktail.", ignoreCase = true)) {
             preferences?.setString("guzzlrQuestTier", "platinum")
             if (questDatabase.getProgress(Quest.GUZZLR) == QuestDatabase.UNSTARTED) {
@@ -327,6 +331,22 @@ object QuestSpecialSync {
             return true
         }
         return false
+    }
+
+    private fun applyRufus(
+        text: String,
+        questDatabase: QuestDatabase,
+        preferences: Preferences?,
+        gameDatabase: GameDatabase?,
+    ): Boolean {
+        if (!text.contains("Rufus wants you", ignoreCase = true) &&
+            !text.contains("Call Rufus", ignoreCase = true)
+        ) {
+            return false
+        }
+        val prefs = preferences ?: return false
+        val step = RufusManager(prefs).handleQuestLog(text, gameDatabase) ?: return false
+        return advanceIfBetter(questDatabase, Quest.RUFUS, step)
     }
 
     private fun applyPeakStatus(
@@ -502,6 +522,90 @@ object QuestSpecialSync {
         if (QuestDatabase.stepOrdinal(step) <= QuestDatabase.stepOrdinal(current)) return false
         questDatabase.setProgress(quest, step)
         return true
+    }
+
+    internal fun abandonDoctorBag(questDatabase: QuestDatabase, preferences: Preferences?): Boolean {
+        clearDoctorBagQuest(preferences)
+        if (questDatabase.getProgress(Quest.DOCTOR_BAG) == QuestDatabase.UNSTARTED) return false
+        questDatabase.setProgress(Quest.DOCTOR_BAG, QuestDatabase.UNSTARTED)
+        return true
+    }
+
+    internal fun completeDoctorBagDelivery(
+        text: String,
+        questDatabase: QuestDatabase,
+        preferences: Preferences?,
+    ): Boolean {
+        val deliverySignal = text.contains("green lights", ignoreCase = true) ||
+            text.contains("bag has been permanently upgraded", ignoreCase = true) ||
+            text.contains("lights go dark again", ignoreCase = true)
+        if (!deliverySignal) return false
+        when {
+            text.contains("One of the five green lights", ignoreCase = true) ->
+                preferences?.setInt("doctorBagQuestLights", 1)
+            text.contains("second of the five green lights", ignoreCase = true) ->
+                preferences?.setInt("doctorBagQuestLights", 2)
+            text.contains("third of the five green lights", ignoreCase = true) ->
+                preferences?.setInt("doctorBagQuestLights", 3)
+            text.contains("fourth of the five green lights", ignoreCase = true) ->
+                preferences?.setInt("doctorBagQuestLights", 4)
+            text.contains("lights go dark again", ignoreCase = true) ->
+                preferences?.setInt("doctorBagQuestLights", 0)
+        }
+        if (text.contains("bag has been permanently upgraded", ignoreCase = true)) {
+            preferences?.let { prefs ->
+                prefs.setInt("doctorBagUpgrades", prefs.getInt("doctorBagUpgrades") + 1)
+            }
+        }
+        clearDoctorBagQuest(preferences)
+        questDatabase.setProgress(Quest.DOCTOR_BAG, QuestDatabase.UNSTARTED)
+        return true
+    }
+
+    internal fun abandonGuzzlr(questDatabase: QuestDatabase, preferences: Preferences?): Boolean {
+        preferences?.setBoolean("_guzzlrQuestAbandoned", true)
+        clearGuzzlrQuest(preferences)
+        if (questDatabase.getProgress(Quest.GUZZLR) == QuestDatabase.UNSTARTED) return false
+        questDatabase.setProgress(Quest.GUZZLR, QuestDatabase.UNSTARTED)
+        return true
+    }
+
+    internal fun completeGuzzlrDelivery(
+        text: String,
+        questDatabase: QuestDatabase,
+        preferences: Preferences?,
+    ): Boolean {
+        if (!text.contains("You finally manage to track down", ignoreCase = true)) return false
+        val tier = preferences?.getString("guzzlrQuestTier", "")?.lowercase().orEmpty()
+        if (tier.isNotBlank()) {
+            val key = when (tier) {
+                "bronze" -> "guzzlrBronzeDeliveries"
+                "gold" -> "guzzlrGoldDeliveries"
+                "platinum" -> "guzzlrPlatinumDeliveries"
+                else -> null
+            }
+            key?.let { deliveryKey ->
+                preferences?.let { prefs ->
+                    prefs.setInt(deliveryKey, prefs.getInt(deliveryKey) + 1)
+                }
+            }
+        }
+        preferences?.setInt("guzzlrDeliveryProgress", 0)
+        clearGuzzlrQuest(preferences)
+        questDatabase.setProgress(Quest.GUZZLR, QuestDatabase.UNSTARTED)
+        return true
+    }
+
+    private fun clearDoctorBagQuest(preferences: Preferences?) {
+        preferences?.setString("doctorBagQuestItem", "")
+        preferences?.setString("doctorBagQuestLocation", "")
+    }
+
+    private fun clearGuzzlrQuest(preferences: Preferences?) {
+        preferences?.setString("guzzlrQuestBooze", "")
+        preferences?.setString("guzzlrQuestClient", "")
+        preferences?.setString("guzzlrQuestLocation", "")
+        preferences?.setString("guzzlrQuestTier", "")
     }
 
     private val GUZZLR_PLATINUM_ITEM_IDS = 10541..10545

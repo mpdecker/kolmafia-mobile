@@ -28,6 +28,7 @@ import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.location.LocationDatabase
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestChoiceRules
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.recovery.RecoveryManager
@@ -50,6 +51,7 @@ import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.TelescopeSync
+import net.sourceforge.kolmafia.quest.TowerSync
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.request.SendGiftRequest
 import net.sourceforge.kolmafia.request.SendMailRequest
@@ -125,7 +127,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase52"
+        const val REVISION = "phase55"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -891,6 +893,23 @@ class GameRuntimeLibrary(
             rt.print(if (result.success) "Maximized for $goal" else "No improvement for $goal")
         },
 
+        Regex("^speculate\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val goal = m.groupValues[1].trim()
+            val mgr = maximizerManager ?: run {
+                rt.print("Maximizer unavailable")
+                return@to
+            }
+            val lines = kotlinx.coroutines.runBlocking { mgr.speculate(goal) }
+            lines.forEach { rt.print(it) }
+        },
+
+        Regex("^guzzlr\\s+abandon$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliGuzzlrAbandon(rt)
+        },
+        Regex("^guzzlr\\s+accept\\s+(bronze|gold|platinum)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliGuzzlrAccept(m.groupValues[1].lowercase(), rt)
+        },
+
         // autoscript on/off — persist preference stub
         Regex("^autoscript\\s+(on|off)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val on = m.groupValues[1].equals("on", ignoreCase = true)
@@ -1344,6 +1363,12 @@ class GameRuntimeLibrary(
                 character?.state?.value,
             )
         }
+        if (TowerSync.containsTowerMarker(html) ||
+            url?.contains("tower.php", ignoreCase = true) == true ||
+            url?.contains("nstower", ignoreCase = true) == true
+        ) {
+            TowerSync.parseTower(html, db, prefs)
+        }
         kotlinx.coroutines.runBlocking {
             QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext(url))
         }
@@ -1361,6 +1386,7 @@ class GameRuntimeLibrary(
     internal fun extractQuestPlace(urlOrPath: String): String? =
         extractGuildPlace(urlOrPath)
             ?: when {
+                urlOrPath.contains("whichplace=nstower", ignoreCase = true) -> "nstower"
                 urlOrPath.contains("tower.php", ignoreCase = true) -> "fern"
                 urlOrPath.contains("fernruin", ignoreCase = true) -> "fernruin"
                 urlOrPath.contains("whichplace=cemetery", ignoreCase = true) -> "cemetery"
@@ -1517,6 +1543,54 @@ class GameRuntimeLibrary(
                 QuestChoiceRules.apply(choiceId, html, db, option, preferences)
             }
         }
+    }
+
+    internal fun cliGuzzlrAbandon(rt: AshRuntimeContext) {
+        val prefs = preferences ?: return
+        val db = questDatabase ?: return
+        if (db.getProgress(Quest.GUZZLR) == QuestDatabase.UNSTARTED) {
+            rt.print("You don't have a client.")
+            return
+        }
+        if (prefs.getBoolean("_guzzlrQuestAbandoned", false)) {
+            rt.print("You already abandoned a client today.")
+            return
+        }
+        visitKolPage("inventory.php?tap=guzzlr")
+        cliChoice(1412, 1)
+        cliChoice(1412, 5)
+    }
+
+    internal fun cliGuzzlrAccept(tier: String, rt: AshRuntimeContext) {
+        val prefs = preferences ?: return
+        val db = questDatabase ?: return
+        if (db.getProgress(Quest.GUZZLR) != QuestDatabase.UNSTARTED) {
+            rt.print("You already have a client, and need to abandon that client first.")
+            return
+        }
+        val option = when (tier) {
+            "bronze" -> 2
+            "gold" -> {
+                if (prefs.getInt("guzzlrBronzeDeliveries", 0) < 5) {
+                    rt.print("You need to make 5 bronze deliveries to serve gold clients.")
+                    return
+                }
+                3
+            }
+            "platinum" -> {
+                if (prefs.getInt("guzzlrGoldDeliveries", 0) < 5) {
+                    rt.print("You need to make 5 gold deliveries to serve platinum clients.")
+                    return
+                }
+                4
+            }
+            else -> {
+                rt.print("Use command 'guzzlr accept [bronze | gold | platinum]'")
+                return
+            }
+        }
+        visitKolPage("inventory.php?tap=guzzlr")
+        cliChoice(1412, option)
     }
 
     internal fun cliEquip(rest: String) {
@@ -1708,6 +1782,8 @@ class GameRuntimeLibrary(
         registerAshP16Batch(scope)
         registerAshP17Batch(scope)
         registerAshP18Batch(scope)
+        registerAshP19Batch(scope)
+        registerAshP20Batch(scope)
         registerItemActions(scope)
         registerPricingQueries(scope)
         registerMallFunctions(scope)

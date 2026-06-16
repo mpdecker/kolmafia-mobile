@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-06-16 after Phase 52: Maximizer hatrack familiar-effect scoring + contest booth choice parsers)*
+*Generated: 2026-06-03 (updated 2026-06-16 after Phase 55; hedge_maze modes + Guzzlr CLI + Rufus quest sync)*
 
 ## Scale Comparison
 
@@ -10,8 +10,9 @@
 | Source files             | ~1,172 classes              | ~253 files (commonMain) | ~22%                    |
 | Lines of code            | ~57,000                     | ~15,000+ (commonMain)   | ~26%                    |
 | Test files               | 411                         | 126+                    | ~31%                    |
-| Tests                    | ~1,800+                     | 1,719                   | ~95% (of covered scope) |
-| ASH function overloads   | ~890                        | ~890 registered         | ~100%                   |
+| Tests                    | ~1,800+                     | 1,790                   | ~99% (of covered scope) |
+| ASH overload signatures  | ~890                        | ≥890 registered         | **~100%** (registration) |
+| ASH live behavior        | ~890 implementations        | ~370–420 live + stubs   | **~50–55%** (behavioral) |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN) | **100%**                |
 | BreakfastManager actions | 22 (20 universal + 2 niche) | 22                      | **100%**                |
 | Build target             | JVM 21                      | Android + iOS           | —                       |
@@ -19,6 +20,10 @@
 
 The mobile app is a focused reimplementation, not a line-for-line port. The gap is wider than raw
 file counts suggest because the desktop has massive complexity in its managers and parsers.
+
+**ASH dual metric:** `AshFunctionInventoryTest` enforces ≥890 *registered* overloads (signature parity
+with desktop `RuntimeLibrary.java`). Many AshP8–P18 registrations are *behavioral stubs* (return
+0/false/empty). See [ASH Behavioral Parity](#ash-behavioral-parity) below.
 
 ---
 
@@ -54,7 +59,7 @@ file counts suggest because the desktop has massive complexity in its managers a
 | `**retrieve_item()` ASH (×2)** *(Phase 16 + 18)*                                     | `RuntimeLibrary.java`                                   | `ash/GameRuntimeLibrary.Mall.kt`                                                                                                     | Compound chain; 3-arg `retrieve=false` is check-only via `OutfitManager.accessibleCount()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `**mall_price()` live** *(Phase 16)*                                                 | `RuntimeLibrary.java`                                   | `ash/GameRuntimeLibrary.Pricing.kt`                                                                                                  | Cheapest listed price via `MallManager.cheapestPrice()`; returns -1 if none                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Mall UI tab** *(Phase 16)*                                                         | Swing mall UI                                           | `ui/mall/MallScreen.kt`                                                                                                              | 9th bottom-nav tab; search + buy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ASH interpreter                                                                      | `textui/` (366 classes)                                 | `ash/` (32 files)                                                                                                                    | **~190 function overloads** — see ASH section                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ASH interpreter                                                                      | `textui/` (366 classes)                                 | `ash/` (32 files)                                                                                                                    | **≥890 registered overloads**; ~350–400 behaviorally live — see [ASH sections](#ash-interpreter-registration-vs-behavior)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Data layer**                                                                       | `data/*.txt` (51 files, 64K lines)                      | `composeResources/files/data/`                                                                                                       | **50 files bundled; questslog.txt now parsed**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **Modifier system**                                                                  | `Modifiers.java` + 16-class package                     | `modifiers/` (10 files)                                                                                                              | Full passive prediction with class multipliers, path overrides                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **BuffBot**                                                                          | `BuffBotManager.java`                                   | `buffbot/` (3 files)                                                                                                                 | Database + management                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -142,7 +147,7 @@ file counts suggest because the desktop has massive complexity in its managers a
 | **Session logging**                               | `RequestLogger.java` (1,322 lines)                                           | **Medium** — events via GameEventBus only; nothing persisted                                                                                                                                                      |
 | **ManaBurn sophistication gap**                   | Desktop burns any castable buff, summons, per-skill priority                 | **Low** — Phase 19 added `allowNonMoodBurning`, `manaBurnSummonThreshold`, `manaBurnSkills`; mood triggers remain primary                                                                                         |
 | **GoalManager special stops**                     | `GOAL_CHOICE`, `GOAL_AUTOSTOP`, `GOAL_FACTOID`, etc.                         | **Low** — Phase 21–22: `goal factoid`/`goal autostop` CLI + factoid autostop + `goal_exists("factoid")`; choice/autostop variants still absent                                                                    |
-| `**my_thrall()`**                                 | `RuntimeLibrary.java` thrall queries                                         | **Low-Medium** — returns empty string; no THRALL AshType defined                                                                                                                                                  |
+| `**my_thrall()`**                                 | `RuntimeLibrary.java` thrall queries                                         | **Low-Medium** — THRALL type added *(Phase 29)*; limited thrall state vs desktop                                                                                                                                  |
 | `**in_multi_fight()` / `fight_follows_choice()`** | Combat state queries                                                         | **Resolved** *(Phase 29)* — live flags in `AdventureManager` from fight/choice parsing                                                                                                                                 |
 | **Pre-adventure zone checks**                     | `KoLAdventure.java` outfit/familiar/limit-mode checks                        | **Done** — Phase 22: `canAdventureAtZone()` stat gates from adventures.txt `Stat:`; overdrunk/limit-mode + `zoneFamiliar` prep wired                                                                              |
 | **BANISHER_PATTERNS coverage gaps**               | `FightRequest.java` ~55 banish triggers                                      | **Low** — 69 pattern strings incl. desktop alternate fight HTML (Phase 19); choice/item-only banishes may remain UNKNOWN                                                                                          |
@@ -156,7 +161,12 @@ file counts suggest because the desktop has massive complexity in its managers a
 | **Ascension mechanics depth**                     | `session/AscensionManager.java`                                              | **Low** — path enum complete; reset/completion/unlock tracking absent                                                                                                                                             |
 | **Concoction/crafting logic**                     | `request/concoction/` 32 classes                                             | **Low** — Phase 21 hardening; MANUAL/edge concoctions remain                                                                                                                                                      |
 | **Clan dungeons**                                 | Scattered session managers                                                   | **Low**                                                                                                                                                                                                           |
-| **PvP**                                           | `request/` PvP handlers                                                      | **Low**                                                                                                                                                                                                           |
+| **PvP**                                           | `request/` PvP handlers                                                      | **Low** — `pvp_attack` / `ranked_fam` ASH stubs return false                                                                                                                                                      |
+| **JavaScript runtime**                            | `textui/javascript/` (15 files, Rhino bridge)                                  | **Non-goal** — `js` / `ashq` CLI commands not ported; ASH-only on mobile                                                                                                                                          |
+| **Bundled data (unwired)**                        | 22 `.txt` files present in bundle but not loaded by `GameDatabase`             | **Low-Medium** — see [Bundled Data Gap](#bundled-data-gap)                                                                                                                                                        |
+| **TCRS class/sign data**                          | ~160 files under desktop `data/TCRS/`                                        | **Non-goal (for now)** — mobile bundles 2 astral summary files only; full TCRS lazy-load TBD                                                                                                                    |
+| **Desktop CLI one-offs**                          | ~190 of ~252 command handlers without mobile `cliDispatch` regex             | **Low** — port on demand from `cli_execute` call-site mining, not wholesale                                                                                                                                       |
+| **Relay server** *(explicit non-goal)*            | `webui/` 20+ decorators, 15 JS/CSS files                                     | **Skipped** — not applicable to mobile app model; `relay on/off` CLI is stub echo                                                                                                                                 |
 
 
 ---
@@ -319,15 +329,44 @@ has step-ordering, `isQuestLaterThan`/`isQuestFinished`, `validateStep`, `setPro
 
 **Remaining gaps:** Per-quest in-code state machine logic. Quests advanced via NPC visits captured only at next login sync. Handful of quests with special-cased step detection (Telegram, Party Fair, Doctor Bag, PirateRealm) fall back to "started".
 
-### Data Files (Addressed)
+### Bundled Data Gap
 
-Desktop ships 51 data files (64,700+ lines). Mobile bundles **50 `.txt` files**.
+Desktop ships 51 core `.txt` data files (64,700+ lines) plus ~160 TCRS class/sign variants and
+runtime-generated `mallprices.txt`. Mobile bundles **50 `.txt` files** in
+`composeResources/files/data/`.
 
-### ASH Interpreter (~326 Function Overloads — 37% Coverage)
+**Loaded at runtime (~28 files)** via `GameDatabase.kt` and related loaders:
+
+`adventures.txt`, `bounty.txt`, `cafe_booze.txt`, `cafe_food.txt`, `classskills.txt`,
+`coinmasters.txt`, `combats.txt`, `concoctions.txt`, `dailylimits.txt`, `encounters.txt`,
+`equipment.txt`, `familiars.txt`, `foldgroups.txt`, `fullness.txt`, `inebriety.txt`, `items.txt`,
+`modifiers.txt`, `monsters.txt`, `npcstores.txt`, `outfits.txt`, `packages.txt`, `questslog.txt`,
+`restores.txt`, `shops.txt`, `spleenhit.txt`, `statuseffects.txt`, `zapgroups.txt`, `zonelist.txt`
+
+**Bundled but NOT wired (22 files)** — present in assets, no loader yet:
+
+`bastille.txt`, `bookoffacts.txt`, `buffbots.txt`, `consequences.txt`, `cultshorts.txt`,
+`defaults.txt`, `faxbots.txt`, `fambattle.txt`, `journeyman.txt`, `monsterparts.txt`,
+`nonfilling.txt`, `ocean.txt`, `pulverize.txt`, `questscouncil.txt`, `shoprows.txt`,
+`standard-pulverized.txt`, `standard-rewards.txt`, `TCRS.astral_consumables.txt`,
+`TCRS.astral_pets.txt`, `volcanomaze.txt`, `wereprofessor.txt`, `witchess_solutions.txt`
+
+**Desktop-only (not bundled on mobile):**
+
+- ~160 TCRS class/sign-specific files under `data/TCRS/`
+- `mallprices.txt` (desktop runtime price cache)
+- `buffbot.xsl`
+
+### ASH Interpreter (Registration vs Behavior)
 
 Desktop `textui/RuntimeLibrary.java` registers **~890 `LibraryFunction` instances**. Mobile
-`ash/GameRuntimeLibrary.kt` + extension files register approximately **326 distinct function
-overloads** — roughly 37% coverage (`AshFunctionInventoryTest` enforces ≥326 floor).
+`GameRuntimeLibrary.kt` + `GameRuntimeLibrary.*.kt` extension files register **≥890 overloads**
+(enforced by `AshFunctionInventoryTest`). Signature parity is essentially complete after AshP8–P18.
+
+**Behavioral parity is lower:** AshP11–P18 batches added many overloads with stub bodies (zeros,
+false, empty strings) so community scripts parse and dispatch without `ScriptException`. Estimate
+**~350–400 behaviorally live** implementations vs **~500 stub/partial** — to be refined via
+`AshCompatibilityCorpusTest` call-site assertions.
 
 **Architecture:** `GameRuntimeLibrary.kt` core registrations plus extension files (`GameRuntimeLibrary.*.kt`) via the `regFn()` bridge.
 
@@ -389,11 +428,76 @@ overloads** — roughly 37% coverage (`AshFunctionInventoryTest` enforces ≥326
 | Holiday          | full game-calendar `HolidayDatabase` (Bill 1, combo days like Drunksgiving)                       |
 
 
+### ASH Behavioral Parity
+
+Registration (≥890) and behavior diverge primarily in AshP8–P18 batches. Use this map when triaging
+script failures.
+
+**Live implementations** (domain extensions with real game logic):
+
+| File | Coverage |
+| ---- | -------- |
+| `GameRuntimeLibrary.Character.kt` | Stats, location, adventure guards, path |
+| `GameRuntimeLibrary.ItemActions.kt` | use/eat/drink/chew, closet/storage/display/stash |
+| `GameRuntimeLibrary.Mall.kt` | buy, retrieve_item, buy_using_storage |
+| `GameRuntimeLibrary.Outfit.kt` | Full outfit ASH suite |
+| `GameRuntimeLibrary.Quest.kt` | quest_status/step/finished/set_quest_progress |
+| `GameRuntimeLibrary.WebRequest.kt` | visit_url (GET/POST) |
+| `GameRuntimeLibrary.WebHtml.kt` | load_html, form_field, make_url |
+| `GameRuntimeLibrary.CombatScript.kt` | get_ccs_action, set_ccs_action |
+| `GameRuntimeLibrary.Modifiers.kt` | numeric/boolean/string_modifier for item, effect, skill, familiar |
+| `GameRuntimeLibrary.AshP19Batch.kt` | numeric/boolean/string_modifier for location, path, thrall *(AshP14 resolver for location)* |
+| `GameRuntimeLibrary.Coinmaster.kt` | buy/sell/visit, create, craft |
+| `GameRuntimeLibrary.Pricing.kt` | mall_price, retrieve_price, historical_price/age |
+| `GameRuntimeLibrary.Collections.kt` | get_inventory/closet/storage/stash/display + amounts |
+| `GameRuntimeLibrary.Aggregate.kt` | join_string, keys, values, remove, get/set |
+
+**Stub / partial behavior** (registered but not desktop-equivalent):
+
+| Category | Examples | Mobile behavior | Source |
+| -------- | -------- | --------------- | ------ |
+| Entity modifiers (non-item) | `numeric_modifier(location,…)`, `boolean_modifier(path,…)` | ~~Returns 0 / false / `""`~~ **Live for LOCATION/PATH/THRALL** *(Phase 53)*; MONSTER still stub | ~~AshP11~~ AshP14/AshP19 |
+| Entity `to_*` conversions | `to_servant`, `to_vykea`, `to_bounty`, `to_modifier` | Registered; often zero/empty | `GameRuntimeLibrary.AshP8Batch.kt` |
+| Interactive | `user_confirm`, `user_prompt` | Throws `ScriptException` | `GameRuntimeLibrary.Stubs.kt` |
+| PvP | `pvp_attack`, `ranked_fam` | Permanent `false` | `GameRuntimeLibrary.Stubs.kt` |
+| Thrall depth | `my_thrall()` | Partial — THRALL type *(Phase 29)* | `GameRuntimeLibrary.Character.kt` |
+| Holiday | `holiday()` | Real-life calendar only | `HolidayCalendar.kt` |
+| Long-tail prefs | `my_robot_*`, contest counters, war/pyramid unlocks | Pref-backed where wired; defaults otherwise | AshP11–P18 batches |
+
+**Next measurement step:** extend `AshCompatibilityCorpusTest` with expected non-zero/non-false
+assertions for top community script call patterns; Phase 53 added Briny Deeps / You Robot /
+maximizer modifier snippets — use failures to rank remaining behavioral backlog.
+
+
 ### Modifier System (Present, Substantial)
 
 Mobile has a 10-file `modifiers/` package covering the full passive prediction algorithm.
 
 **Remaining gaps:** Conditional outfit half-set bonuses still use full-set logic only when all pieces equipped (slot-aware multiset now applied). `mod()`/`fam()`/`mainhand()`/`res()` in modifier expressions now live *(Phase 29)*; item-ID modifier lookup added.
+
+---
+
+## Subsystem Scale
+
+Breadth gaps dominate full parity. Desktop wins on one-off commands, requests, and session managers;
+mobile wins on core automation paths and test isolation.
+
+| Subsystem | Desktop | Mobile (Phase 53) | Gap |
+| --------- | ------- | ----------------- | --- |
+| CLI commands | ~252 handlers / 340 aliases (`KoLmafiaCLI.java`) | ~101 `cliDispatch` regex entries (~61 behaviors) | **~75%** |
+| HTTP requests | 317 `request/` classes (127 coinmaster alone) | 37 `*Request.kt` files + generic `CoinmasterRequest` | **~88%** |
+| Session managers | 82 `*Manager.java` | 21 `*Manager.kt` | **~74%** |
+| Choice automation | ~1,000 cases (`ChoiceManager.java`) | ~80 choice IDs, 14 handler groups, 6 solvers | **~92% by count** (common paths OK) |
+| Maximizer | ~5,877 lines (12 classes) | 4-file MVP + `MaximizerSpeculation` DFS | **~70%** |
+| Quest parsing | ~4,200 lines (QuestManager + QuestDatabase + QuestLog) | Quest*Rules modules + `QuestLogSync` | **~60%** |
+| ASH overloads | 890 registrations | ≥890 registrations | **~0%** (signatures) |
+| ASH behavior | 890 live implementations | ~370–420 live + stubs | **~45–55%** |
+| Relay / browser proxy | 20 Java + 15 relay assets | None (intentional) | **100%** |
+| JavaScript runtime | Rhino bridge (15 files) | None (ASH-only) | **100%** |
+| Swing GUI | 153 files | Compose (~12 tabs) | Replaced, not 1:1 |
+| Banisher enum | 70 entries | 70 entries | **0%** |
+| Breakfast actions | 22 actions | 22 actions | **0%** |
+| Data files loaded | 51 core + TCRS | 28 wired / 50 bundled | 22 unwired on mobile |
 
 ---
 
@@ -406,9 +510,9 @@ Mobile has a 10-file `modifiers/` package covering the full passive prediction a
 | State management          | Static singletons                               | StateFlow + Koin DI                                                          | Mobile is cleaner                                |
 | UI                        | Swing (aging)                                   | Compose Multiplatform                                                        | Mobile is modern                                 |
 | Concurrency               | Manual threading                                | Coroutines                                                                   | Mobile is cleaner                                |
-| Data                      | 51 `.txt` files parsed at startup               | 50 bundled `.txt` files                                                      | Parity                                           |
-| Testing                   | 411 test classes, many integration              | 126 unit test files, 1,662 tests                                             | Desktop wins on volume; mobile wins on isolation |
-| Scripting                 | Full ASH + CLI (890 functions)                  | Partial ASH (~300 overloads, 34%); autoscript hook live (ASH-P1)            | Desktop wins; ASH-P6–P8 roadmap active         |
+| Data                      | 51 `.txt` files + TCRS variants               | 50 bundled; 28 loaded at runtime                                             | 22 bundled-but-unwired; TCRS partial           |
+| Testing                   | 411 test classes, many integration              | 126 unit test files, 1,779 tests                                             | Desktop wins on volume; mobile wins on isolation |
+| Scripting                 | Full ASH + CLI (890 functions) + JS             | ASH ≥890 registered (~370–420 live); partial CLI; no JS                      | Registration parity; behavior + CLI gap remain |
 | Events                    | Ad-hoc listeners                                | GameEventBus pub/sub                                                         | Mobile is cleaner                                |
 | Choice automation         | ~1,000 handler cases                            | ~80 active IDs; 14 handler groups; all 6 solvers                             | Good coverage of common paths                    |
 | Recovery/mood             | 9 classes, full persistence + mood library      | 6 files, named library + inheritance + malignant clearing + AT song eviction | Closing gap — ManaBurn breadth remains           |
@@ -422,12 +526,31 @@ Mobile has a 10-file `modifiers/` package covering the full passive prediction a
 
 ## Top Priorities
 
-*Phase 52 added hatrack familiar-effect scoring and contest booth parsers. Updated priorities:*
+*Full parity audit (2026-06-16) reconciled ASH registration vs behavioral metrics. Ranked backlog:*
 
-1. **ASH scripting parity** — corpus coverage for edge-case semantics; remaining CLI long-tail.
-2. **Full desktop Maximizer** — unified Evaluator search; full applyFamiliarModifiers weight pipeline.
-3. **Full relay server** — `webui/` decorators for non-headless use cases.
-4. **Quest tracking depth** — Sorceress tower image parsing / visit hooks.
+### Tier 1 — Script compatibility (highest user impact)
+
+1. **ASH behavioral parity** — replace remaining stub implementations in AshP8–P18 (CLASS/STAT/SERVANT/VYKEA entity modifiers, interactive, PvP); expand `AshCompatibilityCorpusTest` assertions
+2. **CLI long-tail** — mine `cli_execute` from community scripts; wire top missing patterns into `cliDispatch` *(Phase 53: `speculate`; Phase 55: `guzzlr`)*
+3. **Entity modifier depth** — ~~location/monster/path modifier queries~~ **LOCATION/PATH/THRALL live** *(Phase 53)*; monster/outfit modifiers remain stub/deferred
+
+### Tier 2 — Automation depth
+
+4. **Maximizer unified Evaluator** — port scoring pipeline from desktop `Evaluator.java`
+5. **Quest tracking depth** — ~~Sorceress tower image parsing~~ **TowerSync.parseTower** *(Phase 54)*; ~~Doctor/Guzzlr delivery lifecycle~~ *(Phase 54)*; ~~Rufus quest-log sync~~ **RufusManager.handleQuestLog** *(Phase 55)*; remaining `QuestSpecialSync` quests
+6. **KoLCharacter fields** — campground, ascension, per-quest counters scripts expect
+
+### Tier 3 — Data wiring
+
+7. **Wire bundled-but-unused data files** — `journeyman.txt`, `witchess_solutions.txt`, `volcanomaze.txt`, `questscouncil.txt`, etc.
+8. **TCRS data strategy** — lazy-load class/sign files or document as explicit non-goal
+
+### Tier 4 — Explicit non-goals (document, don't port)
+
+9. **Relay server** — browser proxy not applicable to mobile app model
+10. **JavaScript runtime** — unless community demand justifies Rhino on KMP
+11. **PvP** — stub acceptable
+12. **~190 desktop CLI one-offs** — port on demand, not wholesale
 
 ---
 
@@ -483,5 +606,9 @@ Phase 49 → AshP16Batch behavioral ASH (war_progress/pyramid unlock prefs); Fam
 Phase 50 → FamiliarSlotModifiers hand-slot stripping; AshP17Batch ns_challenge/telescope_line; QuestSpecialSync FINAL quest log steps; Maximizer familiarCarryScorer; 1,748 tests
 Phase 51 → TelescopeSync campground HTML parser; AshP18Batch telescope_upgrades; CLI telescope high/low; Maximizer speculate familiar-carried scoreLoadout; 1,753 tests
 Phase 52 → FamiliarCarriedScoring hatrack/scarecrow familiar-effect; ContestBoothSync choice 1003/1005-1013; QuestChoiceRules FINAL maze steps; 1,763 tests
+Phase 53 → AshP19 live LOCATION/PATH/THRALL modifiers + AshP14 location resolver; is_valid LOCATION/MONSTER/PATH/THRALL; CLI speculate → MaximizerManager.speculate; behavioral corpus + AshP19 tests; 1,769 tests
+Phase 54 → TowerSync.parseTower FINAL step detection; Doctor Bag / Guzzlr delivery+abandon sync; AshP20 hedge_maze(traps) ASH; 1,779 tests
+Phase 55 → AshP20 hedge_maze(gopher/duck/chihuahua/kiwi/nugglets); CLI guzzlr accept/abandon; RufusManager.handleQuestLog + QuestSpecialSync; 1,790 tests
+Audit → Full parity audit: dual ASH metrics (≥890 registered vs ~350–400 behavioral); Subsystem Scale table; Bundled Data Gap (28 loaded / 22 unwired); Tier 1–4 Top Priorities; JS runtime + explicit non-goals documented
 ```
 

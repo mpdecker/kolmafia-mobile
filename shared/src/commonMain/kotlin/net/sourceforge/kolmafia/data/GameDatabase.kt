@@ -88,6 +88,16 @@ open class GameDatabase {
         val familiar = familiar(id) ?: return null
         return familiarModifier(familiar.name)
     }
+    open fun locationModifier(name: String): ModifierEntry? {
+        ModifierDatabase.getLocation(name)?.let { return it }
+        val adv = zone(name) ?: return null
+        return ModifierDatabase.getZone(adv.zoneName)
+            ?: ModifierDatabase.getLocation(adv.locationName)
+    }
+    open fun zoneModifier(zoneName: String): ModifierEntry? = ModifierDatabase.getZone(zoneName)
+    open fun pathModifier(name: String): ModifierEntry? = ModifierDatabase.getPath(name)
+    open fun thrallModifier(name: String): ModifierEntry? = ModifierDatabase.getThrall(name)
+    open fun outfitModifier(name: String): ModifierEntry? = ModifierDatabase.getOutfit(name)
     open fun zone(locationName: String) = AdventureDatabase.getByName(locationName)
     open fun monster(id: Int) = MonsterDatabase.getById(id)
     open fun monster(name: String) = MonsterDatabase.getByName(name)

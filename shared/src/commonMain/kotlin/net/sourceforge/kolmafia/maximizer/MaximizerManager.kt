@@ -85,9 +85,106 @@ open class MaximizerManager(
     )
 
     open suspend fun maximize(goalText: String): MaximizeResult {
+        val plan = buildMaximizePlan(goalText)
+            ?: return MaximizeResult(false, goalText.trim(), 0.0, 0.0)
+        if (plan.scoreAfter <= plan.scoreBefore) {
+            return MaximizeResult(false, plan.goal, plan.scoreBefore, plan.scoreBefore)
+        }
+
+        val effectiveSpec = plan.spec
+        val charState = character.state.value
+        val checkpoint = OutfitCheckpoint.snapshot(character, equipmentRequest, gameDatabase)
+        val equipped = mutableMapOf<EquipmentSlot, String>()
+        var anyFailure = false
+        var familiarSwitched: String? = null
+        var enthronedSwitched: String? = null
+        var bjornifiedSwitched: String? = null
+        var thrallSwitched: String? = null
+        val (targetThrall, _) = resolveTargetThrall(effectiveSpec)
+        val familiarRace = resolveFamiliarSwitch(effectiveSpec)
+
+        if (familiarRace != null) {
+            familiarManager?.setFamiliar(familiarRace)?.onSuccess {
+                familiarSwitched = familiarRace
+            }?.onFailure { anyFailure = true }
+        }
+        effectiveSpec.enthronedFamiliars.firstOrNull()?.let { race ->
+            familiarManager?.setEnthroned(race)?.onSuccess {
+                enthronedSwitched = race
+            }?.onFailure { anyFailure = true }
+        }
+        effectiveSpec.bjornifiedFamiliars.firstOrNull()?.let { race ->
+            familiarManager?.setBjornified(race)?.onSuccess {
+                bjornifiedSwitched = race
+            }?.onFailure { anyFailure = true }
+        }
+        if (targetThrall != null &&
+            !targetThrall.equals(preferences?.getString("_currentThrall", ""), ignoreCase = true)
+        ) {
+            bindThrall(targetThrall)?.onSuccess {
+                thrallSwitched = targetThrall
+            }?.onFailure { anyFailure = true }
+        }
+
+        for ((slot, pair) in plan.bestPerSlot) {
+            val (name, _) = pair
+            val itemId = gameDatabase.item(name)?.id ?: continue
+            if (!ensureInInventory(itemId)) {
+                anyFailure = true
+                continue
+            }
+            if (equipmentRequest.equipItem(itemId, slot).isFailure) {
+                anyFailure = true
+            } else {
+                equipped[slot] = name
+            }
+        }
+        inventoryManager.syncCharacterEquipment()
+
+        val madeChange = equipped.isNotEmpty() ||
+            familiarSwitched != null ||
+            enthronedSwitched != null ||
+            bjornifiedSwitched != null ||
+            thrallSwitched != null
+        if (anyFailure || !madeChange) {
+            checkpoint.restore()
+            return MaximizeResult(false, plan.goal, plan.scoreBefore, plan.scoreBefore)
+        }
+
+        return MaximizeResult(
+            success = true,
+            goal = plan.goal,
+            scoreBefore = plan.scoreBefore,
+            scoreAfter = plan.scoreAfter,
+            equipped = equipped,
+            familiarSwitched = familiarSwitched,
+            enthronedSwitched = enthronedSwitched,
+            bjornifiedSwitched = bjornifiedSwitched,
+            thrallSwitched = thrallSwitched,
+        )
+    }
+
+    /** Speculate-only loadout search — no equip side effects. */
+    open suspend fun speculate(goalText: String): List<String> {
+        val plan = buildMaximizePlan(goalText)
+            ?: return listOf("Invalid goal: ${goalText.trim()}")
+        if (plan.scoreAfter <= plan.scoreBefore) {
+            return listOf("No improvement for ${plan.goal}")
+        }
+        val lines = mutableListOf<String>()
+        for ((slot, pair) in plan.bestPerSlot) {
+            val (name, score) = pair
+            if (name.isNotBlank()) {
+                lines += "${slot.name}: $name ($score)"
+            }
+        }
+        lines += "Score: ${plan.scoreBefore} -> ${plan.scoreAfter}"
+        return lines
+    }
+
+    private suspend fun buildMaximizePlan(goalText: String): MaximizePlan? {
         val goal = goalText.trim()
-        val spec = MaximizeGoal.parseSpec(goal)
-            ?: return MaximizeResult(false, goal, 0.0, 0.0)
+        val spec = MaximizeGoal.parseSpec(goal) ?: return null
         val effectiveSpec = spec.withCarryEquipment()
 
         val charState = character.state.value
@@ -104,7 +201,7 @@ open class MaximizerManager(
             ::scoreItem,
         )
 
-        var         bestPerSlot = findBestPerSlot(
+        var bestPerSlot = findBestPerSlot(
             effectiveSpec, charState, invState,
             closetContents, storageContents, displayContents, stashContents,
         )
@@ -178,78 +275,16 @@ open class MaximizerManager(
             isFamiliarCarriedItem,
             familiarCarryScorer,
         )
-        if (scoreAfter <= scoreBefore) {
-            return MaximizeResult(false, goal, scoreBefore, scoreBefore)
-        }
-
-        val checkpoint = OutfitCheckpoint.snapshot(character, equipmentRequest, gameDatabase)
-        val equipped = mutableMapOf<EquipmentSlot, String>()
-        var anyFailure = false
-        var familiarSwitched: String? = null
-        var enthronedSwitched: String? = null
-        var bjornifiedSwitched: String? = null
-        var thrallSwitched: String? = null
-
-        if (familiarRace != null) {
-            familiarManager?.setFamiliar(familiarRace)?.onSuccess {
-                familiarSwitched = familiarRace
-            }?.onFailure { anyFailure = true }
-        }
-        effectiveSpec.enthronedFamiliars.firstOrNull()?.let { race ->
-            familiarManager?.setEnthroned(race)?.onSuccess {
-                enthronedSwitched = race
-            }?.onFailure { anyFailure = true }
-        }
-        effectiveSpec.bjornifiedFamiliars.firstOrNull()?.let { race ->
-            familiarManager?.setBjornified(race)?.onSuccess {
-                bjornifiedSwitched = race
-            }?.onFailure { anyFailure = true }
-        }
-        if (targetThrall != null &&
-            !targetThrall.equals(preferences?.getString("_currentThrall", ""), ignoreCase = true)
-        ) {
-            bindThrall(targetThrall)?.onSuccess {
-                thrallSwitched = targetThrall
-            }?.onFailure { anyFailure = true }
-        }
-
-        for ((slot, pair) in bestPerSlot) {
-            val (name, _) = pair
-            val itemId = gameDatabase.item(name)?.id ?: continue
-            if (!ensureInInventory(itemId)) {
-                anyFailure = true
-                continue
-            }
-            if (equipmentRequest.equipItem(itemId, slot).isFailure) {
-                anyFailure = true
-            } else {
-                equipped[slot] = name
-            }
-        }
-        inventoryManager.syncCharacterEquipment()
-
-        val madeChange = equipped.isNotEmpty() ||
-            familiarSwitched != null ||
-            enthronedSwitched != null ||
-            bjornifiedSwitched != null ||
-            thrallSwitched != null
-        if (anyFailure || !madeChange) {
-            checkpoint.restore()
-            return MaximizeResult(false, goal, scoreBefore, scoreBefore)
-        }
-
-        return MaximizeResult(
-            success = true,
-            goal = goal,
-            scoreBefore = scoreBefore,
-            scoreAfter = scoreAfter,
-            equipped = equipped,
-            familiarSwitched = familiarSwitched,
-            enthronedSwitched = enthronedSwitched,
-            bjornifiedSwitched = bjornifiedSwitched,
-            thrallSwitched = thrallSwitched,
-        )
+        return MaximizePlan(goal, effectiveSpec, scoreBefore, scoreAfter, bestPerSlot)
     }
+
+    private data class MaximizePlan(
+        val goal: String,
+        val spec: MaximizeSpec,
+        val scoreBefore: Double,
+        val scoreAfter: Double,
+        val bestPerSlot: Map<EquipmentSlot, Pair<String, Double>>,
+    )
 
     private fun resolveTargetThrall(spec: MaximizeSpec): Pair<String?, Double> {
         val prefs = preferences ?: return null to 0.0

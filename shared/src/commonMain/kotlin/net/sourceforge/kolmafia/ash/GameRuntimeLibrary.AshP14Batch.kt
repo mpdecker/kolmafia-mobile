@@ -148,7 +148,7 @@ private fun GameRuntimeLibrary.resolveModifierEntryP14(
         AshType.EFFECT -> db.effectModifier(ref)
         AshType.SKILL -> db.skillModifier(ref) ?: ref.toIntOrNull()?.let { db.skillModifier(it) }
         AshType.FAMILIAR -> db.familiarModifier(ref) ?: ref.toIntOrNull()?.let { db.familiarModifier(it) }
-        AshType.LOCATION -> null
+        AshType.LOCATION -> resolveLocationQueryName(ref).let { db.locationModifier(it) }
         AshType.MONSTER -> null
         else -> null
     }
