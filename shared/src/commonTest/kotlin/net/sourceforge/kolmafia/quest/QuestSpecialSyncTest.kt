@@ -270,4 +270,56 @@ class QuestSpecialSyncTest {
         assertEquals(33, prefs.getInt("hippiesDefeated", 0))
         assertEquals(83, prefs.getInt("fratboysDefeated", 0))
     }
+
+    @Test
+    fun apply_telegramAdvancesSheriffWanted() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.TELEGRAM, QuestDatabase.STARTED)
+        assertTrue(
+            QuestSpecialSync.apply(
+                "Fight your way to the sheriff's office and apply for the job.",
+                db,
+                prefs,
+            ),
+        )
+        assertEquals("step1", db.getProgress(Quest.TELEGRAM))
+        assertEquals("Sheriff Wanted", prefs.getString("lttQuestName", ""))
+        assertEquals(2, prefs.getInt("lttQuestDifficulty", 0))
+    }
+
+    @Test
+    fun apply_telegramAdvancesManyChildren() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.TELEGRAM, "step3")
+        assertTrue(QuestSpecialSync.apply("Defeat Clara.", db, prefs))
+        assertEquals("step4", db.getProgress(Quest.TELEGRAM))
+        assertEquals("Missing: Many Children", prefs.getString("lttQuestName", ""))
+        assertEquals(3, prefs.getInt("lttQuestDifficulty", 0))
+    }
+
+    @Test
+    fun apply_finalQuestAdvancesHedgeMazeStep() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.FINAL, "step4")
+        assertTrue(
+            QuestSpecialSync.apply(
+                "Make your way through the treacherous hedge maze at the Naughty Sorceress' Tower.",
+                db,
+                prefs,
+            ),
+        )
+        assertEquals("step5", db.getProgress(Quest.FINAL))
+    }
+
+    @Test
+    fun apply_finalQuestAdvancesConfrontStep() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.FINAL, "step11")
+        assertTrue(QuestSpecialSync.apply("Confront the Naughty Sorceress.", db, prefs))
+        assertEquals("step12", db.getProgress(Quest.FINAL))
+    }
 }

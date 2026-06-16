@@ -359,4 +359,28 @@ class GameRuntimeLibraryTest {
             outputLib(lib, """print(to_string(to_location("The Haunted Pantry")));""")
         )
     }
+
+    @Test
+    fun war_progress_readsSyncedPreference() {
+        val prefs = Preferences(MapSettings())
+        prefs.setString("warProgress", "started")
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("started", outputLib(lib, """print(war_progress());"""))
+    }
+
+    @Test
+    fun cliWar_echoesWarProgress() {
+        val prefs = Preferences(MapSettings())
+        prefs.setString("warProgress", "finished")
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("finished", outputLib(lib, """cli_execute("war");""").trim())
+    }
+
+    @Test
+    fun ns_challenge_readsPreference() {
+        val prefs = Preferences(MapSettings())
+        prefs.setString("nsChallenge2", "cold")
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("cold", outputLib(lib, """print(ns_challenge(2));"""))
+    }
 }

@@ -406,7 +406,7 @@ class AdventureManager(
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(e)))
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
-            questDatabase?.let { QuestChoiceRules.apply(currentChoiceId, html, it, option) }
+            questDatabase?.let { QuestChoiceRules.apply(currentChoiceId, html, it, option, preferences) }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
             if (goalManager.hasChoiceGoal(currentChoiceId)) {
                 goalManager.clearChoiceGoal()

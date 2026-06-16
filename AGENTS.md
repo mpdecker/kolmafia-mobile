@@ -9,6 +9,7 @@
 - Short "pr" means commit current work and open or update a GitHub PR via `gh`.
 - Short "push" means git push the current branch to remote.
 - "next pass" or "next" means continue the next incremental parity phase from `docs/parity-audit.md` Top Priorities.
+- Short "continue" means resume in-progress parity work or proceed with Top Priorities when between tasks.
 
 ## Learned Workspace Facts
 
@@ -16,11 +17,11 @@
 - Modules include `shared`, `androidApp`, and platform targets.
 - Desktop KoLmafia Java reference source is at `C:\Development\kolmafia\kolmafia\src\`.
 - `docs/parity-audit.md` is the authoritative desktop-vs-mobile parity document.
-- Phase plans live under `docs/superpowers/plans/`; ASH full-parity roadmap is `2026-06-11-ash-script-full-parity.md` (ASH-P1–P8).
+- Phase plans live under `docs/superpowers/plans/`; ASH overload batches register in `GameRuntimeLibrary.AshP*Batch.kt` (original roadmap: `2026-06-11-ash-script-full-parity.md`).
 - Run unit tests with `.\gradlew.bat :shared:jvmTest`.
 - Verify Android builds with `.\gradlew.bat :androidApp:assembleDebug`.
 - On Windows PowerShell, chain shell commands with `;`, not `&&`.
 - Incremental parity phases use Quest/CLI/Maximizer tracks; completion is tracked via `GameRuntimeLibrary.REVISION` and parity-audit history.
-- Quest state sync is split across QuestAdvanceRules, QuestChoiceRules, QuestFightRules, QuestItemRules, and QuestLogSync.
+- Quest state sync is split across QuestAdvanceRules, QuestChoiceRules, QuestFightRules, QuestItemRules, QuestLogSync, and QuestSpecialSync.
 - ASH runtime functions register via `regFn()` in `GameRuntimeLibrary.*.kt` under `ash/`.
 - Git default branch is `master`; avoid stale `.worktrees/` for active development.

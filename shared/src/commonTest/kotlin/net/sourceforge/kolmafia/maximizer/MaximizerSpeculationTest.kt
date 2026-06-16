@@ -155,4 +155,98 @@ class MaximizerSpeculationTest {
         val familiar = ranked[EquipmentSlot.FAMILIAR] ?: emptyList()
         assertEquals("fam-item-99", familiar.first().first)
     }
+
+    @Test
+    fun topCandidatesPerSlot_includesHatrackCarriedHats() {
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(id: Int) = when (id) {
+                1 -> net.sourceforge.kolmafia.data.ItemData(
+                    1, "carried-hat", "", "", net.sourceforge.kolmafia.data.ItemPrimaryUse.HAT,
+                    emptySet(), emptySet(), 0, null,
+                )
+                else -> null
+            }
+            override fun itemModifier(name: String) =
+                net.sourceforge.kolmafia.data.ModifierEntry("Item", name, "Mysticality: +3")
+        }
+        val spec = MaximizeSpec(DoubleModifier.MYS)
+        val ranked = MaximizerSpeculation.topCandidatesPerSlot(
+            spec, db, setOf(1), emptySet(), 2,
+            { _, _ -> 1.0 },
+            { _, _ -> true },
+            familiarCarryRaces = listOf(FamiliarCarryRules.HATRACK_RACE),
+        )
+        val familiar = ranked[EquipmentSlot.FAMILIAR] ?: emptyList()
+        assertEquals("carried-hat", familiar.first().first)
+    }
+
+    @Test
+    fun topCandidatesPerSlot_includesHandCarriedWeapons() {
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(id: Int) = when (id) {
+                2 -> net.sourceforge.kolmafia.data.ItemData(
+                    2, "hand-weapon", "", "", net.sourceforge.kolmafia.data.ItemPrimaryUse.WEAPON,
+                    emptySet(), emptySet(), 0, null,
+                )
+                else -> null
+            }
+            override fun itemModifier(name: String) =
+                net.sourceforge.kolmafia.data.ModifierEntry("Item", name, "Mysticality: +4")
+        }
+        val spec = MaximizeSpec(DoubleModifier.MYS)
+        val ranked = MaximizerSpeculation.topCandidatesPerSlot(
+            spec, db, setOf(2), emptySet(), 2,
+            { _, _ -> 1.0 },
+            { _, _ -> true },
+            familiarCarryRaces = listOf(FamiliarCarryRules.HAND_RACE),
+        )
+        val familiar = ranked[EquipmentSlot.FAMILIAR] ?: emptyList()
+        assertEquals("hand-weapon", familiar.first().first)
+    }
+
+    @Test
+    fun topCandidatesPerSlot_excludesLeftHandBlockedItems() {
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(id: Int) = when (id) {
+                9133 -> net.sourceforge.kolmafia.data.ItemData(
+                    9133, "blocked-offhand", "", "", net.sourceforge.kolmafia.data.ItemPrimaryUse.OFFHAND,
+                    emptySet(), emptySet(), 0, null,
+                )
+                3 -> net.sourceforge.kolmafia.data.ItemData(
+                    3, "allowed-offhand", "", "", net.sourceforge.kolmafia.data.ItemPrimaryUse.OFFHAND,
+                    emptySet(), emptySet(), 0, null,
+                )
+                else -> null
+            }
+            override fun itemModifier(name: String) =
+                net.sourceforge.kolmafia.data.ModifierEntry("Item", name, "Mysticality: +1")
+        }
+        val spec = MaximizeSpec(DoubleModifier.MYS)
+        val ranked = MaximizerSpeculation.topCandidatesPerSlot(
+            spec, db, setOf(9133, 3), emptySet(), 5,
+            { _, _ -> 1.0 },
+            { _, _ -> true },
+            familiarCarryRaces = listOf(FamiliarCarryRules.LEFT_HAND_RACE),
+        )
+        val familiar = ranked[EquipmentSlot.FAMILIAR] ?: emptyList()
+        assertEquals(listOf("allowed-offhand"), familiar.map { it.first })
+    }
+
+    @Test
+    fun scoreLoadout_usesFamiliarCarryScorerForCarriedItems() {
+        val state = CharacterState()
+        val assignment = mapOf(EquipmentSlot.FAMILIAR to ("carried-hat" to 0.0))
+        val normal = MaximizerSpeculation.scoreLoadout(
+            state, assignment, DoubleModifier.SLIME_HATES_IT,
+            itemScorer = { _, _ -> 10.0 },
+        )
+        val carried = MaximizerSpeculation.scoreLoadout(
+            state, assignment, DoubleModifier.SLIME_HATES_IT,
+            itemScorer = { _, _ -> 10.0 },
+            isFamiliarCarriedItem = { it == "carried-hat" },
+            familiarCarryScorer = { _, _ -> 0.0 },
+        )
+        assertEquals(10.0, normal)
+        assertEquals(0.0, carried)
+    }
 }

@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.preferences.Preferences
+
 /** Quest step bumps from choice adventure response text. */
 object QuestChoiceRules {
 
@@ -8,6 +10,7 @@ object QuestChoiceRules {
         responseText: String,
         questDatabase: QuestDatabase,
         decision: Int = 0,
+        preferences: Preferences? = null,
     ): Boolean {
         var advanced = false
         when (choiceId) {
@@ -99,6 +102,27 @@ object QuestChoiceRules {
                 if (responseText.contains("BOOOOOOM", ignoreCase = true)) {
                     advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step15") || advanced
                 }
+            }
+            1003 -> {
+                advanced = ContestBoothSync.parseContestBooth(decision, responseText, preferences, questDatabase) ||
+                    advanced
+            }
+            1005, 1008, 1011 -> {
+                advanced = ContestBoothSync.parseMazeTrap(choiceId, responseText, preferences) || advanced
+                advanced = ContestBoothSync.visitHedgeMazeChoice(choiceId, preferences, questDatabase) || advanced
+            }
+            in 1006..1012 -> {
+                advanced = ContestBoothSync.visitHedgeMazeChoice(choiceId, preferences, questDatabase) || advanced
+            }
+            1013 -> {
+                advanced = ContestBoothSync.visitHedgeMazeChoice(choiceId, preferences, questDatabase) || advanced
+                advanced = setIfBetter(questDatabase, Quest.FINAL, "step5") || advanced
+            }
+            1015 -> {
+                advanced = setIfBetter(questDatabase, Quest.FINAL, "step10") || advanced
+            }
+            1022 -> {
+                advanced = setIfBetter(questDatabase, Quest.FINAL, "step4") || advanced
             }
         }
         return advanced

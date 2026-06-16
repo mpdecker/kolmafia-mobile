@@ -133,6 +133,15 @@ open class MaximizerManager(
             invState, closetContents, storageContents, displayContents, stashContents, effectiveSpec,
         )
         prefetchMallPrices(candidateIds, effectiveSpec)
+        val carryRaces = FamiliarCarryRules.carryRaces(effectiveSpec, familiarRace)
+        val isFamiliarCarriedItem = familiarCarriedPredicate(carryRaces)
+        val familiarCarryScorer = if (carryRaces.isNotEmpty()) {
+            { itemName: String?, mod: DoubleModifier ->
+                scoreFamiliarCarriedItem(itemName, mod, carryRaces, familiarRace, charState.familiarWeight)
+            }
+        } else {
+            null
+        }
         val speculated = MaximizerSpeculation.speculate(
             effectiveSpec,
             charState,
@@ -144,6 +153,8 @@ open class MaximizerManager(
                 ::scoreItem,
                 ::itemMeetsConstraints,
                 ::effectivePrice,
+                carryRaces,
+                familiarCarryScorer = familiarCarryScorer,
             ),
             comboBudget,
             familiarBonus,
@@ -151,6 +162,8 @@ open class MaximizerManager(
             bestPerSlot,
             ::scoreItem,
             ::effectivePrice,
+            isFamiliarCarriedItem,
+            familiarCarryScorer,
         )
         if (speculated.isNotEmpty()) {
             bestPerSlot = speculated
@@ -162,6 +175,8 @@ open class MaximizerManager(
             charState, bestPerSlot, effectiveSpec.primary,
             enthronedBonus + bjornBonus + familiarBonus, thrallBonus,
             ::scoreItem,
+            isFamiliarCarriedItem,
+            familiarCarryScorer,
         )
         if (scoreAfter <= scoreBefore) {
             return MaximizeResult(false, goal, scoreBefore, scoreBefore)
@@ -706,6 +721,26 @@ open class MaximizerManager(
         if (itemName.isNullOrBlank()) return 0.0
         val entry = gameDatabase.itemModifier(itemName) ?: return 0.0
         return ModifierParser.parse(entry.modifiers).get(modifier)
+    }
+
+    private fun scoreFamiliarCarriedItem(
+        itemName: String?,
+        modifier: DoubleModifier,
+        carryRaces: List<String>,
+        activeRace: String?,
+        familiarWeight: Int,
+    ): Double {
+        if (itemName.isNullOrBlank()) return 0.0
+        val item = gameDatabase.item(itemName) ?: return 0.0
+        val race = carryRaces.firstOrNull { FamiliarCarryRules.canCarryItem(it, item) }
+            ?: activeRace?.takeIf { FamiliarCarryRules.canCarryItem(it, item) }
+            ?: return 0.0
+        return FamiliarCarriedScoring.score(race, itemName, modifier, gameDatabase, familiarWeight)
+    }
+
+    private fun familiarCarriedPredicate(carryRaces: List<String>): (String) -> Boolean = { name ->
+        val item = gameDatabase.item(name)
+        item != null && carryRaces.any { FamiliarCarryRules.canCarryItem(it, item) }
     }
 
     private fun slotForItem(item: ItemData): EquipmentSlot? = when (item.primaryUse) {

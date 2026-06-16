@@ -49,6 +49,7 @@ import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.QuestLogSync
+import net.sourceforge.kolmafia.quest.TelescopeSync
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.request.SendGiftRequest
 import net.sourceforge.kolmafia.request.SendMailRequest
@@ -124,7 +125,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase47"
+        const val REVISION = "phase52"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -976,6 +977,17 @@ class GameRuntimeLibrary(
             visitKolPage("place.php?whichplace=partyfair", applyQuestHooks = true)
         },
 
+        Regex("^war$", RegexOption.IGNORE_CASE) to { _, rt ->
+            val progress = preferences?.getString("warProgress", "unstarted") ?: "unstarted"
+            rt.print(progress)
+        },
+
+        Regex("^telescope(?:\\s+(high|low))?$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val direction = m.groupValues.getOrNull(1)?.lowercase()?.takeIf { it.isNotBlank() } ?: "low"
+            val action = if (direction == "high") "telescopehigh" else "telescopelow"
+            visitKolPage("campground.php?action=$action", applyQuestHooks = true)
+        },
+
         // main / council / campground / homepage — visit common KoL pages
         Regex("^main$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("main.php")
@@ -1323,6 +1335,15 @@ class GameRuntimeLibrary(
 
     internal fun processVisitQuestHooks(html: String, url: String? = null) {
         val db = questDatabase ?: return
+        val prefs = preferences
+        if (url != null && prefs != null) {
+            TelescopeSync.parseResponse(
+                url,
+                html,
+                prefs,
+                character?.state?.value,
+            )
+        }
         kotlinx.coroutines.runBlocking {
             QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext(url))
         }
@@ -1493,7 +1514,7 @@ class GameRuntimeLibrary(
         kotlinx.coroutines.runBlocking {
             req.choose(choiceId, option).onSuccess { html ->
                 QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext())
-                QuestChoiceRules.apply(choiceId, html, db, option)
+                QuestChoiceRules.apply(choiceId, html, db, option, preferences)
             }
         }
     }
@@ -1535,7 +1556,7 @@ class GameRuntimeLibrary(
                 if (!response.status.isSuccess()) return@runBlocking
                 val html = response.bodyAsText()
                 if (applyQuestHooks && db != null) {
-                    QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext(path))
+                    processVisitQuestHooks(html, "$KOL_BASE_URL/$path")
                 }
             } catch (_: Exception) {
                 // best-effort page visit
@@ -1683,6 +1704,10 @@ class GameRuntimeLibrary(
         registerAshP12Batch(scope)
         registerAshP13Batch(scope)
         registerAshP14Batch(scope)
+        registerAshP15Batch(scope)
+        registerAshP16Batch(scope)
+        registerAshP17Batch(scope)
+        registerAshP18Batch(scope)
         registerItemActions(scope)
         registerPricingQueries(scope)
         registerMallFunctions(scope)
