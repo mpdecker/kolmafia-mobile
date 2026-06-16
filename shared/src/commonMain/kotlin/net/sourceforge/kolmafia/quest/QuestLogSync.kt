@@ -75,11 +75,30 @@ object QuestLogSync {
         if (shouldSync(responseText)) {
             questLogRequest?.syncAll()
         }
-        applyDerivedQuestStatus(questDatabase)
+        applyDerivedQuestStatus(questDatabase, context.preferences, context.currentRun)
     }
 
     /** Cross-quest status links mirrored from desktop QuestLogRequest. */
-    fun applyDerivedQuestStatus(questDatabase: QuestDatabase) {
+    fun applyDerivedQuestStatus(
+        questDatabase: QuestDatabase,
+        preferences: Preferences? = null,
+        ascensionNumber: Int = 0,
+    ) {
+        if (questDatabase.isAtLeast(Quest.SPOOKYRAVEN_DANCE, QuestDatabase.STARTED) &&
+            !questDatabase.isQuestFinished(Quest.SPOOKYRAVEN_NECKLACE)
+        ) {
+            questDatabase.setProgress(Quest.SPOOKYRAVEN_NECKLACE, QuestDatabase.FINISHED)
+        }
+        if (questDatabase.isAtLeast(Quest.SPOOKYRAVEN_BABIES, QuestDatabase.STARTED) &&
+            !questDatabase.isQuestFinished(Quest.SPOOKYRAVEN_DANCE)
+        ) {
+            questDatabase.setProgress(Quest.SPOOKYRAVEN_DANCE, QuestDatabase.FINISHED)
+        }
+        if (questDatabase.isQuestLaterThan(Quest.MANOR, QuestDatabase.STARTED) &&
+            !questDatabase.isQuestFinished(Quest.SPOOKYRAVEN_DANCE)
+        ) {
+            questDatabase.setProgress(Quest.SPOOKYRAVEN_DANCE, QuestDatabase.FINISHED)
+        }
         if (questDatabase.isAtLeast(Quest.PYRAMID, QuestDatabase.STARTED) &&
             !questDatabase.isQuestFinished(Quest.DESERT)
         ) {
@@ -89,6 +108,67 @@ object QuestLogSync {
             !questDatabase.isQuestFinished(Quest.BLACK)
         ) {
             questDatabase.setProgress(Quest.BLACK, QuestDatabase.FINISHED)
+        }
+        if (questDatabase.isQuestLaterThan(Quest.WORSHIP, "step3")) {
+            for (quest in listOf(Quest.CURSES, Quest.DOCTOR, Quest.BUSINESS, Quest.SPARE)) {
+                if (!questDatabase.isQuestFinished(quest)) {
+                    questDatabase.setProgress(quest, QuestDatabase.FINISHED)
+                }
+            }
+        }
+        preferences?.let { prefs ->
+            applyDerivedQuestPrefs(questDatabase, prefs, ascensionNumber)
+        }
+    }
+
+    private fun applyDerivedQuestPrefs(
+        questDatabase: QuestDatabase,
+        preferences: Preferences,
+        ascensionNumber: Int,
+    ) {
+        preferences.setBoolean(
+            "middleChamberUnlock",
+            questDatabase.isQuestLaterThan(Quest.PYRAMID, QuestDatabase.STARTED),
+        )
+        preferences.setBoolean(
+            "lowerChamberUnlock",
+            questDatabase.isQuestLaterThan(Quest.PYRAMID, "step1"),
+        )
+        preferences.setBoolean(
+            "controlRoomUnlock",
+            questDatabase.isQuestLaterThan(Quest.PYRAMID, "step2"),
+        )
+        if (!preferences.getBoolean("pyramidBombUsed", false)) {
+            preferences.setBoolean("pyramidBombUsed", questDatabase.isQuestFinished(Quest.PYRAMID))
+        }
+        preferences.setBoolean(
+            "bigBrotherRescued",
+            questDatabase.isQuestLaterThan(Quest.SEA_MONKEES, "step1"),
+        )
+        when {
+            questDatabase.isQuestFinished(Quest.ISLAND_WAR) ->
+                preferences.setString("warProgress", "finished")
+            questDatabase.isQuestLaterThan(Quest.ISLAND_WAR, QuestDatabase.STARTED) ->
+                preferences.setString("warProgress", "started")
+            else -> preferences.setString("warProgress", "unstarted")
+        }
+        if (questDatabase.isAtLeast(Quest.PIRATE, QuestDatabase.STARTED) ||
+            questDatabase.isQuestFinished(Quest.HIPPY)
+        ) {
+            preferences.setInt("lastIslandUnlock", ascensionNumber)
+        }
+        if (questDatabase.isQuestFinished(Quest.SPOOKYRAVEN_NECKLACE)) {
+            preferences.setInt("lastSecondFloorUnlock", ascensionNumber)
+        }
+        if (questDatabase.isQuestLaterThan(Quest.GARBAGE, "step7")) {
+            preferences.setInt("lastCastleGroundUnlock", ascensionNumber)
+        }
+        if (questDatabase.isQuestLaterThan(Quest.GARBAGE, "step8")) {
+            preferences.setInt("lastCastleTopUnlock", ascensionNumber)
+        }
+        if (questDatabase.isQuestLaterThan(Quest.WORSHIP, "step1")) {
+            preferences.setInt("lastTempleButtonsUnlock", ascensionNumber)
+            preferences.setInt("lastTempleUnlock", ascensionNumber)
         }
     }
 

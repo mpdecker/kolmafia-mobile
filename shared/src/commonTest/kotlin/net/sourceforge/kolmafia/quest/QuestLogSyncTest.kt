@@ -229,4 +229,37 @@ class QuestLogSyncTest {
         runLib(lib, """cli_execute("council");""")
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.BAT))
     }
+
+    @Test
+    fun applyDerivedQuestStatus_worshipStep3FinishesSideQuests() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.WORSHIP, "step4")
+        db.setProgress(Quest.CURSES, QuestDatabase.STARTED)
+        db.setProgress(Quest.DOCTOR, QuestDatabase.STARTED)
+        QuestLogSync.applyDerivedQuestStatus(db)
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.CURSES))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.DOCTOR))
+    }
+
+    @Test
+    fun applyDerivedQuestStatus_syncsWarAndPyramidPrefs() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.PYRAMID, "step3")
+        db.setProgress(Quest.ISLAND_WAR, "step1")
+        QuestLogSync.applyDerivedQuestStatus(db, prefs, ascensionNumber = 5)
+        assertTrue(prefs.getBoolean("middleChamberUnlock", false))
+        assertTrue(prefs.getBoolean("lowerChamberUnlock", false))
+        assertTrue(prefs.getBoolean("controlRoomUnlock", false))
+        assertEquals("started", prefs.getString("warProgress", ""))
+    }
+
+    @Test
+    fun applyDerivedQuestStatus_spookyravenChain() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.SPOOKYRAVEN_NECKLACE, QuestDatabase.STARTED)
+        db.setProgress(Quest.SPOOKYRAVEN_DANCE, QuestDatabase.STARTED)
+        QuestLogSync.applyDerivedQuestStatus(db)
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.SPOOKYRAVEN_NECKLACE))
+    }
 }

@@ -37,10 +37,18 @@ object QuestSpecialSync {
         TelegramStep("Escape from the snake pit", "Big Gambling Tournament Announced", 2, "step2"),
         TelegramStep("Track down Snakeye Glenn at the Great Western hotel", "Big Gambling Tournament Announced", 2, "step3"),
         TelegramStep("Defeat Snakeeye Glenn", "Big Gambling Tournament Announced", 2, "step4"),
+        TelegramStep("Fight your way to the sheriff's office and apply for the job", "Sheriff Wanted", 2, "step1"),
+        TelegramStep("Head up river to the Placid Lake Gang's hideout", "Sheriff Wanted", 2, "step2"),
+        TelegramStep("Search the hideout for the gang's leader", "Sheriff Wanted", 2, "step3"),
+        TelegramStep("Defeat Former Sheriff Dan Driscoll", "Sheriff Wanted", 2, "step4"),
         TelegramStep("Figure out what's going wrong at the mine", "Madness at the Mine", 3, "step1"),
         TelegramStep("Search the desert for the missing foreman", "Madness at the Mine", 3, "step2"),
         TelegramStep("Find that door in the mine again", "Madness at the Mine", 3, "step3"),
         TelegramStep("Defeat the unusual construct", "Madness at the Mine", 3, "step4"),
+        TelegramStep("Find out why the children are going missing", "Missing: Many Children", 3, "step1"),
+        TelegramStep("Ride the ghost train", "Missing: Many Children", 3, "step2"),
+        TelegramStep("Search Cowtown for the missing children", "Missing: Many Children", 3, "step3"),
+        TelegramStep("Defeat Clara", "Missing: Many Children", 3, "step4"),
         TelegramStep("Escort the Hackleton wagon train across the desert", "Wagon Train Escort Wanted", 3, "step1"),
         TelegramStep("Defend the Hackleton wagon train", "Wagon Train Escort Wanted", 3, "step2"),
         TelegramStep("Defeat the Hackletons", "Wagon Train Escort Wanted", 3, "step3"),
@@ -114,6 +122,7 @@ object QuestSpecialSync {
         if (applyGuzzlr(responseText, questDatabase, preferences, gameDatabase)) advanced = true
         if (applyPrimordial(responseText, questDatabase, preferences)) advanced = true
         if (applyCompetitionStatus(responseText, questDatabase, preferences)) advanced = true
+        if (applyFinalQuestLog(responseText, questDatabase)) advanced = true
         if (applyPeakStatus(responseText, questDatabase, preferences)) advanced = true
         if (applyHippyFratStatus(responseText, questDatabase, preferences)) advanced = true
         return advanced
@@ -416,6 +425,31 @@ object QuestSpecialSync {
             questDatabase.setProgress(Quest.PRIMORDIAL, QuestDatabase.STARTED)
         }
         return advanceIfBetter(questDatabase, Quest.PRIMORDIAL, step)
+    }
+
+    private val finalQuestLogSteps = listOf(
+        "Go investigate the weird contest" to "step1",
+        "Defeat the other entrants in the Naughty Sorceress" to "step2",
+        "Go talk to the contest official" to "step3",
+        "You're the big winner" to "step4",
+        "Attend your coronation" to "step4",
+        "treacherous hedge maze" to "step5",
+        "Get through the door at the base" to "step6",
+        "Continue climbing the Naughty Sorceress" to "step10",
+        "Continue your ascent of the Naughty Sorceress" to "step11",
+        "Confront the Naughty Sorceress" to "step12",
+        "wand of Nagamar" to "step13",
+        "Free King Ralph from his prism prison" to "step14",
+        "You freed the Kingdom of the tyranny of the Naughty Sorceress" to QuestDatabase.FINISHED,
+    )
+
+    private fun applyFinalQuestLog(text: String, questDatabase: QuestDatabase): Boolean {
+        if (questDatabase.getProgress(Quest.FINAL) == QuestDatabase.UNSTARTED) return false
+        for ((signal, step) in finalQuestLogSteps) {
+            if (!text.contains(signal, ignoreCase = true)) continue
+            return advanceIfBetter(questDatabase, Quest.FINAL, step)
+        }
+        return false
     }
 
     private fun applyCompetitionStatus(

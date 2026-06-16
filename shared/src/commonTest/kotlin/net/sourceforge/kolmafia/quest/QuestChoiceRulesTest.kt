@@ -110,4 +110,36 @@ class QuestChoiceRulesTest {
         assertTrue(QuestChoiceRules.apply(584, "Unconfusing Buttons", db, decision = 4))
         assertEquals("step2", db.getProgress(Quest.WORSHIP))
     }
+
+    @Test
+    fun choice1003_setsContestRankPref() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        assertTrue(
+            QuestChoiceRules.apply(
+                1003,
+                "qualified to begin the contest at rank <b>#4</b>.",
+                db,
+                decision = 2,
+                preferences = prefs,
+            ),
+        )
+        assertEquals(3, prefs.getInt("nsContestants2", -1))
+    }
+
+    @Test
+    fun choice1007_setsHedgeMazeRoom() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        assertTrue(
+            QuestChoiceRules.apply(
+                1007,
+                "You wander deeper into the hedge maze.",
+                db,
+                preferences = prefs,
+            ),
+        )
+        assertEquals(3, prefs.getInt("currentHedgeMazeRoom", 0))
+        assertEquals("step4", db.getProgress(Quest.FINAL))
+    }
 }

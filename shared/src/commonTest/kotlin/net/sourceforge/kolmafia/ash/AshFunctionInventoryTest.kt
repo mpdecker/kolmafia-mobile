@@ -10,6 +10,6 @@ class AshFunctionInventoryTest {
         val scope = AshScope()
         GameRuntimeLibrary.forTesting().registerAll(scope)
         val count = scope.debugFunctionCount()
-        assertTrue(count >= 820, "Expected ≥820 overloads after ASH-P14, got $count")
+        assertTrue(count >= 890, "Expected ≥890 overloads after ASH-P15, got $count")
     }
 }

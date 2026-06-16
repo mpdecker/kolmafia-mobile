@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-06-16 after Phase 47: ASH-P14 + Maximizer familiar slot + MACGUFFIN/warehouse quest depth)*
+*Generated: 2026-06-03 (updated 2026-06-16 after Phase 52: Maximizer hatrack familiar-effect scoring + contest booth choice parsers)*
 
 ## Scale Comparison
 
@@ -11,7 +11,7 @@
 | Lines of code            | ~57,000                     | ~15,000+ (commonMain)   | ~26%                    |
 | Test files               | 411                         | 126+                    | ~31%                    |
 | Tests                    | ~1,800+                     | 1,719                   | ~95% (of covered scope) |
-| ASH function overloads   | ~890                        | ~820 registered         | ~92%                    |
+| ASH function overloads   | ~890                        | ~890 registered         | ~100%                   |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN) | **100%**                |
 | BreakfastManager actions | 22 (20 universal + 2 niche) | 22                      | **100%**                |
 | Build target             | JVM 21                      | Android + iOS           | —                       |
@@ -422,12 +422,12 @@ Mobile has a 10-file `modifiers/` package covering the full passive prediction a
 
 ## Top Priorities
 
-*Phase 47 pushed ASH overloads past 90%. Updated priorities:*
+*Phase 52 added hatrack familiar-effect scoring and contest booth parsers. Updated priorities:*
 
-1. **ASH scripting parity (ASH-P15+)** — final long-tail functions and CLI echoes (92% → 100%).
-2. **Full desktop Maximizer** — unified Evaluator search; hatrack/scarecrow familiar-carried gear scoring.
+1. **ASH scripting parity** — corpus coverage for edge-case semantics; remaining CLI long-tail.
+2. **Full desktop Maximizer** — unified Evaluator search; full applyFamiliarModifiers weight pipeline.
 3. **Full relay server** — `webui/` decorators for non-headless use cases.
-4. **Quest tracking depth** — remaining FINAL step parsers, quest-log pref sync breadth.
+4. **Quest tracking depth** — Sorceress tower image parsing / visit hooks.
 
 ---
 
@@ -478,5 +478,10 @@ Phase 44 → AshP11Batch overloads ≥620 (entity modifier stubs/type_of/is_vali
 Phase 45 → AshP12Batch overloads ≥700 (string utils/my_*_meat/entity name-desc-same/aggregate remove-copy); QuestSpecialSync peak status + party-fair booze/food item IDs + Guzzlr platinum IDs; Maximizer tiebreaker + price tie-break on equal scores; 1,726 tests
 Phase 46 → AshP13Batch overloads ≥756 (aggregate get/pad_right/writeln/quest peak+party-fair ASH); QuestSpecialSync party-fair dj/return + hippy-frat soldier prefs; Maximizer familiar/thrall secondary tie-breaking; 1,728 tests
 Phase 47 → AshP14Batch overloads ≥820 (primitive aggregate get/guzzlr+war ASH/string modifiers); MaximizerSpeculation FAMILIAR slot search; QuestItemRules Holy MacGuffin→warehouse + MACGUFFIN step1→BLACK derived sync; 1,733 tests
+Phase 48 → AshP15Batch overloads ≥890 (entity aggregate set/quest pref ASH); FamiliarCarryRules hatrack/scarecrow FAMILIAR slot candidates; QuestSpecialSync Sheriff Wanted + Missing: Many Children telegram; 1,737 tests
+Phase 49 → AshP16Batch behavioral ASH (war_progress/pyramid unlock prefs); FamiliarCarryRules Hand/Left-Hand; QuestLogSync derived quest chains + pref sync; CLI war echo; 1,741 tests
+Phase 50 → FamiliarSlotModifiers hand-slot stripping; AshP17Batch ns_challenge/telescope_line; QuestSpecialSync FINAL quest log steps; Maximizer familiarCarryScorer; 1,748 tests
+Phase 51 → TelescopeSync campground HTML parser; AshP18Batch telescope_upgrades; CLI telescope high/low; Maximizer speculate familiar-carried scoreLoadout; 1,753 tests
+Phase 52 → FamiliarCarriedScoring hatrack/scarecrow familiar-effect; ContestBoothSync choice 1003/1005-1013; QuestChoiceRules FINAL maze steps; 1,763 tests
 ```
 
