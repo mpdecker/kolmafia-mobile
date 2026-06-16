@@ -127,6 +127,55 @@ class QuestSpecialSyncTest {
     }
 
     @Test
+    fun apply_doctorBagDeliveryCompletesAndClearsPrefs() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.DOCTOR_BAG, "step1")
+        prefs.setString("doctorBagQuestItem", "bottle of gin")
+        prefs.setString("doctorBagQuestLocation", "The Sleazy Back Alley")
+        val text = "One of the five green lights on the doctor bag lights up. The bag has been permanently upgraded."
+        assertTrue(QuestSpecialSync.apply(text, db, prefs))
+        assertEquals(QuestDatabase.UNSTARTED, db.getProgress(Quest.DOCTOR_BAG))
+        assertEquals("", prefs.getString("doctorBagQuestItem", "x"))
+        assertEquals("", prefs.getString("doctorBagQuestLocation", "x"))
+        assertEquals(1, prefs.getInt("doctorBagQuestLights", 0))
+        assertEquals(1, prefs.getInt("doctorBagUpgrades", 0))
+    }
+
+    @Test
+    fun apply_guzzlrAbandonClearsPrefs() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.GUZZLR, "step1")
+        prefs.setString("guzzlrQuestBooze", "bottle of rum")
+        prefs.setString("guzzlrQuestClient", "Gerald")
+        assertTrue(QuestSpecialSync.abandonGuzzlr(db, prefs))
+        assertEquals(QuestDatabase.UNSTARTED, db.getProgress(Quest.GUZZLR))
+        assertTrue(prefs.getBoolean("_guzzlrQuestAbandoned"))
+        assertEquals("", prefs.getString("guzzlrQuestBooze", "x"))
+        assertEquals("", prefs.getString("guzzlrQuestClient", "x"))
+    }
+
+    @Test
+    fun apply_guzzlrDeliveryIncrementsBronzeCounter() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.GUZZLR, "step1")
+        prefs.setString("guzzlrQuestTier", "bronze")
+        prefs.setString("guzzlrQuestBooze", "bottle of rum")
+        assertTrue(
+            QuestSpecialSync.apply(
+                "You finally manage to track down Gerald and deliver the booze.",
+                db,
+                prefs,
+            ),
+        )
+        assertEquals(QuestDatabase.UNSTARTED, db.getProgress(Quest.GUZZLR))
+        assertEquals(1, prefs.getInt("guzzlrBronzeDeliveries", 0))
+        assertEquals("", prefs.getString("guzzlrQuestBooze", "x"))
+    }
+
+    @Test
     fun apply_primordialAdvancesThroughSoupSteps() {
         val prefs = Preferences(MapSettings())
         val db = QuestDatabase(prefs)
@@ -321,5 +370,16 @@ class QuestSpecialSyncTest {
         db.setProgress(Quest.FINAL, "step11")
         assertTrue(QuestSpecialSync.apply("Confront the Naughty Sorceress.", db, prefs))
         assertEquals("step12", db.getProgress(Quest.FINAL))
+    }
+
+    @Test
+    fun apply_rufusEntityQuestLog() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        val text = "Rufus wants you to go into a Shadow Rift and defeat a shadow scythe."
+        assertTrue(QuestSpecialSync.apply(text, db, prefs))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.RUFUS))
+        assertEquals("entity", prefs.getString(Preferences.RUFUS_QUEST_TYPE, ""))
+        assertEquals("shadow scythe", prefs.getString(Preferences.RUFUS_QUEST_TARGET, ""))
     }
 }

@@ -70,6 +70,7 @@ object QuestLogSync {
     ) {
         QuestAdvanceRules.apply(responseText, questDatabase)
         QuestSpecialSync.apply(responseText, questDatabase, context.preferences, context.gameDatabase)
+        TowerSync.parseTower(responseText, questDatabase, context.preferences)
         applyFantasyRealmHooks(responseText, context)
         applyPlaceHooks(context.place, questDatabase, context)
         if (shouldSync(responseText)) {

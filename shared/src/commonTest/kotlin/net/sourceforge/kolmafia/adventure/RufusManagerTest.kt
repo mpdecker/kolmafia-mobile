@@ -1,7 +1,12 @@
 package net.sourceforge.kolmafia.adventure
 
 import com.russhwolf.settings.MapSettings
+import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ItemData
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -67,5 +72,61 @@ class RufusManagerTest {
         val mgr = manager(prefs())
         val result = mgr.questType
         assertEquals("entity", result)
+    }
+
+    @Test fun handleQuestLog_entityQuest_setsTypeAndTarget() {
+        val testPrefs = prefs()
+        val mgr = manager(testPrefs)
+        val text = "Rufus wants you to go into a Shadow Rift and defeat a shadow scythe."
+        assertEquals(QuestDatabase.STARTED, mgr.handleQuestLog(text))
+        assertEquals("entity", testPrefs.getString(Preferences.RUFUS_QUEST_TYPE, ""))
+        assertEquals("shadow scythe", testPrefs.getString(Preferences.RUFUS_QUEST_TARGET, ""))
+    }
+
+    @Test fun handleQuestLog_artifactQuest_setsTypeAndTarget() {
+        val testPrefs = prefs()
+        val mgr = manager(testPrefs)
+        val text = "Rufus wants you to go into a Shadow Rift and find a shadow bucket."
+        assertEquals(QuestDatabase.STARTED, mgr.handleQuestLog(text))
+        assertEquals("artifact", testPrefs.getString(Preferences.RUFUS_QUEST_TYPE, ""))
+        assertEquals("shadow bucket", testPrefs.getString(Preferences.RUFUS_QUEST_TARGET, ""))
+    }
+
+    @Test fun handleQuestLog_itemsQuest_resolvesPluralItemName() {
+        ItemDatabase.registerForTest(
+            ItemData(
+                id = 99901,
+                name = "wisp of shadow flame",
+                descId = "test",
+                image = "test.gif",
+                primaryUse = ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(),
+                access = emptySet(),
+                autosellPrice = 0,
+                plural = "wisps of shadow flame",
+            ),
+        )
+        val testPrefs = prefs()
+        val mgr = manager(testPrefs)
+        val text = "Rufus wants you to find him 3 wisps of shadow flame from Shadow Rifts."
+        assertEquals(
+            QuestDatabase.STARTED,
+            mgr.handleQuestLog(text, GameDatabase()),
+        )
+        assertEquals("items", testPrefs.getString(Preferences.RUFUS_QUEST_TYPE, ""))
+        assertEquals("wisp of shadow flame", testPrefs.getString(Preferences.RUFUS_QUEST_TARGET, ""))
+    }
+
+    @Test fun handleQuestLog_entityDone_returnsStep1() {
+        val testPrefs = prefs()
+        val mgr = manager(testPrefs)
+        val text = "Call Rufus and let him know you defeated that monster."
+        assertEquals("step1", mgr.handleQuestLog(text))
+        assertEquals("entity", testPrefs.getString(Preferences.RUFUS_QUEST_TYPE, ""))
+    }
+
+    @Test fun handleQuestLog_unrelatedText_returnsNull() {
+        val mgr = manager(prefs())
+        assertNull(mgr.handleQuestLog("Visit the council for more quests."))
     }
 }

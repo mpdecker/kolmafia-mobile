@@ -11,6 +11,11 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.maximizer.MaximizerManager
+import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.skill.SkillCastRequest
@@ -824,6 +829,30 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_speculate_printsCandidates() {
+        val character = KoLCharacter()
+        val stubMaximizer = object : MaximizerManager(
+            gameDatabase = GameDatabase(),
+            inventoryManager = InventoryManager(
+                client = HttpClient(MockEngine { respond("ok") }),
+                eventBus = GameEventBus(),
+            ),
+            equipmentRequest = EquipmentRequest(
+                HttpClient(MockEngine { respond("ok") }),
+                character = character,
+            ),
+            character = character,
+        ) {
+            override suspend fun speculate(goalText: String): List<String> =
+                listOf("Hat: myst hat (5.0)", "Score: 0.0 -> 5.0")
+        }
+        val lib = GameRuntimeLibrary(maximizerManager = stubMaximizer)
+        val out = outputLib(lib, """cli_execute("speculate +itemdrop");""")
+        assertTrue(out.contains("myst hat"))
+        assertFalse(out.contains("[cli] speculate"))
+    }
+
+    @Test
     fun cliExecute_goalChoice_setsChoiceGoal() {
         val goals = net.sourceforge.kolmafia.session.GoalManager()
         val lib = GameRuntimeLibrary(goalManager = goals)
@@ -1492,5 +1521,34 @@ class GameRuntimeLibraryCliTest {
         val lib = GameRuntimeLibrary(gameDatabase = db)
         val out = outputLib(lib, """cli_execute("whatis seal tooth");""")
         assertTrue(out.contains("seal tooth"))
+    }
+
+    @Test
+    fun cliExecute_guzzlrAcceptBronze_doesNotEchoStub() {
+        val prefs = prefs()
+        val db = net.sourceforge.kolmafia.quest.QuestDatabase(prefs)
+        val choiceReq = net.sourceforge.kolmafia.adventure.ChoiceRequest(
+            HttpClient(MockEngine { respond("ok") }),
+        )
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            questDatabase = db,
+            choiceRequest = choiceReq,
+            httpClient = HttpClient(MockEngine { respond("ok") }),
+        )
+        val out = outputLib(lib, """cli_execute("guzzlr accept bronze");""")
+        assertFalse(out.contains("[cli]"))
+    }
+
+    @Test
+    fun cliExecute_guzzlrAcceptGold_withoutBronzeDeliveries_printsTierError() {
+        val prefs = prefs()
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            questDatabase = net.sourceforge.kolmafia.quest.QuestDatabase(prefs),
+        )
+        val out = outputLib(lib, """cli_execute("guzzlr accept gold");""")
+        assertTrue(out.contains("5 bronze deliveries"))
+        assertFalse(out.contains("[cli]"))
     }
 }

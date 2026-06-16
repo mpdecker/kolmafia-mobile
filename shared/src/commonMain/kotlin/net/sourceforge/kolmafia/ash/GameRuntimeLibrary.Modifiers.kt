@@ -107,17 +107,17 @@ internal fun GameRuntimeLibrary.registerModifierQueries(scope: AshScope) {
     }
 }
 
-private fun numericFromEntry(entry: ModifierEntry?, tag: String): Double {
+internal fun numericFromEntry(entry: ModifierEntry?, tag: String): Double {
     val dm = DoubleModifier.byTag(tag) ?: return 0.0
     return if (entry != null) ModifierParser.parse(entry.modifiers).get(dm) else 0.0
 }
 
-private fun booleanFromEntry(entry: ModifierEntry?, tag: String): Boolean {
+internal fun booleanFromEntry(entry: ModifierEntry?, tag: String): Boolean {
     val bm = BooleanModifier.byTag(tag) ?: return false
     return if (entry != null) ModifierParser.parse(entry.modifiers).get(bm) else false
 }
 
-private fun stringFromEntry(entry: ModifierEntry?, tag: String): String {
+internal fun stringFromEntry(entry: ModifierEntry?, tag: String): String {
     val sm = StringModifier.byTag(tag) ?: return ""
     return if (entry != null) ModifierParser.parse(entry.modifiers).get(sm) ?: "" else ""
 }

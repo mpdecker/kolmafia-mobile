@@ -1,9 +1,14 @@
 package net.sourceforge.kolmafia.ash
 
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.AdventureDatabase
+import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -67,5 +72,44 @@ class AshCompatibilityCorpusTest {
         val lib = GameRuntimeLibrary.forTesting()
         assertEquals("skeleton", outputLib(lib, """print(to_servant("skeleton"));"""))
         assertEquals("vykea", outputLib(lib, """print(to_vykea("vykea"));"""))
+    }
+
+    @Test
+    fun corpus_locationModifier_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        val penalty = outputLib(
+            lib,
+            """print(to_string(numeric_modifier(to_location("The Briny Deeps"), "Item Drop Penalty")));""",
+        )
+        assertEquals("-25.0", penalty)
+    }
+
+    @Test
+    fun corpus_pathModifier_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "1.0",
+            outputLib(lib, """print(to_string(numeric_modifier(to_path("You, Robot"), "Energy")));"""),
+        )
+    }
+
+    @Test
+    fun corpus_maximizerModifierSnippet() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        val out = outputLib(
+            lib,
+            """
+            print(modifier_name("Item Drop Penalty"));
+            print(to_string(numeric_modifier(to_location("The Briny Deeps"), "Item Drop Penalty")));
+            """.trimIndent(),
+        )
+        assertTrue(out.contains("Item Drop Penalty"))
+        assertTrue(out.contains("-25"))
     }
 }

@@ -8,6 +8,7 @@ import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.AdventureZone
 import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -26,6 +27,11 @@ class GameRuntimeLibraryLocationTest {
         isOverdrunk = false,
         noWander = false,
     )
+
+    @BeforeTest
+    fun setUp() {
+        AdventureDatabase.resetForTest()
+    }
 
     @AfterTest
     fun tearDown() {

@@ -124,6 +124,25 @@ object QuestChoiceRules {
             1022 -> {
                 advanced = setIfBetter(questDatabase, Quest.FINAL, "step4") || advanced
             }
+            1340 -> {
+                if (decision != 1) {
+                    advanced = QuestSpecialSync.abandonDoctorBag(questDatabase, preferences) || advanced
+                }
+            }
+            1341 -> {
+                if (decision == 1) {
+                    advanced = QuestSpecialSync.completeDoctorBagDelivery(
+                        responseText,
+                        questDatabase,
+                        preferences,
+                    ) || advanced
+                }
+            }
+            1412 -> {
+                if (decision == 1) {
+                    advanced = QuestSpecialSync.abandonGuzzlr(questDatabase, preferences) || advanced
+                }
+            }
         }
         return advanced
     }

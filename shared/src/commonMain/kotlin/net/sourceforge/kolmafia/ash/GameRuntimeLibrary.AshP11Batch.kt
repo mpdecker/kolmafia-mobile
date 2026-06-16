@@ -36,17 +36,14 @@ internal fun GameRuntimeLibrary.registerAshP11Batch(scope: AshScope) {
         AshValue.of(args[0].toString().contains(args[1].toString()))
     }
 
-    val stubEntityTypes = listOf(
+    val modifierStubEntityTypes = listOf(
         AshType.CLASS, AshType.STAT, AshType.SLOT, AshType.ELEMENT,
-        AshType.LOCATION, AshType.MONSTER, AshType.THRALL, AshType.SERVANT,
-        AshType.VYKEA, AshType.BOUNTY, AshType.MODIFIER, AshType.COINMASTER,
-        AshType.PHYLUM, AshType.PATH,
+        AshType.SERVANT, AshType.VYKEA, AshType.BOUNTY, AshType.MODIFIER,
+        AshType.COINMASTER, AshType.PHYLUM,
     )
-    for (entityType in stubEntityTypes) {
+    for (entityType in modifierStubEntityTypes) {
         val captured = entityType
         val paramName = when (captured) {
-            AshType.LOCATION -> "loc"
-            AshType.MONSTER -> "mo"
             AshType.CLASS -> "cls"
             AshType.STAT -> "stat"
             else -> "value"
@@ -68,6 +65,35 @@ internal fun GameRuntimeLibrary.registerAshP11Batch(scope: AshScope) {
         }
         regFn(scope, "is_valid", AshType.BOOLEAN, listOf("value" to captured)) { _, args ->
             AshValue.of(args[0].toString().isNotBlank())
+        }
+    }
+
+    val validatedEntityTypes = listOf(
+        AshType.LOCATION, AshType.MONSTER, AshType.THRALL, AshType.PATH,
+    )
+    for (entityType in validatedEntityTypes) {
+        val captured = entityType
+        val paramName = when (captured) {
+            AshType.LOCATION -> "loc"
+            AshType.MONSTER -> "mo"
+            AshType.THRALL -> "thr"
+            AshType.PATH -> "path"
+            else -> "value"
+        }
+        regFn(scope, "type_of", AshType.STRING, listOf(paramName to captured)) { _, _ ->
+            AshValue.of(captured.name)
+        }
+        regFn(scope, "is_valid", AshType.BOOLEAN, listOf(paramName to captured)) { _, args ->
+            val ref = args[0].toString()
+            val valid = when (captured) {
+                AshType.LOCATION -> resolveLocation(ref) != null ||
+                    gameDatabase?.locationModifier(ref) != null
+                AshType.MONSTER -> gameDatabase?.monster(ref) != null
+                AshType.THRALL -> gameDatabase?.thrallModifier(ref) != null
+                AshType.PATH -> gameDatabase?.pathModifier(ref) != null
+                else -> ref.isNotBlank()
+            }
+            AshValue.of(valid)
         }
     }
 

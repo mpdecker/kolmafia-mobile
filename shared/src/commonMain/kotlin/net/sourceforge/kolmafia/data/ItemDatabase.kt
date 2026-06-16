@@ -11,6 +11,7 @@ object ItemDatabase {
 
     private val byId = mutableMapOf<Int, ItemData>()
     private val byName = mutableMapOf<String, ItemData>()
+    private val byPlural = mutableMapOf<String, ItemData>()
     private var loaded = false
 
     suspend fun load() {
@@ -22,17 +23,23 @@ object ItemDatabase {
 
     fun getById(id: Int): ItemData? = byId[id]
     fun getByName(name: String): ItemData? = byName[name.lowercase()]
+    fun getByPluralOrName(name: String): ItemData? {
+        val lower = name.lowercase()
+        return byName[lower] ?: byPlural[lower]
+    }
     fun all(): Collection<ItemData> = byId.values
 
     /** Test hook — register an item without loading items.txt. */
     internal fun registerForTest(item: ItemData) {
         byId[item.id] = item
         byName[item.name.lowercase()] = item
+        item.plural?.let { byPlural[it.lowercase()] = item }
     }
 
     internal fun resetForTest() {
         byId.clear()
         byName.clear()
+        byPlural.clear()
         loaded = false
     }
 
@@ -62,6 +69,7 @@ object ItemDatabase {
             val item = ItemData(id, name, descId, image, primaryUse, secondaryUses, access, autosell, plural)
             byId[id] = item
             byName[name.lowercase()] = item
+            plural?.let { byPlural[it.lowercase()] = item }
         }
     }
 }
