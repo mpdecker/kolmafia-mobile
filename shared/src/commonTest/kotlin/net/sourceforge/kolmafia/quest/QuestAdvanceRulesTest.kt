@@ -217,4 +217,44 @@ class QuestAdvanceRulesTest {
         assertTrue(QuestAdvanceRules.apply("put your pom-poms down", db))
         assertEquals("step2", db.getProgress(Quest.WORSHIP))
     }
+
+    @Test
+    fun apply_islandWarStartedOnCouncilTension() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        val text = "The Council has gotten word of tensions building between the hippies and the frat boys"
+        assertTrue(QuestAdvanceRules.apply(text, db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.ISLAND_WAR))
+    }
+
+    @Test
+    fun apply_islandWarFinishedOnHippyVictory() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.ISLAND_WAR, "step1")
+        assertTrue(QuestAdvanceRules.apply("You led the filthy hippies to victory", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.ISLAND_WAR))
+    }
+
+    @Test
+    fun apply_ronFinishedOnTalismanRecovery() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.RON, QuestDatabase.STARTED)
+        val text = "You recovered half of the Talisman o' Namsilat from Ron Copperhead. Brilliant!"
+        assertTrue(QuestAdvanceRules.apply(text, db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.RON))
+    }
+
+    @Test
+    fun apply_warehouseFinishedOnMacGuffin() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.WAREHOUSE, QuestDatabase.STARTED)
+        assertTrue(QuestAdvanceRules.apply("You retrieved the Holy MacGuffin!", db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.WAREHOUSE))
+    }
+
+    @Test
+    fun apply_darkStartedOnCaveMarked() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestAdvanceRules.apply("marked your map with the location of a cave", db))
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.DARK))
+    }
 }

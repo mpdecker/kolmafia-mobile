@@ -1,7 +1,9 @@
 package net.sourceforge.kolmafia.maximizer
 
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
@@ -13,6 +15,7 @@ import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.modifiers.ExpressionContext
 import net.sourceforge.kolmafia.modifiers.ModifierParser
+import net.sourceforge.kolmafia.modifiers.ModifierValues
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.PastaThrall
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -21,6 +24,9 @@ import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.StorageRequest
+import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.mall.MallManager
+import net.sourceforge.kolmafia.mall.MallPriceManager
 
 open class MaximizerManager(
     private val gameDatabase: GameDatabase,
@@ -34,6 +40,9 @@ open class MaximizerManager(
     private val familiarManager: FamiliarManager? = null,
     private val preferences: Preferences? = null,
     private val skillManager: SkillManager? = null,
+    private val retrieveItemService: RetrieveItemService? = null,
+    private val mallPriceManager: MallPriceManager? = null,
+    private val mallManager: MallManager? = null,
 ) {
     companion object {
         const val CROWN_OF_THRONES = "Crown of Thrones"
@@ -87,40 +96,73 @@ open class MaximizerManager(
         val storageContents = storageRequest?.fetchContents().orEmpty()
         val displayContents = displayCaseRequest?.fetchContents().orEmpty()
         val stashContents = clanStashRequest?.fetchContents().orEmpty()
-        val scoreBefore = scoreEquipped(charState.equipment, effectiveSpec.primary) +
-            scoreFamiliarBonuses(charState, effectiveSpec.primary) +
-            scoreCurrentThrall(effectiveSpec.primary)
+        val scoreBefore = MaximizerSpeculation.scoreLoadout(
+            charState, charState.equipment.mapValues { (_, name) -> name to 0.0 },
+            effectiveSpec.primary,
+            scoreFamiliarBonuses(charState, effectiveSpec.primary),
+            scoreCurrentThrall(effectiveSpec.primary),
+            ::scoreItem,
+        )
 
-        var bestPerSlot = findBestPerSlot(
-            effectiveSpec, charState.equipment, invState,
+        var         bestPerSlot = findBestPerSlot(
+            effectiveSpec, charState, invState,
             closetContents, storageContents, displayContents, stashContents,
         )
         val comboBudget = ComboBudget(
             preferences?.getInt(COMBINATION_LIMIT_PREF, DEFAULT_COMBO_LIMIT) ?: DEFAULT_COMBO_LIMIT,
         )
         bestPerSlot = refineAccessoryCombinations(
-            effectiveSpec, charState.equipment, invState,
+            effectiveSpec, charState, invState,
             closetContents, storageContents, displayContents, stashContents,
             bestPerSlot, comboBudget,
         )
         bestPerSlot = refineWeaponOffhandCombinations(
-            effectiveSpec, charState.equipment, invState,
+            effectiveSpec, charState, invState,
             closetContents, storageContents, displayContents, stashContents,
             bestPerSlot, comboBudget,
         )
         bestPerSlot = refineArmorCombinations(
-            effectiveSpec, charState.equipment, invState,
+            effectiveSpec, charState, invState,
             closetContents, storageContents, displayContents, stashContents,
             bestPerSlot, comboBudget,
         )
-        bestPerSlot = applyEquipRequired(effectiveSpec, bestPerSlot, charState.equipment)
-        val enthronedBonus = scoreFamiliarList(effectiveSpec.enthronedFamiliars, effectiveSpec.primary)
-        val bjornBonus = scoreFamiliarList(effectiveSpec.bjornifiedFamiliars, effectiveSpec.primary)
         val (targetThrall, thrallBonus) = resolveTargetThrall(effectiveSpec)
         val familiarRace = resolveFamiliarSwitch(effectiveSpec)
         val familiarBonus = familiarRace?.let { scoreFamiliarList(listOf(it), effectiveSpec.primary) } ?: 0.0
-        val scoreAfter = bestPerSlot.values.sumOf { it.second } +
-            enthronedBonus + bjornBonus + thrallBonus + familiarBonus
+        val candidateIds = buildCandidateIds(
+            invState, closetContents, storageContents, displayContents, stashContents, effectiveSpec,
+        )
+        prefetchMallPrices(candidateIds, effectiveSpec)
+        val speculated = MaximizerSpeculation.speculate(
+            effectiveSpec,
+            charState,
+            MaximizerSpeculation.topCandidatesPerSlot(
+                effectiveSpec, gameDatabase,
+                candidateIds,
+                bestPerSlot.values.map { it.first }.toSet(),
+                TOP_ARMOR_CANDIDATES,
+                ::scoreItem,
+                ::itemMeetsConstraints,
+                ::effectivePrice,
+            ),
+            comboBudget,
+            familiarBonus,
+            thrallBonus,
+            bestPerSlot,
+            ::scoreItem,
+            ::effectivePrice,
+        )
+        if (speculated.isNotEmpty()) {
+            bestPerSlot = speculated
+        }
+        bestPerSlot = applyEquipRequired(effectiveSpec, bestPerSlot, charState.equipment)
+        val enthronedBonus = scoreFamiliarList(effectiveSpec.enthronedFamiliars, effectiveSpec.primary)
+        val bjornBonus = scoreFamiliarList(effectiveSpec.bjornifiedFamiliars, effectiveSpec.primary)
+        val scoreAfter = MaximizerSpeculation.scoreLoadout(
+            charState, bestPerSlot, effectiveSpec.primary,
+            enthronedBonus + bjornBonus + familiarBonus, thrallBonus,
+            ::scoreItem,
+        )
         if (scoreAfter <= scoreBefore) {
             return MaximizeResult(false, goal, scoreBefore, scoreBefore)
         }
@@ -197,11 +239,30 @@ open class MaximizerManager(
     private fun resolveTargetThrall(spec: MaximizeSpec): Pair<String?, Double> {
         val prefs = preferences ?: return null to 0.0
         if (spec.switchThralls.isNotEmpty()) {
-            val name = spec.switchThralls.first()
-            val level = PastaThrall.thrallLevel(prefs, name)
-            return name to scoreThrall(name, level, spec.primary)
+            return bestThrallFromCandidates(spec.switchThralls, spec.primary, prefs)
         }
         return bestThrallScore(spec.primary, prefs)
+    }
+
+    private fun bestThrallFromCandidates(
+        names: List<String>,
+        modifier: DoubleModifier,
+        prefs: Preferences,
+    ): Pair<String?, Double> {
+        var bestName: String? = null
+        var bestScore = Double.NEGATIVE_INFINITY
+        var bestTie = Double.NEGATIVE_INFINITY
+        for (name in names) {
+            val level = PastaThrall.thrallLevel(prefs, name)
+            val score = scoreThrall(name, level, modifier)
+            val tie = thrallSecondaryScore(name, level)
+            if (isBetterCandidate(score, tie, bestScore, bestTie)) {
+                bestScore = score
+                bestTie = tie
+                bestName = name
+            }
+        }
+        return bestName to bestScore.coerceAtLeast(0.0)
     }
 
     private fun bestThrallScore(modifier: DoubleModifier, prefs: Preferences): Pair<String?, Double> {
@@ -212,11 +273,17 @@ open class MaximizerManager(
             PastaThrall.thrallLevel(prefs, currentName),
             modifier,
         )
+        var bestTie = if (currentName.isBlank()) 0.0 else thrallSecondaryScore(
+            currentName,
+            PastaThrall.thrallLevel(prefs, currentName),
+        )
         for (index in 1..8) {
             val parsed = PastaThrall.parsePref(prefs.getString(PastaThrall.prefKey(index), "")) ?: continue
             val score = scoreThrall(parsed.second, parsed.first, modifier)
-            if (score > bestScore) {
+            val tie = thrallSecondaryScore(parsed.second, parsed.first)
+            if (isBetterCandidate(score, tie, bestScore, bestTie)) {
                 bestScore = score
+                bestTie = tie
                 bestName = parsed.second
             }
         }
@@ -263,28 +330,63 @@ open class MaximizerManager(
         val owned = familiarManager?.state?.value?.ownedFamiliars.orEmpty()
         var bestRace: String? = null
         var bestScore = Double.NEGATIVE_INFINITY
+        var bestTie = Double.NEGATIVE_INFINITY
         for (race in spec.switchFamiliars) {
             if (!owned.any { it.race.equals(race, ignoreCase = true) }) continue
             val score = scoreFamiliarList(listOf(race), spec.primary)
-            if (score > bestScore) {
+            val tie = familiarSecondaryScore(race)
+            if (isBetterCandidate(score, tie, bestScore, bestTie)) {
                 bestScore = score
+                bestTie = tie
                 bestRace = race
             }
         }
         return bestRace
     }
 
+    private fun isBetterCandidate(
+        score: Double,
+        tie: Double,
+        bestScore: Double,
+        bestTie: Double,
+    ): Boolean {
+        if (score > bestScore + 1e-9) return true
+        if (score < bestScore - 1e-9) return false
+        return tie > bestTie + 1e-9
+    }
+
+    private fun familiarSecondaryScore(race: String): Double {
+        val entry = ModifierDatabase.getFamiliar(race) ?: return 0.0
+        val mods = ModifierParser.parse(entry.modifiers)
+        return secondaryModifierScore(mods)
+    }
+
+    private fun thrallSecondaryScore(name: String, level: Int): Double {
+        val entry = ModifierDatabase.getThrall(name) ?: return 0.0
+        val mods = ModifierParser.parse(entry.modifiers, ExpressionContext(thrallLevel = level))
+        return secondaryModifierScore(mods)
+    }
+
+    private fun secondaryModifierScore(mods: ModifierValues): Double =
+        mods.get(DoubleModifier.INITIATIVE) +
+            mods.get(DoubleModifier.ITEMDROP) +
+            mods.get(DoubleModifier.MUS) +
+            mods.get(DoubleModifier.MYS) +
+            mods.get(DoubleModifier.MOX) +
+            mods.get(DoubleModifier.MEATDROP)
+
     private fun findBestPerSlot(
         spec: MaximizeSpec,
-        equipment: Map<EquipmentSlot, String>,
+        charState: CharacterState,
         invState: InventoryState,
         closetContents: Map<Int, Int>,
         storageContents: Map<Int, Int>,
         displayContents: Map<Int, Int>,
         stashContents: Map<Int, Int>,
     ): Map<EquipmentSlot, Pair<String, Double>> {
+        val equipment = charState.equipment
         val candidateIds = buildCandidateIds(
-            invState, closetContents, storageContents, displayContents, stashContents,
+            invState, closetContents, storageContents, displayContents, stashContents, spec,
         )
         val bestPerSlot = mutableMapOf<EquipmentSlot, Pair<String, Double>>()
         val usedItems = mutableSetOf<String>()
@@ -318,7 +420,7 @@ open class MaximizerManager(
 
     private fun refineAccessoryCombinations(
         spec: MaximizeSpec,
-        equipment: Map<EquipmentSlot, String>,
+        charState: CharacterState,
         invState: InventoryState,
         closetContents: Map<Int, Int>,
         storageContents: Map<Int, Int>,
@@ -328,7 +430,7 @@ open class MaximizerManager(
         budget: ComboBudget,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val candidateIds = buildCandidateIds(
-            invState, closetContents, storageContents, displayContents, stashContents,
+            invState, closetContents, storageContents, displayContents, stashContents, spec,
         )
         val nonAccessory = greedy.filterKeys { it !in accessorySlots }
         val usedElsewhere = nonAccessory.values.map { it.first }.toSet()
@@ -344,7 +446,7 @@ open class MaximizerManager(
         if (top.size < 2) return greedy
 
         var bestAssignment = greedy
-        var bestScore = scoreAssignment(greedy, spec.primary)
+        var bestScore = scoreAssignment(greedy, spec.primary, charState)
         for (a in top) {
             for (b in top) {
                 for (c in top) {
@@ -355,7 +457,7 @@ open class MaximizerManager(
                         EquipmentSlot.ACC2 to (b.first to b.second),
                         EquipmentSlot.ACC3 to (c.first to c.second),
                     )
-                    val score = scoreAssignment(combo, spec.primary)
+                    val score = scoreAssignment(combo, spec.primary, charState)
                     if (score > bestScore) {
                         bestScore = score
                         bestAssignment = combo
@@ -368,7 +470,7 @@ open class MaximizerManager(
 
     private fun refineWeaponOffhandCombinations(
         spec: MaximizeSpec,
-        equipment: Map<EquipmentSlot, String>,
+        charState: CharacterState,
         invState: InventoryState,
         closetContents: Map<Int, Int>,
         storageContents: Map<Int, Int>,
@@ -378,7 +480,7 @@ open class MaximizerManager(
         budget: ComboBudget,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val candidateIds = buildCandidateIds(
-            invState, closetContents, storageContents, displayContents, stashContents,
+            invState, closetContents, storageContents, displayContents, stashContents, spec,
         )
         val nonWeaponOffhand = greedy.filterKeys { it !in weaponOffhandSlots }
         val usedElsewhere = nonWeaponOffhand.values.map { it.first }.toSet()
@@ -405,7 +507,7 @@ open class MaximizerManager(
         if (topWeapons.isEmpty() || topOffhands.isEmpty()) return greedy
 
         var bestAssignment = greedy
-        var bestScore = scoreAssignment(greedy, spec.primary)
+        var bestScore = scoreAssignment(greedy, spec.primary, charState)
         for (weapon in topWeapons) {
             for (offhand in topOffhands) {
                 if (weapon.first == offhand.first) continue
@@ -414,7 +516,7 @@ open class MaximizerManager(
                     EquipmentSlot.WEAPON to (weapon.first to weapon.second),
                     EquipmentSlot.OFFHAND to (offhand.first to offhand.second),
                 )
-                val score = scoreAssignment(combo, spec.primary)
+                val score = scoreAssignment(combo, spec.primary, charState)
                 if (score > bestScore) {
                     bestScore = score
                     bestAssignment = combo
@@ -426,7 +528,7 @@ open class MaximizerManager(
 
     private fun refineArmorCombinations(
         spec: MaximizeSpec,
-        equipment: Map<EquipmentSlot, String>,
+        charState: CharacterState,
         invState: InventoryState,
         closetContents: Map<Int, Int>,
         storageContents: Map<Int, Int>,
@@ -436,7 +538,7 @@ open class MaximizerManager(
         budget: ComboBudget,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val candidateIds = buildCandidateIds(
-            invState, closetContents, storageContents, displayContents, stashContents,
+            invState, closetContents, storageContents, displayContents, stashContents, spec,
         )
         val nonArmor = greedy.filterKeys { it !in armorSlots }
         val usedElsewhere = nonArmor.values.map { it.first }.toSet()
@@ -465,7 +567,7 @@ open class MaximizerManager(
         if (topHats.isEmpty() || topShirts.isEmpty() || topPants.isEmpty()) return greedy
 
         var bestAssignment = greedy
-        var bestScore = scoreAssignment(greedy, spec.primary)
+        var bestScore = scoreAssignment(greedy, spec.primary, charState)
         for (hat in topHats) {
             for (shirt in topShirts) {
                 for (pants in topPants) {
@@ -478,7 +580,7 @@ open class MaximizerManager(
                         EquipmentSlot.SHIRT to (shirt.first to shirt.second),
                         EquipmentSlot.PANTS to (pants.first to pants.second),
                     )
-                    val score = scoreAssignment(combo, spec.primary)
+                    val score = scoreAssignment(combo, spec.primary, charState)
                     if (score > bestScore) {
                         bestScore = score
                         bestAssignment = combo
@@ -495,22 +597,37 @@ open class MaximizerManager(
         storageContents: Map<Int, Int>,
         displayContents: Map<Int, Int>,
         stashContents: Map<Int, Int>,
+        spec: MaximizeSpec? = null,
     ): Set<Int> = buildSet {
         addAll(invState.items.keys)
         addAll(closetContents.keys)
         addAll(storageContents.keys)
         addAll(displayContents.keys)
         addAll(stashContents.keys)
+        if (spec?.allowCreatable == true) {
+            for (concoction in ConcoctionDatabase.all()) {
+                val item = gameDatabase.item(concoction.result) ?: continue
+                if (!item.isEquipment) continue
+                if (itemMeetsConstraints(item.name, spec)) add(item.id)
+            }
+        }
     }
 
     private fun scoreAssignment(
         assignment: Map<EquipmentSlot, Pair<String, Double>>,
         modifier: DoubleModifier,
-    ): Double = assignment.values.sumOf { (name, _) ->
-        if (name.isBlank()) 0.0 else scoreItem(name, modifier)
-    }
+        baseState: CharacterState,
+    ): Double = MaximizerSpeculation.scoreLoadout(
+        baseState, assignment, modifier, itemScorer = ::scoreItem,
+    )
 
     private fun itemMeetsConstraints(itemName: String, spec: MaximizeSpec): Boolean {
+        val price = effectivePrice(itemName)
+        if (spec.maxPrice != null && price > spec.maxPrice) return false
+        if (spec.minPrice != null && price < spec.minPrice) return false
+        val isCreatable = gameDatabase.recipe(itemName) != null
+        if (spec.allowCreatable && !isCreatable) return false
+        if (spec.forbidCreatable && isCreatable) return false
         val entry = gameDatabase.itemModifier(itemName) ?: return spec.requiredBooleans.isEmpty()
         val mods = ModifierParser.parse(entry.modifiers)
         for (req in spec.requiredBooleans) {
@@ -520,6 +637,27 @@ open class MaximizerManager(
             if (mods.get(forbid)) return false
         }
         return true
+    }
+
+    internal fun effectivePrice(itemName: String): Int {
+        val itemId = gameDatabase.item(itemName)?.id
+        val mall = itemId?.let { mallPriceManager?.getHistoricalPrice(it)?.toInt() } ?: 0
+        val npc = gameDatabase.npcPrice(itemName)
+        return when {
+            mall > 0 && npc > 0 -> minOf(mall, npc)
+            mall > 0 -> mall
+            else -> npc
+        }
+    }
+
+    private suspend fun prefetchMallPrices(candidateIds: Set<Int>, spec: MaximizeSpec) {
+        if (mallManager == null || mallPriceManager == null) return
+        if (spec.maxPrice == null && spec.minPrice == null) return
+        for (itemId in candidateIds) {
+            if (mallPriceManager.getHistoricalPrice(itemId) > 0L) continue
+            val name = gameDatabase.item(itemId)?.name ?: continue
+            mallManager.cheapestPrice(name)
+        }
     }
 
     private suspend fun ensureInInventory(itemId: Int): Boolean {
@@ -551,6 +689,12 @@ open class MaximizerManager(
                 inventoryManager.fetchInventory()
                 if (inventoryCount(itemId) > before) return true
             }
+        }
+        if (retrieveItemService != null && gameDatabase.recipe(gameDatabase.item(itemId)?.name ?: "") != null) {
+            kotlinx.coroutines.runBlocking {
+                retrieveItemService.retrieve(itemId, 1)
+            }
+            inventoryManager.fetchInventory()
         }
         return inventoryCount(itemId) >= 1
     }
@@ -588,11 +732,6 @@ open class MaximizerManager(
         EquipmentSlot.CONTAINER -> item.primaryUse == ItemPrimaryUse.CONTAINER
     }
 
-    private fun scoreEquipped(
-        equipment: Map<EquipmentSlot, String>,
-        modifier: DoubleModifier,
-    ): Double = equipSlots.sumOf { scoreItem(equipment[it], modifier) }
-
     private fun scoreFamiliarBonuses(
         charState: net.sourceforge.kolmafia.character.CharacterState,
         modifier: DoubleModifier,
@@ -625,16 +764,5 @@ open class MaximizerManager(
         }
         if (carry.isEmpty()) return this
         return copy(equipRequired = (equipRequired + carry).distinct())
-    }
-
-    private class ComboBudget(private val limit: Int) {
-        private var checked = 0
-
-        /** Returns true when the shared combination budget is exhausted. */
-        fun tick(): Boolean {
-            if (limit <= 0) return false
-            checked++
-            return checked > limit
-        }
     }
 }

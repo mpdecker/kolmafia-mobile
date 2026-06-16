@@ -121,6 +121,37 @@ object QuestAdvanceRules {
         Rule(Quest.BUSINESS.prefKey, QuestDatabase.STARTED, "Hidden Office"),
         Rule(Quest.SPARE.prefKey, QuestDatabase.STARTED, "Hidden Bowling Alley"),
         Rule(Quest.GARBAGE.prefKey, "step2", "You acquire an item: swanky swag"),
+        // Island War (L12)
+        Rule(Quest.ISLAND_WAR.prefKey, QuestDatabase.STARTED,
+            "tensions building between the hippies and the frat boys"),
+        Rule(Quest.ISLAND_WAR.prefKey, "step1",
+            "war between the hippies and frat boys started"),
+        Rule(Quest.ISLAND_WAR.prefKey, QuestDatabase.FINISHED,
+            "led the filthy hippies to victory"),
+        Rule(Quest.ISLAND_WAR.prefKey, QuestDatabase.FINISHED,
+            "led the Orcish frat boys to victory"),
+        Rule(Quest.ISLAND_WAR.prefKey, QuestDatabase.FINISHED,
+            "started a chain of events"),
+        // Hippy/Frat war sub-quest
+        Rule(Quest.HIPPY_FRAT.prefKey, QuestDatabase.STARTED, "Remaining soldiers:"),
+        // Ron (L11)
+        Rule(Quest.RON.prefKey, QuestDatabase.STARTED, "Search for Ron Copperhead"),
+        Rule(Quest.RON.prefKey, QuestDatabase.FINISHED,
+            "recovered half of the Talisman o' Namsilat from Ron Copperhead"),
+        // Warehouse (L13)
+        Rule(Quest.WAREHOUSE.prefKey, QuestDatabase.STARTED,
+            "secret entrance to the warehouse"),
+        Rule(Quest.WAREHOUSE.prefKey, QuestDatabase.FINISHED,
+            "retrieved the Holy MacGuffin"),
+        // Dark guild quest
+        Rule(Quest.DARK.prefKey, QuestDatabase.STARTED,
+            "marked your map with the location of a cave"),
+        Rule(Quest.DARK.prefKey, "step1", "opened the first door"),
+        Rule(Quest.DARK.prefKey, "step2", "opened the second door"),
+        Rule(Quest.DARK.prefKey, "step3", "opened the third door"),
+        Rule(Quest.DARK.prefKey, "step4", "past the doors"),
+        Rule(Quest.DARK.prefKey, "step5", "inner sanctum"),
+        Rule(Quest.DARK.prefKey, QuestDatabase.FINISHED, "Epic Weapon"),
     )
 
     /** Apply matching rules; returns true if any quest was advanced. */

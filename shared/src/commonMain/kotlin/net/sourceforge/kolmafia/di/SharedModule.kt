@@ -168,6 +168,9 @@ val sharedModule = module {
             familiarManager = get(),
             preferences = get(),
             skillManager = get(),
+            retrieveItemService = get(),
+            mallPriceManager = get(),
+            mallManager = get(),
         )
     }
     singleOf(::SessionLogger)
@@ -228,6 +231,7 @@ val sharedModule = module {
             useItemRequest   = get(),
             familiarManager  = get(),
             scriptHookRunner = get(),
+            combatMacroResolver = { zoneId -> get<GameRuntimeLibrary>().resolveCombatMacro(zoneId) },
         )
     }
     single {

@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.TurnCounter
@@ -12,6 +13,7 @@ object QuestLogSync {
         val place: String? = null,
         val preferences: Preferences? = null,
         val currentRun: Int = 0,
+        val gameDatabase: GameDatabase? = null,
     )
 
     val SYNC_SIGNALS = listOf(
@@ -48,6 +50,13 @@ object QuestLogSync {
         "Eleven inches",
         "captured poltersandwich",
         "stole my own pants",
+        "war between the hippies",
+        "led the filthy hippies to victory",
+        "led the Orcish frat boys to victory",
+        "Remaining soldiers:",
+        "Ron Copperhead",
+        "Holy MacGuffin",
+        "Nemesis",
     )
 
     fun shouldSync(responseText: String): Boolean =
@@ -60,6 +69,7 @@ object QuestLogSync {
         context: QuestSyncContext = QuestSyncContext(),
     ) {
         QuestAdvanceRules.apply(responseText, questDatabase)
+        QuestSpecialSync.apply(responseText, questDatabase, context.preferences, context.gameDatabase)
         applyFantasyRealmHooks(responseText, context)
         applyPlaceHooks(context.place, questDatabase, context)
         if (shouldSync(responseText)) {
@@ -75,6 +85,11 @@ object QuestLogSync {
         ) {
             questDatabase.setProgress(Quest.DESERT, QuestDatabase.FINISHED)
         }
+        if (questDatabase.isAtLeast(Quest.MACGUFFIN, "step1") &&
+            !questDatabase.isQuestFinished(Quest.BLACK)
+        ) {
+            questDatabase.setProgress(Quest.BLACK, QuestDatabase.FINISHED)
+        }
     }
 
     internal fun applyPlaceHooks(
@@ -87,6 +102,22 @@ object QuestLogSync {
             "fern", "fernruin" -> applyFernTowerUnlock(questDatabase, context)
             "paco" -> applyFactoryFinish(questDatabase, context)
             "scg" -> applyNemesisVisitSteps(questDatabase, context)
+            "bigisland" -> {
+                if (questDatabase.getProgress(Quest.ISLAND_WAR) == QuestDatabase.UNSTARTED) {
+                    questDatabase.setProgress(Quest.ISLAND_WAR, QuestDatabase.STARTED)
+                }
+            }
+            "warehouse" -> {
+                val current = questDatabase.getProgress(Quest.WAREHOUSE)
+                if (current == QuestDatabase.UNSTARTED) {
+                    questDatabase.setProgress(Quest.WAREHOUSE, QuestDatabase.STARTED)
+                }
+            }
+            "partyfair" -> {
+                if (questDatabase.getProgress(Quest.PARTY_FAIR) == QuestDatabase.UNSTARTED) {
+                    questDatabase.setProgress(Quest.PARTY_FAIR, QuestDatabase.STARTED)
+                }
+            }
         }
     }
 

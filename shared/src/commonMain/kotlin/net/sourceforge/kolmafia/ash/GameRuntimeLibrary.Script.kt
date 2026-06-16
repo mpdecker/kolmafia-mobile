@@ -37,7 +37,7 @@ internal fun GameRuntimeLibrary.runSavedScript(
         emptyList()
     }
     val entry = scripts.find { it.name.equals(name, ignoreCase = true) } ?: return false
-    val runtime = AshRuntime(this)
+    val runtime = if (outputContext is AshRuntime) outputContext else AshRuntime(this)
     val nodes = AshParser().parse(entry.source)
     try {
         runtime.execute(nodes)

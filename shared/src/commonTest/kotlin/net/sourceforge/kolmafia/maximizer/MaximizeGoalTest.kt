@@ -48,4 +48,13 @@ class MaximizeGoalTest {
         assertEquals(DoubleModifier.ITEMDROP, spec.primary)
         assertEquals(listOf("Spice Ghost"), spec.switchThralls)
     }
+
+    @Test fun parseSpec_priceAndCreatableConstraints() {
+        val spec = MaximizeGoal.parseSpec("muscle, -price 1000, +price 50, creatable, -nocreat")
+        assertNotNull(spec)
+        assertEquals(1000, spec.maxPrice)
+        assertEquals(50, spec.minPrice)
+        assertTrue(spec.allowCreatable)
+        assertTrue(spec.forbidCreatable)
+    }
 }

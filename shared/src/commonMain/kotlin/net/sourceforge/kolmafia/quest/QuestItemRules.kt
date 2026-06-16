@@ -62,6 +62,9 @@ object QuestItemRules {
             if (name.contains("desert sightseeing pamphlet", ignoreCase = true)) {
                 advanced = setIfBetter(questDatabase, Quest.DESERT, QuestDatabase.STARTED) || advanced
             }
+            if (name.contains("Holy MacGuffin", ignoreCase = true)) {
+                advanced = setIfBetter(questDatabase, Quest.WAREHOUSE, QuestDatabase.FINISHED) || advanced
+            }
             advanced = applyHiddenHospitalItemName(name, questDatabase) || advanced
         }
         advanced = maybeAdvanceWorshipStep4(questDatabase) || advanced

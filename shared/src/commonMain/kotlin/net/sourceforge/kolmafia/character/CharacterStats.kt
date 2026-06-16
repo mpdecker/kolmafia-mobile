@@ -86,4 +86,28 @@ object CharacterStats {
         }
         return min..max
     }
+
+    /** Mirrors desktop KoLCharacter.canPickpocket() — class/path/equipment gates. */
+    fun canPickpocket(
+        state: CharacterState,
+        hasSkill: (String) -> Boolean = { false },
+    ): Boolean {
+        if (state.limitMode.equals("bird", ignoreCase = true)) return true
+        when (state.characterClassEnum) {
+            CharacterClass.DISCO_BANDIT,
+            CharacterClass.ACCORDION_THIEF,
+            CharacterClass.GELATINOUS_NOOB -> return true
+            else -> Unit
+        }
+        if (state.ascensionPath == AscensionPath.AVATAR_OF_SNEAKY_PETE) return true
+        val weapon = state.equippedItem(EquipmentSlot.WEAPON).orEmpty()
+        if (weapon.contains("focused magnetron pistol", ignoreCase = true)) return true
+        val offhand = state.equippedItem(EquipmentSlot.OFFHAND).orEmpty()
+        if (offhand.contains("tiny black hole", ignoreCase = true)) return true
+        if (state.equipment.values.any { it.contains("mime army infiltration glove", ignoreCase = true) }) {
+            return true
+        }
+        if (hasSkill("Chicken Fingers")) return true
+        return false
+    }
 }

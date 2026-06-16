@@ -73,6 +73,7 @@ class AdventureManager(
     private val useItemRequest: UseItemRequest? = null,
     private val familiarManager: FamiliarManager? = null,
     private val scriptHookRunner: ScriptHookRunner? = null,
+    private val combatMacroResolver: ((String) -> String)? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -83,9 +84,27 @@ class AdventureManager(
     private var itemGoalMetThisTurn = false
     private var _inMultiFight = false
     private var _fightFollowsChoice = false
+    private var lastFightHtml: String = ""
 
     val inMultiFight: Boolean get() = _inMultiFight
     val fightFollowsChoice: Boolean get() = _fightFollowsChoice
+
+    fun canStillSteal(): Boolean {
+        if (!net.sourceforge.kolmafia.character.CharacterStats.canPickpocket(
+                character.state.value,
+                ::hasPickpocketSkill,
+            )) {
+            return false
+        }
+        return AdventureParser.canStillSteal(lastFightHtml)
+    }
+
+    private fun hasPickpocketSkill(name: String): Boolean =
+        skills?.state?.value?.skills?.any { it.name.equals(name, ignoreCase = true) } == true
+
+    internal fun testSetLastFightHtml(html: String) {
+        lastFightHtml = html
+    }
 
     internal fun testSetCombatFlags(inMultiFight: Boolean, fightFollowsChoice: Boolean) {
         _inMultiFight = inMultiFight
@@ -273,6 +292,7 @@ class AdventureManager(
             hasItemId = { id -> inventory?.state?.value?.items?.containsKey(id) == true },
             preferences = preferences,
             currentRun = character.state.value.currentRun,
+            gameDatabase = gameDatabase,
         )
 
     private suspend fun doOneTurn(location: AdventureLocation): AdventureResult? {
@@ -294,11 +314,16 @@ class AdventureManager(
     }
 
     private suspend fun resolveCombat(location: AdventureLocation): AdventureResult.Combat? {
-        val macro = MacroStrategy.forLocation(location.id, preferences)
+        if (lastTurnResponseText.isNotBlank()) {
+            lastFightHtml = lastTurnResponseText
+        }
+        val macro = combatMacroResolver?.invoke(location.id)
+            ?: MacroStrategy.forLocation(location.id, preferences)
         val fightHtml = fightRequest.fight(macro).getOrElse {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(it)))
             return null
         }
+        lastFightHtml = fightHtml
         _inMultiFight = AdventureParser.isInMultiFight(fightHtml)
         val result = AdventureParser.parseFightResult(fightHtml)
         if (!_inMultiFight) _fightFollowsChoice = false

@@ -3,6 +3,8 @@ package net.sourceforge.kolmafia.ash
 // Task 5 (AshRuntime) will implement this interface
 interface AshRuntimeContext {
     fun print(msg: String)
+    fun lastCombatAction(): String = ""
+    fun setCombatAction(action: String) {}
 }
 
 data class AshVariable(val name: String, val type: AshType, var value: AshValue)

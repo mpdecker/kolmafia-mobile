@@ -15,6 +15,10 @@ data class MaximizeSpec(
     val bjornifiedFamiliars: List<String> = emptyList(),
     val requireMelee: Boolean = false,
     val requireHands: Boolean = false,
+    val maxPrice: Int? = null,
+    val minPrice: Int? = null,
+    val allowCreatable: Boolean = false,
+    val forbidCreatable: Boolean = false,
 )
 
 /** Parses desktop-style maximize goal strings into modifier tags and constraints. */
@@ -37,6 +41,10 @@ object MaximizeGoal {
         val bjorns = mutableListOf<String>()
         var requireMelee = false
         var requireHands = false
+        var maxPrice: Int? = null
+        var minPrice: Int? = null
+        var allowCreatable = false
+        var forbidCreatable = false
         for (term in splitTerms(trimmed)) {
             val t = term.trim()
             if (t.isBlank()) continue
@@ -53,6 +61,13 @@ object MaximizeGoal {
                     bjorns.add(unquote(t.substring(9).trim()))
                 t.equals("+melee", ignoreCase = true) -> requireMelee = true
                 t.equals("+hands", ignoreCase = true) -> requireHands = true
+                t.equals("creatable", ignoreCase = true) -> allowCreatable = true
+                t.equals("-nocreat", ignoreCase = true) -> forbidCreatable = true
+                t.equals("-price", ignoreCase = true) -> maxPrice = 0
+                t.startsWith("-price ", ignoreCase = true) ->
+                    maxPrice = t.substring(7).trim().toIntOrNull() ?: 0
+                t.startsWith("+price ", ignoreCase = true) ->
+                    minPrice = t.substring(7).trim().toIntOrNull() ?: 0
                 t.startsWith('-') -> {
                     val tag = unquote(t.drop(1).trim())
                     BooleanModifier.byTag(tag)?.let { forbidden.add(it) }
@@ -79,6 +94,10 @@ object MaximizeGoal {
             bjornifiedFamiliars = bjorns,
             requireMelee = requireMelee,
             requireHands = requireHands,
+            maxPrice = maxPrice,
+            minPrice = minPrice,
+            allowCreatable = allowCreatable,
+            forbidCreatable = forbidCreatable,
         )
     }
 

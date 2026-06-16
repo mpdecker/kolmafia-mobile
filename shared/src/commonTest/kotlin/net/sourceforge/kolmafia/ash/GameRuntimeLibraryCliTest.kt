@@ -915,6 +915,74 @@ class GameRuntimeLibraryCliTest {
         runLib(lib, """cli_execute("ccs attack");""")
         assertEquals("attack", outputLib(lib, """cli_execute("macro");"""))
         assertEquals("attack", outputLib(lib, """cli_execute("ccprep");"""))
+        assertEquals("attack", p.getString(Preferences.COMBAT_SCRIPT, ""))
+    }
+
+    @Test
+    fun cliExecute_ccs_assignsSavedCombatScriptType() {
+        val p = prefs()
+        val scripts = listOf(ScriptEntry("my-ccs", "set_ccs_action(\"skill 1;\");"))
+        p.setString(ScriptManager.SCRIPTS_PREF_KEY, kotlinx.serialization.json.Json.encodeToString(scripts))
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("ccs my-ccs");""")
+        val updated = kotlinx.serialization.json.Json.decodeFromString<List<ScriptEntry>>(
+            p.getString(ScriptManager.SCRIPTS_PREF_KEY, "[]"),
+        )
+        assertEquals(ScriptType.COMBAT, updated.first { it.name == "my-ccs" }.type)
+    }
+
+    @Test
+    fun cliExecute_counterAdd_incrementsNamedCounter() {
+        val p = prefs()
+        val lib = GameRuntimeLibrary(preferences = p)
+        runLib(lib, """cli_execute("counter kills add 3");""")
+        assertEquals("3", outputLib(lib, """cli_execute("counter kills");"""))
+        runLib(lib, """cli_execute("counter kills add 2");""")
+        assertEquals("5", outputLib(lib, """cli_execute("counter kills");"""))
+    }
+
+    @Test
+    fun cliExecute_showAll_printsCharacterSummary() {
+        val char = net.sourceforge.kolmafia.character.KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(
+                    name = "Hero",
+                    playerid = "42",
+                    level = "10",
+                    classId = "5",
+                    adventures = "15",
+                    meat = "5000",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(character = char, preferences = prefs())
+        val out = outputLib(lib, """cli_execute("show all");""")
+        assertTrue(out.contains("Hero"))
+        assertTrue(out.contains("5000"))
+    }
+
+    @Test
+    fun cliExecute_joke_printsNoOpMessage() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("That's funny.", outputLib(lib, """cli_execute("joke");"""))
+    }
+
+    @Test
+    fun cliExecute_tags_listsCounterNames() {
+        val p = prefs()
+        p.registerCounterName("foo")
+        p.setInt("counter_foo", 1)
+        val lib = GameRuntimeLibrary(preferences = p)
+        val out = outputLib(lib, """cli_execute("tags");""")
+        assertTrue(out.contains("foo"))
+    }
+
+    @Test
+    fun cliExecute_pvpAttack_doesNotEchoUnknown() {
+        val lib = GameRuntimeLibrary.forTesting()
+        val out = outputLib(lib, """cli_execute("pvp attack someone");""")
+        assertTrue(out.contains("PvP not available"))
+        assertFalse(out.contains("[cli]"))
     }
 
     @Test

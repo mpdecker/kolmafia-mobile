@@ -208,6 +208,15 @@ class QuestLogSyncTest {
     }
 
     @Test
+    fun applyDerivedQuestStatus_macguffinStep1FinishesBlack() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.BLACK, QuestDatabase.STARTED)
+        db.setProgress(Quest.MACGUFFIN, "step1")
+        QuestLogSync.applyDerivedQuestStatus(db)
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.BLACK))
+    }
+
+    @Test
     fun councilVisit_appliesQuestHooksFromHtml() {
         val prefs = Preferences(MapSettings())
         val db = QuestDatabase(prefs)

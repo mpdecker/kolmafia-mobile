@@ -136,4 +136,12 @@ class QuestItemRulesTest {
         assertTrue(QuestItemRules.applyInventory({ counts[it] ?: 0 }, db))
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.DESERT))
     }
+
+    @Test
+    fun applyItemsGained_holyMacguffinFinishesWarehouse() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.WAREHOUSE, QuestDatabase.STARTED)
+        assertTrue(QuestItemRules.applyItemsGained(listOf("Holy MacGuffin"), db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.WAREHOUSE))
+    }
 }
