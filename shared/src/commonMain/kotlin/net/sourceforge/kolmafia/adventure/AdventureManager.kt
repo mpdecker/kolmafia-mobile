@@ -292,6 +292,7 @@ class AdventureManager(
             hasItemId = { id -> inventory?.state?.value?.items?.containsKey(id) == true },
             preferences = preferences,
             currentRun = character.state.value.currentRun,
+            gameDatabase = gameDatabase,
         )
 
     private suspend fun doOneTurn(location: AdventureLocation): AdventureResult? {

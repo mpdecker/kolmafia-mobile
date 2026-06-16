@@ -56,6 +56,10 @@ class AshCompatibilityCorpusTest {
         assertTrue(outputLib(lib, """cli_execute("show all");""").contains("Testy"))
         assertEquals("That's funny.", outputLib(lib, """cli_execute("joke");""").trim())
         assertFalse(outputLib(lib, """cli_execute("pvp attack rival");""").contains("[cli]"))
+        assertEquals("false", outputLib(lib, """cli_execute("is_adventuring");""").trim())
+        assertEquals("false", outputLib(lib, """cli_execute("has_queued_commands");""").trim())
+        assertTrue(outputLib(lib, """print(to_string(my_path_id()));""").trim().toLongOrNull() != null)
+        assertEquals("Muscle", outputLib(lib, """print(modifier_name("Muscle"));""").trim())
     }
 
     @Test

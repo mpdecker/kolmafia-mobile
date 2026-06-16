@@ -168,6 +168,9 @@ val sharedModule = module {
             familiarManager = get(),
             preferences = get(),
             skillManager = get(),
+            retrieveItemService = get(),
+            mallPriceManager = get(),
+            mallManager = get(),
         )
     }
     singleOf(::SessionLogger)

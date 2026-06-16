@@ -124,7 +124,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "ash-p8"
+        const val REVISION = "phase47"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -964,6 +964,18 @@ class GameRuntimeLibrary(
             adventureManager?.stop()
         },
 
+        Regex("^is_adventuring$", RegexOption.IGNORE_CASE) to { _, rt ->
+            val running = adventureManager?.isRunning?.value == true
+            rt.print(if (running) "true" else "false")
+        },
+        Regex("^has_queued_commands$", RegexOption.IGNORE_CASE) to { _, rt ->
+            rt.print("false")
+        },
+
+        Regex("^partyfair$", RegexOption.IGNORE_CASE) to { _, _ ->
+            visitKolPage("place.php?whichplace=partyfair", applyQuestHooks = true)
+        },
+
         // main / council / campground / homepage — visit common KoL pages
         Regex("^main$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("main.php")
@@ -1322,6 +1334,7 @@ class GameRuntimeLibrary(
             place = urlOrPath?.let { extractQuestPlace(it) },
             preferences = preferences,
             currentRun = character?.state?.value?.currentRun ?: 0,
+            gameDatabase = gameDatabase,
         )
 
     internal fun extractQuestPlace(urlOrPath: String): String? =
@@ -1663,6 +1676,13 @@ class GameRuntimeLibrary(
         registerCombatStubs(scope)
         registerCombatScript(scope)
         registerLongTailStubs(scope)
+        registerAshP8Batch(scope)
+        registerAshP9Batch(scope)
+        registerAshP10Batch(scope)
+        registerAshP11Batch(scope)
+        registerAshP12Batch(scope)
+        registerAshP13Batch(scope)
+        registerAshP14Batch(scope)
         registerItemActions(scope)
         registerPricingQueries(scope)
         registerMallFunctions(scope)
