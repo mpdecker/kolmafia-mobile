@@ -1,5 +1,13 @@
 package net.sourceforge.kolmafia.ash
 
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -8,6 +16,7 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.Test
@@ -111,5 +120,73 @@ class AshCompatibilityCorpusTest {
         )
         assertTrue(out.contains("Item Drop Penalty"))
         assertTrue(out.contains("-25"))
+    }
+
+    @Test
+    fun corpus_outfitModifier_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "25.0",
+            outputLib(
+                lib,
+                """print(to_string(numeric_modifier("Outfit:Antique Nutcracker Outfit", "Muscle")));""",
+            ),
+        )
+    }
+
+    @Test
+    fun corpus_signModifier_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "1.0",
+            outputLib(
+                lib,
+                """print(to_string(numeric_modifier("Sign:Marmot", "Cold Resistance")));""",
+            ),
+        )
+    }
+
+    @Test
+    fun corpus_currentNumericModifier_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateEquipment(net.sourceforge.kolmafia.character.EquipmentSlot.ACC1, "Jarlsberg's earring")
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char)
+        assertEquals(
+            "10.0",
+            outputLib(lib, """print(to_string(numeric_modifier("Mysticality")));"""),
+        )
+    }
+
+    @Test
+    fun corpus_elementModifier_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = KoLCharacter()
+        char.updateFromApiResponse(CharacterApiResponse(sign = "Marmot"))
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char)
+        assertEquals(
+            "1.0",
+            outputLib(lib, """print(to_string(numeric_modifier(to_element("cold"), "Cold Resistance")));"""),
+        )
+    }
+
+    @Test
+    fun corpus_numericsModifier_effectDuration() = runBlocking {
+        val effectsJson = """{"1":{"name":"Adventurerlike","duration":10}}"""
+        val client = HttpClient(MockEngine {
+            respond(effectsJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val effectMgr = EffectManager(client, net.sourceforge.kolmafia.event.GameEventBus())
+        effectMgr.fetchEffects()
+        val lib = GameRuntimeLibrary(effectManager = effectMgr)
+        assertTrue(outputLib(lib, """print(to_string(numerics_modifier("Effect Duration")));""").contains("10"))
     }
 }

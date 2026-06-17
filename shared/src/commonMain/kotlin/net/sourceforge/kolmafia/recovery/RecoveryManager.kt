@@ -123,6 +123,16 @@ class RecoveryManager(
         return recovered
     }
 
+    suspend fun recoverHpToMax(
+        charState: CharacterState,
+        invState: InventoryState,
+        skillState: SkillState,
+        targetHp: Int,
+    ): Boolean {
+        if (charState.currentHp >= targetHp) return false
+        return recoverHp(charState, invState, skillState)
+    }
+
     private suspend fun recoverHp(
         charState: CharacterState,
         invState: InventoryState,

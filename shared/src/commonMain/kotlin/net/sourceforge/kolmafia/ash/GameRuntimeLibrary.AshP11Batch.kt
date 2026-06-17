@@ -37,7 +37,7 @@ internal fun GameRuntimeLibrary.registerAshP11Batch(scope: AshScope) {
     }
 
     val modifierStubEntityTypes = listOf(
-        AshType.CLASS, AshType.STAT, AshType.SLOT, AshType.ELEMENT,
+        AshType.CLASS, AshType.STAT, AshType.SLOT,
         AshType.SERVANT, AshType.VYKEA, AshType.BOUNTY, AshType.MODIFIER,
         AshType.COINMASTER, AshType.PHYLUM,
     )

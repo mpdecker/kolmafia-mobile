@@ -1551,4 +1551,82 @@ class GameRuntimeLibraryCliTest {
         assertTrue(out.contains("5 bronze deliveries"))
         assertFalse(out.contains("[cli]"))
     }
+
+    @Test
+    fun cliExecute_mazeNuggletsAtStep4_runsHedgeMaze() {
+        val prefs = prefs()
+        prefs.setString(net.sourceforge.kolmafia.quest.Quest.FINAL.prefKey, "step4")
+        val db = net.sourceforge.kolmafia.quest.QuestDatabase(prefs)
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateAdventuresLeft(20)
+        val client = HttpClient(MockEngine { request ->
+            if (request.url.toString().contains("ns_03_hedgemaze")) {
+                db.setProgress(net.sourceforge.kolmafia.quest.Quest.FINAL, "step5")
+            }
+            respond("<html>ok</html>")
+        })
+        val adventureMgr = net.sourceforge.kolmafia.adventure.AdventureManager(
+            adventureRequest = net.sourceforge.kolmafia.adventure.AdventureRequest(client),
+            fightRequest = net.sourceforge.kolmafia.adventure.FightRequest(client),
+            choiceRequest = net.sourceforge.kolmafia.adventure.ChoiceRequest(client),
+            characterRequest = net.sourceforge.kolmafia.request.CharacterRequest(client),
+            character = char,
+            preferences = prefs,
+            eventBus = net.sourceforge.kolmafia.event.GameEventBus(),
+            questDatabase = db,
+        )
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            questDatabase = db,
+            httpClient = client,
+            character = char,
+            adventureManager = adventureMgr,
+        )
+        val out = outputLib(lib, """cli_execute("maze nugglets");""")
+        assertEquals(1, prefs.getInt("choiceAdventure1005", 0))
+        assertTrue(out.contains("Entering the Hedge Maze"))
+        assertFalse(out.contains("[cli]"))
+    }
+
+    @Test
+    fun cliExecute_mazeBeforeOpen_printsError() {
+        val prefs = prefs()
+        prefs.setString(net.sourceforge.kolmafia.quest.Quest.FINAL.prefKey, "step2")
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            questDatabase = net.sourceforge.kolmafia.quest.QuestDatabase(prefs),
+        )
+        val out = outputLib(lib, """cli_execute("maze nugglets");""")
+        assertTrue(out.contains("Hedge Maze"))
+        assertFalse(out.contains("[cli]"))
+    }
+
+    @Test
+    fun cliExecute_doorAtStep5_runsTowerDoor() {
+        val prefs = prefs()
+        prefs.setString(net.sourceforge.kolmafia.quest.Quest.FINAL.prefKey, "step5")
+        prefs.setString(
+            net.sourceforge.kolmafia.adventure.TowerDoorConfig.KEYS_USED_PREF,
+            "Boris's key,Jarlsberg's key,Sneaky Pete's key,Richard's star key,digital key,skeleton key",
+        )
+        val db = net.sourceforge.kolmafia.quest.QuestDatabase(prefs)
+        val client = HttpClient(MockEngine { request ->
+            val url = request.url.toString()
+            when {
+                url.contains("action=ns_doorknob") ->
+                    respond("<html>You turn the knob and the door vanishes.</html>")
+                else ->
+                    respond("""<html><a href="ns_doorknob ">k</a></html>""")
+            }
+        })
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            questDatabase = db,
+            httpClient = client,
+            character = net.sourceforge.kolmafia.character.KoLCharacter(),
+        )
+        val out = outputLib(lib, """cli_execute("door");""")
+        assertTrue(out.contains("Tower Door open!"), out)
+        assertFalse(out.contains("[cli]"))
+    }
 }

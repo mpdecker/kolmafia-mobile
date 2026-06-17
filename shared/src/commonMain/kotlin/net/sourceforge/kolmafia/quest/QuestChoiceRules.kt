@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.adventure.RufusManager
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /** Quest step bumps from choice adventure response text. */
@@ -11,6 +13,7 @@ object QuestChoiceRules {
         questDatabase: QuestDatabase,
         decision: Int = 0,
         preferences: Preferences? = null,
+        inventoryManager: InventoryManager? = null,
     ): Boolean {
         var advanced = false
         when (choiceId) {
@@ -141,6 +144,11 @@ object QuestChoiceRules {
             1412 -> {
                 if (decision == 1) {
                     advanced = QuestSpecialSync.abandonGuzzlr(questDatabase, preferences) || advanced
+                }
+            }
+            1499, 1500 -> {
+                preferences?.let {
+                    RufusManager(it).handleShadowRiftNC(choiceId, inventoryManager)
                 }
             }
         }

@@ -57,6 +57,8 @@ enum class AscensionPath(
     HAT_TRICK("Hat Trick"),
     MEAT("Adventurer Meats World",      canDrink = false, canChew = false),
     THRIFTY("Thrifty"),
+    LOW_KEY("Low Key"),
+    KINGDOM_OF_EXPLOATHING("Kingdom of Exploathing"),
     SURPRISING_FIST("Way of the Surprising Fist"),
     STANDARD("Standard"),
 

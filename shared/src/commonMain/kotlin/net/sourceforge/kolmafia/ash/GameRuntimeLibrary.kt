@@ -10,6 +10,9 @@ import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.adventure.AdventureRequest
 import net.sourceforge.kolmafia.adventure.MacroStrategy
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
+import net.sourceforge.kolmafia.adventure.runHedgeMaze
+import net.sourceforge.kolmafia.adventure.runTowerDoor
+import net.sourceforge.kolmafia.adventure.TowerDoorConfig
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.CharacterState
@@ -25,6 +28,7 @@ import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.location.LocationDatabase
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -127,7 +131,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase55"
+        const val REVISION = "phase59"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -910,6 +914,14 @@ class GameRuntimeLibrary(
             cliGuzzlrAccept(m.groupValues[1].lowercase(), rt)
         },
 
+        Regex("^maze\\s+(traps|gopher|duck|chihuahua|kiwi|nugglets)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliMaze(m.groupValues[1], rt)
+        },
+
+        Regex("^door$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliDoor(rt)
+        },
+
         // autoscript on/off — persist preference stub
         Regex("^autoscript\\s+(on|off)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val on = m.groupValues[1].equals("on", ignoreCase = true)
@@ -1369,6 +1381,17 @@ class GameRuntimeLibrary(
         ) {
             TowerSync.parseTower(html, db, prefs)
         }
+        if (url?.contains(TowerDoorConfig.DOOR_PLACE, ignoreCase = true) == true ||
+            url?.contains(TowerDoorConfig.LOW_KEY_DOOR_PLACE, ignoreCase = true) == true
+        ) {
+            TowerSync.parseTowerDoorResponse(
+                TowerDoorConfig.extractDoorAction(url),
+                html,
+                prefs,
+                db,
+                character?.state?.value,
+            )
+        }
         kotlinx.coroutines.runBlocking {
             QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext(url))
         }
@@ -1378,10 +1401,21 @@ class GameRuntimeLibrary(
         QuestLogSync.QuestSyncContext(
             hasItemId = { id -> inventoryManager?.state?.value?.items?.containsKey(id) == true },
             place = urlOrPath?.let { extractQuestPlace(it) },
+            url = urlOrPath,
             preferences = preferences,
             currentRun = character?.state?.value?.currentRun ?: 0,
             gameDatabase = gameDatabase,
         )
+
+    internal fun buildCurrentModifiers(): CurrentModifiers {
+        val state = character?.state?.value ?: CharacterState()
+        val effects = effectManager?.state?.value?.effects ?: emptyList()
+        val passiveSkills = skillManager?.state?.value?.skills
+            ?.map { it.name }
+            ?.toSet()
+            ?: emptySet()
+        return CurrentModifiers(state, effects, passiveSkills)
+    }
 
     internal fun extractQuestPlace(urlOrPath: String): String? =
         extractGuildPlace(urlOrPath)
@@ -1540,7 +1574,7 @@ class GameRuntimeLibrary(
         kotlinx.coroutines.runBlocking {
             req.choose(choiceId, option).onSuccess { html ->
                 QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext())
-                QuestChoiceRules.apply(choiceId, html, db, option, preferences)
+                QuestChoiceRules.apply(choiceId, html, db, option, preferences, inventoryManager)
             }
         }
     }
@@ -1591,6 +1625,37 @@ class GameRuntimeLibrary(
         }
         visitKolPage("inventory.php?tap=guzzlr")
         cliChoice(1412, option)
+    }
+
+    internal fun cliMaze(tag: String, rt: AshRuntimeContext) {
+        val db = questDatabase ?: return
+        visitKolPage("place.php?whichplace=nstower", applyQuestHooks = true)
+        val mode = hedgeMazeModeFromTag(tag)
+        if (mode == null) {
+            rt.print("What do you mean by '$tag'?")
+            return
+        }
+        val status = db.getProgress(Quest.FINAL)
+        if (status != "step4") {
+            rt.print(hedgeMazeErrorMessage(status, db))
+            return
+        }
+        if (!applyHedgeMazeMode(mode)) {
+            rt.print("Could not configure hedge maze.")
+            return
+        }
+        runHedgeMaze(mode) { message -> rt.print(message) }
+    }
+
+    internal fun cliDoor(rt: AshRuntimeContext) {
+        val db = questDatabase ?: return
+        visitKolPage("place.php?whichplace=nstower", applyQuestHooks = true)
+        val status = db.getProgress(Quest.FINAL)
+        if (status != "step5") {
+            rt.print(TowerDoorConfig.towerDoorErrorMessage(status, db))
+            return
+        }
+        runTowerDoor { message -> rt.print(message) }
     }
 
     internal fun cliEquip(rest: String) {
@@ -1784,6 +1849,9 @@ class GameRuntimeLibrary(
         registerAshP18Batch(scope)
         registerAshP19Batch(scope)
         registerAshP20Batch(scope)
+        registerAshP21Batch(scope)
+        registerAshP22Batch(scope)
+        registerAshP23Batch(scope)
         registerItemActions(scope)
         registerPricingQueries(scope)
         registerMallFunctions(scope)

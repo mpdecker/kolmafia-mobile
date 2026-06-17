@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-06-16 after Phase 55; hedge_maze modes + Guzzlr CLI + Rufus quest sync)*
+*Generated: 2026-06-03 (updated 2026-06-16 after Phase 57; hedge maze runner + Sign modifiers + Rufus shadow rift)*
 
 ## Scale Comparison
 
@@ -10,7 +10,7 @@
 | Source files             | ~1,172 classes              | ~253 files (commonMain) | ~22%                    |
 | Lines of code            | ~57,000                     | ~15,000+ (commonMain)   | ~26%                    |
 | Test files               | 411                         | 126+                    | ~31%                    |
-| Tests                    | ~1,800+                     | 1,790                   | ~99% (of covered scope) |
+| Tests                    | ~1,800+                     | 1,803                   | ~99% (of covered scope) |
 | ASH overload signatures  | ~890                        | ≥890 registered         | **~100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~370–420 live + stubs   | **~50–55%** (behavioral) |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN) | **100%**                |
@@ -511,7 +511,7 @@ mobile wins on core automation paths and test isolation.
 | UI                        | Swing (aging)                                   | Compose Multiplatform                                                        | Mobile is modern                                 |
 | Concurrency               | Manual threading                                | Coroutines                                                                   | Mobile is cleaner                                |
 | Data                      | 51 `.txt` files + TCRS variants               | 50 bundled; 28 loaded at runtime                                             | 22 bundled-but-unwired; TCRS partial           |
-| Testing                   | 411 test classes, many integration              | 126 unit test files, 1,779 tests                                             | Desktop wins on volume; mobile wins on isolation |
+| Testing                   | 411 test classes, many integration              | 131 unit test files, 1,832 tests                                             | Desktop wins on volume; mobile wins on isolation |
 | Scripting                 | Full ASH + CLI (890 functions) + JS             | ASH ≥890 registered (~370–420 live); partial CLI; no JS                      | Registration parity; behavior + CLI gap remain |
 | Events                    | Ad-hoc listeners                                | GameEventBus pub/sub                                                         | Mobile is cleaner                                |
 | Choice automation         | ~1,000 handler cases                            | ~80 active IDs; 14 handler groups; all 6 solvers                             | Good coverage of common paths                    |
@@ -530,19 +530,19 @@ mobile wins on core automation paths and test isolation.
 
 ### Tier 1 — Script compatibility (highest user impact)
 
-1. **ASH behavioral parity** — replace remaining stub implementations in AshP8–P18 (CLASS/STAT/SERVANT/VYKEA entity modifiers, interactive, PvP); expand `AshCompatibilityCorpusTest` assertions
-2. **CLI long-tail** — mine `cli_execute` from community scripts; wire top missing patterns into `cliDispatch` *(Phase 53: `speculate`; Phase 55: `guzzlr`)*
-3. **Entity modifier depth** — ~~location/monster/path modifier queries~~ **LOCATION/PATH/THRALL live** *(Phase 53)*; monster/outfit modifiers remain stub/deferred
+1. **ASH behavioral parity** — replace remaining stub implementations in AshP8–P18 (CLASS/STAT/SERVANT/VYKEA entity modifiers, interactive, PvP); ~~no-arg current-character modifiers~~ **AshP22 live** *(Phase 58)*; ~~ELEMENT entity modifiers + numerics_modifier~~ **AshP23 live** *(Phase 59)*; expand `AshCompatibilityCorpusTest` assertions
+2. **CLI long-tail** — mine `cli_execute` from community scripts; wire top missing patterns into `cliDispatch` *(Phase 53: `speculate`; Phase 55: `guzzlr`; Phase 56: `maze`; Phase 58: `door`)*
+3. **Entity modifier depth** — ~~location/monster/path modifier queries~~ **LOCATION/PATH/THRALL live** *(Phase 53)*; ~~outfit type:name modifiers~~ **AshP21 live** *(Phase 56)*; ~~Sign type:name modifiers~~ **AshP21 Sign alias** *(Phase 57)*; monster modifiers remain deferred (no bundled data)
 
 ### Tier 2 — Automation depth
 
 4. **Maximizer unified Evaluator** — port scoring pipeline from desktop `Evaluator.java`
-5. **Quest tracking depth** — ~~Sorceress tower image parsing~~ **TowerSync.parseTower** *(Phase 54)*; ~~Doctor/Guzzlr delivery lifecycle~~ *(Phase 54)*; ~~Rufus quest-log sync~~ **RufusManager.handleQuestLog** *(Phase 55)*; remaining `QuestSpecialSync` quests
+5. **Quest tracking depth** — ~~Sorceress tower~~ *(Phase 54)*; ~~Doctor/Guzzlr~~ *(Phase 54)*; ~~Rufus quest-log sync~~ *(Phase 55)*; ~~Rufus Shadow Labyrinth~~ *(Phase 56)*; ~~hedge maze CLI runner~~ *(Phase 57)*; ~~Rufus shadow rift counter~~ *(Phase 57)*; ~~tower door CLI v1~~ *(Phase 58)*; ~~Low-Key tower door + Rufus shadow NC~~ *(Phase 59)*; remaining `QuestSpecialSync` quests
 6. **KoLCharacter fields** — campground, ascension, per-quest counters scripts expect
 
 ### Tier 3 — Data wiring
 
-7. **Wire bundled-but-unused data files** — `journeyman.txt`, `witchess_solutions.txt`, `volcanomaze.txt`, `questscouncil.txt`, etc.
+7. **Wire bundled-but-unused data files** — `journeyman.txt`, `witchess_solutions.txt`, `volcanomaze.txt`, etc.; ~~`questscouncil.txt`~~ **wired** *(Phase 58)*
 8. **TCRS data strategy** — lazy-load class/sign files or document as explicit non-goal
 
 ### Tier 4 — Explicit non-goals (document, don't port)
@@ -609,6 +609,10 @@ Phase 52 → FamiliarCarriedScoring hatrack/scarecrow familiar-effect; ContestBo
 Phase 53 → AshP19 live LOCATION/PATH/THRALL modifiers + AshP14 location resolver; is_valid LOCATION/MONSTER/PATH/THRALL; CLI speculate → MaximizerManager.speculate; behavioral corpus + AshP19 tests; 1,769 tests
 Phase 54 → TowerSync.parseTower FINAL step detection; Doctor Bag / Guzzlr delivery+abandon sync; AshP20 hedge_maze(traps) ASH; 1,779 tests
 Phase 55 → AshP20 hedge_maze(gopher/duck/chihuahua/kiwi/nugglets); CLI guzzlr accept/abandon; RufusManager.handleQuestLog + QuestSpecialSync; 1,790 tests
+Phase 56 → AshP21 Outfit type:name modifiers; Rufus Shadow Labyrinth choices 1498/1499; CLI maze v1 + HedgeMazeConfig; 1,798 tests
+Phase 57 → HedgeMazeRunner full loop + trap/turn guards; AshP21 Sign modifiers; Rufus handleShadowRiftFight; 1,803 tests
+Phase 58 → TowerDoorRunner + CLI door (standard locks); QuestCouncilDatabase council.php sync; AshP22 current-character modifiers; 1,818 tests
+Phase 59 → Low-Key tower door (30 locks, lock pick, KOE keys); Rufus handleShadowRiftNC 1499/1500; AshP23 ELEMENT + numerics_modifier; 1,833 tests
 Audit → Full parity audit: dual ASH metrics (≥890 registered vs ~350–400 behavioral); Subsystem Scale table; Bundled Data Gap (28 loaded / 22 unwired); Tier 1–4 Top Priorities; JS runtime + explicit non-goals documented
 ```
 

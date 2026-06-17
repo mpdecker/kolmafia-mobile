@@ -23,7 +23,7 @@ open class InventoryManager(
     private val characterRequest: CharacterRequest? = null,
     private val character: KoLCharacter? = null,
 ) {
-    private val _state = MutableStateFlow(InventoryState())
+    protected val _state = MutableStateFlow(InventoryState())
     open val state: StateFlow<InventoryState> = _state.asStateFlow()
 
     fun initialize(scope: CoroutineScope) {
@@ -147,7 +147,7 @@ open class InventoryManager(
         return Result.success(emptyList())
     }
 
-    suspend fun mallBuy(storeId: Int, itemId: Int, quantity: Int): Result<Unit> = try {
+    open suspend fun mallBuy(storeId: Int, itemId: Int, quantity: Int): Result<Unit> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/mallstore.php",
             formParameters = parameters {
@@ -167,5 +167,20 @@ open class InventoryManager(
         }
     } catch (e: Exception) {
         Result.failure(e)
+    }
+
+    /** Local inventory adjustment after NC consumption (no HTTP round-trip). */
+    open fun consumeItemLocally(itemId: Int, quantity: Int = 1) {
+        if (quantity <= 0) return
+        val current = _state.value
+        val item = current.items[itemId] ?: return
+        val remaining = item.quantity - quantity
+        val updated = current.items.toMutableMap()
+        if (remaining <= 0) {
+            updated.remove(itemId)
+        } else {
+            updated[itemId] = item.copy(quantity = remaining)
+        }
+        _state.value = current.copy(items = updated)
     }
 }

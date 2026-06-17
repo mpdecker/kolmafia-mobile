@@ -352,6 +352,9 @@ class AdventureManager(
             QuestItemRules.applyItemsGained(result.itemsGained, it)
         }
         emitItemEvents(result.itemsGained)
+        if (preferences.getString(Preferences.LAST_LOCATION, "").contains("Shadow Rift", ignoreCase = true)) {
+            RufusManager(preferences).handleShadowRiftFight(result.monster)
+        }
         if (result.banished) {
             eventBus.emit(GameEvent.MonsterBanished(result.monster, result.banisher.canonicalName))
             banishManager?.banishMonster(
@@ -406,7 +409,9 @@ class AdventureManager(
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(e)))
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
-            questDatabase?.let { QuestChoiceRules.apply(currentChoiceId, html, it, option, preferences) }
+            questDatabase?.let {
+                QuestChoiceRules.apply(currentChoiceId, html, it, option, preferences, inventory)
+            }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
             if (goalManager.hasChoiceGoal(currentChoiceId)) {
                 goalManager.clearChoiceGoal()
@@ -434,6 +439,24 @@ class AdventureManager(
             ))
         }
         return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = lastChosenOption)
+    }
+
+    internal suspend fun followAdventureResponse(
+        location: AdventureLocation,
+        html: String,
+        url: String,
+    ): AdventureResult? {
+        lastTurnResponseText = html
+        return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
+            is AdventureResult.Combat -> resolveCombat(location)
+            is AdventureResult.Choice -> {
+                preferences.setInt(LAST_CHOICE_ID, parsed.choiceId)
+                val choiceResult = resolveChoice(parsed.choiceId, parsed.responseText)
+                if (_fightFollowsChoice && _inMultiFight) resolveCombat(location) ?: choiceResult
+                else choiceResult
+            }
+            is AdventureResult.NonCombat -> parsed
+        }
     }
 
     companion object {
