@@ -79,8 +79,23 @@ class AshCompatibilityCorpusTest {
     @Test
     fun corpus_entityConversionStubs() {
         val lib = GameRuntimeLibrary.forTesting()
-        assertEquals("skeleton", outputLib(lib, """print(to_servant("skeleton"));"""))
-        assertEquals("vykea", outputLib(lib, """print(to_vykea("vykea"));"""))
+        assertEquals("bogus", outputLib(lib, """print(to_bounty("bogus"));"""))
+    }
+
+    @Test
+    fun corpus_servantVykeaEntity_live() = runBlocking {
+        val lib = GameRuntimeLibrary()
+        assertEquals("Cat", outputLib(lib, """print(to_servant("Cat"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_servant("skeleton"));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_servant("Cat"))));""").trim())
+        assertEquals("level 3 couch", outputLib(lib, """print(to_vykea("level 3 couch"));""").trim())
+        assertEquals(
+            "30.0",
+            outputLib(
+                lib,
+                """print(to_string(numeric_modifier(to_vykea("level 3 couch"), "Meat Drop")));""",
+            ).trim(),
+        )
     }
 
     @Test
@@ -173,6 +188,28 @@ class AshCompatibilityCorpusTest {
         assertEquals(
             "1.0",
             outputLib(lib, """print(to_string(numeric_modifier(to_element("cold"), "Cold Resistance")));"""),
+        )
+    }
+
+    @Test
+    fun corpus_classModifier_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "Muscle",
+            outputLib(lib, """print(string_modifier(to_class("Seal Clubber"), "Stat Tuning"));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_statEntity_live() = runBlocking {
+        val lib = GameRuntimeLibrary()
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_stat("SubMoxie"))));""").trim())
+        assertEquals("stat", outputLib(lib, """print(type_of(to_stat("Mysticality")));""").trim())
+        assertEquals(
+            "0.0",
+            outputLib(lib, """print(to_string(numeric_modifier(to_stat("Moxie"), "Moxie")));""").trim(),
         )
     }
 

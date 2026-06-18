@@ -13,6 +13,7 @@ import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.adventure.runHedgeMaze
 import net.sourceforge.kolmafia.adventure.runTowerDoor
 import net.sourceforge.kolmafia.adventure.TowerDoorConfig
+import net.sourceforge.kolmafia.adventure.TowerDoorStatus
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.CharacterState
@@ -29,6 +30,7 @@ import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
+import net.sourceforge.kolmafia.modifiers.StatNames
 import net.sourceforge.kolmafia.location.LocationDatabase
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -53,6 +55,7 @@ import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
+import net.sourceforge.kolmafia.quest.PirateRealmSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.TelescopeSync
 import net.sourceforge.kolmafia.quest.TowerSync
@@ -131,7 +134,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase59"
+        const val REVISION = "phase62"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -595,8 +598,11 @@ class GameRuntimeLibrary(
         Regex("^cellar2?$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("cellar.php")
         },
-        Regex("^tower$", RegexOption.IGNORE_CASE) to { _, _ ->
-            visitKolPage("tower.php", applyQuestHooks = true)
+        Regex("^tower(?:\\s+(needed))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliTowerDoorStatus(rt, m.groupValues[1].isNotBlank())
+        },
+        Regex("^lowkey(?:\\s+(needed))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliTowerDoorStatus(rt, m.groupValues[1].isNotBlank())
         },
         Regex("^fern$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("tower.php", applyQuestHooks = true)
@@ -1392,6 +1398,11 @@ class GameRuntimeLibrary(
                 character?.state?.value,
             )
         }
+        if (url?.contains("realm_pirate", ignoreCase = true) == true ||
+            url?.let { extractQuestPlace(it) } == "realm_pirate"
+        ) {
+            PirateRealmSync.parseResponse(html, db, prefs)
+        }
         kotlinx.coroutines.runBlocking {
             QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext(url))
         }
@@ -1424,6 +1435,7 @@ class GameRuntimeLibrary(
                 urlOrPath.contains("tower.php", ignoreCase = true) -> "fern"
                 urlOrPath.contains("fernruin", ignoreCase = true) -> "fernruin"
                 urlOrPath.contains("whichplace=cemetery", ignoreCase = true) -> "cemetery"
+                urlOrPath.contains("whichplace=realm_pirate", ignoreCase = true) -> "realm_pirate"
                 else -> null
             }
 
@@ -1647,6 +1659,12 @@ class GameRuntimeLibrary(
         runHedgeMaze(mode) { message -> rt.print(message) }
     }
 
+    internal fun cliTowerDoorStatus(rt: AshRuntimeContext, neededOnly: Boolean) {
+        val charState = character?.state?.value ?: return
+        val prefs = preferences ?: return
+        rt.print(TowerDoorStatus.buildTable(charState, prefs, inventoryManager, gameDatabase, neededOnly))
+    }
+
     internal fun cliDoor(rt: AshRuntimeContext) {
         val db = questDatabase ?: return
         visitKolPage("place.php?whichplace=nstower", applyQuestHooks = true)
@@ -1852,6 +1870,14 @@ class GameRuntimeLibrary(
         registerAshP21Batch(scope)
         registerAshP22Batch(scope)
         registerAshP23Batch(scope)
+        registerAshP24Batch(scope)
+        registerAshP25Batch(scope)
+        registerAshP26Batch(scope)
+
+        regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
+            runTowerDoor { message -> rt.print(message) }
+            AshValue.TRUE
+        }
         registerItemActions(scope)
         registerPricingQueries(scope)
         registerMallFunctions(scope)
@@ -1974,11 +2000,13 @@ class GameRuntimeLibrary(
         }
 
         register(scope, "to_servant", AshType.SERVANT, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue(AshType.SERVANT, args[0].toString())
+            val resolved = net.sourceforge.kolmafia.modifiers.ServantData.resolve(args[0].toString())
+            AshValue(AshType.SERVANT, resolved?.type ?: "")
         }
 
         register(scope, "to_vykea", AshType.VYKEA, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue(AshType.VYKEA, args[0].toString())
+            val resolved = net.sourceforge.kolmafia.modifiers.VykeaCompanionData.resolve(args[0].toString())
+            AshValue(AshType.VYKEA, resolved ?: "")
         }
 
         register(scope, "to_bounty", AshType.BOUNTY, listOf("name" to AshType.STRING)) { _, args ->
@@ -2182,14 +2210,8 @@ class GameRuntimeLibrary(
             AshValue.of(true)
         }
         register(scope, "my_basestat", AshType.INT, listOf("stat" to AshType.STAT)) { _, args ->
-            val statName = args[0].toString().lowercase()
             val cs = character?.state?.value
-            AshValue.of(when (statName) {
-                "muscle"      -> (cs?.baseMusc ?: 0).toLong()
-                "mysticality" -> (cs?.baseMyst ?: 0).toLong()
-                "moxie"       -> (cs?.baseMoxie ?: 0).toLong()
-                else          -> 0L
-            })
+            AshValue.of(if (cs == null) 0L else StatNames.baseValue(cs, args[0].toString()))
         }
         register(scope, "in_hardcore", AshType.BOOLEAN, emptyList()) { _, _ ->
             AshValue.of(character?.state?.value?.isHardcore ?: false)

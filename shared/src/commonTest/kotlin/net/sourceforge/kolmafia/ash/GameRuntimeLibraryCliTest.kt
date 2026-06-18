@@ -11,6 +11,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
@@ -1628,5 +1629,51 @@ class GameRuntimeLibraryCliTest {
         val out = outputLib(lib, """cli_execute("door");""")
         assertTrue(out.contains("Tower Door open!"), out)
         assertFalse(out.contains("[cli]"))
+    }
+
+    @Test
+    fun towerCli_printsLockStatusTable() {
+        val prefs = Preferences(com.russhwolf.settings.MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.FINAL, "step5")
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            questDatabase = db,
+            character = KoLCharacter(),
+        )
+        val out = outputLib(lib, """cli_execute("tower");""")
+        assertTrue(out.contains("<table border=2"), out)
+        assertTrue(out.contains("Boris's Lock"), out)
+        assertTrue(out.contains("Have/Used"), out)
+        assertFalse(out.contains("tower.php"), out)
+    }
+
+    @Test
+    fun towerNeededCli_filtersOwnedLocks() {
+        val prefs = Preferences(com.russhwolf.settings.MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.FINAL, "step5")
+        prefs.setString("nsTowerDoorKeysUsed", "Boris's key,Jarlsberg's key")
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            questDatabase = db,
+            character = KoLCharacter(),
+        )
+        val out = outputLib(lib, """cli_execute("tower needed");""")
+        assertFalse(out.contains("Boris's Lock"), out)
+        assertTrue(out.contains("Star Lock"), out)
+    }
+
+    @Test
+    fun lowkeyCli_printsLowKeyLockTable() {
+        val prefs = Preferences(com.russhwolf.settings.MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.FINAL, "step5")
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Low Key"))
+        }
+        val lib = GameRuntimeLibrary(preferences = prefs, questDatabase = db, character = char)
+        val out = outputLib(lib, """cli_execute("lowkey");""")
+        assertTrue(out.contains("Polka Dotted Lock"), out)
     }
 }

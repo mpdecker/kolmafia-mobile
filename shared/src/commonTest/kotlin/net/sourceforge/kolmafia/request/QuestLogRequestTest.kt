@@ -44,7 +44,7 @@ class QuestLogRequestTest {
             )
         ))
         val client = HttpClient(MockEngine { _ -> respond(fixtureHtmlPage1, HttpStatusCode.OK) })
-        val request = QuestLogRequest(client, questDb)
+        val request = QuestLogRequest(client, questDb, Preferences(settings))
         request.syncPage(1)
         assertEquals("step1", questDb.getProgress(Quest.LARVA))
     }
@@ -64,6 +64,26 @@ class QuestLogRequestTest {
         val client = HttpClient(MockEngine { _ -> respond("", HttpStatusCode.InternalServerError) })
         val request = QuestLogRequest(client, questDb)
         request.syncPage(1)  // must not throw
+    }
+
+    @Test fun parsePage_page1_clearsAbsentCompletedQuestPrefs() = runTest {
+        val settings = MapSettings()
+        val prefs = Preferences(settings)
+        prefs.setString("ghostLocation", "The Spooky Forest")
+        prefs.setString("_newYouQuestMonster", "ghost")
+        prefs.setString("doctorBagQuestItem", "scalpel")
+        prefs.setString("doctorBagQuestLocation", "Distant Woods")
+        val questDb = db(settings)
+        QuestLogDatabase.injectForTest(emptyList())
+        val client = HttpClient(MockEngine { _ -> respond("<html><body></body></html>", HttpStatusCode.OK) })
+        val request = QuestLogRequest(client, questDb, prefs)
+        request.parsePage("<html><body></body></html>", 1)
+        assertEquals("", prefs.getString("ghostLocation", "x"))
+        assertEquals("", prefs.getString("_newYouQuestMonster", "x"))
+        assertEquals("", prefs.getString("doctorBagQuestItem", "x"))
+        assertEquals("", prefs.getString("doctorBagQuestLocation", "x"))
+        assertEquals(0, prefs.getInt("_newYouQuestSharpensDone", -1))
+        assertEquals(QuestDatabase.FINISHED, questDb.getProgress(Quest.TOOT))
     }
 
     @Test fun syncAll_fetchesThreePages() = runTest {

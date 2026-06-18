@@ -82,7 +82,12 @@ object TowerSync {
         val lock = TowerDoorConfig.findLockByAction(action) ?: return
         if (lock.isDoorknob) return
         if (TowerDoorConfig.isUnlockSuccess(responseText)) {
-            TowerDoorConfig.appendKeyUsed(preferences, lock.keyName)
+            val keyName = if (responseText.contains("universal key", ignoreCase = true)) {
+                TowerDoorConfig.UNIVERSAL_KEY_NAME
+            } else {
+                lock.keyName
+            }
+            TowerDoorConfig.appendKeyUsed(preferences, keyName)
         }
     }
 }

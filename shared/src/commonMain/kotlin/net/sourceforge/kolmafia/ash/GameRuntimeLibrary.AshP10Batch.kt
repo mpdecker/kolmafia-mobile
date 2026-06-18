@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.modifiers.StatNames
+
 /**
  * ASH-P10 overload batch — raises registered function count toward desktop parity floor (≥560).
  */
@@ -137,12 +139,6 @@ internal fun GameRuntimeLibrary.registerAshP10Batch(scope: AshScope) {
 }
 
 private fun GameRuntimeLibrary.baseStatValue(stat: AshValue): Long {
-    val statName = stat.toString().lowercase()
-    val cs = character?.state?.value
-    return when (statName) {
-        "muscle", "mus" -> (cs?.baseMusc ?: 0).toLong()
-        "mysticality", "myst", "mys" -> (cs?.baseMyst ?: 0).toLong()
-        "moxie", "mox" -> (cs?.baseMoxie ?: 0).toLong()
-        else -> 0L
-    }
+    val cs = character?.state?.value ?: return 0L
+    return StatNames.baseValue(cs, stat.toString())
 }

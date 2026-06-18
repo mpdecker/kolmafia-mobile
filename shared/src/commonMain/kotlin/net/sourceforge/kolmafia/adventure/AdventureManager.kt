@@ -30,6 +30,7 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.PirateRealmSync
 import net.sourceforge.kolmafia.quest.QuestChoiceRules
 import net.sourceforge.kolmafia.quest.QuestFightRules
 import net.sourceforge.kolmafia.quest.QuestItemRules
@@ -331,6 +332,9 @@ class AdventureManager(
         if (result.monster.isNotEmpty()) {
             preferences.setString(Preferences.LAST_MONSTER, result.monster)
         }
+        questDatabase?.let {
+            PirateRealmSync.applyWindicleFromFightHtml(fightHtml, location.id, it, preferences)
+        }
         val gainedVolcanoMap = result.itemsGained.any { it.contains("volcano map", ignoreCase = true) } ||
             result.itemsGained.any { gameDatabase?.item(it)?.id == QuestFightRules.VOLCANO_MAP_ID }
         if (TurnCounter.NEMESIS_ASSASSIN_MONSTERS.any {
@@ -347,7 +351,7 @@ class AdventureManager(
             val itemIdsGained = result.itemsGained.mapNotNull { name -> gameDatabase?.item(name)?.id }
             QuestFightRules.applyCombat(
                 it, result.monster, result.won, result.itemsGained, itemIdsGained,
-                preferences,
+                preferences, location.id,
             )
             QuestItemRules.applyItemsGained(result.itemsGained, it)
         }
@@ -401,6 +405,7 @@ class AdventureManager(
             val option = registry.dispatch(ctx)
                 ?: preferences.getString("choiceAdventure$currentChoiceId").toIntOrNull()
                 ?: 1
+            val optionLabel = ctx.options[option]
             // skillUses decremented once per step — each choice interaction costs one skill use budget unit
             if (option > 0 && skillUses > 0) skillUses--
             lastChosenOption = option
@@ -410,7 +415,9 @@ class AdventureManager(
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
             questDatabase?.let {
-                QuestChoiceRules.apply(currentChoiceId, html, it, option, preferences, inventory)
+                QuestChoiceRules.apply(
+                    currentChoiceId, html, it, option, preferences, inventory, optionLabel,
+                )
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
             if (goalManager.hasChoiceGoal(currentChoiceId)) {

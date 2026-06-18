@@ -24,6 +24,7 @@ object TowerDoorConfig {
     const val DOOR_PLACE = "nstower_door"
     const val LOW_KEY_DOOR_PLACE = "nstower_doorlowkey"
     const val KEYS_USED_PREF = "nsTowerDoorKeysUsed"
+    const val UNIVERSAL_KEY_NAME = "universal key"
     const val LOCK_PICKING_SKILL = 195
     const val LOCK_PICKING_CHOICE = 1414
 

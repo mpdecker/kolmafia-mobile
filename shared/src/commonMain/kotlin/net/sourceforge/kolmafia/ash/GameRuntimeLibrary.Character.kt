@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.adventure.AdventurePrep
+import net.sourceforge.kolmafia.modifiers.StatNames
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
@@ -225,12 +226,6 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
 }
 
 private fun GameRuntimeLibrary.buffedStatValue(stat: AshValue): Long {
-    val statName = stat.toString().lowercase()
-    val cs = character?.state?.value
-    return when (statName) {
-        "muscle", "mus" -> (cs?.buffedMusc ?: 0).toLong()
-        "mysticality", "myst", "mys" -> (cs?.buffedMyst ?: 0).toLong()
-        "moxie", "mox" -> (cs?.buffedMoxie ?: 0).toLong()
-        else -> 0L
-    }
+    val cs = character?.state?.value ?: return 0L
+    return StatNames.buffedValue(cs, stat.toString())
 }

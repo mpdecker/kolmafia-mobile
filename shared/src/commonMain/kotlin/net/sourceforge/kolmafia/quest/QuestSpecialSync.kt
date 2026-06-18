@@ -359,7 +359,7 @@ object QuestSpecialSync {
         ) {
             return false
         }
-        if (questDatabase.getProgress(Quest.MACGUFFIN) == QuestDatabase.UNSTARTED) return false
+        if (!questDatabase.isAtLeast(Quest.TOPPING, "step2")) return false
 
         var updated = false
         when {
@@ -405,9 +405,9 @@ object QuestSpecialSync {
             preferences.getInt("twinPeakProgress") == 15 &&
             preferences.getBoolean("oilPeakLit") == true
         return if (peaksComplete) {
-            advanceIfBetter(questDatabase, Quest.MACGUFFIN, "step3")
+            advanceIfBetter(questDatabase, Quest.TOPPING, "step3")
         } else {
-            advanceIfBetter(questDatabase, Quest.MACGUFFIN, "step2")
+            advanceIfBetter(questDatabase, Quest.TOPPING, "step2") || updated
         }
     }
 
