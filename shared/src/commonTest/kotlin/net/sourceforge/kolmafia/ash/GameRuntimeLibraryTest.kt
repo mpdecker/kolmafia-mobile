@@ -234,12 +234,16 @@ class GameRuntimeLibraryTest {
     }
 
     @Test
-    fun banishersUsed_returnsBanishedMonsters() {
+    fun banishersUsed_returnsBanishedMonsters() = kotlinx.coroutines.runBlocking {
+        val db = net.sourceforge.kolmafia.data.GameDatabase()
+        db.load()
+        val monsterName = "huge mosquito"
         val mgr = BanishManager(prefs())
-        mgr.banishMonster("goblin", Banisher.SNOKEBOMB, 0)
-        val result = outputWithBanishManager(mgr, """
+        mgr.banishMonster(monsterName, Banisher.SNOKEBOMB, 0)
+        val lib = GameRuntimeLibrary(banishManager = mgr, gameDatabase = db)
+        val result = outputLib(lib, """
             string[monster] b = banishers_used();
-            monster g = to_monster("goblin");
+            monster g = to_monster("$monsterName");
             print(b[g]);
         """.trimIndent())
         assertEquals(Banisher.SNOKEBOMB.canonicalName, result)

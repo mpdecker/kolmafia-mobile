@@ -28,8 +28,8 @@ class GameRuntimeLibraryStubsTest {
     }
 
     @Test
-    fun toModifier_returnsEntityValue() {
+    fun toModifier_returnsCanonicalName() {
         val lib = GameRuntimeLibrary.forTesting()
-        assertEquals("Muscle %", outputLib(lib, """print(to_modifier("Muscle %"));"""))
+        assertEquals("Muscle Percent", outputLib(lib, """print(to_modifier("Muscle Percent"));"""))
     }
 }

@@ -64,6 +64,12 @@ object CoinmasterDatabase {
     fun findByNickname(nickname: String): CoinmasterData? =
         byNickname[nickname.lowercase()]
 
+    fun findByMasterName(masterName: String): CoinmasterData? {
+        val trimmed = masterName.trim()
+        if (trimmed.isEmpty()) return null
+        return masters.firstOrNull { it.masterName.equals(trimmed, ignoreCase = true) }
+    }
+
     fun findByShopId(shopId: String): CoinmasterData? =
         byShopId[shopId.lowercase()]
 
@@ -84,6 +90,7 @@ object CoinmasterDatabase {
 
     private fun register(data: CoinmasterData) {
         masters.add(data)
+        byNickname[data.masterName.lowercase()] = data
         data.allNicknames.forEach { byNickname[it.lowercase()] = data }
         data.shopId?.let { byShopId[it.lowercase()] = data }
     }

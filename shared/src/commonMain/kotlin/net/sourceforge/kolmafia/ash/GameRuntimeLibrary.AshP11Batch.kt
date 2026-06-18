@@ -36,38 +36,6 @@ internal fun GameRuntimeLibrary.registerAshP11Batch(scope: AshScope) {
         AshValue.of(args[0].toString().contains(args[1].toString()))
     }
 
-    val modifierStubEntityTypes = listOf(
-        AshType.SLOT,
-        AshType.BOUNTY, AshType.MODIFIER,
-        AshType.COINMASTER, AshType.PHYLUM,
-    )
-    for (entityType in modifierStubEntityTypes) {
-        val captured = entityType
-        val paramName = when (captured) {
-            AshType.CLASS -> "cls"
-            AshType.STAT -> "stat"
-            else -> "value"
-        }
-        regFn(scope, "numeric_modifier", AshType.FLOAT,
-            listOf(paramName to captured, "modifier" to AshType.STRING)) { _, _ ->
-            AshValue.of(0.0)
-        }
-        regFn(scope, "boolean_modifier", AshType.BOOLEAN,
-            listOf(paramName to captured, "modifier" to AshType.STRING)) { _, _ ->
-            AshValue.FALSE
-        }
-        regFn(scope, "string_modifier", AshType.STRING,
-            listOf(paramName to captured, "modifier" to AshType.STRING)) { _, _ ->
-            AshValue.EMPTY_STRING
-        }
-        regFn(scope, "type_of", AshType.STRING, listOf("value" to captured)) { _, _ ->
-            AshValue.of(captured.name)
-        }
-        regFn(scope, "is_valid", AshType.BOOLEAN, listOf("value" to captured)) { _, args ->
-            AshValue.of(args[0].toString().isNotBlank())
-        }
-    }
-
     val validatedEntityTypes = listOf(
         AshType.LOCATION, AshType.MONSTER, AshType.THRALL, AshType.PATH,
     )

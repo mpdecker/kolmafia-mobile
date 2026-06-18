@@ -24,12 +24,12 @@ internal fun GameRuntimeLibrary.registerLocationQueries(scope: AshScope) {
 
     regFn(scope, "location_available", AshType.BOOLEAN, listOf("loc" to AshType.LOCATION)) { _, args ->
         val name = resolveLocationQueryName(args[0].toString())
-        AshValue.of(AdventurePrep.canAdventureAtZone(name, character?.state?.value))
+        AshValue.of(AdventurePrep.canAdventureAtZone(name, character?.state?.value, preferences = preferences))
     }
 
     regFn(scope, "location_available", AshType.BOOLEAN, listOf("loc" to AshType.STRING)) { _, args ->
         val name = resolveLocationQueryName(args[0].toString())
-        AshValue.of(AdventurePrep.canAdventureAtZone(name, character?.state?.value))
+        AshValue.of(AdventurePrep.canAdventureAtZone(name, character?.state?.value, preferences = preferences))
     }
 }
 

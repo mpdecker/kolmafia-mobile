@@ -50,10 +50,16 @@ internal fun GameRuntimeLibrary.registerAshP10Batch(scope: AshScope) {
         AshValue.of((preferences?.getInt("paradoxicity", 0) ?: 0).toLong())
     }
     regFn(scope, "my_servant", AshType.SERVANT, emptyList()) { _, _ ->
-        AshValue(AshType.SERVANT, preferences?.getString("_currentServant", "") ?: "")
+        val active = edServantManager?.activeServantType()?.takeIf { it.isNotBlank() }
+            ?: preferences?.getString("_currentServant", "")
+            ?: ""
+        AshValue(AshType.SERVANT, active)
     }
     regFn(scope, "my_vykea_companion", AshType.VYKEA, emptyList()) { _, _ ->
-        AshValue(AshType.VYKEA, preferences?.getString("_currentVykea", "") ?: "")
+        val active = vykeaCompanionManager?.currentCompanionString()?.takeIf { it.isNotBlank() }
+            ?: preferences?.getString("_currentVykea", "")
+            ?: ""
+        AshValue(AshType.VYKEA, active)
     }
     regFn(scope, "my_basestat", AshType.INT, listOf("stat" to AshType.STAT)) { _, args ->
         AshValue.of(baseStatValue(args[0]))

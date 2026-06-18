@@ -208,13 +208,16 @@ internal fun GameRuntimeLibrary.registerAshP8Batch(scope: AshScope) {
     }
 
     regFn(scope, "to_class", AshType.CLASS, listOf("name" to AshType.STRING)) { _, args ->
-        AshValue(AshType.CLASS, args[0].toString())
+        val resolved = net.sourceforge.kolmafia.modifiers.ClassNames.resolve(args[0].toString())
+        AshValue(AshType.CLASS, resolved ?: "")
     }
     regFn(scope, "to_element", AshType.ELEMENT, listOf("name" to AshType.STRING)) { _, args ->
-        AshValue(AshType.ELEMENT, args[0].toString())
+        val resolved = net.sourceforge.kolmafia.modifiers.ElementNames.resolve(args[0].toString())
+        AshValue(AshType.ELEMENT, resolved ?: "")
     }
     regFn(scope, "to_phylum", AshType.PHYLUM, listOf("name" to AshType.STRING)) { _, args ->
-        AshValue(AshType.PHYLUM, args[0].toString())
+        val resolved = net.sourceforge.kolmafia.modifiers.PhylumNames.resolve(args[0].toString())
+        AshValue(AshType.PHYLUM, resolved ?: "")
     }
 
     regFn(scope, "war_is_on", AshType.BOOLEAN, emptyList()) { _, _ ->

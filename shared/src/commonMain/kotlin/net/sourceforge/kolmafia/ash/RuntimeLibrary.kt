@@ -32,4 +32,6 @@ open class RuntimeLibrary {
             AshFunction(name, returnType, params, body = null, libraryImpl = impl)
         )
     }
+
+    open fun resolveEntityIndex(base: AshValue, index: AshValue): AshValue? = null
 }

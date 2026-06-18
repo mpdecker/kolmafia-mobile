@@ -213,4 +213,108 @@ class AdventurePrepTest {
         assertTrue(ok)
         assertEquals("Mining Gear", worn)
     }
+
+    private val pirateRealmSeas = AdventureZone(
+        zoneName = "PirateRealm",
+        urlParams = "adventure=530",
+        locationName = "Sailing the PirateRealm Seas",
+        environment = "outdoor",
+        diffLevel = "mid",
+        statRequirement = 0,
+        goals = emptyList(),
+        isOverdrunk = false,
+        noWander = true,
+    )
+
+    private val battleIsland = AdventureZone(
+        zoneName = "PirateRealm Island",
+        urlParams = "adventure=531",
+        locationName = "Battle Island",
+        environment = "outdoor",
+        diffLevel = "mid",
+        statRequirement = 0,
+        goals = emptyList(),
+        isOverdrunk = false,
+        noWander = true,
+    )
+
+    @Test
+    fun canAdventureAtPirateRealm_blockedWithoutDailyAccess() {
+        val prefs = prefs()
+        assertFalse(
+            AdventurePrep.canAdventureAtPirateRealm(
+                "Sailing the PirateRealm Seas",
+                "PirateRealm",
+                prefs,
+            ),
+        )
+    }
+
+    @Test
+    fun canAdventureAtPirateRealm_seasAllowedWithPrToday() {
+        val prefs = prefs { putBoolean("_prToday", true) }
+        assertTrue(
+            AdventurePrep.canAdventureAtPirateRealm(
+                "Sailing the PirateRealm Seas",
+                "PirateRealm",
+                prefs,
+            ),
+        )
+    }
+
+    @Test
+    fun canAdventureAtPirateRealm_namedIslandGatedOnLastIsland() {
+        val prefs = prefs {
+            putBoolean("_prToday", true)
+            putString("_lastPirateRealmIsland", "Crab Island")
+        }
+        assertFalse(
+            AdventurePrep.canAdventureAtPirateRealm(
+                "Battle Island",
+                "PirateRealm Island",
+                prefs,
+            ),
+        )
+        prefs.setString("_lastPirateRealmIsland", "Battle Island")
+        assertTrue(
+            AdventurePrep.canAdventureAtPirateRealm(
+                "Battle Island",
+                "PirateRealm Island",
+                prefs,
+            ),
+        )
+    }
+
+    @Test
+    fun canAdventureAtZone_pirateRealmIntegrated() {
+        val cs = CharacterState(adventuresLeft = 5)
+        val prefs = prefs {
+            putBoolean("prAlways", true)
+            putString("_lastPirateRealmIsland", "Battle Island")
+        }
+        assertTrue(
+            AdventurePrep.canAdventureAtZone(
+                "Battle Island",
+                cs,
+                battleIsland,
+                prefs,
+            ),
+        )
+        assertTrue(
+            AdventurePrep.canAdventureAtZone(
+                "Sailing the PirateRealm Seas",
+                cs,
+                pirateRealmSeas,
+                prefs { putBoolean("prAlways", true) },
+            ),
+        )
+        assertFalse(
+            AdventurePrep.canAdventureAtZone(
+                "Sailing the PirateRealm Seas",
+                cs,
+                pirateRealmSeas,
+                prefs(),
+            ),
+        )
+    }
 }

@@ -28,6 +28,8 @@ import net.sourceforge.kolmafia.adventure.choice.solvers.ArcadeGameSolverImpl
 import net.sourceforge.kolmafia.adventure.choice.solvers.GameproSolverImpl
 import net.sourceforge.kolmafia.adventure.choice.solvers.VampOutSolverImpl
 import net.sourceforge.kolmafia.maximizer.MaximizerManager
+import net.sourceforge.kolmafia.servant.EdServantManager
+import net.sourceforge.kolmafia.vykea.VykeaCompanionManager
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.character.DailyResourceTracker
@@ -205,6 +207,16 @@ val sharedModule = module {
     singleOf(::BanishManager)
     singleOf(::EffectManager)
     single {
+        EdServantManager(
+            httpClient = get(),
+            preferences = get(),
+            character = get(),
+        )
+    }
+    single {
+        VykeaCompanionManager(preferences = get())
+    }
+    single {
         AdventureManager(
             adventureRequest = get(),
             fightRequest     = get(),
@@ -232,6 +244,7 @@ val sharedModule = module {
             familiarManager  = get(),
             scriptHookRunner = get(),
             combatMacroResolver = { zoneId -> get<GameRuntimeLibrary>().resolveCombatMacro(zoneId) },
+            edServantManager = get(),
         )
     }
     single {
@@ -281,6 +294,8 @@ val sharedModule = module {
             sendMailRequest     = get(),
             sendGiftRequest     = get(),
             choiceRequest       = get(),
+            edServantManager    = get(),
+            vykeaCompanionManager = get(),
         )
     }
     singleOf(::ScriptManager)

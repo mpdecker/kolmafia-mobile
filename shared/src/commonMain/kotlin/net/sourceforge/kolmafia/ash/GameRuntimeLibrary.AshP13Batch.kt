@@ -89,26 +89,6 @@ internal fun GameRuntimeLibrary.registerAshP13Batch(scope: AshScope) {
         }
     }
 
-    val stubEntityTypes = listOf(
-        AshType.CLASS, AshType.SLOT, AshType.ELEMENT,
-        AshType.LOCATION, AshType.MONSTER, AshType.THRALL,
-        AshType.BOUNTY, AshType.MODIFIER, AshType.COINMASTER,
-        AshType.PHYLUM, AshType.PATH,
-    )
-    for (entityType in stubEntityTypes) {
-        val captured = entityType
-        val param = when (captured) {
-            AshType.LOCATION -> "loc"
-            AshType.MONSTER -> "mo"
-            AshType.CLASS -> "cls"
-            AshType.STAT -> "stat"
-            else -> "value"
-        }
-        regFn(scope, "is_valid", AshType.BOOLEAN, listOf(param to captured)) { _, args ->
-            AshValue.of(args[0].toString().isNotBlank())
-        }
-    }
-
     val writelnEntityTypes = listOf(
         AshType.ITEM, AshType.SKILL, AshType.EFFECT, AshType.FAMILIAR, AshType.LOCATION,
         AshType.MONSTER, AshType.CLASS, AshType.STAT, AshType.THRALL, AshType.SERVANT,

@@ -178,9 +178,13 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
             evalExpr(expr.thenExpr, scope) else evalExpr(expr.elseExpr, scope)
         is FunctionCallNode -> callFunction(expr.name, expr.args.map { evalExpr(it, scope) }, scope)
         is IndexNode -> {
-            val agg = evalExpr(expr.aggregate, scope) as? AggregateValue
-                ?: throw ScriptException("Cannot index non-aggregate")
-            agg[evalExpr(expr.index, scope)]
+            val base = evalExpr(expr.aggregate, scope)
+            val index = evalExpr(expr.index, scope)
+            when (base) {
+                is AggregateValue -> base[index]
+                else -> library.resolveEntityIndex(base, index)
+                    ?: throw ScriptException("Cannot index ${base.type.name}")
+            }
         }
         is FieldAccessNode -> {
             val obj = evalExpr(expr.record, scope)

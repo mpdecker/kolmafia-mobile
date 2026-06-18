@@ -24,16 +24,18 @@ object AdventurePrep {
         locationName: String,
         character: CharacterState?,
         zone: AdventureZone? = AdventureDatabase.getByName(locationName),
+        preferences: Preferences? = null,
     ): Boolean {
         if ((character?.adventuresLeft ?: 0) <= 0) return false
-        return canAdventureAtZone(locationName, character, zone)
+        return canAdventureAtZone(locationName, character, zone, preferences)
     }
 
-    /** Zone-only gates (stat, overdrunk, limit mode) — ignores adventures remaining. */
+    /** Zone-only gates (stat, overdrunk, limit mode, PirateRealm) — ignores adventures remaining. */
     fun canAdventureAtZone(
         locationName: String,
         character: CharacterState?,
         zone: AdventureZone? = AdventureDatabase.getByName(locationName),
+        preferences: Preferences? = null,
     ): Boolean {
         val cs = character ?: return true
         zone ?: return true
@@ -50,6 +52,33 @@ object AdventurePrep {
 
         if (zone.statRequirement > 0 && cs.buffedMainStat < zone.statRequirement) return false
 
+        if (zone.zoneName.startsWith("PirateRealm", ignoreCase = true)) {
+            return canAdventureAtPirateRealm(locationName, zone.zoneName, preferences)
+        }
+
+        return true
+    }
+
+    fun canAdventureAtPirateRealm(
+        locationName: String,
+        zoneName: String,
+        preferences: Preferences?,
+    ): Boolean {
+        if (preferences == null) return true
+        if (!preferences.getBoolean("prAlways", false) &&
+            !preferences.getBoolean("_prToday", false)
+        ) {
+            return false
+        }
+        if (locationName.equals("Sailing the PirateRealm Seas", ignoreCase = true) ||
+            locationName.equals("PirateRealm Island", ignoreCase = true)
+        ) {
+            return true
+        }
+        if (zoneName.equals("PirateRealm Island", ignoreCase = true)) {
+            val lastIsland = preferences.getString("_lastPirateRealmIsland", "")
+            return lastIsland.equals(locationName, ignoreCase = true)
+        }
         return true
     }
     private val ZONE_OUTFITS = mapOf(
@@ -81,7 +110,7 @@ object AdventurePrep {
         familiarManager: FamiliarManager? = null,
         character: CharacterState? = null,
     ): Boolean {
-        if (!canAdventureAtZone(locationName, character)) return false
+        if (!canAdventureAtZone(locationName, character, preferences = preferences)) return false
 
         val familiarName = preferences?.getString("zoneFamiliar_$locationName", "")?.takeIf { it.isNotBlank() }
         if (familiarName != null) {

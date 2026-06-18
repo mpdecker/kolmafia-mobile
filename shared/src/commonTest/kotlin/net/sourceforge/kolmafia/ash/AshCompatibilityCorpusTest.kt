@@ -77,9 +77,121 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
-    fun corpus_entityConversionStubs() {
-        val lib = GameRuntimeLibrary.forTesting()
-        assertEquals("bogus", outputLib(lib, """print(to_bounty("bogus"));"""))
+    fun corpus_coinmasterModifierEntity_live() = runBlocking {
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.load()
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("Dimemaster", outputLib(lib, """print(to_coinmaster("dimemaster"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_coinmaster("bogus"));""").trim())
+        assertEquals("Muscle Percent", outputLib(lib, """print(to_modifier("Muscle Percent"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_modifier("bogus"));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_coinmaster("dmt"))));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_modifier("Meat Drop"))));""").trim())
+    }
+
+    @Test
+    fun corpus_bountySlotPhylumEntity_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("bean-shaped rock", outputLib(lib, """print(to_bounty("bean-shaped rock"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_bounty("bogus"));""").trim())
+        assertEquals("acc1", outputLib(lib, """print(to_slot("acc1"));""").trim())
+        assertEquals("undead", outputLib(lib, """print(to_phylum("undead"));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_slot("hat"))));""").trim())
+    }
+
+    @Test
+    fun corpus_classElementEntity_live() {
+        val lib = GameRuntimeLibrary()
+        assertEquals("Seal Clubber", outputLib(lib, """print(to_class("Seal Clubber"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_class("bogus"));""").trim())
+        assertEquals("cold", outputLib(lib, """print(to_element("cold"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_element("bogus"));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_class("Pastamancer"))));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_element("stench"))));""").trim())
+    }
+
+    @Test
+    fun corpus_monsterPathThrallEntity_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("huge mosquito", outputLib(lib, """print(to_monster("huge mosquito"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_monster("bogus"));""").trim())
+        assertEquals("Dark Gyffte", outputLib(lib, """print(to_path("Dark Gyffte"));""").trim())
+        assertEquals("Lasagmbie", outputLib(lib, """print(to_thrall("Lasagmbie"));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_monster("huge mosquito"))));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_thrall("Lasagmbie"))));""").trim())
+    }
+
+    @Test
+    fun corpus_locationEntity_live() = runBlocking {
+        val lib = GameRuntimeLibrary()
+        assertEquals(
+            "The Spooky Forest",
+            outputLib(lib, """print(to_location("spooky forest"));""").trim(),
+        )
+        assertEquals("The Spooky Forest", outputLib(lib, """print(to_location("20"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_location("bogus"));""").trim())
+        assertEquals(
+            "true",
+            outputLib(lib, """print(to_string(is_valid(to_location("The Spooky Forest"))));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_edServantLevelXp_live() {
+        val prefs = prefs()
+        net.sourceforge.kolmafia.servant.EdServantState.upsert(
+            prefs,
+            net.sourceforge.kolmafia.servant.EdServantRecord("Cat", "Hethys", 14, 221),
+        )
+        val char = KoLCharacter()
+        val manager = net.sourceforge.kolmafia.servant.EdServantManager(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+            prefs,
+            char,
+        )
+        val lib = GameRuntimeLibrary(preferences = prefs, character = char, edServantManager = manager)
+        assertEquals("14", outputLib(lib, """print(to_servant("Cat")["level"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(have_servant(to_servant("Cat"))));""").trim())
+    }
+
+    @Test
+    fun corpus_thrallVykeaEntityFields_live() = runBlocking {
+        val prefs = prefs()
+        prefs.setString(net.sourceforge.kolmafia.session.PastaThrall.prefKey(1), "7,Vampieroghi")
+        val db = GameDatabase()
+        db.load()
+        ModifierDatabase.load()
+        val lib = GameRuntimeLibrary(preferences = prefs, gameDatabase = db)
+        assertEquals("7", outputLib(lib, """print(to_thrall("Vampieroghi")["level"]);""").trim())
+        assertEquals(
+            "30.0",
+            outputLib(
+                lib,
+                """print(to_string(numeric_modifier(to_vykea("level 3 couch"), "Meat Drop")));""",
+            ).trim(),
+        )
+        assertEquals(
+            "Meat Drop: +30",
+            outputLib(lib, """print(to_vykea("level 3 couch")["modifiers"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_myVykeaCompanion_live() = runBlocking {
+        val prefs = prefs()
+        prefs.setString(
+            net.sourceforge.kolmafia.vykea.VykeaCompanionManager.CURRENT_VYKEA_PREF,
+            "CHEBLI, the level 5 blood lamp",
+        )
+        val manager = net.sourceforge.kolmafia.vykea.VykeaCompanionManager(prefs)
+        val lib = GameRuntimeLibrary(preferences = prefs, vykeaCompanionManager = manager)
+        assertEquals("CHEBLI, the level 5 blood lamp", outputLib(lib, "print(my_vykea_companion());").trim())
+        assertEquals("5", outputLib(lib, """print(my_vykea_companion()["level"]);""").trim())
     }
 
     @Test

@@ -45,7 +45,17 @@ internal fun GameRuntimeLibrary.registerAshP26Batch(scope: AshScope) {
     }
 
     regFn(scope, "have_servant", AshType.BOOLEAN, listOf("servant" to AshType.SERVANT)) { _, args ->
-        AshValue.of(ServantData.resolve(args[0].toString()) != null)
+        val type = args[0].toString()
+        val resolved = ServantData.resolve(type)?.type
+        AshValue.of(resolved != null && edServantManager?.hasRegisteredServant(resolved) == true)
+    }
+
+    regFn(scope, "use_servant", AshType.BOOLEAN, listOf("servant" to AshType.SERVANT)) { runtime, args ->
+        val manager = edServantManager ?: return@regFn AshValue.FALSE
+        val success = kotlinx.coroutines.runBlocking {
+            manager.useServant(args[0].toString()) { message -> runtime.print(message) }
+        }
+        AshValue.of(success)
     }
 }
 
