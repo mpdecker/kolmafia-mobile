@@ -47,6 +47,9 @@ object PastaThrall {
         parsePref(preferences.getString(prefKey(index), ""))?.first
 
     fun thrallLevel(preferences: Preferences, thrallName: String): Int {
+        typeIndex(thrallName)?.let { index ->
+            levelFromPref(preferences, index)?.let { return it }
+        }
         for (index in 1..8) {
             val parsed = parsePref(preferences.getString(prefKey(index), "")) ?: continue
             if (parsed.second.equals(thrallName, ignoreCase = true)) return parsed.first
@@ -62,4 +65,17 @@ object PastaThrall {
             }
         }
     }.trim()
+
+    /** 1-based pref index for a thrall type, or null if unknown. */
+    fun typeIndex(type: String): Int? {
+        val index = TYPES.indexOfFirst { it.equals(type, ignoreCase = true) }
+        return if (index >= 0) index + 1 else null
+    }
+
+    fun canonicalType(type: String): String? =
+        TYPES.firstOrNull { it.equals(type.trim(), ignoreCase = true) }
+
+    fun writePref(preferences: Preferences, index: Int, level: Int, name: String) {
+        preferences.setString(prefKey(index), "$level,$name")
+    }
 }

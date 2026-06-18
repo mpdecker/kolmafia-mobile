@@ -54,7 +54,9 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     }
 
     regFn(scope, "my_thrall", AshType.THRALL, emptyList()) { _, _ ->
-        val name = preferences?.getString("_currentThrall", "") ?: ""
+        val name = pastaThrallManager?.currentThrallName()?.takeIf { it.isNotBlank() }
+            ?: preferences?.getString("_currentThrall", "")
+            ?: ""
         AshValue(AshType.THRALL, name)
     }
 
