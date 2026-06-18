@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.quest
 
 import com.russhwolf.settings.MapSettings
+import net.sourceforge.kolmafia.adventure.TowerDoorConfig
 import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -51,5 +52,15 @@ class TowerSyncTest {
         db.setProgress(Quest.FINAL, "step2")
         assertFalse(TowerSync.parseTower("<p>nothing here</p>", db, prefs))
         assertEquals("step2", db.getProgress(Quest.FINAL))
+    }
+
+    @Test
+    fun parseTowerDoorResponse_universalKeyRecordsUniversalKeyName() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        val lock = TowerDoorConfig.STANDARD_LOCKS.first { it.action == "ns_lock4" }
+        val html = "You put the universal key in the lock and the lock vanishes."
+        TowerSync.parseTowerDoorResponse(lock.action, html, prefs, db)
+        assertTrue(TowerDoorConfig.isKeyUsed(prefs, TowerDoorConfig.UNIVERSAL_KEY_NAME))
     }
 }

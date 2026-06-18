@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.quest
 
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.QuestCouncilDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.TurnCounter
@@ -11,6 +12,7 @@ object QuestLogSync {
     data class QuestSyncContext(
         val hasItemId: (Int) -> Boolean = { false },
         val place: String? = null,
+        val url: String? = null,
         val preferences: Preferences? = null,
         val currentRun: Int = 0,
         val gameDatabase: GameDatabase? = null,
@@ -71,6 +73,9 @@ object QuestLogSync {
         QuestAdvanceRules.apply(responseText, questDatabase)
         QuestSpecialSync.apply(responseText, questDatabase, context.preferences, context.gameDatabase)
         TowerSync.parseTower(responseText, questDatabase, context.preferences)
+        if (context.url?.contains("council.php", ignoreCase = true) == true) {
+            QuestCouncilDatabase.handleCouncilText(responseText, questDatabase)
+        }
         applyFantasyRealmHooks(responseText, context)
         applyPlaceHooks(context.place, questDatabase, context)
         if (shouldSync(responseText)) {

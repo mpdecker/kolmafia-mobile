@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.MainStat
 import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.modifiers.ClassModifiers
 import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.effect.EffectData
@@ -22,6 +23,7 @@ import kotlin.math.min
  *   3. Passive skills  (via ModifierDatabase "Skill")
  *   4. Zodiac sign     (via ModifierDatabase "Sign")
  *   5. Challenge path  (via ModifierDatabase "Path")
+ *   5b. Ascension class (via ClassModifiers)
  *   6. Current familiar(via ModifierDatabase "Familiar")
  *   7. Complete outfits(via ModifierDatabase "Outfit")
  *
@@ -246,6 +248,11 @@ class CurrentModifiers(
         if (state.challengePath.isNotBlank() && state.challengePath != "None") {
             val raw = ModifierDatabase.getPath(state.challengePath)?.modifiers
             if (raw != null) total = total + ModifierParser.parse(raw, ctxWithAccumulated())
+        }
+
+        // 5b. Ascension class
+        ClassModifiers.modifierString(state.className)?.let { raw ->
+            total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 
         // 6. Current familiar

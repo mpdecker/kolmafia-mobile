@@ -51,14 +51,7 @@ class RufusManagerTest {
         assertNull(result)
     }
 
-    // Test 5: confirmChoice always returns 1
-    @Test fun confirmChoice_always_returns1() {
-        val mgr = manager()
-        val result = mgr.confirmChoice()
-        assertEquals(1, result)
-    }
-
-    // Test 6: recordQuestTarget persists to preferences
+    // Test 4: recordQuestTarget persists to preferences
     @Test fun recordQuestTarget_persistsToPreferences() {
         val testPrefs = prefs()
         val mgr = manager(testPrefs)
@@ -128,5 +121,41 @@ class RufusManagerTest {
     @Test fun handleQuestLog_unrelatedText_returnsNull() {
         val mgr = manager(prefs())
         assertNull(mgr.handleQuestLog("Visit the council for more quests."))
+    }
+
+    @Test fun specialChoiceDecision_step1_returnsOption1() {
+        val testPrefs = prefs()
+        val db = QuestDatabase(testPrefs)
+        db.setProgress(net.sourceforge.kolmafia.quest.Quest.RUFUS, "step1")
+        val mgr = manager(testPrefs)
+        assertEquals(1, mgr.specialChoiceDecision(1498, "Call Rufus back.", db))
+    }
+
+    @Test fun shadowLabyrinthChoiceDecision_artifactQuest_picksMatchingTheme() {
+        val testPrefs = prefs {
+            setString(Preferences.RUFUS_QUEST_TYPE, "artifact")
+            setString(Preferences.RUFUS_QUEST_TARGET, "shadow bucket")
+        }
+        val db = QuestDatabase(testPrefs)
+        db.setProgress(net.sourceforge.kolmafia.quest.Quest.RUFUS, QuestDatabase.STARTED)
+        val mgr = manager(testPrefs)
+        val html = """
+            <input type="submit" name="option" value="1"> Randomize
+            <input type="submit" name="option" value="2"> Explore the wet rift
+            <input type="submit" name="option" value="3"> Explore the blazing rift
+        """.trimIndent()
+        assertEquals(2, mgr.shadowLabyrinthChoiceDecision(html, db))
+    }
+
+    @Test fun handleShadowRiftFight_decrementsCounter() {
+        val testPrefs = prefs { setInt("encountersUntilSRChoice", 5) }
+        manager(testPrefs).handleShadowRiftFight("shadow bat")
+        assertEquals(4, testPrefs.getInt("encountersUntilSRChoice", 0))
+    }
+
+    @Test fun handleShadowRiftFight_bossResetsThenDecrements() {
+        val testPrefs = prefs { setInt("encountersUntilSRChoice", 3) }
+        manager(testPrefs).handleShadowRiftFight("shadow spire")
+        assertEquals(10, testPrefs.getInt("encountersUntilSRChoice", 0))
     }
 }

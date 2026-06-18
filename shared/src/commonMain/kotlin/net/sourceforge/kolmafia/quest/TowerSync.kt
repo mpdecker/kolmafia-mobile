@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.adventure.TowerDoorConfig
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
@@ -56,5 +58,36 @@ object TowerSync {
         if (QuestDatabase.stepOrdinal(step) <= QuestDatabase.stepOrdinal(current)) return false
         questDatabase.setProgress(quest, step)
         return true
+    }
+
+    fun parseTowerDoorResponse(
+        action: String?,
+        responseText: String,
+        preferences: Preferences?,
+        questDatabase: QuestDatabase?,
+        characterState: CharacterState? = null,
+    ) {
+        if (preferences == null) return
+        val locks = characterState?.let { TowerDoorConfig.locksFor(it) } ?: TowerDoorConfig.STANDARD_LOCKS
+        if (action.isNullOrEmpty()) {
+            TowerDoorConfig.syncTowerDoorFromHtml(responseText, preferences, locks)
+            return
+        }
+        if (action == "ns_doorknob" || action == "ns_doorknob_lk") {
+            if (responseText.contains("You turn the knob and the door vanishes")) {
+                questDatabase?.let { advanceIfBetter(it, Quest.FINAL, "step6") }
+            }
+            return
+        }
+        val lock = TowerDoorConfig.findLockByAction(action) ?: return
+        if (lock.isDoorknob) return
+        if (TowerDoorConfig.isUnlockSuccess(responseText)) {
+            val keyName = if (responseText.contains("universal key", ignoreCase = true)) {
+                TowerDoorConfig.UNIVERSAL_KEY_NAME
+            } else {
+                lock.keyName
+            }
+            TowerDoorConfig.appendKeyUsed(preferences, keyName)
+        }
     }
 }

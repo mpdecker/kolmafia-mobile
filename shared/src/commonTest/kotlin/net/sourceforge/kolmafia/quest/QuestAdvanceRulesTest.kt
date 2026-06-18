@@ -257,4 +257,13 @@ class QuestAdvanceRulesTest {
         assertTrue(QuestAdvanceRules.apply("marked your map with the location of a cave", db))
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.DARK))
     }
+
+    @Test
+    fun apply_pirateFinishedOnBelowdecksScam() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.PIRATE, "step6")
+        val text = "Oh, and also you've managed to scam your way belowdecks, which is cool."
+        assertTrue(QuestAdvanceRules.apply(text, db))
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.PIRATE))
+    }
 }

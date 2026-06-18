@@ -116,6 +116,7 @@ object QuestAdvanceRules {
         Rule(Quest.PIRATEREALM.prefKey, QuestDatabase.STARTED, "You grab an eyepatch"),
         Rule(Quest.PIRATEREALM.prefKey, QuestDatabase.STARTED, "Pirate Realm"),
         Rule(Quest.PIRATEREALM.prefKey, QuestDatabase.FINISHED, "an envelope with your name on it"),
+        Rule(Quest.PIRATE.prefKey, QuestDatabase.FINISHED, "scam your way belowdecks"),
         Rule(Quest.DOCTOR.prefKey, QuestDatabase.STARTED, "Doc Galaktik"),
         Rule(Quest.CURSES.prefKey, QuestDatabase.STARTED, "Hidden Apartment"),
         Rule(Quest.BUSINESS.prefKey, QuestDatabase.STARTED, "Hidden Office"),

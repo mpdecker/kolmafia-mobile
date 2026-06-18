@@ -15,6 +15,7 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.skill.SkillState
@@ -45,8 +46,6 @@ class RufusHandlersTest {
         goalManager = GoalManager(), questDatabase = QuestDatabase(prefs),
         solvers = noOpSolvers, preference = 0,
     )
-
-    // Test 1: choice 1498 delegates to chooseQuestOption
     // inject artifact quest type, HTML with "artifact", expect option 2
     @Test fun choice1498_artifactQuestType_withArtifactHtml_returns2() {
         val rufusManager = RufusManager(prefs { setString(Preferences.RUFUS_QUEST_TYPE, "artifact") })
@@ -58,25 +57,35 @@ class RufusHandlersTest {
         assertEquals(2, result)
     }
 
-    // Test 2: choice 1498 returns null when quest type not in HTML
-    // inject monument quest type, HTML without "monument", expect null
-    @Test fun choice1498_monumentQuestType_withoutMonumentHtml_returnsNull() {
+    // Test 2: choice 1498 falls back to hang-up when quest type not in HTML
+    @Test fun choice1498_monumentQuestType_withoutMonumentHtml_returnsHangUp() {
         val rufusManager = RufusManager(prefs { setString(Preferences.RUFUS_QUEST_TYPE, "monument") })
         val registry = ChoiceHandlerRegistry()
         RufusHandlers.registerAll(registry, rufusManager)
 
         val html = "Choose your quest type: entity or artifact"
         val result = registry.dispatch(ctx(1498, html))
-        assertNull(result)
+        assertEquals(6, result)
     }
 
-    // Test 3: choice 1499 always returns 1
-    @Test fun choice1499_alwaysReturns1() {
-        val rufusManager = RufusManager(prefs { setString(Preferences.RUFUS_QUEST_TYPE, "entity") })
+    // Test 3: choice 1499 picks labyrinth theme for artifact quest
+    @Test fun choice1499_artifactQuest_picksMatchingTheme() {
+        val testPrefs = prefs {
+            setString(Preferences.RUFUS_QUEST_TYPE, "artifact")
+            setString(Preferences.RUFUS_QUEST_TARGET, "shadow bucket")
+        }
+        val db = QuestDatabase(testPrefs)
+        db.setProgress(Quest.RUFUS, QuestDatabase.STARTED)
+        val rufusManager = RufusManager(testPrefs)
         val registry = ChoiceHandlerRegistry()
         RufusHandlers.registerAll(registry, rufusManager)
 
-        val result = registry.dispatch(ctx(1499, "any response text"))
-        assertEquals(1, result)
+        val html = """
+            <input type="submit" name="option" value="1"> Randomize
+            <input type="submit" name="option" value="2"> Explore the wet rift
+            <input type="submit" name="option" value="3"> Explore the blazing rift
+        """.trimIndent()
+        val result = registry.dispatch(ctx(1499, html, testPrefs))
+        assertEquals(2, result)
     }
 }

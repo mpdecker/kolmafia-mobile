@@ -90,9 +90,9 @@ internal fun GameRuntimeLibrary.registerAshP13Batch(scope: AshScope) {
     }
 
     val stubEntityTypes = listOf(
-        AshType.CLASS, AshType.STAT, AshType.SLOT, AshType.ELEMENT,
-        AshType.LOCATION, AshType.MONSTER, AshType.THRALL, AshType.SERVANT,
-        AshType.VYKEA, AshType.BOUNTY, AshType.MODIFIER, AshType.COINMASTER,
+        AshType.CLASS, AshType.SLOT, AshType.ELEMENT,
+        AshType.LOCATION, AshType.MONSTER, AshType.THRALL,
+        AshType.BOUNTY, AshType.MODIFIER, AshType.COINMASTER,
         AshType.PHYLUM, AshType.PATH,
     )
     for (entityType in stubEntityTypes) {

@@ -30,8 +30,12 @@ object QuestFightRules {
         itemsGained: List<String> = emptyList(),
         itemIdsGained: List<Int> = emptyList(),
         preferences: Preferences? = null,
+        adventureId: String = "",
     ): Boolean {
         var advanced = false
+        if (won && adventureId == PirateRealmSync.PIRATEREALM_ISLAND_ADVENTURE.toString()) {
+            advanced = PirateRealmSync.applyIslandCombatWin(questDatabase, preferences) || advanced
+        }
         if (monster.isNotBlank()) {
             nemesisStep(monster, won)?.let {
                 if (advance(questDatabase, Quest.NEMESIS, it)) advanced = true

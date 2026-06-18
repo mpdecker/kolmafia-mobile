@@ -250,10 +250,10 @@ class QuestSpecialSyncTest {
     }
 
     @Test
-    fun apply_peakStatusAdvancesMacguffin() {
+    fun apply_peakStatusAdvancesTopping() {
         val prefs = Preferences(MapSettings())
         val db = QuestDatabase(prefs)
-        db.setProgress(Quest.MACGUFFIN, QuestDatabase.STARTED)
+        db.setProgress(Quest.TOPPING, "step2")
         assertTrue(
             QuestSpecialSync.apply(
                 "Investigate A-Boo Peak. It is currently 42%.",
@@ -261,7 +261,7 @@ class QuestSpecialSyncTest {
                 prefs,
             ),
         )
-        assertEquals("step2", db.getProgress(Quest.MACGUFFIN))
+        assertEquals("step2", db.getProgress(Quest.TOPPING))
         assertEquals(42, prefs.getInt("booPeakProgress", 0))
     }
 
@@ -269,7 +269,7 @@ class QuestSpecialSyncTest {
     fun apply_peakStatusBooPeakCheckOutSetsStartedProgress() {
         val prefs = Preferences(MapSettings())
         val db = QuestDatabase(prefs)
-        db.setProgress(Quest.MACGUFFIN, QuestDatabase.STARTED)
+        db.setProgress(Quest.TOPPING, "step2")
         assertTrue(
             QuestSpecialSync.apply("You should check out A-Boo Peak.", db, prefs),
         )
@@ -280,13 +280,13 @@ class QuestSpecialSyncTest {
     fun apply_peakStatusCompletesAllPeaksToStep3() {
         val prefs = Preferences(MapSettings())
         val db = QuestDatabase(prefs)
-        db.setProgress(Quest.MACGUFFIN, "step2")
+        db.setProgress(Quest.TOPPING, "step2")
         prefs.setBoolean("booPeakLit", true)
         prefs.setInt("twinPeakProgress", 15)
         assertTrue(
             QuestSpecialSync.apply("You lit the fire on Oil Peak.", db, prefs),
         )
-        assertEquals("step3", db.getProgress(Quest.MACGUFFIN))
+        assertEquals("step3", db.getProgress(Quest.TOPPING))
         assertTrue(prefs.getBoolean("oilPeakLit", false))
     }
 

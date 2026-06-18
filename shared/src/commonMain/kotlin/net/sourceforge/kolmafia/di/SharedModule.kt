@@ -107,7 +107,7 @@ val sharedModule = module {
     singleOf(::ChoiceRequest)
     single { GoalManager() }
     single { QuestDatabase(get()) }
-    singleOf(::QuestLogRequest)
+    single { QuestLogRequest(get(), get(), get()) }
     single {
         ChoiceSolvers(
             safetyShelter = SafetyShelterSolverImpl(),

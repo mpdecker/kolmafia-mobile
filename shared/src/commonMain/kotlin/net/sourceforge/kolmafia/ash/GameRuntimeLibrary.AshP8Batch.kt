@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.modifiers.StatNames
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 
@@ -164,14 +165,8 @@ internal fun GameRuntimeLibrary.registerAshP8Batch(scope: AshScope) {
     }
 
     regFn(scope, "my_basestat", AshType.INT, listOf("stat" to AshType.STRING)) { _, args ->
-        val statName = args[0].toString().lowercase()
         val cs = character?.state?.value
-        AshValue.of(when (statName) {
-            "muscle", "mus" -> (cs?.baseMusc ?: 0).toLong()
-            "mysticality", "myst", "mys" -> (cs?.baseMyst ?: 0).toLong()
-            "moxie", "mox" -> (cs?.baseMoxie ?: 0).toLong()
-            else -> 0L
-        })
+        AshValue.of(if (cs == null) 0L else StatNames.baseValue(cs, args[0].toString()))
     }
 
     regFn(scope, "have_skill", AshType.BOOLEAN, listOf("id" to AshType.INT)) { _, args ->

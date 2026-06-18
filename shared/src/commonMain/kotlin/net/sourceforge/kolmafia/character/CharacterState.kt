@@ -143,6 +143,10 @@ data class CharacterState(
         get() = !kingLiberated && ascensionPath == AscensionPath.SURPRISING_FIST
     val isAxecore: Boolean
         get() = ascensionPath == AscensionPath.AVATAR_OF_BORIS
+    val isLowkey: Boolean
+        get() = ascensionPath == AscensionPath.LOW_KEY
+    val isKingdomOfExploathing: Boolean
+        get() = ascensionPath == AscensionPath.KINGDOM_OF_EXPLOATHING
 
     // ── Computed: main buffed stat ────────────────────────────────────────────
     val buffedMainStat: Int get() = when (mainStat) {
