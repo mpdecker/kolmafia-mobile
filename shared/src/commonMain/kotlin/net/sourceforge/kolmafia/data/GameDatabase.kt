@@ -51,6 +51,9 @@ open class GameDatabase {
         // Quest log text patterns (for quest state detection)
         QuestLogDatabase.load()
         QuestCouncilDatabase.load()
+        JourneymanDatabase.load()
+        WitchessSolutionDatabase.load()
+        VolcanoMazeDatabase.load()
 
         isLoaded = true
     }

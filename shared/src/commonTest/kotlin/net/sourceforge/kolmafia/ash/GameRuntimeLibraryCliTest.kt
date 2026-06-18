@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.VolcanoMazeDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.request.EquipmentRequest
@@ -1414,6 +1415,26 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_journeyFind_printsSkillLocation() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        val out = outputLib(lib, """cli_execute("journey find SC Accordion Bash");""")
+        assertTrue(out.contains("Barrrney's Barrr"))
+        assertTrue(out.contains("4 turns"))
+    }
+
+    @Test
+    fun cliExecute_journeyZones_printsClassSkillTable() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        val out = outputLib(lib, """cli_execute("journey zones SC");""")
+        assertTrue(out.contains("Barrrney's Barrr"))
+        assertTrue(out.contains("Accordion Bash"))
+    }
+
+    @Test
     fun cliExecute_counters_listsNamedCounters() {
         val prefs = com.russhwolf.settings.MapSettings()
         val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
@@ -1729,5 +1750,123 @@ class GameRuntimeLibraryCliTest {
         val lib = GameRuntimeLibrary(preferences = prefs, questDatabase = db, character = char)
         val out = outputLib(lib, """cli_execute("lowkey");""")
         assertTrue(out.contains("Polka Dotted Lock"), out)
+    }
+
+    @Test
+    fun cliExecute_witchessBuff_whenAlreadyBuffed_printsMessage() {
+        val preferences = prefs()
+        preferences.setBoolean("_witchessBuff", true)
+        val lib = GameRuntimeLibrary(
+            preferences = preferences,
+            httpClient = HttpClient(MockEngine { respond("ok") }),
+        )
+        val out = outputLib(lib, """cli_execute("witchess buff");""")
+        assertTrue(out.contains("already got your Witchess buff"))
+    }
+
+    @Test
+    fun cliExecute_witchessUnknownSubcommand_printsUsage() {
+        val lib = GameRuntimeLibrary(
+            preferences = prefs(),
+            httpClient = HttpClient(MockEngine { respond("ok") }),
+        )
+        val out = outputLib(lib, """cli_execute("witchess dance");""")
+        assertTrue(out.contains("not sure what you want me to do"))
+    }
+
+    @Test
+    fun cliExecute_witchessSolve_solvesDailyPuzzles() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val preferences = prefs()
+        var witchessPosts = 0
+        val client = HttpClient(MockEngine { request ->
+            val url = request.url.toString()
+            val body = when {
+                url.contains("campground.php") && !url.contains("action=witchess") ->
+                    "<html>chesstable.gif</html>"
+                url.contains("witchess.php") -> {
+                    witchessPosts++
+                    when (witchessPosts) {
+                        1 -> "<html>Witchess Puzzle #26</html>"
+                        2 -> "[true]"
+                        else -> "<html>Witchess Puzzle #27 Solved Today</html>"
+                    }
+                }
+                else -> "ok"
+            }
+            respond(body)
+        })
+        val lib = GameRuntimeLibrary(
+            preferences = preferences,
+            gameDatabase = db,
+            httpClient = client,
+        )
+        val out = outputLib(lib, """cli_execute("witchess solve");""")
+        assertTrue(out.contains("Attempting to solve Witchess Puzzle #26"), out)
+        assertTrue(out.contains("Solved!"), out)
+        assertTrue(out.contains("Already solved Witchess Puzzle #27"), out)
+        assertEquals(6, witchessPosts)
+        assertTrue(out.contains("Solved daily Witchess puzzles"))
+    }
+
+    @Test
+    fun cliExecute_volcanoMap_printsAsciiGrid() {
+        val preferences = prefs()
+        preferences.setString(
+            "volcanoMaze1",
+            "0,4,7,9,21,27,31,37,45,51,53,62,66,68,78,85,86,96,107,112,113,116,118,121,127,131,133,137,138,143,159,161,163,166",
+        )
+        val lib = GameRuntimeLibrary(preferences = preferences)
+        val out = outputLib(lib, """cli_execute("volcano map 1");""")
+        assertTrue(out.contains('*'))
+        assertTrue(out.contains('O'))
+    }
+
+    @Test
+    fun cliExecute_volcanoClear_clearsMazePrefs() {
+        val preferences = prefs()
+        preferences.setString("volcanoMaze1", "0,4,7")
+        preferences.setString("volcanoMaze2", "1,2,3")
+        val lib = GameRuntimeLibrary(preferences = preferences)
+        runLib(lib, """cli_execute("volcano clear");""")
+        assertEquals("", preferences.getString("volcanoMaze1", "x"))
+        assertEquals("", preferences.getString("volcanoMaze2", "x"))
+    }
+
+    @Test
+    fun cliExecute_volcanoUnknownSubcommand_printsError() {
+        val lib = GameRuntimeLibrary(preferences = prefs())
+        val out = outputLib(lib, """cli_execute("volcano dance");""")
+        assertTrue(out.contains("What do you want to do in the volcano?"))
+    }
+
+    @Test
+    fun cliExecute_volcanoTest_printsHopCoordinates() = runBlocking {
+        VolcanoMazeDatabase.load()
+        val preferences = prefs()
+        val sequence = VolcanoMazeDatabase.getMapSequence(1)!!
+        for (i in sequence.indices) {
+            preferences.setString("volcanoMaze${i + 1}", sequence[i]!!.coordinates)
+        }
+        val lib = GameRuntimeLibrary(preferences = preferences)
+        val out = outputLib(lib, """cli_execute("volcano test");""")
+        assertTrue(out.contains("Hop to"))
+        assertTrue(out.contains("Paths examined/made"))
+    }
+
+    @Test
+    fun cliExecute_volcanoStep_advancesWithJsonResponse() = runBlocking {
+        val preferences = prefs()
+        preferences.setString(
+            "volcanoMaze1",
+            "0,4,7,9,21,27,31,37,45,51,53,62,66,68,78,85,86,96,107,112,113,116,118,121,127,131,133,137,138,143,159,161,163,166",
+        )
+        val json =
+            """{"won":false,"pos":"6,12","show":["3","6","10","14","18","23","26","30","32","41","43","50","52","57","59","60","64","86","92","97","102","106","109","111","114","115","117","119","129","136","145","148","153","154","157","164"]}"""
+        val client = HttpClient(MockEngine { respond(json) })
+        val lib = GameRuntimeLibrary(preferences = preferences, httpClient = client)
+        val out = outputLib(lib, """cli_execute("volcano step");""")
+        assertTrue(out.contains("Current position"))
     }
 }

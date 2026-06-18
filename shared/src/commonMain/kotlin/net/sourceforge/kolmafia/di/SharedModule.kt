@@ -30,6 +30,7 @@ import net.sourceforge.kolmafia.adventure.choice.solvers.VampOutSolverImpl
 import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.servant.EdServantManager
 import net.sourceforge.kolmafia.vykea.VykeaCompanionManager
+import net.sourceforge.kolmafia.thrall.PastaThrallManager
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.character.DailyResourceTracker
@@ -217,6 +218,12 @@ val sharedModule = module {
         VykeaCompanionManager(preferences = get())
     }
     single {
+        PastaThrallManager(
+            preferences = get(),
+            character = get(),
+        )
+    }
+    single {
         AdventureManager(
             adventureRequest = get(),
             fightRequest     = get(),
@@ -296,6 +303,7 @@ val sharedModule = module {
             choiceRequest       = get(),
             edServantManager    = get(),
             vykeaCompanionManager = get(),
+            pastaThrallManager    = get(),
         )
     }
     singleOf(::ScriptManager)

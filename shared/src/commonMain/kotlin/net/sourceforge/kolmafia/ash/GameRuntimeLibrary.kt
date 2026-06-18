@@ -129,6 +129,7 @@ class GameRuntimeLibrary(
     internal val choiceRequest: ChoiceRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
+    internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -136,7 +137,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase70"
+        const val REVISION = "phase75"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -513,6 +514,14 @@ class GameRuntimeLibrary(
             if (table.isNotBlank()) rt.print(table)
         },
 
+        Regex("^journey(?:\\s+(.+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliJourney(m.groupValues[1], rt::print)
+        },
+
+        Regex("^witchess(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliWitchess(m.groupValues[1].trim(), rt::print)
+        },
+
         Regex("^cemet(?:ery|ary)$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("place.php?whichplace=cemetery", applyQuestHooks = true)
         },
@@ -538,9 +547,8 @@ class GameRuntimeLibrary(
             preferences?.setBoolean(m.groupValues[1].trim(), false)
         },
 
-        Regex("^volcano\\s+visit$", RegexOption.IGNORE_CASE) to { _, _ ->
-            visitKolPage("bigisland.php")
-            preferences?.setBoolean(Preferences.VOLCANO_ISLAND_VISITED, true)
+        Regex("^volcano(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliVolcano(m.groupValues[1].trim(), rt::print)
         },
 
         Regex("^factory$", RegexOption.IGNORE_CASE) to { _, _ ->
@@ -1733,6 +1741,7 @@ class GameRuntimeLibrary(
                 ) {
                     edServantManager?.syncFromCharpane(html)
                     vykeaCompanionManager?.syncFromCharpane(html)
+                    pastaThrallManager?.syncFromCharpane(html)
                 }
                 if (path.contains("edbase", ignoreCase = true) && html.contains("whichchoice=1053")) {
                     edServantManager?.syncFromChoice1053(html)

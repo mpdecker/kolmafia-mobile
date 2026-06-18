@@ -19,6 +19,8 @@ import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.PastaThrall
+import net.sourceforge.kolmafia.thrall.PastaThrallManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -192,6 +194,20 @@ class AshCompatibilityCorpusTest {
         val lib = GameRuntimeLibrary(preferences = prefs, vykeaCompanionManager = manager)
         assertEquals("CHEBLI, the level 5 blood lamp", outputLib(lib, "print(my_vykea_companion());").trim())
         assertEquals("5", outputLib(lib, """print(my_vykea_companion()["level"]);""").trim())
+    }
+
+    @Test
+    fun corpus_myThrall_live() = runBlocking {
+        val prefs = prefs()
+        prefs.setString(PastaThrallManager.CURRENT_THRALL_PREF, "Vampieroghi")
+        prefs.setString(PastaThrall.prefKey(1), "7,Count Alfredo")
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(name = "Test", classId = "3"))
+        }
+        val manager = PastaThrallManager(prefs, char)
+        val lib = GameRuntimeLibrary(preferences = prefs, character = char, pastaThrallManager = manager)
+        assertEquals("Vampieroghi", outputLib(lib, "print(my_thrall());").trim())
+        assertEquals("7", outputLib(lib, """print(my_thrall()["level"]);""").trim())
     }
 
     @Test
