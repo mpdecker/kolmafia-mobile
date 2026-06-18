@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-06-16 after Phase 61; PirateRealm islands + AshP25 STAT + tower/lowkey CLI)*
+*Generated: 2026-06-03 (updated 2026-06-16 after Phase 66; AshP30 MONSTER/PATH/THRALL + Ed charpane sync)*
 
 ## Scale Comparison
 
@@ -10,7 +10,7 @@
 | Source files             | ~1,172 classes              | ~253 files (commonMain) | ~22%                    |
 | Lines of code            | ~57,000                     | ~15,000+ (commonMain)   | ~26%                    |
 | Test files               | 411                         | 126+                    | ~31%                    |
-| Tests                    | ~1,800+                     | 1,869                   | ~99% (of covered scope) |
+| Tests                    | ~1,800+                     | 1,913                   | ~99% (of covered scope) |
 | ASH overload signatures  | ~890                        | ≥890 registered         | **~100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~370–420 live + stubs   | **~50–55%** (behavioral) |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN) | **100%**                |
@@ -530,14 +530,14 @@ mobile wins on core automation paths and test isolation.
 
 ### Tier 1 — Script compatibility (highest user impact)
 
-1. **ASH behavioral parity** — replace remaining stub implementations in AshP8–P18 (interactive, PvP); ~~no-arg current-character modifiers~~ **AshP22 live** *(Phase 58)*; ~~ELEMENT entity modifiers + numerics_modifier~~ **AshP23 live** *(Phase 59)*; ~~CLASS entity modifiers~~ **AshP24 live** *(Phase 60)*; ~~STAT entity validation + substat queries~~ **AshP25 live** *(Phase 61)*; ~~SERVANT/VYKEA entity validation + couch/lamp modifiers~~ **AshP26 live** *(Phase 62)*; expand `AshCompatibilityCorpusTest` assertions
-2. **CLI long-tail** — mine `cli_execute` from community scripts; wire top missing patterns into `cliDispatch` *(Phase 53: `speculate`; Phase 55: `guzzlr`; Phase 56: `maze`; Phase 58: `door`; Phase 61: `tower`/`lowkey` status)*
+1. **ASH behavioral parity** — replace remaining stub implementations in AshP8–P18 (interactive, PvP); ~~no-arg current-character modifiers~~ **AshP22 live** *(Phase 58)*; ~~ELEMENT entity modifiers + numerics_modifier~~ **AshP23 live** *(Phase 59)*; ~~CLASS entity modifiers~~ **AshP24 live** *(Phase 60)*; ~~STAT entity validation + substat queries~~ **AshP25 live** *(Phase 61)*; ~~SERVANT/VYKEA entity validation + couch/lamp modifiers~~ **AshP26 live** *(Phase 62)*; ~~BOUNTY/SLOT/PHYLUM entity validation~~ **AshP27 live** *(Phase 63)*; ~~COINMASTER/MODIFIER entity validation + live to_coinmaster/to_modifier~~ **AshP28 live** *(Phase 64)*; ~~CLASS/ELEMENT entity validation + live to_class/to_element~~ **AshP29 live** *(Phase 65)*; ~~MONSTER/PATH/THRALL live to_* resolvers + AshP13 stub cleanup~~ **AshP30 live** *(Phase 66)*; expand `AshCompatibilityCorpusTest` assertions
+2. **CLI long-tail** — mine `cli_execute` from community scripts; wire top missing patterns into `cliDispatch` *(Phase 53: `speculate`; Phase 55: `guzzlr`; Phase 56: `maze`; Phase 58: `door`; Phase 61: `tower`/`lowkey` status; Phase 65: `servant`/`servants` + `use_servant` ASH; Phase 66: Ed charpane sync on `charpane`/`absorb` visit)*
 3. **Entity modifier depth** — ~~location/monster/path modifier queries~~ **LOCATION/PATH/THRALL live** *(Phase 53)*; ~~outfit type:name modifiers~~ **AshP21 live** *(Phase 56)*; ~~Sign type:name modifiers~~ **AshP21 Sign alias** *(Phase 57)*; monster modifiers remain deferred (no bundled data)
 
 ### Tier 2 — Automation depth
 
 4. **Maximizer unified Evaluator** — port scoring pipeline from desktop `Evaluator.java`
-5. **Quest tracking depth** — ~~Sorceress tower~~ *(Phase 54)*; ~~Doctor/Guzzlr~~ *(Phase 54)*; ~~Rufus quest-log sync~~ *(Phase 55)*; ~~Rufus Shadow Labyrinth~~ *(Phase 56)*; ~~hedge maze CLI runner~~ *(Phase 57)*; ~~Rufus shadow rift counter~~ *(Phase 57)*; ~~tower door CLI v1~~ *(Phase 58)*; ~~Low-Key tower door + Rufus shadow NC~~ *(Phase 59)*; ~~PirateRealm sail sync + TOPPING peak fix + quest-log absence clearing~~ *(Phase 60)*; ~~PirateRealm island sub-progress~~ *(Phase 61)*; ~~PirateRealm windicle combat hook~~ *(Phase 62)*
+5. **Quest tracking depth** — ~~Sorceress tower~~ *(Phase 54)*; ~~Doctor/Guzzlr~~ *(Phase 54)*; ~~Rufus quest-log sync~~ *(Phase 55)*; ~~Rufus Shadow Labyrinth~~ *(Phase 56)*; ~~hedge maze CLI runner~~ *(Phase 57)*; ~~Rufus shadow rift counter~~ *(Phase 57)*; ~~tower door CLI v1~~ *(Phase 58)*; ~~Low-Key tower door + Rufus shadow NC~~ *(Phase 59)*; ~~PirateRealm sail sync + TOPPING peak fix + quest-log absence clearing~~ *(Phase 60)*; ~~PirateRealm island sub-progress~~ *(Phase 61)*; ~~PirateRealm windicle combat hook~~ *(Phase 62)*; ~~PirateRealm island adventure routing~~ *(Phase 63)*
 6. **KoLCharacter fields** — campground, ascension, per-quest counters scripts expect
 
 ### Tier 3 — Data wiring
@@ -616,6 +616,10 @@ Phase 59 → Low-Key tower door (30 locks, lock pick, KOE keys); Rufus handleSha
 Phase 60 → PirateRealm sail sync (step1/6/11); TOPPING peak fix + PIRATE belowdecks; quest-log absence clearing; AshP24 CLASS modifiers; tower_door ASH + universal key; 1,844 tests
 Phase 61 → PirateRealm island sub-progress (choices 1347–1385, adventure 531 combat); AshP25 STAT entity + substat basestat; tower/lowkey CLI status table; 1,859 tests
 Phase 62 → AshP26 SERVANT/VYKEA entity validation + couch/lamp modifiers + have_servant; PirateRealm windicle combat hook (adventure 531); 1,869 tests
+Phase 63 → AshP27 BOUNTY/SLOT/PHYLUM entity validation; PirateRealm island adventure routing (`prAlways`/`_prToday`/`_lastPirateRealmIsland`); 1,884 tests
+Phase 64 → AshP28 COINMASTER/MODIFIER entity validation + live to_coinmaster/to_modifier; to_slot(ITEM) item→slot mapping; 1,892 tests
+Phase 65 → AshP29 CLASS/ELEMENT entity validation + live to_class/to_element; Ed servant CLI + use_servant ASH; 1,902 tests
+Phase 66 → AshP30 live to_monster/to_path/to_thrall + AshP13 stub cleanup; Ed charpane sync + my_servant wiring; 1,913 tests
 Audit → Full parity audit: dual ASH metrics (≥890 registered vs ~350–400 behavioral); Subsystem Scale table; Bundled Data Gap (28 loaded / 22 unwired); Tier 1–4 Top Priorities; JS runtime + explicit non-goals documented
 ```
 

@@ -211,6 +211,56 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_servant_nonEd_printsError() {
+        val prefs = Preferences(com.russhwolf.settings.MapSettings())
+        val client = HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) })
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(name = "Test", classId = "1", path = "Standard"),
+            )
+        }
+        val manager = net.sourceforge.kolmafia.servant.EdServantManager(client, prefs, char)
+        val lib = GameRuntimeLibrary(
+            character = char,
+            preferences = prefs,
+            edServantManager = manager,
+        )
+        val out = outputLib(lib, """cli_execute("servant Cat");""")
+        assertTrue(out.contains("Only Ed the Undying has entombed servants!"))
+    }
+
+    @Test
+    fun cliExecute_servant_ed_switchesServant() {
+        val prefs = Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setString(net.sourceforge.kolmafia.servant.EdServantManager.SERVANTS_PREF, "Cat")
+        val requests = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            requests.add(request.url.toString())
+            respond("ok", HttpStatusCode.OK)
+        }
+        val client = HttpClient(engine)
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(
+                    name = "Test",
+                    classId = "7",
+                    path = "Actually Ed the Undying",
+                ),
+            )
+        }
+        val manager = net.sourceforge.kolmafia.servant.EdServantManager(client, prefs, char)
+        val lib = GameRuntimeLibrary(
+            character = char,
+            preferences = prefs,
+            edServantManager = manager,
+        )
+        runLib(lib, """cli_execute("servant Cat");""")
+        assertTrue(requests.any { it.contains("edbase_door") })
+        assertTrue(requests.any { it.contains("whichchoice=1053") && it.contains("sid=1") })
+        assertEquals("Cat", prefs.getString(net.sourceforge.kolmafia.servant.EdServantManager.ACTIVE_SERVANT_PREF, ""))
+    }
+
+    @Test
     fun cliExecute_eat_callsEatFoodRequest() {
         val engine = MockEngine { respond("ok", HttpStatusCode.OK) }
         val client = HttpClient(engine)

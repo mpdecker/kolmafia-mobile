@@ -77,9 +77,53 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
-    fun corpus_entityConversionStubs() {
-        val lib = GameRuntimeLibrary.forTesting()
-        assertEquals("bogus", outputLib(lib, """print(to_bounty("bogus"));"""))
+    fun corpus_coinmasterModifierEntity_live() = runBlocking {
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.load()
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("Dimemaster", outputLib(lib, """print(to_coinmaster("dimemaster"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_coinmaster("bogus"));""").trim())
+        assertEquals("Muscle Percent", outputLib(lib, """print(to_modifier("Muscle Percent"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_modifier("bogus"));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_coinmaster("dmt"))));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_modifier("Meat Drop"))));""").trim())
+    }
+
+    @Test
+    fun corpus_bountySlotPhylumEntity_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("bean-shaped rock", outputLib(lib, """print(to_bounty("bean-shaped rock"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_bounty("bogus"));""").trim())
+        assertEquals("acc1", outputLib(lib, """print(to_slot("acc1"));""").trim())
+        assertEquals("undead", outputLib(lib, """print(to_phylum("undead"));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_slot("hat"))));""").trim())
+    }
+
+    @Test
+    fun corpus_classElementEntity_live() {
+        val lib = GameRuntimeLibrary()
+        assertEquals("Seal Clubber", outputLib(lib, """print(to_class("Seal Clubber"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_class("bogus"));""").trim())
+        assertEquals("cold", outputLib(lib, """print(to_element("cold"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_element("bogus"));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_class("Pastamancer"))));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_element("stench"))));""").trim())
+    }
+
+    @Test
+    fun corpus_monsterPathThrallEntity_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("huge mosquito", outputLib(lib, """print(to_monster("huge mosquito"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_monster("bogus"));""").trim())
+        assertEquals("Dark Gyffte", outputLib(lib, """print(to_path("Dark Gyffte"));""").trim())
+        assertEquals("Lasagmbie", outputLib(lib, """print(to_thrall("Lasagmbie"));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_monster("huge mosquito"))));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(is_valid(to_thrall("Lasagmbie"))));""").trim())
     }
 
     @Test

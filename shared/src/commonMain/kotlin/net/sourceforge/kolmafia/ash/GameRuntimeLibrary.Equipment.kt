@@ -1,16 +1,32 @@
 package net.sourceforge.kolmafia.ash
 
-import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.modifiers.SlotNames
 
 internal fun GameRuntimeLibrary.registerEquipmentQueries(scope: AshScope) {
 
     fun resolveSlot(slotName: String): String? {
-        val slot = EquipmentSlot.entries.find { s ->
-            s.displayName.equals(slotName, ignoreCase = true)
-                || s.apiKey.equals(slotName, ignoreCase = true)
-        }
-        val itemName = slot?.let { character?.state?.value?.equipment?.get(it) }
+        val slot = SlotNames.toEquipmentSlot(slotName) ?: return null
+        val itemName = character?.state?.value?.equipment?.get(slot)
         return if (itemName.isNullOrBlank()) null else itemName
+    }
+
+    fun slotForItem(itemRef: String): String {
+        val db = gameDatabase ?: return ""
+        val item = itemRef.toIntOrNull()?.let { db.item(it) } ?: db.item(itemRef)
+            ?: return ""
+        return when (item.primaryUse) {
+            ItemPrimaryUse.HAT -> "hat"
+            ItemPrimaryUse.WEAPON -> "weapon"
+            ItemPrimaryUse.SIXGUN -> "holster"
+            ItemPrimaryUse.OFFHAND -> "off-hand"
+            ItemPrimaryUse.CONTAINER -> "container"
+            ItemPrimaryUse.SHIRT -> "shirt"
+            ItemPrimaryUse.PANTS -> "pants"
+            ItemPrimaryUse.ACCESSORY -> "acc1"
+            ItemPrimaryUse.FAMILIAR -> "familiar"
+            else -> ""
+        }
     }
 
     regFn(scope, "equipped_item", AshType.ITEM,
@@ -28,7 +44,13 @@ internal fun GameRuntimeLibrary.registerEquipmentQueries(scope: AshScope) {
 
     regFn(scope, "to_slot", AshType.SLOT,
         listOf("name" to AshType.STRING)) { _, args ->
-        AshValue(AshType.SLOT, args[0].toString())
+        val resolved = SlotNames.resolve(args[0].toString())
+        AshValue(AshType.SLOT, resolved ?: "")
+    }
+
+    regFn(scope, "to_slot", AshType.SLOT,
+        listOf("it" to AshType.ITEM)) { _, args ->
+        AshValue(AshType.SLOT, slotForItem(args[0].toString()))
     }
 
     regFn(scope, "slot_to_item", AshType.ITEM,

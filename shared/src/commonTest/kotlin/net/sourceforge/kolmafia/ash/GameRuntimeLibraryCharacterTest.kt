@@ -75,9 +75,9 @@ class GameRuntimeLibraryCharacterTest {
     }
 
     @Test
-    fun toPath_roundTripsPathName() {
+    fun toPath_invalidNameReturnsEmpty() {
         val lib = GameRuntimeLibrary.forTesting()
-        assertEquals("none", outputLib(lib, """print(to_string(to_path("none")));""").trim())
+        assertEquals("", outputLib(lib, """print(to_string(to_path("none")));""").trim())
     }
 
     @Test

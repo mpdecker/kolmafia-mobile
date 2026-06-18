@@ -45,6 +45,8 @@ object ServantData {
 
     fun isValid(name: String): Boolean = resolve(name) != null
 
+    fun typeForId(id: Int): String? = SERVANTS.firstOrNull { it.id == id }?.type
+
     private fun substringMatches(name: String, search: String, wordStart: Boolean): Boolean {
         if (search.isEmpty()) return false
         var index = name.indexOf(search)

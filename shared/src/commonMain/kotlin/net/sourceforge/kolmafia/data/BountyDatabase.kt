@@ -5,12 +5,16 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 
 object BountyDatabase {
     private val _byName = mutableMapOf<String, BountyData>()
+    private val _canonicalToName = mutableMapOf<String, String>()
+    private var _canonicalNames = emptyArray<String>()
     private val _easy = mutableListOf<BountyData>()
     private val _hard = mutableListOf<BountyData>()
     private val _special = mutableListOf<BountyData>()
     private var loaded = false
 
     val byName: Map<String, BountyData> get() = _byName
+
+    private fun canonicalName(name: String): String = name.trim().lowercase()
 
     @OptIn(ExperimentalResourceApi::class)
     suspend fun load() {
@@ -66,10 +70,50 @@ object BountyDatabase {
             }
         }
 
+        rebuildCanonicalIndex()
         loaded = true
     }
 
+    private fun rebuildCanonicalIndex() {
+        _canonicalToName.clear()
+        _canonicalNames = _byName.values.map { bounty ->
+            val canonical = canonicalName(bounty.name)
+            _canonicalToName[canonical] = bounty.name
+            canonical
+        }.sorted().toTypedArray()
+    }
+
     fun getByName(name: String): BountyData? = _byName[name.lowercase()]
+
+    fun getMatchingNames(substring: String): List<String> {
+        val trimmed = substring.trim()
+        if (trimmed.isEmpty()) return emptyList()
+
+        getByName(trimmed)?.let { return listOf(it.name) }
+
+        val search = canonicalName(trimmed)
+        if (search.isEmpty()) return emptyList()
+
+        _canonicalNames.firstOrNull { it == search }?.let { canonical ->
+            return listOf(_canonicalToName[canonical] ?: "")
+        }
+
+        val wordStart = _canonicalNames.filter { substringMatches(it, search, wordStart = true) }
+            .mapNotNull { _canonicalToName[it] }
+        if (wordStart.isNotEmpty()) return wordStart
+
+        return _canonicalNames.filter { substringMatches(it, search, wordStart = false) }
+            .mapNotNull { _canonicalToName[it] }
+    }
+
+    fun resolve(name: String): String? {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || trimmed.equals("none", ignoreCase = true)) return null
+        val matches = getMatchingNames(trimmed)
+        return if (matches.size == 1) matches[0] else null
+    }
+
+    fun isValid(name: String): Boolean = resolve(name) != null
 
     fun all(): Collection<BountyData> = _byName.values
 
@@ -82,5 +126,15 @@ object BountyDatabase {
     fun forMonster(monsterName: String): List<BountyData> {
         val lower = monsterName.lowercase()
         return _byName.values.filter { it.monster.lowercase() == lower }
+    }
+
+    private fun substringMatches(name: String, search: String, wordStart: Boolean): Boolean {
+        if (search.isEmpty()) return false
+        var index = name.indexOf(search)
+        while (index >= 0) {
+            if (!wordStart || index == 0) return true
+            index = name.indexOf(search, index + 1)
+        }
+        return false
     }
 }

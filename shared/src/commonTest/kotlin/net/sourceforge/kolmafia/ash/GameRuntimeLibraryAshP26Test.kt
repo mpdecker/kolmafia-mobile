@@ -1,8 +1,18 @@
 package net.sourceforge.kolmafia.ash
 
+import com.russhwolf.settings.MapSettings
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.character.CharacterApiResponse
+import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.servant.EdServantManager
 
 class GameRuntimeLibraryAshP26Test {
 
@@ -55,5 +65,23 @@ class GameRuntimeLibraryAshP26Test {
     fun vykeaTypeOf_returnsVykea() = runBlocking {
         val lib = GameRuntimeLibrary()
         assertEquals("vykea", outputLib(lib, """print(type_of(to_vykea("level 1 lamp")));""").trim())
+    }
+
+    @Test
+    fun useServant_ed_switchesActiveServant() = runBlocking {
+        val prefs = Preferences(MapSettings())
+        prefs.setString(EdServantManager.SERVANTS_PREF, "Cat")
+        val engine = MockEngine { respond("ok", HttpStatusCode.OK) }
+        val client = HttpClient(engine)
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(name = "Test", classId = "7", path = "Actually Ed the Undying"),
+            )
+        }
+        val manager = EdServantManager(client, prefs, char)
+        val lib = GameRuntimeLibrary(preferences = prefs, character = char, edServantManager = manager)
+        val out = outputLib(lib, """print(to_string(use_servant(to_servant("Cat"))));""")
+        assertTrue(out.endsWith("true"), "expected success, got: $out")
+        assertEquals("Cat", prefs.getString(EdServantManager.ACTIVE_SERVANT_PREF, ""))
     }
 }

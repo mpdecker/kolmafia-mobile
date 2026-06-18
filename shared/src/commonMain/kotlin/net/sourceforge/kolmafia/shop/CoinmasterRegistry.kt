@@ -15,13 +15,21 @@ object CoinmasterRegistry {
     fun findByNickname(nickname: String): CoinmasterData? {
         val key = nickname.lowercase()
         val fromDb = CoinmasterDatabase.findByNickname(nickname)
-        val fromFallback = FALLBACK.firstOrNull { it.allNicknames.any { n -> n.equals(key, ignoreCase = true) } }
+            ?: CoinmasterDatabase.findByMasterName(nickname)
+        val fromFallback = FALLBACK.firstOrNull {
+            it.masterName.equals(nickname.trim(), ignoreCase = true) ||
+                it.allNicknames.any { n -> n.equals(key, ignoreCase = true) }
+        }
         return when {
             fromDb == null -> fromFallback
             fromDb.buyItems.isEmpty() && fromFallback?.buyItems?.isNotEmpty() == true -> fromFallback
             else -> fromDb
         }
     }
+
+    fun findByMasterName(masterName: String): CoinmasterData? =
+        CoinmasterDatabase.findByMasterName(masterName)
+            ?: all.firstOrNull { it.masterName.equals(masterName.trim(), ignoreCase = true) }
 
     fun findByShopId(shopId: String): CoinmasterData? =
         CoinmasterDatabase.findByShopId(shopId)
@@ -32,6 +40,18 @@ object CoinmasterRegistry {
             ?: all.firstNotNullOfOrNull { master ->
                 master.buyRowFor(itemId)?.let { master to it }
             }
+
+    fun resolve(name: String): String? {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || trimmed.equals("none", ignoreCase = true)) return null
+        return findByNickname(trimmed)?.masterName
+    }
+
+    fun isValid(name: String): Boolean {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || trimmed.equals("none", ignoreCase = true)) return false
+        return findByNickname(trimmed) != null
+    }
 
     /** Minimal fallback when [CoinmasterDatabase] has not been loaded yet (e.g. unit tests). */
     private val FALLBACK: List<CoinmasterData> = listOf(

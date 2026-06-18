@@ -127,6 +127,7 @@ class GameRuntimeLibrary(
     internal val sendMailRequest: SendMailRequest? = null,
     internal val sendGiftRequest: SendGiftRequest? = null,
     internal val choiceRequest: ChoiceRequest? = null,
+    internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -134,7 +135,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase62"
+        const val REVISION = "phase66"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -270,6 +271,20 @@ class GameRuntimeLibrary(
         Regex("^bjornify\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val name = m.groupValues[1].trim()
             kotlinx.coroutines.runBlocking { familiarManager?.setBjornified(name) }
+        },
+
+        // "servant type" — Ed entombed servant switch
+        Regex("^servant\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val type = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking {
+                edServantManager?.useServant(type) { message -> rt.print(message) }
+            }
+        },
+
+        // "servants" — list summoned Ed servants
+        Regex("^servants$", RegexOption.IGNORE_CASE) to { _, rt ->
+            edServantManager?.printStatus { message -> rt.print(message) }
+                ?: rt.print("Only Ed the Undying has entombed servants!")
         },
 
         // "retrieve N item" — compound retrieve chain
@@ -1712,6 +1727,11 @@ class GameRuntimeLibrary(
                 val response = client.get("$KOL_BASE_URL/$path")
                 if (!response.status.isSuccess()) return@runBlocking
                 val html = response.bodyAsText()
+                if (path.equals("charpane.php", ignoreCase = true) ||
+                    path.endsWith("/charpane.php", ignoreCase = true)
+                ) {
+                    edServantManager?.syncFromCharpane(html)
+                }
                 if (applyQuestHooks && db != null) {
                     processVisitQuestHooks(html, "$KOL_BASE_URL/$path")
                 }
@@ -1873,6 +1893,9 @@ class GameRuntimeLibrary(
         registerAshP24Batch(scope)
         registerAshP25Batch(scope)
         registerAshP26Batch(scope)
+        registerAshP27Batch(scope)
+        registerAshP28Batch(scope)
+        registerAshP29Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }
@@ -1984,11 +2007,13 @@ class GameRuntimeLibrary(
         }
 
         register(scope, "to_coinmaster", AshType.COINMASTER, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue(AshType.COINMASTER, args[0].toString())
+            val resolved = net.sourceforge.kolmafia.shop.CoinmasterRegistry.resolve(args[0].toString())
+            AshValue(AshType.COINMASTER, resolved ?: "")
         }
 
         register(scope, "to_path", AshType.PATH, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue(AshType.PATH, args[0].toString())
+            val resolved = net.sourceforge.kolmafia.modifiers.PathNames.resolve(args[0].toString())
+            AshValue(AshType.PATH, resolved ?: "")
         }
 
         register(scope, "to_stat", AshType.STAT, listOf("name" to AshType.STRING)) { _, args ->
@@ -1996,7 +2021,8 @@ class GameRuntimeLibrary(
         }
 
         register(scope, "to_thrall", AshType.THRALL, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue(AshType.THRALL, args[0].toString())
+            val resolved = net.sourceforge.kolmafia.modifiers.ThrallNames.resolve(args[0].toString())
+            AshValue(AshType.THRALL, resolved ?: "")
         }
 
         register(scope, "to_servant", AshType.SERVANT, listOf("name" to AshType.STRING)) { _, args ->
@@ -2010,11 +2036,13 @@ class GameRuntimeLibrary(
         }
 
         register(scope, "to_bounty", AshType.BOUNTY, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue(AshType.BOUNTY, args[0].toString())
+            val resolved = net.sourceforge.kolmafia.data.BountyDatabase.resolve(args[0].toString())
+            AshValue(AshType.BOUNTY, resolved ?: "")
         }
 
         register(scope, "to_modifier", AshType.MODIFIER, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue(AshType.MODIFIER, args[0].toString())
+            val resolved = net.sourceforge.kolmafia.modifiers.ModifierNames.byCaselessName(args[0].toString())
+            AshValue(AshType.MODIFIER, resolved ?: "")
         }
     }
 
@@ -2414,11 +2442,6 @@ class GameRuntimeLibrary(
     // ──────────────────────────────────────────────────────────────
 
     private fun registerBanishQueries(scope: AshScope) {
-        // to_monster(string) → monster
-        register(scope, "to_monster", AshType.MONSTER, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue(AshType.MONSTER, args[0].toString())
-        }
-
         // is_banished(monster) → boolean — accepts both monster type and string
         register(scope, "is_banished", AshType.BOOLEAN, listOf("monster" to AshType.MONSTER)) { _, args ->
             val name = args[0].toString()

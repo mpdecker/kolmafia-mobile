@@ -126,6 +126,7 @@ class AdventureManager(
                 if (!AdventurePrep.canAdventureAtZone(
                         location.name,
                         character.state.value,
+                        preferences = preferences,
                     )) {
                     eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.MacroError("cannot adventure at ${location.name}")))
                     return@launch

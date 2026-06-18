@@ -104,7 +104,11 @@ internal fun GameRuntimeLibrary.registerAshP9Batch(scope: AshScope) {
     }
 
     regFn(scope, "to_monster", AshType.MONSTER, listOf("name" to AshType.STRING)) { _, args ->
-        AshValue(AshType.MONSTER, args[0].toString())
+        val resolved = net.sourceforge.kolmafia.modifiers.MonsterNames.resolve(
+            args[0].toString(),
+            gameDatabase,
+        )
+        AshValue(AshType.MONSTER, resolved ?: "")
     }
 
     val jsonSourceTypes = listOf(

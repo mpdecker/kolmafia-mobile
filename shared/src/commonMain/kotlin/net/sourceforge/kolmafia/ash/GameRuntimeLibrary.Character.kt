@@ -80,7 +80,7 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
         listOf("loc" to AshType.LOCATION)) { _, args ->
         val locationName = args[0].toString()
         AshValue.of(
-            AdventurePrep.canAdventureAt(locationName, character?.state?.value)
+            AdventurePrep.canAdventureAt(locationName, character?.state?.value, preferences = preferences)
         )
     }
 
