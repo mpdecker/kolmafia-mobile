@@ -128,6 +128,7 @@ class GameRuntimeLibrary(
     internal val sendGiftRequest: SendGiftRequest? = null,
     internal val choiceRequest: ChoiceRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
+    internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -135,7 +136,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase66"
+        const val REVISION = "phase70"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1374,7 +1375,7 @@ class GameRuntimeLibrary(
         LocationDatabase.findBySnarfblat(name)?.let {
             return AdventureLocation(it.snarfblat, it.name, it.zone)
         }
-        if (name.all { it.isDigit() }) {
+        if (name.isNotEmpty() && name.all { it.isDigit() }) {
             return AdventureLocation(name, name, "")
         }
         return null
@@ -1731,6 +1732,10 @@ class GameRuntimeLibrary(
                     path.endsWith("/charpane.php", ignoreCase = true)
                 ) {
                     edServantManager?.syncFromCharpane(html)
+                    vykeaCompanionManager?.syncFromCharpane(html)
+                }
+                if (path.contains("edbase", ignoreCase = true) && html.contains("whichchoice=1053")) {
+                    edServantManager?.syncFromChoice1053(html)
                 }
                 if (applyQuestHooks && db != null) {
                     processVisitQuestHooks(html, "$KOL_BASE_URL/$path")
@@ -1846,6 +1851,22 @@ class GameRuntimeLibrary(
         params: List<Pair<String, AshType>>,
         impl: (AshRuntimeContext, List<AshValue>) -> AshValue
     ) = register(scope, name, returnType, params, impl)
+
+    override fun resolveEntityIndex(base: AshValue, index: AshValue): AshValue? {
+        val field = index.toString()
+        if (field.isBlank()) return null
+        return when (base.type) {
+            AshType.SERVANT -> ServantEntityFields.resolve(base.toString(), field, edServantManager)
+            AshType.THRALL -> ThrallEntityFields.resolve(
+                base.toString(),
+                field,
+                preferences,
+                gameDatabase,
+            )
+            AshType.VYKEA -> VykeaEntityFields.resolve(base.toString(), field)
+            else -> null
+        }
+    }
 
     override fun registerAll(scope: AshScope) {
         super.registerAll(scope) // registers print() and to_string() overloads from stub
@@ -2003,7 +2024,10 @@ class GameRuntimeLibrary(
 
         // to_location(string) → location — type conversion for locations
         register(scope, "to_location", AshType.LOCATION, listOf("name" to AshType.STRING)) { _, args ->
-            AshValue.location(args[0].toString())
+            val input = args[0].toString()
+            val resolved = resolveLocation(input)?.name
+                ?: net.sourceforge.kolmafia.modifiers.LocationNames.resolve(input)
+            AshValue(AshType.LOCATION, resolved ?: "")
         }
 
         register(scope, "to_coinmaster", AshType.COINMASTER, listOf("name" to AshType.STRING)) { _, args ->

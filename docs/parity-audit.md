@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-06-16 after Phase 66; AshP30 MONSTER/PATH/THRALL + Ed charpane sync)*
+*Generated: 2026-06-03 (updated 2026-06-18 after Phase 70; VYKEA charpane sync + live my_vykea_companion)*
 
 ## Scale Comparison
 
@@ -301,7 +301,7 @@ partial-update methods.
 
 **Added in Phase 14:** `AscensionPath.STANDARD("Standard")` enum entry; `CharacterState.isUnderStandard` computed property; `under_standard()` now reads live value.
 
-**Remaining gaps:** Per-quest flags, telescope monster data, detailed campground state (garden type/yield, mushroom plot), storage/closet item counts, Ed servant runtime (levels/XP), pasta thrall data, VYKEA charpane sync, ascension modifiers.
+**Remaining gaps:** Per-quest flags, telescope monster data, detailed campground state (garden type/yield, mushroom plot), storage/closet item counts, ~~Ed servant runtime (levels/XP)~~ **partial** *(Phase 68: prefs + combat sync; full HTML servants table deferred)*, ~~pasta thrall data~~ **partial** *(Phase 69: `$thrall[field]` bracket reads via PastaThrall prefs; charpane sync deferred)*, ~~VYKEA charpane sync~~ **done** *(Phase 70: charpane parse + live `my_vykea_companion`)*, ascension modifiers.
 
 ### Banish Tracking (PR #8 + PR #10 + PR #13)
 
@@ -530,8 +530,8 @@ mobile wins on core automation paths and test isolation.
 
 ### Tier 1 — Script compatibility (highest user impact)
 
-1. **ASH behavioral parity** — replace remaining stub implementations in AshP8–P18 (interactive, PvP); ~~no-arg current-character modifiers~~ **AshP22 live** *(Phase 58)*; ~~ELEMENT entity modifiers + numerics_modifier~~ **AshP23 live** *(Phase 59)*; ~~CLASS entity modifiers~~ **AshP24 live** *(Phase 60)*; ~~STAT entity validation + substat queries~~ **AshP25 live** *(Phase 61)*; ~~SERVANT/VYKEA entity validation + couch/lamp modifiers~~ **AshP26 live** *(Phase 62)*; ~~BOUNTY/SLOT/PHYLUM entity validation~~ **AshP27 live** *(Phase 63)*; ~~COINMASTER/MODIFIER entity validation + live to_coinmaster/to_modifier~~ **AshP28 live** *(Phase 64)*; ~~CLASS/ELEMENT entity validation + live to_class/to_element~~ **AshP29 live** *(Phase 65)*; ~~MONSTER/PATH/THRALL live to_* resolvers + AshP13 stub cleanup~~ **AshP30 live** *(Phase 66)*; expand `AshCompatibilityCorpusTest` assertions
-2. **CLI long-tail** — mine `cli_execute` from community scripts; wire top missing patterns into `cliDispatch` *(Phase 53: `speculate`; Phase 55: `guzzlr`; Phase 56: `maze`; Phase 58: `door`; Phase 61: `tower`/`lowkey` status; Phase 65: `servant`/`servants` + `use_servant` ASH; Phase 66: Ed charpane sync on `charpane`/`absorb` visit)*
+1. **ASH behavioral parity** — replace remaining stub implementations in AshP8–P18 (interactive, PvP); ~~no-arg current-character modifiers~~ **AshP22 live** *(Phase 58)*; ~~ELEMENT entity modifiers + numerics_modifier~~ **AshP23 live** *(Phase 59)*; ~~CLASS entity modifiers~~ **AshP24 live** *(Phase 60)*; ~~STAT entity validation + substat queries~~ **AshP25 live** *(Phase 61)*; ~~SERVANT/VYKEA entity validation + couch/lamp modifiers~~ **AshP26 live** *(Phase 62)*; ~~BOUNTY/SLOT/PHYLUM entity validation~~ **AshP27 live** *(Phase 63)*; ~~COINMASTER/MODIFIER entity validation + live to_coinmaster/to_modifier~~ **AshP28 live** *(Phase 64)*; ~~CLASS/ELEMENT entity validation + live to_class/to_element~~ **AshP29 live** *(Phase 65)*; ~~MONSTER/PATH/THRALL live to_* resolvers + AshP13 stub cleanup~~ **AshP30 live** *(Phase 66)*; ~~LOCATION live to_location resolver~~ **AshP31 live** *(Phase 67)*; ~~SERVANT entity bracket fields (level/experience/name)~~ **AshP32 live** *(Phase 68)*; ~~THRALL/VYKEA entity bracket fields~~ **AshP33 live** *(Phase 69)*; expand `AshCompatibilityCorpusTest` assertions
+2. **CLI long-tail** — mine `cli_execute` from community scripts; wire top missing patterns into `cliDispatch` *(Phase 53: `speculate`; Phase 55: `guzzlr`; Phase 56: `maze`; Phase 58: `door`; Phase 61: `tower`/`lowkey` status; Phase 65: `servant`/`servants` + `use_servant` ASH; Phase 66: Ed charpane sync on `charpane`/`absorb` visit; Phase 67: Ed choice-1053 summoned-list sync on door/choice HTTP + edbase visit; Phase 68: Ed per-servant level/XP prefs + combat XP increment + `servants` CLI depth; Phase 70: VYKEA charpane sync on `charpane` visit + live `my_vykea_companion`)*
 3. **Entity modifier depth** — ~~location/monster/path modifier queries~~ **LOCATION/PATH/THRALL live** *(Phase 53)*; ~~outfit type:name modifiers~~ **AshP21 live** *(Phase 56)*; ~~Sign type:name modifiers~~ **AshP21 Sign alias** *(Phase 57)*; monster modifiers remain deferred (no bundled data)
 
 ### Tier 2 — Automation depth
@@ -620,6 +620,10 @@ Phase 63 → AshP27 BOUNTY/SLOT/PHYLUM entity validation; PirateRealm island adv
 Phase 64 → AshP28 COINMASTER/MODIFIER entity validation + live to_coinmaster/to_modifier; to_slot(ITEM) item→slot mapping; 1,892 tests
 Phase 65 → AshP29 CLASS/ELEMENT entity validation + live to_class/to_element; Ed servant CLI + use_servant ASH; 1,902 tests
 Phase 66 → AshP30 live to_monster/to_path/to_thrall + AshP13 stub cleanup; Ed charpane sync + my_servant wiring; 1,913 tests
+Phase 67 → AshP31 live to_location + LocationNames fuzzy resolve; Ed choice-1053 summoned-list sync + have_servant without manual pref; 1,921 tests
+Phase 68 → Ed servant level/XP prefs (`EdServantState`) + combat XP sync; desktop-aligned `have_servant`; AshP32 `$servant[field]` reads; `servants` CLI depth; 1,934 tests
+Phase 69 → AshP33 THRALL/VYKEA `$entity[field]` bracket reads (`ThrallEntityFields`, `VykeaEntityFields`); corpus thrall/vykea live assertions; 1,939 tests
+Phase 70 → VYKEA charpane sync (`VykeaCharpaneSync`, `VykeaCompanionManager`); live `my_vykea_companion` on charpane visit; corpus my_vykea_companion assertion; 1,947 tests
 Audit → Full parity audit: dual ASH metrics (≥890 registered vs ~350–400 behavioral); Subsystem Scale table; Bundled Data Gap (28 loaded / 22 unwired); Tier 1–4 Top Priorities; JS runtime + explicit non-goals documented
 ```
 

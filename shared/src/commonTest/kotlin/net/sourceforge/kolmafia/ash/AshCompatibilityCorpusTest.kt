@@ -127,6 +127,74 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_locationEntity_live() = runBlocking {
+        val lib = GameRuntimeLibrary()
+        assertEquals(
+            "The Spooky Forest",
+            outputLib(lib, """print(to_location("spooky forest"));""").trim(),
+        )
+        assertEquals("The Spooky Forest", outputLib(lib, """print(to_location("20"));""").trim())
+        assertEquals("", outputLib(lib, """print(to_location("bogus"));""").trim())
+        assertEquals(
+            "true",
+            outputLib(lib, """print(to_string(is_valid(to_location("The Spooky Forest"))));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_edServantLevelXp_live() {
+        val prefs = prefs()
+        net.sourceforge.kolmafia.servant.EdServantState.upsert(
+            prefs,
+            net.sourceforge.kolmafia.servant.EdServantRecord("Cat", "Hethys", 14, 221),
+        )
+        val char = KoLCharacter()
+        val manager = net.sourceforge.kolmafia.servant.EdServantManager(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+            prefs,
+            char,
+        )
+        val lib = GameRuntimeLibrary(preferences = prefs, character = char, edServantManager = manager)
+        assertEquals("14", outputLib(lib, """print(to_servant("Cat")["level"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(have_servant(to_servant("Cat"))));""").trim())
+    }
+
+    @Test
+    fun corpus_thrallVykeaEntityFields_live() = runBlocking {
+        val prefs = prefs()
+        prefs.setString(net.sourceforge.kolmafia.session.PastaThrall.prefKey(1), "7,Vampieroghi")
+        val db = GameDatabase()
+        db.load()
+        ModifierDatabase.load()
+        val lib = GameRuntimeLibrary(preferences = prefs, gameDatabase = db)
+        assertEquals("7", outputLib(lib, """print(to_thrall("Vampieroghi")["level"]);""").trim())
+        assertEquals(
+            "30.0",
+            outputLib(
+                lib,
+                """print(to_string(numeric_modifier(to_vykea("level 3 couch"), "Meat Drop")));""",
+            ).trim(),
+        )
+        assertEquals(
+            "Meat Drop: +30",
+            outputLib(lib, """print(to_vykea("level 3 couch")["modifiers"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_myVykeaCompanion_live() = runBlocking {
+        val prefs = prefs()
+        prefs.setString(
+            net.sourceforge.kolmafia.vykea.VykeaCompanionManager.CURRENT_VYKEA_PREF,
+            "CHEBLI, the level 5 blood lamp",
+        )
+        val manager = net.sourceforge.kolmafia.vykea.VykeaCompanionManager(prefs)
+        val lib = GameRuntimeLibrary(preferences = prefs, vykeaCompanionManager = manager)
+        assertEquals("CHEBLI, the level 5 blood lamp", outputLib(lib, "print(my_vykea_companion());").trim())
+        assertEquals("5", outputLib(lib, """print(my_vykea_companion()["level"]);""").trim())
+    }
+
+    @Test
     fun corpus_servantVykeaEntity_live() = runBlocking {
         val lib = GameRuntimeLibrary()
         assertEquals("Cat", outputLib(lib, """print(to_servant("Cat"));""").trim())

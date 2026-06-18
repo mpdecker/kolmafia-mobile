@@ -232,6 +232,10 @@ class GameRuntimeLibraryCliTest {
     @Test
     fun cliExecute_servant_ed_switchesServant() {
         val prefs = Preferences(com.russhwolf.settings.MapSettings())
+        net.sourceforge.kolmafia.servant.EdServantState.upsert(
+            prefs,
+            net.sourceforge.kolmafia.servant.EdServantRecord("Cat", "Hethys", 1, 0),
+        )
         prefs.setString(net.sourceforge.kolmafia.servant.EdServantManager.SERVANTS_PREF, "Cat")
         val requests = mutableListOf<String>()
         val engine = MockEngine { request ->

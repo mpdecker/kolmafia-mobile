@@ -194,14 +194,59 @@ object VykeaCompanionData {
         return fromString(catalogEntry)
     }
 
-    private fun runeFromString(value: String): VykeaRune = when (value.lowercase()) {
+    /** Desktop [VYKEACompanionData.toString] form for ASH values. */
+    fun toAshString(companion: Companion): String = buildString {
+        if (companion.name.isNotEmpty()) {
+            append(companion.name)
+            append(", the ")
+        }
+        append("level ")
+        append(companion.level)
+        if (companion.rune != VykeaRune.NONE) {
+            append(' ')
+            append(runeToString(companion.rune))
+        }
+        append(' ')
+        append(typeToString(companion.type))
+    }
+
+    /** Catalog key for modifier lookups, e.g. `"level 5 blood lamp"`. */
+    fun toCatalogString(companion: Companion): String = buildString {
+        append("level ")
+        append(companion.level)
+        if (companion.rune != VykeaRune.NONE) {
+            append(' ')
+            append(runeToString(companion.rune))
+        }
+        append(' ')
+        append(typeToString(companion.type))
+    }
+
+    fun typeToString(type: VykeaType): String = when (type) {
+        VykeaType.BOOKSHELF -> "bookshelf"
+        VykeaType.CEILING_FAN -> "ceiling fan"
+        VykeaType.COUCH -> "couch"
+        VykeaType.DISHRACK -> "dishrack"
+        VykeaType.DRESSER -> "dresser"
+        VykeaType.LAMP -> "lamp"
+        VykeaType.NONE -> "unknown"
+    }
+
+    fun runeToString(rune: VykeaRune): String = when (rune) {
+        VykeaRune.FRENZY -> "frenzy"
+        VykeaRune.BLOOD -> "blood"
+        VykeaRune.LIGHTNING -> "lightning"
+        VykeaRune.NONE -> ""
+    }
+
+    fun runeFromString(value: String): VykeaRune = when (value.lowercase()) {
         "frenzy" -> VykeaRune.FRENZY
         "blood" -> VykeaRune.BLOOD
         "lightning" -> VykeaRune.LIGHTNING
         else -> VykeaRune.NONE
     }
 
-    private fun typeFromString(value: String): VykeaType? = when (value.lowercase()) {
+    fun typeFromString(value: String): VykeaType? = when (value.lowercase()) {
         "bookshelf" -> VykeaType.BOOKSHELF
         "ceiling fan" -> VykeaType.CEILING_FAN
         "couch" -> VykeaType.COUCH

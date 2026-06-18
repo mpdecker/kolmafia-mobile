@@ -75,6 +75,7 @@ class AdventureManager(
     private val familiarManager: FamiliarManager? = null,
     private val scriptHookRunner: ScriptHookRunner? = null,
     private val combatMacroResolver: ((String) -> String)? = null,
+    private val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -330,6 +331,9 @@ class AdventureManager(
         val result = AdventureParser.parseFightResult(fightHtml)
         if (!_inMultiFight) _fightFollowsChoice = false
         eventBus.emit(GameEvent.CombatFinished(result.won, result.monster))
+        if (result.won) {
+            edServantManager?.addCombatExperience()
+        }
         if (result.monster.isNotEmpty()) {
             preferences.setString(Preferences.LAST_MONSTER, result.monster)
         }

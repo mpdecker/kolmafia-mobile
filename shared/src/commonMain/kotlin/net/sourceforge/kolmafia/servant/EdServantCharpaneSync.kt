@@ -16,9 +16,14 @@ object EdServantCharpaneSync {
         RegexOption.DOT_MATCHES_ALL,
     )
 
-    fun parseActiveServantType(html: String): String? {
+    fun parseActiveServantType(html: String): String? = parseActiveServant(html)?.type
+
+    fun parseActiveServant(html: String): EdServantRecord? {
         val match = compactPattern.find(html) ?: expandedPattern.find(html) ?: return null
         val id = match.groupValues[3].toIntOrNull() ?: return null
-        return ServantData.typeForId(id)
+        val type = ServantData.typeForId(id) ?: return null
+        val level = match.groupValues[2].toIntOrNull() ?: return null
+        val name = match.groupValues[1].trim()
+        return EdServantRecord(type = type, name = name, level = level, experience = level * level)
     }
 }
