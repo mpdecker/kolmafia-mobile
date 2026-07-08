@@ -17,5 +17,8 @@ data class MonsterDefinition(
     val scale: Int,
     val cap: Int,
     val floor: Int,
+    val article: String = "",
+    val isCopyable: Boolean = true,
+    val isWishable: Boolean = true,
     val drops: List<MonsterDrop>
 )

@@ -9,7 +9,8 @@ data class AdventureZone(
     val statRequirement: Int,
     val goals: List<String>,
     val isOverdrunk: Boolean,
-    val noWander: Boolean
+    val noWander: Boolean,
+    val forceNoncombat: Int = 0,
 ) {
     val snarfblat: String? get() = urlParams.substringAfter("adventure=", "").takeIf { it.isNotBlank() }
     val isClanArea get() = urlParams.startsWith("clan_")

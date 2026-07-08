@@ -45,6 +45,9 @@ object MonsterDatabase {
         val scale: Int = 0,
         val cap: Int = 0,
         val floor: Int = 0,
+        val article: String = "",
+        val isCopyable: Boolean = true,
+        val isWishable: Boolean = true,
     )
 
     private fun parseParams(params: String): ParsedParams {
@@ -62,6 +65,9 @@ object MonsterDatabase {
         var scale = 0
         var cap = 0
         var floor = 0
+        var article = ""
+        var isCopyable = true
+        var isWishable = true
 
         var i = 0
         while (i < tokens.size) {
@@ -70,8 +76,9 @@ object MonsterDatabase {
                 token == "BOSS" -> isBoss = true
                 token == "GHOST" -> isGhost = true
                 token == "LUCKY" -> isLucky = true
-                // Other flags: NOWISH, NOCOPY, ULTRARARE — parsed but not stored in MonsterDefinition
-                token == "NOWISH" || token == "NOCOPY" || token == "ULTRARARE" -> { /* ignored */ }
+                token == "NOCOPY" -> isCopyable = false
+                token == "NOWISH" -> isWishable = false
+                token == "ULTRARARE" -> { /* ignored */ }
                 token.endsWith(':') -> {
                     val value = tokens.getOrNull(i + 1) ?: ""
                     when (token) {
@@ -84,7 +91,8 @@ object MonsterDatabase {
                         "Scale:" -> { scale = value.toIntOrNull() ?: 0; isScaling = true; i++ }
                         "Cap:" -> { cap = value.toIntOrNull() ?: 0; i++ }
                         "Floor:" -> { floor = value.toIntOrNull() ?: 0; i++ }
-                        // EA:, Article:, and other unknown key: value pairs — skip the value
+                        "Article:" -> { article = value; i++ }
+                        // EA:, Manuel:, and other unknown key: value pairs — skip the value
                         else -> { i++ }
                     }
                 }
@@ -107,6 +115,9 @@ object MonsterDatabase {
             scale = scale,
             cap = cap,
             floor = floor,
+            article = article,
+            isCopyable = isCopyable,
+            isWishable = isWishable,
         )
     }
 
@@ -160,6 +171,9 @@ object MonsterDatabase {
                 scale = p.scale,
                 cap = p.cap,
                 floor = p.floor,
+                article = p.article,
+                isCopyable = p.isCopyable,
+                isWishable = p.isWishable,
                 drops = drops,
             )
             _byId[id] = monster
