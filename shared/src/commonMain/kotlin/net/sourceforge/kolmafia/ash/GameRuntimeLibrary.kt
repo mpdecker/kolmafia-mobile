@@ -137,7 +137,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase75"
+        const val REVISION = "phase77"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1873,6 +1873,14 @@ class GameRuntimeLibrary(
                 gameDatabase,
             )
             AshType.VYKEA -> VykeaEntityFields.resolve(base.toString(), field)
+            AshType.MONSTER -> MonsterEntityFields.resolve(base.toString(), field, gameDatabase)
+            AshType.LOCATION -> LocationEntityFields.resolve(
+                base.toString(),
+                field,
+                gameDatabase,
+                preferences,
+            )
+            AshType.PATH -> PathEntityFields.resolve(base.toString(), field, preferences)
             else -> null
         }
     }

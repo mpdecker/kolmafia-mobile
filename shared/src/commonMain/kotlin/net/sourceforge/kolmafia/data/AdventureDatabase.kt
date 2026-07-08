@@ -77,7 +77,8 @@ object AdventureDatabase {
                 statRequirement = statRequirement,
                 goals = goals,
                 isOverdrunk = isOverdrunk,
-                noWander = noWander
+                noWander = noWander,
+                forceNoncombat = forceNoncombat,
             )
 
             zones.add(zone)

@@ -211,6 +211,41 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_monsterEntityFields_live() = runBlocking {
+        val prefs = prefs()
+        prefs.setString(Preferences.LAST_MONSTER, "huge mosquito")
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(preferences = prefs, gameDatabase = db)
+        assertEquals("1341", outputLib(lib, """print(to_monster("huge mosquito")["id"]);""").trim())
+        assertEquals("18", outputLib(lib, """print(to_monster("huge mosquito")["base_hp"]);""").trim())
+        assertEquals("bug", outputLib(lib, """print(to_monster("huge mosquito")["phylum"]);""").trim())
+        assertEquals("10", outputLib(lib, """print(last_monster()["min_meat"]);""").trim())
+    }
+
+    @Test
+    fun corpus_locationEntityFields_live() = runBlocking {
+        val prefs = prefs()
+        prefs.setString(Preferences.LAST_LOCATION, "The Haunted Pantry")
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(preferences = prefs, gameDatabase = db)
+        assertEquals("113", outputLib(lib, """print(to_location("The Haunted Pantry")["id"]);""").trim())
+        assertEquals("indoor", outputLib(lib, """print(to_location("The Haunted Pantry")["environment"]);""").trim())
+        assertEquals("113", outputLib(lib, """print(my_location()["id"]);""").trim())
+    }
+
+    @Test
+    fun corpus_pathEntityFields_live() = runBlocking {
+        val prefs = prefs()
+        prefs.setInt("youRobotPoints", 5)
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("41", outputLib(lib, """print(to_path("You, Robot")["id"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(to_path("You, Robot")["familiars"]));""").trim())
+        assertEquals("5", outputLib(lib, """print(to_path("You, Robot")["points"]);""").trim())
+    }
+
+    @Test
     fun corpus_servantVykeaEntity_live() = runBlocking {
         val lib = GameRuntimeLibrary()
         assertEquals("Cat", outputLib(lib, """print(to_servant("Cat"));""").trim())
