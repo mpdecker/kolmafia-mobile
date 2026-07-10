@@ -20,5 +20,6 @@ data class MonsterDefinition(
     val article: String = "",
     val isCopyable: Boolean = true,
     val isWishable: Boolean = true,
+    val poison: Int = Int.MAX_VALUE,
     val drops: List<MonsterDrop>
 )

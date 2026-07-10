@@ -48,6 +48,7 @@ object MonsterDatabase {
         val article: String = "",
         val isCopyable: Boolean = true,
         val isWishable: Boolean = true,
+        val poison: Int = Int.MAX_VALUE,
     )
 
     private fun parseParams(params: String): ParsedParams {
@@ -68,6 +69,7 @@ object MonsterDatabase {
         var article = ""
         var isCopyable = true
         var isWishable = true
+        var poison = Int.MAX_VALUE
 
         var i = 0
         while (i < tokens.size) {
@@ -92,6 +94,11 @@ object MonsterDatabase {
                         "Cap:" -> { cap = value.toIntOrNull() ?: 0; i++ }
                         "Floor:" -> { floor = value.toIntOrNull() ?: 0; i++ }
                         "Article:" -> { article = value; i++ }
+                        "Poison:" -> {
+                            val poisonName = readQuotedOrSingleValue(tokens, i + 1)
+                            poison = PoisonLevels.levelForEffectName(poisonName)
+                            i += poisonTokenSkip(tokens, i + 1)
+                        }
                         // EA:, Manuel:, and other unknown key: value pairs — skip the value
                         else -> { i++ }
                     }
@@ -118,7 +125,33 @@ object MonsterDatabase {
             article = article,
             isCopyable = isCopyable,
             isWishable = isWishable,
+            poison = poison,
         )
+    }
+
+    private fun readQuotedOrSingleValue(tokens: List<String>, start: Int): String {
+        val first = tokens.getOrNull(start) ?: return ""
+        if (!first.startsWith("\"")) return first
+        if (first.endsWith("\"") && first.length > 1) {
+            return first.trim('"')
+        }
+        val parts = mutableListOf<String>()
+        var idx = start
+        while (idx < tokens.size) {
+            parts.add(tokens[idx].trim('"'))
+            if (tokens[idx].endsWith("\"")) break
+            idx++
+        }
+        return parts.joinToString(" ")
+    }
+
+    private fun poisonTokenSkip(tokens: List<String>, start: Int): Int {
+        val first = tokens.getOrNull(start) ?: return 1
+        if (!first.startsWith("\"")) return 1
+        if (first.endsWith("\"") && first.length > 1) return 1
+        var end = start
+        while (end < tokens.size && !tokens[end].endsWith("\"")) end++
+        return end - start + 1
     }
 
     private fun parseDrop(raw: String): MonsterDrop? {
@@ -174,6 +207,7 @@ object MonsterDatabase {
                 article = p.article,
                 isCopyable = p.isCopyable,
                 isWishable = p.isWishable,
+                poison = p.poison,
                 drops = drops,
             )
             _byId[id] = monster

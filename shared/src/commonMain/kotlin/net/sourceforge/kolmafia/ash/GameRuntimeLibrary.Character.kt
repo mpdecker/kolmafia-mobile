@@ -225,6 +225,10 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     regFn(scope, "my_rolodex", AshType.BOOLEAN, emptyList()) { _, _ ->
         AshValue.of(preferences?.getBoolean("hasRolodex", false) ?: false)
     }
+
+    regFn(scope, "my_total_turns_spent", AshType.INT, emptyList()) { _, _ ->
+        AshValue.of((adventureSpentTracker?.getTotalTrackedTurns() ?: 0).toLong())
+    }
 }
 
 private fun GameRuntimeLibrary.buffedStatValue(stat: AshValue): Long {

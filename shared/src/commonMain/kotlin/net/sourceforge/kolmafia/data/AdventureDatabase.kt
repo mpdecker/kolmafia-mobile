@@ -36,6 +36,7 @@ object AdventureDatabase {
             var forceNoncombat = 0
             var isOverdrunk = false
             var noWander = false
+            var explicitWaterLevel: Int? = null
 
             val attrTokens = attributesRaw.split(' ')
             var i = 0
@@ -60,6 +61,10 @@ object AdventureDatabase {
                         forceNoncombat = attrTokens[i + 1].toIntOrNull() ?: 0
                         i++
                     }
+                    token == "Level:" && i + 1 < attrTokens.size -> {
+                        explicitWaterLevel = attrTokens[i + 1].toIntOrNull()
+                        i++
+                    }
                     token.endsWith(":") && i + 1 < attrTokens.size -> {
                         // skip unknown key: value pairs
                         i++
@@ -67,6 +72,8 @@ object AdventureDatabase {
                 }
                 i++
             }
+
+            val waterLevel = computeWaterLevel(environment, statRequirement, explicitWaterLevel)
 
             val zone = AdventureZone(
                 zoneName = zoneName,
@@ -79,6 +86,7 @@ object AdventureDatabase {
                 isOverdrunk = isOverdrunk,
                 noWander = noWander,
                 forceNoncombat = forceNoncombat,
+                waterLevel = waterLevel,
             )
 
             zones.add(zone)
@@ -117,5 +125,22 @@ object AdventureDatabase {
         bySnarfblat.clear()
         zones.clear()
         loaded = false
+    }
+
+    internal fun computeWaterLevel(
+        environment: String,
+        statRequirement: Int,
+        explicitLevel: Int?,
+    ): Int {
+        if (explicitLevel != null) return explicitLevel
+        var waterLevel = when (environment) {
+            "outdoor", "none" -> 1
+            "indoor" -> 3
+            "underground" -> 5
+            else -> 1
+        }
+        if (statRequirement >= 40) waterLevel++
+        if (environment == "underwater") waterLevel = 0
+        return waterLevel
     }
 }

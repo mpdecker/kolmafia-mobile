@@ -19,6 +19,9 @@ import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.PastaThrall
 import net.sourceforge.kolmafia.thrall.PastaThrallManager
 import kotlin.test.Test
@@ -243,6 +246,63 @@ class AshCompatibilityCorpusTest {
         assertEquals("41", outputLib(lib, """print(to_path("You, Robot")["id"]);""").trim())
         assertEquals("true", outputLib(lib, """print(to_string(to_path("You, Robot")["familiars"]));""").trim())
         assertEquals("5", outputLib(lib, """print(to_path("You, Robot")["points"]);""").trim())
+    }
+
+    @Test
+    fun corpus_locationSessionFields_live() = runBlocking {
+        val prefs = prefs()
+        val tracker = AdventureSpentTracker(prefs)
+        repeat(3) { tracker.addTurn("The Haunted Pantry") }
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            gameDatabase = db,
+            adventureSpentTracker = tracker,
+        )
+        assertEquals("3", outputLib(lib, """print(to_location("The Haunted Pantry")["turns_spent"]);""").trim())
+        assertEquals("3", outputLib(lib, """print(my_total_turns_spent());""").trim())
+    }
+
+    @Test
+    fun corpus_locationKissesWaterFire_live() = runBlocking {
+        val prefs = prefs()
+        val db = GameDatabase()
+        db.load()
+        val kisses = DreadKissesTracker(prefs)
+        kisses.setKissesForTest("Dreadsylvanian Woods", 2)
+        val wildfire = WildfireCampManager(prefs)
+        wildfire.setFireLevelForTest("Dreadsylvanian Woods", 4)
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(
+                    path = net.sourceforge.kolmafia.character.AscensionPath.HEAVY_RAINS.apiName,
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            character = char,
+            preferences = prefs,
+            gameDatabase = db,
+            dreadKissesTracker = kisses,
+            wildfireCampManager = wildfire,
+        )
+        assertEquals("2", outputLib(lib, """print(to_location("Dreadsylvanian Woods")["kisses"]);""").trim())
+        assertEquals("2", outputLib(lib, """print(to_location("Dreadsylvanian Woods")["water_level"]);""").trim())
+        val fireChar = KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(
+                    path = net.sourceforge.kolmafia.character.AscensionPath.WILDFIRE.apiName,
+                ),
+            )
+        }
+        val fireLib = GameRuntimeLibrary(
+            character = fireChar,
+            preferences = prefs,
+            gameDatabase = db,
+            wildfireCampManager = wildfire,
+        )
+        assertEquals("4", outputLib(fireLib, """print(to_location("Dreadsylvanian Woods")["fire_level"]);""").trim())
     }
 
     @Test

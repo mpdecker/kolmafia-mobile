@@ -32,6 +32,9 @@ import net.sourceforge.kolmafia.servant.EdServantManager
 import net.sourceforge.kolmafia.vykea.VykeaCompanionManager
 import net.sourceforge.kolmafia.thrall.PastaThrallManager
 import net.sourceforge.kolmafia.session.BreakfastManager
+import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.data.GameDatabase
@@ -206,6 +209,9 @@ val sharedModule = module {
     single { MoodManager(skillManager = get(), preferences = get(), uneffectRequest = get()) }
     singleOf(::ManaBurnManager)
     singleOf(::BanishManager)
+    singleOf(::AdventureSpentTracker)
+    singleOf(::DreadKissesTracker)
+    singleOf(::WildfireCampManager)
     singleOf(::EffectManager)
     single {
         EdServantManager(
@@ -252,6 +258,8 @@ val sharedModule = module {
             scriptHookRunner = get(),
             combatMacroResolver = { zoneId -> get<GameRuntimeLibrary>().resolveCombatMacro(zoneId) },
             edServantManager = get(),
+            adventureSpentTracker = get(),
+            dreadKissesTracker = get(),
         )
     }
     single {
@@ -304,6 +312,9 @@ val sharedModule = module {
             edServantManager    = get(),
             vykeaCompanionManager = get(),
             pastaThrallManager    = get(),
+            adventureSpentTracker = get(),
+            dreadKissesTracker    = get(),
+            wildfireCampManager   = get(),
         )
     }
     singleOf(::ScriptManager)

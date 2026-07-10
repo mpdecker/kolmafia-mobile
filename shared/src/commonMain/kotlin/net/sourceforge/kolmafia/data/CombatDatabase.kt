@@ -52,5 +52,16 @@ object CombatDatabase : ZoneLookup {
 
     override fun getByLocation(name: String): ZoneCombatData? = byLocation[name.lowercase()]
 
+    fun poisonForLocation(locationName: String): Int {
+        val combat = getByLocation(locationName) ?: return Int.MAX_VALUE
+        var minPoison = Int.MAX_VALUE
+        for (monster in combat.monsters) {
+            if (monster.weight <= 0) continue
+            val poison = MonsterDatabase.getByName(monster.name)?.poison ?: Int.MAX_VALUE
+            if (poison < minPoison) minPoison = poison
+        }
+        return minPoison
+    }
+
     fun all(): List<ZoneCombatData> = entries.toList()
 }
