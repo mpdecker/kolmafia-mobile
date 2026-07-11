@@ -31,6 +31,16 @@ internal fun GameRuntimeLibrary.registerLocationQueries(scope: AshScope) {
         val name = resolveLocationQueryName(args[0].toString())
         AshValue.of(AdventurePrep.canAdventureAtZone(name, character?.state?.value, preferences = preferences))
     }
+
+    regFn(scope, "turns_until_forced_noncombat", AshType.INT, listOf("loc" to AshType.LOCATION)) { _, args ->
+        val name = resolveLocationQueryName(args[0].toString())
+        AshValue.of(adventureSpentTracker?.turnsUntilForcedNoncombat(name) ?: -1L)
+    }
+
+    regFn(scope, "turns_until_forced_noncombat", AshType.INT, listOf("loc" to AshType.STRING)) { _, args ->
+        val name = resolveLocationQueryName(args[0].toString())
+        AshValue.of(adventureSpentTracker?.turnsUntilForcedNoncombat(name) ?: -1L)
+    }
 }
 
 internal fun GameRuntimeLibrary.resolveLocationDisplayName(loc: String): String {

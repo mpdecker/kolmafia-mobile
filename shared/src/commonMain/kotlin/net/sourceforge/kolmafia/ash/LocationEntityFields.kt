@@ -9,6 +9,10 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ZoneParentDatabase
 import net.sourceforge.kolmafia.modifiers.LocationNames
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.WildfireCampManager
+import net.sourceforge.kolmafia.character.CharacterState
 
 /**
  * Resolves `$location[field]` bracket access. Mirrors desktop [LocationProxy].
@@ -20,6 +24,10 @@ internal object LocationEntityFields {
         fieldName: String,
         gameDatabase: GameDatabase?,
         preferences: Preferences?,
+        adventureSpentTracker: AdventureSpentTracker? = null,
+        dreadKissesTracker: DreadKissesTracker? = null,
+        wildfireCampManager: WildfireCampManager? = null,
+        characterState: CharacterState? = null,
     ): AshValue {
         val canonical = LocationNames.resolve(locationName) ?: locationName
         val zone = AdventureDatabase.getByName(canonical)
@@ -41,12 +49,26 @@ internal object LocationEntityFields {
             "bounty" -> AshValue(AshType.BOUNTY, bountyForLocation(canonical))
             "nocombats" -> AshValue.of(isNoCombats(zone))
             "pledge_allegiance" -> AshValue.of(pledgeAllegiance(zone))
-            "turns_spent" -> AshValue.of(0L)
-            "last_noncombat_turns_spent" -> AshValue.of(-1L)
-            "kisses" -> AshValue.of(0L)
-            "poison" -> AshValue.of(Int.MAX_VALUE.toLong())
-            "water_level" -> AshValue.of(0L)
-            "fire_level" -> AshValue.of(0L)
+            "turns_spent" -> AshValue.of(
+                (adventureSpentTracker?.getTurns(canonical) ?: 0).toLong(),
+            )
+            "last_noncombat_turns_spent" -> AshValue.of(
+                adventureSpentTracker?.lastNoncombatTurnsSpent(zone)
+                    ?: if ((zone?.forceNoncombat ?: 0) > 0) -1L else -1L,
+            )
+            "kisses" -> AshValue.of(dreadKissesTracker?.kissesForLocation(canonical) ?: 0L)
+            "poison" -> AshValue.of(CombatDatabase.poisonForLocation(canonical).toLong())
+            "water_level" -> AshValue.of(
+                if (characterState?.isRaincore == true) (zone?.waterLevel ?: 0).toLong() else 0L,
+            )
+            "fire_level" -> AshValue.of(
+                if (characterState?.isFirecore == true) {
+                    (wildfireCampManager?.getFireLevel(canonical)
+                        ?: WildfireCampManager.DEFAULT_FIRE_LEVEL).toLong()
+                } else {
+                    0L
+                },
+            )
             else -> throw ScriptException("location has no field '$fieldName'")
         }
     }

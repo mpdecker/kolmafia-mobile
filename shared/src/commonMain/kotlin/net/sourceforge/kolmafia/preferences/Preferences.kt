@@ -68,6 +68,8 @@ class Preferences(private val settings: Settings) {
         const val MANA_BURN_SKILLS         = "manaBurnSkills"        // pipe-separated skill priority list
 
         // Adventure location tracking
+        const val ADVENTURE_SPENT_TURNS    = "adventureSpentTurns"
+        const val WILDFIRE_FIRE_LEVELS     = "wildfireFireLevels"
         const val LAST_LOCATION            = "_lastLocation"
         const val CACHED_CLOSET            = "_cachedCloset"
         const val CACHED_STORAGE           = "_cachedStorage"

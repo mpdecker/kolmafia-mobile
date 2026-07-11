@@ -192,6 +192,8 @@ data class CharacterState(
     val isRestricted: Boolean  get() = isHardcore || isInRonin
     val isInLimitMode: Boolean get() = limitMode.isNotBlank()
     val isUnderStandard: Boolean get() = ascensionPath == AscensionPath.STANDARD
+    val isRaincore: Boolean get() = ascensionPath == AscensionPath.HEAVY_RAINS
+    val isFirecore: Boolean get() = ascensionPath == AscensionPath.WILDFIRE
 
     // ── Computed: familiar ────────────────────────────────────────────────────
     val hasFamiliar: Boolean      get() = familiarId > 0

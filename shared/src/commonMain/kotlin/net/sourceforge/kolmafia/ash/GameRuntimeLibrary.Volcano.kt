@@ -153,6 +153,19 @@ internal fun GameRuntimeLibrary.cliVolcano(params: String, print: (String) -> Un
             }
             VolcanoMazeManager.test(mapNum, x, y, prefs, print)
         }
+        "slime" -> {
+            val client = httpClient ?: run {
+                print("HTTP client is not available.")
+                return
+            }
+            runBlocking {
+                try {
+                    client.get("$KOL_BASE_URL/volcanoisland.php?action=npc&subaction=getslime")
+                } catch (_: Exception) {
+                    // best-effort slime pickup
+                }
+            }
+        }
         "" -> print("What do you want to do in the volcano?")
         else -> print("What do you want to do in the volcano?")
     }

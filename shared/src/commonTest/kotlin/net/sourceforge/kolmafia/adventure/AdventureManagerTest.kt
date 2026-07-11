@@ -1,7 +1,7 @@
 package net.sourceforge.kolmafia.adventure
 
 import com.russhwolf.settings.MapSettings
-import io.ktor.client.*
+import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.cookies.*
@@ -10,11 +10,14 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.banish.Banisher
+import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.MonsterWeight
 import net.sourceforge.kolmafia.data.ZoneCombatData
 import net.sourceforge.kolmafia.data.ZoneLookup
@@ -23,6 +26,8 @@ import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.recovery.RecoveryManager
+import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -39,7 +44,10 @@ class AdventureManagerTest {
     private fun makeManager(
         adventureHtml: String = NON_COMBAT_HTML,
         fightHtml: String = COMBAT_WIN_HTML,
-        statusJson: String = STATUS_JSON_ADVENTURES_LEFT
+        statusJson: String = STATUS_JSON_ADVENTURES_LEFT,
+        adventureSpentTracker: AdventureSpentTracker? = null,
+        dreadKissesTracker: DreadKissesTracker? = null,
+        character: KoLCharacter? = null,
     ): Triple<AdventureManager, GameEventBus, MutableList<GameEvent>> {
         val engine = MockEngine { request ->
             when {
@@ -64,10 +72,12 @@ class AdventureManagerTest {
                 json(Json { ignoreUnknownKeys = true; isLenient = true })
             }
         }
-        val character = KoLCharacter()
+        val character = character ?: KoLCharacter()
         val prefs = Preferences(MapSettings())
         val bus = GameEventBus()
         val received = mutableListOf<GameEvent>()
+        val tracker = adventureSpentTracker ?: AdventureSpentTracker(prefs)
+        val kissTracker = dreadKissesTracker ?: DreadKissesTracker(prefs)
 
         val manager = AdventureManager(
             AdventureRequest(client),
@@ -76,7 +86,9 @@ class AdventureManagerTest {
             CharacterRequest(client),
             character,
             prefs,
-            bus
+            bus,
+            adventureSpentTracker = tracker,
+            dreadKissesTracker = kissTracker,
         )
         return Triple(manager, bus, received)
     }
@@ -93,6 +105,34 @@ class AdventureManagerTest {
         val turns = received.filterIsInstance<GameEvent.TurnConsumed>()
         assertEquals(1, turns.size)
         assertIs<AdventureResult.NonCombat>(turns.first().result)
+    }
+
+    @Test
+    fun runAdventures_incrementsAdventureSpentTracker() = runTest {
+        runBlocking { AdventureDatabase.load() }
+        val spookyForest = AdventureLocation("15", "The Spooky Forest", "Woods")
+        val prefs = Preferences(MapSettings())
+        val tracker = AdventureSpentTracker(prefs)
+        val (manager, _, _) = makeManager(adventureSpentTracker = tracker)
+
+        manager.runAdventures(spookyForest, 1, this).join()
+
+        assertEquals(1, tracker.getTurns("The Spooky Forest"))
+        assertEquals(1, tracker.getTotalTrackedTurns())
+    }
+
+    @Test
+    fun runAdventures_recordsLastNoncombatOnForceNcZone() = runTest {
+        runBlocking { AdventureDatabase.load() }
+        val spookyForest = AdventureLocation("15", "The Spooky Forest", "Woods")
+        val prefs = Preferences(MapSettings())
+        val tracker = AdventureSpentTracker(prefs)
+        val (manager, _, _) = makeManager(adventureSpentTracker = tracker)
+
+        manager.runAdventures(spookyForest, 1, this).join()
+
+        assertEquals(0, prefs.getInt("lastNoncombat15", -1))
+        assertEquals(1, tracker.getTurns("The Spooky Forest"))
     }
 
     @Test
@@ -290,6 +330,29 @@ class AdventureManagerTest {
                 .any { it.reason is StopReason.GoalMet }
         )
         assertEquals(2, received.filterIsInstance<GameEvent.TurnConsumed>().size)
+    }
+
+    @Test
+    fun runAdventures_updatesDreadKissesTracker_afterCombat() = runTest {
+        runBlocking { AdventureDatabase.load() }
+        val dreadWoods = AdventureLocation("338", "Dreadsylvanian Woods", "Dreadsylvania")
+        val prefs = Preferences(MapSettings())
+        val kissTracker = DreadKissesTracker(prefs)
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(classId = "1", buffedmus = "500", buffedmys = "500", buffedmox = "500"),
+            )
+        }
+        val (manager, _, _) = makeManager(
+            adventureHtml = COMBAT_HTML,
+            fightHtml = DREAD_KISS_WIN_HTML,
+            dreadKissesTracker = kissTracker,
+            character = char,
+        )
+
+        manager.runAdventures(dreadWoods, 1, this).join()
+
+        assertEquals(2L, kissTracker.kissesForLocation("Dreadsylvanian Woods"))
     }
 
     @Test
@@ -618,6 +681,11 @@ class AdventureManagerTest {
     companion object {
         const val NON_COMBAT_HTML = """<html><body><b>A Spooky Treehouse</b><p>You gain 10 Meat.</p></body></html>"""
         const val COMBAT_WIN_HTML = """<html><body><span id='monname'>bunny</span><p>You win the fight!</p></body></html>"""
+        const val DREAD_KISS_WIN_HTML = """<html><body>
+            <span id='monname'>dread</span>
+            <span title="1 kiss for winning +1 for difficulty">You win!</span>
+            <p>You win the fight!</p>
+        </body></html>"""
         const val STATUS_JSON_ADVENTURES_LEFT = """{"name":"Player","playerid":"1","level":"5","class":"1","hp":"50","hpmax":"100","mp":"30","mpmax":"50","meat":"1000","adventures":"40","fullness":"0","drunk":"0","spleen":"0"}"""
         const val STATUS_JSON_NO_ADVENTURES = """{"name":"Player","playerid":"1","level":"5","class":"1","hp":"50","hpmax":"100","mp":"30","mpmax":"50","meat":"1000","adventures":"0","fullness":"0","drunk":"0","spleen":"0"}"""
         const val STATUS_JSON_HIGH_MEAT = """{"name":"Player","playerid":"1","level":"5","class":"1","hp":"50","hpmax":"100","mp":"30","mpmax":"50","meat":"50000","adventures":"40","fullness":"0","drunk":"0","spleen":"0"}"""

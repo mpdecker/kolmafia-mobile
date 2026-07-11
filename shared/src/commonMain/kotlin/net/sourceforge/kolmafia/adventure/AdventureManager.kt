@@ -39,6 +39,9 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
+import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
@@ -76,6 +79,8 @@ class AdventureManager(
     private val scriptHookRunner: ScriptHookRunner? = null,
     private val combatMacroResolver: ((String) -> String)? = null,
     private val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
+    private val adventureSpentTracker: AdventureSpentTracker? = null,
+    private val dreadKissesTracker: DreadKissesTracker? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -116,6 +121,8 @@ class AdventureManager(
     fun setSkillUses(n: Int) { skillUses = n }
 
     private suspend fun emitTurnConsumed(location: AdventureLocation, result: AdventureResult) {
+        adventureSpentTracker?.recordNoncombatIfNeeded(location, result)
+        adventureSpentTracker?.addTurn(location.name)
         eventBus.emit(GameEvent.TurnConsumed(location, result))
         scriptHookRunner?.onTurnConsumed()
     }
@@ -330,6 +337,7 @@ class AdventureManager(
         _inMultiFight = AdventureParser.isInMultiFight(fightHtml)
         val result = AdventureParser.parseFightResult(fightHtml)
         if (!_inMultiFight) _fightFollowsChoice = false
+        dreadKissesTracker?.updateFromFight(location.name, fightHtml)
         eventBus.emit(GameEvent.CombatFinished(result.won, result.monster))
         if (result.won) {
             edServantManager?.addCombatExperience()

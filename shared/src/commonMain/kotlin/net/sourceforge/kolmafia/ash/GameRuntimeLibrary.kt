@@ -66,6 +66,9 @@ import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.PastaThrall
 import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -130,6 +133,9 @@ class GameRuntimeLibrary(
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
     internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
+    internal val adventureSpentTracker: AdventureSpentTracker? = null,
+    internal val dreadKissesTracker: DreadKissesTracker? = null,
+    internal val wildfireCampManager: WildfireCampManager? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -137,7 +143,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase77"
+        const val REVISION = "phase79"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1394,7 +1400,16 @@ class GameRuntimeLibrary(
         return "https://wiki.a.kolmafia.us/wiki/$slug"
     }
 
+    internal fun processVisitResponseHooks(html: String, url: String? = null) {
+        if (url?.contains("wildfire", ignoreCase = true) == true ||
+            html.contains("wildfire_captain", ignoreCase = true)
+        ) {
+            wildfireCampManager?.parseCaptain(html)
+        }
+    }
+
     internal fun processVisitQuestHooks(html: String, url: String? = null) {
+        processVisitResponseHooks(html, url)
         val db = questDatabase ?: return
         val prefs = preferences
         if (url != null && prefs != null) {
@@ -1736,6 +1751,7 @@ class GameRuntimeLibrary(
                 val response = client.get("$KOL_BASE_URL/$path")
                 if (!response.status.isSuccess()) return@runBlocking
                 val html = response.bodyAsText()
+                processVisitResponseHooks(html, "$KOL_BASE_URL/$path")
                 if (path.equals("charpane.php", ignoreCase = true) ||
                     path.endsWith("/charpane.php", ignoreCase = true)
                 ) {
@@ -1879,6 +1895,10 @@ class GameRuntimeLibrary(
                 field,
                 gameDatabase,
                 preferences,
+                adventureSpentTracker,
+                dreadKissesTracker,
+                wildfireCampManager,
+                character?.state?.value,
             )
             AshType.PATH -> PathEntityFields.resolve(base.toString(), field, preferences)
             else -> null
