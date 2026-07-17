@@ -306,6 +306,31 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_getMonstersAppearanceRates_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "6",
+            outputLib(lib, """print(count(get_monsters(to_location("The Spooky Forest"))));""").trim(),
+        )
+        assertEquals(
+            "15.0",
+            outputLib(
+                lib,
+                """print(to_string(appearance_rates(to_location("The Spooky Forest"))[to_monster("none")]));""",
+            ).trim(),
+        )
+        assertEquals(
+            "4",
+            outputLib(lib, """print(count(to_monster("spooky vampire")["parts"]));""").trim(),
+        )
+        assertTrue(
+            outputLib(lib, """print(to_monster("spooky vampire")["parts"][1]);""").trim() == "head",
+        )
+    }
+
+    @Test
     fun corpus_servantVykeaEntity_live() = runBlocking {
         val lib = GameRuntimeLibrary()
         assertEquals("Cat", outputLib(lib, """print(to_servant("Cat"));""").trim())

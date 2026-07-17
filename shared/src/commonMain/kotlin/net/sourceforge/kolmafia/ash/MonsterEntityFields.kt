@@ -1,11 +1,14 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.MonsterPartsDatabase
 
 /**
  * Resolves `$monster[field]` bracket access. Mirrors desktop [MonsterProxy].
  */
 internal object MonsterEntityFields {
+
+    private val partsAggregateType = AggregateType(AshType.INT, AshType.STRING)
 
     fun resolve(monsterName: String, fieldName: String, gameDatabase: GameDatabase?): AshValue {
         val monster = gameDatabase?.monster(monsterName)
@@ -26,7 +29,17 @@ internal object MonsterEntityFields {
             "lucky" -> AshValue.of(monster?.isLucky ?: false)
             "copyable" -> AshValue.of(monster?.isCopyable ?: true)
             "wishable" -> AshValue.of(monster?.isWishable ?: true)
+            "parts" -> partsAggregate(monster?.id ?: 0)
             else -> throw ScriptException("monster has no field '$fieldName'")
         }
+    }
+
+    private fun partsAggregate(monsterId: Int): AggregateValue {
+        val result = AggregateValue(partsAggregateType)
+        val parts = MonsterPartsDatabase.partsForId(monsterId)
+        parts.forEachIndexed { i, part ->
+            result[AshValue.of(i)] = AshValue.of(part)
+        }
+        return result
     }
 }

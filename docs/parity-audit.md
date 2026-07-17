@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-06-18 after Phase 79; AshP37 location kisses/water/fire bracket fields)*
+*Generated: 2026-06-03 (updated 2026-06-18 after Phase 80; AshP38 get_monsters/appearance_rates + monsterparts)*
 
 ## Scale Comparison
 
@@ -10,7 +10,7 @@
 | Source files             | ~1,172 classes              | ~253 files (commonMain) | ~22%                    |
 | Lines of code            | ~57,000                     | ~15,000+ (commonMain)   | ~26%                    |
 | Test files               | 411                         | 127+                    | ~31%                    |
-| Tests                    | ~1,800+                     | 2,032                   | ~99% (of covered scope) |
+| Tests                    | ~1,800+                     | 2,042                   | ~99% (of covered scope) |
 | ASH overload signatures  | ~890                        | ≥890 registered         | **~100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~370–420 live + stubs   | **~50–55%** (behavioral) |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN) | **100%**                |
@@ -335,18 +335,18 @@ Desktop ships 51 core `.txt` data files (64,700+ lines) plus ~160 TCRS class/sig
 runtime-generated `mallprices.txt`. Mobile bundles **50 `.txt` files** in
 `composeResources/files/data/`.
 
-**Loaded at runtime (~31 files)** via `GameDatabase.kt` and related loaders:
+**Loaded at runtime (~32 files)** via `GameDatabase.kt` and related loaders:
 
 `adventures.txt`, `bounty.txt`, `cafe_booze.txt`, `cafe_food.txt`, `classskills.txt`,
 `coinmasters.txt`, `combats.txt`, `concoctions.txt`, `dailylimits.txt`, `encounters.txt`,
 `equipment.txt`, `familiars.txt`, `foldgroups.txt`, `fullness.txt`, `inebriety.txt`, `items.txt`,
-`journeyman.txt`, `modifiers.txt`, `monsters.txt`, `npcstores.txt`, `outfits.txt`, `packages.txt`, `questslog.txt`,
+`journeyman.txt`, `modifiers.txt`, `monsterparts.txt`, `monsters.txt`, `npcstores.txt`, `outfits.txt`, `packages.txt`, `questslog.txt`,
 `questscouncil.txt`, `restores.txt`, `shops.txt`, `spleenhit.txt`, `statuseffects.txt`, `volcanomaze.txt`, `witchess_solutions.txt`, `zapgroups.txt`, `zonelist.txt`
 
-**Bundled but NOT wired (18 files)** — present in assets, no loader yet:
+**Bundled but NOT wired (17 files)** — present in assets, no loader yet:
 
 `bastille.txt`, `bookoffacts.txt`, `buffbots.txt`, `consequences.txt`, `cultshorts.txt`,
-`defaults.txt`, `faxbots.txt`, `fambattle.txt`, `monsterparts.txt`,
+`defaults.txt`, `faxbots.txt`, `fambattle.txt`,
 `nonfilling.txt`, `ocean.txt`, `pulverize.txt`, `shoprows.txt`,
 `standard-pulverized.txt`, `standard-rewards.txt`, `TCRS.astral_consumables.txt`,
 `TCRS.astral_pets.txt`, `wereprofessor.txt`
@@ -530,7 +530,7 @@ mobile wins on core automation paths and test isolation.
 
 ### Tier 1 — Script compatibility (highest user impact)
 
-1. **ASH behavioral parity** — replace remaining stub implementations in AshP8–P18 (interactive, PvP); ~~no-arg current-character modifiers~~ **AshP22 live** *(Phase 58)*; ~~ELEMENT entity modifiers + numerics_modifier~~ **AshP23 live** *(Phase 59)*; ~~CLASS entity modifiers~~ **AshP24 live** *(Phase 60)*; ~~STAT entity validation + substat queries~~ **AshP25 live** *(Phase 61)*; ~~SERVANT/VYKEA entity validation + couch/lamp modifiers~~ **AshP26 live** *(Phase 62)*; ~~BOUNTY/SLOT/PHYLUM entity validation~~ **AshP27 live** *(Phase 63)*; ~~COINMASTER/MODIFIER entity validation + live to_coinmaster/to_modifier~~ **AshP28 live** *(Phase 64)*; ~~CLASS/ELEMENT entity validation + live to_class/to_element~~ **AshP29 live** *(Phase 65)*; ~~MONSTER/PATH/THRALL live to_* resolvers + AshP13 stub cleanup~~ **AshP30 live** *(Phase 66)*; ~~LOCATION live to_location resolver~~ **AshP31 live** *(Phase 67)*; ~~SERVANT entity bracket fields (level/experience/name)~~ **AshP32 live** *(Phase 68)*; ~~THRALL/VYKEA entity bracket fields~~ **AshP33 live** *(Phase 69)*; ~~MONSTER entity bracket fields~~ **AshP34 live** *(Phase 76)*; ~~LOCATION/PATH entity bracket fields~~ **AshP35 live** *(Phase 77)*; ~~location session bracket fields (turns_spent/last_noncombat/poison/my_total_turns_spent)~~ **AshP36 live** *(Phase 78)*; ~~location session bracket fields (kisses/water_level/fire_level)~~ **AshP37 live** *(Phase 79)*; expand `AshCompatibilityCorpusTest` assertions
+1. **ASH behavioral parity** — replace remaining stub implementations in AshP8–P18 (interactive, PvP); ~~no-arg current-character modifiers~~ **AshP22 live** *(Phase 58)*; ~~ELEMENT entity modifiers + numerics_modifier~~ **AshP23 live** *(Phase 59)*; ~~CLASS entity modifiers~~ **AshP24 live** *(Phase 60)*; ~~STAT entity validation + substat queries~~ **AshP25 live** *(Phase 61)*; ~~SERVANT/VYKEA entity validation + couch/lamp modifiers~~ **AshP26 live** *(Phase 62)*; ~~BOUNTY/SLOT/PHYLUM entity validation~~ **AshP27 live** *(Phase 63)*; ~~COINMASTER/MODIFIER entity validation + live to_coinmaster/to_modifier~~ **AshP28 live** *(Phase 64)*; ~~CLASS/ELEMENT entity validation + live to_class/to_element~~ **AshP29 live** *(Phase 65)*; ~~MONSTER/PATH/THRALL live to_* resolvers + AshP13 stub cleanup~~ **AshP30 live** *(Phase 66)*; ~~LOCATION live to_location resolver~~ **AshP31 live** *(Phase 67)*; ~~SERVANT entity bracket fields (level/experience/name)~~ **AshP32 live** *(Phase 68)*; ~~THRALL/VYKEA entity bracket fields~~ **AshP33 live** *(Phase 69)*; ~~MONSTER entity bracket fields~~ **AshP34 live** *(Phase 76)*; ~~LOCATION/PATH entity bracket fields~~ **AshP35 live** *(Phase 77)*; ~~location session bracket fields (turns_spent/last_noncombat/poison/my_total_turns_spent)~~ **AshP36 live** *(Phase 78)*; ~~location session bracket fields (kisses/water_level/fire_level)~~ **AshP37 live** *(Phase 79)*; ~~`get_monsters`/`appearance_rates` + `$monster["parts"]`~~ **AshP38 live** *(Phase 80)*; expand `AshCompatibilityCorpusTest` assertions
 2. **CLI long-tail** — mine `cli_execute` from community scripts; wire top missing patterns into `cliDispatch` *(Phase 53: `speculate`; Phase 55: `guzzlr`; Phase 56: `maze`; Phase 58: `door`; Phase 61: `tower`/`lowkey` status; Phase 65: `servant`/`servants` + `use_servant` ASH; Phase 66: Ed charpane sync on `charpane`/`absorb` visit; Phase 67: Ed choice-1053 summoned-list sync on door/choice HTTP + edbase visit; Phase 68: Ed per-servant level/XP prefs + combat XP increment + `servants` CLI depth; Phase 70: VYKEA charpane sync on `charpane` visit + live `my_vykea_companion`; Phase 71: pasta thrall charpane sync + live `my_thrall`; Phase 72: `journey` CLI + `journeyman.txt` loader; Phase 73: `witchess buff|solve` CLI + `witchess_solutions.txt` loader; Phase 74: `volcano visit|clear|map|platforms` CLI + `volcanomaze.txt` loader; Phase 75: `volcano solve|step|jump|move|movep|test` + BFS/HTTP automation; Phase 79: `volcano slime` CLI)*
 3. **Entity modifier depth** — ~~location/monster/path modifier queries~~ **LOCATION/PATH/THRALL live** *(Phase 53)*; ~~outfit type:name modifiers~~ **AshP21 live** *(Phase 56)*; ~~Sign type:name modifiers~~ **AshP21 Sign alias** *(Phase 57)*; monster modifiers remain deferred (no bundled data)
 
@@ -542,7 +542,7 @@ mobile wins on core automation paths and test isolation.
 
 ### Tier 3 — Data wiring
 
-7. **Wire bundled-but-unused data files** — ~~`journeyman.txt`~~ **wired** *(Phase 72)*; ~~`witchess_solutions.txt`~~ **wired** *(Phase 73)*; ~~`volcanomaze.txt`~~ **wired** *(Phase 74–75; loader + solve/step automation complete)*; etc.; ~~`questscouncil.txt`~~ **wired** *(Phase 58)*
+7. **Wire bundled-but-unused data files** — ~~`journeyman.txt`~~ **wired** *(Phase 72)*; ~~`witchess_solutions.txt`~~ **wired** *(Phase 73)*; ~~`volcanomaze.txt`~~ **wired** *(Phase 74–75; loader + solve/step automation complete)*; ~~`monsterparts.txt`~~ **wired** *(Phase 80)*; etc.; ~~`questscouncil.txt`~~ **wired** *(Phase 58)*
 8. **TCRS data strategy** — lazy-load class/sign files or document as explicit non-goal
 
 ### Tier 4 — Explicit non-goals (document, don't port)
@@ -633,6 +633,7 @@ Phase 76 → AshP34 `MonsterEntityFields` + `$monster[field]` bracket reads + `A
 Phase 77 → AshP35 `LocationEntityFields`/`PathEntityFields` + `$location[field]`/`$path[field]` + `AdventureZone.forceNoncombat`; 2,005 tests
 Phase 78 → AshP36 `AdventureSpentTracker` + live `turns_spent`/`last_noncombat_turns_spent`/`poison` + `my_total_turns_spent`/`turns_until_forced_noncombat` + `MonsterDatabase` Poison parser; 2,016 tests
 Phase 79 → AshP37 live `kisses`/`water_level`/`fire_level` + `DreadKissesTracker`/`WildfireCampManager` + `AdventureZone.waterLevel` + `volcano slime` CLI; 2,032 tests
+Phase 80 → AshP38 live `get_monsters`/`appearance_rates`/`get_location_monsters` + `MonsterPartsDatabase` + `$monster["parts"]`; 2,042 tests
 Audit → Full parity audit: dual ASH metrics (≥890 registered vs ~350–400 behavioral); Subsystem Scale table; Bundled Data Gap (29 loaded / 20 unwired); Tier 1–4 Top Priorities; JS runtime + explicit non-goals documented
 ```
 
