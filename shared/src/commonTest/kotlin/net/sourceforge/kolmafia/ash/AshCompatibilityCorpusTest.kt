@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import com.russhwolf.settings.MapSettings
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -303,6 +304,125 @@ class AshCompatibilityCorpusTest {
             wildfireCampManager = wildfire,
         )
         assertEquals("4", outputLib(fireLib, """print(to_location("Dreadsylvanian Woods")["fire_level"]);""").trim())
+    }
+
+    @Test
+    fun corpus_getMonstersAppearanceRates_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "6",
+            outputLib(lib, """print(count(get_monsters(to_location("The Spooky Forest"))));""").trim(),
+        )
+        assertEquals(
+            "15.0",
+            outputLib(
+                lib,
+                """print(to_string(appearance_rates(to_location("The Spooky Forest"))[to_monster("none")]));""",
+            ).trim(),
+        )
+        assertEquals(
+            "4",
+            outputLib(lib, """print(count(to_monster("spooky vampire")["parts"]));""").trim(),
+        )
+        assertTrue(
+            outputLib(lib, """print(to_monster("spooky vampire")["parts"][1]);""").trim() == "head",
+        )
+    }
+
+    @Test
+    fun corpus_combatAdjustment_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(classId = "5", buffedmox = "0", mox = "0", sign = "Marmot"),
+            )
+        }
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "huge mosquito")
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char, preferences = prefs)
+        assertEquals("0", outputLib(lib, """print(monster_level_adjustment());""").trim())
+        assertEquals(
+            "10.0",
+            outputLib(lib, """print(to_string(elemental_resistance(to_element("cold"))));""").trim(),
+        )
+        assertTrue(outputLib(lib, """print(expected_damage());""").trim().toLong() > 0)
+        assertEquals(
+            "spooky",
+            net.sourceforge.kolmafia.data.MonsterDatabase
+                .getByName("ancient protector spirit")
+                ?.attackElement,
+        )
+    }
+
+    @Test
+    fun corpus_dropXpModifiers_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(classId = "3"))
+        }
+        char.updateEquipment(
+            net.sourceforge.kolmafia.character.EquipmentSlot.HAT,
+            "googly-ball hat",
+        )
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char)
+        assertEquals("3.0", outputLib(lib, """print(to_string(experience_bonus()));""").trim())
+        assertEquals("0.0", outputLib(lib, """print(to_string(meat_drop_modifier()));""").trim())
+        assertEquals("0.0", outputLib(lib, """print(to_string(item_drop_modifier()));""").trim())
+        assertEquals("0.0", outputLib(lib, """print(to_string(initiative_modifier()));""").trim())
+    }
+
+    @Test
+    fun corpus_monsterCombatStats_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "huge mosquito")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals("16", outputLib(lib, """print(monster_attack());""").trim())
+        assertEquals("14", outputLib(lib, """print(monster_defense());""").trim())
+        assertEquals("18", outputLib(lib, """print(monster_hp());""").trim())
+        assertEquals("20", outputLib(lib, """print(monster_initiative());""").trim())
+        assertEquals("bug", outputLib(lib, """print(monster_phylum());""").trim())
+        assertEquals(
+            "16",
+            outputLib(lib, """print(monster_attack(to_monster("huge mosquito")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_monsterElement_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "Axe Wound")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals("sleaze", outputLib(lib, """print(monster_element());""").trim())
+        assertEquals(
+            "cold",
+            outputLib(lib, """print(to_monster("Axe Wound")["attack_element"]);""").trim(),
+        )
+        assertEquals(
+            "sleaze",
+            outputLib(lib, """print(to_monster("Axe Wound")["defense_element"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_jumpChance_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "huge mosquito")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals("80", outputLib(lib, """print(jump_chance());""").trim())
+        assertEquals(
+            "60",
+            outputLib(lib, """print(jump_chance(to_monster("huge mosquito"), 0, 40));""").trim(),
+        )
     }
 
     @Test

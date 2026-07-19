@@ -38,6 +38,7 @@ open class GameDatabase {
 
         // Monsters and crafting
         MonsterDatabase.load()
+        MonsterPartsDatabase.load()
         ConcoctionDatabase.load()
 
         // Item relationships and shop data

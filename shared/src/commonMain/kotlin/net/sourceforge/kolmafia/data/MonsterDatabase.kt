@@ -49,6 +49,8 @@ object MonsterDatabase {
         val isCopyable: Boolean = true,
         val isWishable: Boolean = true,
         val poison: Int = Int.MAX_VALUE,
+        val attackElement: String = "",
+        val defenseElement: String = "",
     )
 
     private fun parseParams(params: String): ParsedParams {
@@ -70,6 +72,8 @@ object MonsterDatabase {
         var isCopyable = true
         var isWishable = true
         var poison = Int.MAX_VALUE
+        var attackElement = ""
+        var defenseElement = ""
 
         var i = 0
         while (i < tokens.size) {
@@ -99,8 +103,36 @@ object MonsterDatabase {
                             poison = PoisonLevels.levelForEffectName(poisonName)
                             i += poisonTokenSkip(tokens, i + 1)
                         }
-                        // EA:, Manuel:, and other unknown key: value pairs — skip the value
-                        else -> { i++ }
+                        "EA:" -> {
+                            if (value.startsWith("\"")) {
+                                i += poisonTokenSkip(tokens, i + 1)
+                            } else {
+                                val elem = value.lowercase()
+                                if (attackElement.isEmpty() && elem in ELEMENT_VALUES) {
+                                    attackElement = elem
+                                }
+                                i++
+                            }
+                        }
+                        "ED:" -> {
+                            if (value.startsWith("\"")) {
+                                i += poisonTokenSkip(tokens, i + 1)
+                            } else {
+                                val elem = value.lowercase()
+                                if (defenseElement.isEmpty() && elem in ELEMENT_VALUES) {
+                                    defenseElement = elem
+                                }
+                                i++
+                            }
+                        }
+                        // Manuel: and other unknown key: value pairs — skip the value
+                        else -> {
+                            if (value.startsWith("\"")) {
+                                i += poisonTokenSkip(tokens, i + 1)
+                            } else {
+                                i++
+                            }
+                        }
                     }
                 }
                 // Unknown bare tokens — ignore
@@ -126,6 +158,8 @@ object MonsterDatabase {
             isCopyable = isCopyable,
             isWishable = isWishable,
             poison = poison,
+            attackElement = attackElement,
+            defenseElement = defenseElement,
         )
     }
 
@@ -208,10 +242,16 @@ object MonsterDatabase {
                 isCopyable = p.isCopyable,
                 isWishable = p.isWishable,
                 poison = p.poison,
+                attackElement = p.attackElement,
+                defenseElement = p.defenseElement,
                 drops = drops,
             )
             _byId[id] = monster
             _byName[name.lowercase()] = monster
         }
     }
+
+    private val ELEMENT_VALUES = setOf(
+        "hot", "cold", "spooky", "stench", "sleaze", "slime", "supercold",
+    )
 }
