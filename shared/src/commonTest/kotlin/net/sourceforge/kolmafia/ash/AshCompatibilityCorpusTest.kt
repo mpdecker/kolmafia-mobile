@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import com.russhwolf.settings.MapSettings
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -328,6 +329,50 @@ class AshCompatibilityCorpusTest {
         assertTrue(
             outputLib(lib, """print(to_monster("spooky vampire")["parts"][1]);""").trim() == "head",
         )
+    }
+
+    @Test
+    fun corpus_combatAdjustment_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(classId = "5", buffedmox = "0", mox = "0", sign = "Marmot"),
+            )
+        }
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "huge mosquito")
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char, preferences = prefs)
+        assertEquals("0", outputLib(lib, """print(monster_level_adjustment());""").trim())
+        assertEquals(
+            "10.0",
+            outputLib(lib, """print(to_string(elemental_resistance(to_element("cold"))));""").trim(),
+        )
+        assertTrue(outputLib(lib, """print(expected_damage());""").trim().toLong() > 0)
+        assertEquals(
+            "spooky",
+            net.sourceforge.kolmafia.data.MonsterDatabase
+                .getByName("ancient protector spirit")
+                ?.attackElement,
+        )
+    }
+
+    @Test
+    fun corpus_dropXpModifiers_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(classId = "3"))
+        }
+        char.updateEquipment(
+            net.sourceforge.kolmafia.character.EquipmentSlot.HAT,
+            "googly-ball hat",
+        )
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char)
+        assertEquals("3.0", outputLib(lib, """print(to_string(experience_bonus()));""").trim())
+        assertEquals("0.0", outputLib(lib, """print(to_string(meat_drop_modifier()));""").trim())
+        assertEquals("0.0", outputLib(lib, """print(to_string(item_drop_modifier()));""").trim())
+        assertEquals("0.0", outputLib(lib, """print(to_string(initiative_modifier()));""").trim())
     }
 
     @Test

@@ -49,6 +49,7 @@ object MonsterDatabase {
         val isCopyable: Boolean = true,
         val isWishable: Boolean = true,
         val poison: Int = Int.MAX_VALUE,
+        val attackElement: String = "",
     )
 
     private fun parseParams(params: String): ParsedParams {
@@ -70,6 +71,7 @@ object MonsterDatabase {
         var isCopyable = true
         var isWishable = true
         var poison = Int.MAX_VALUE
+        var attackElement = ""
 
         var i = 0
         while (i < tokens.size) {
@@ -99,8 +101,25 @@ object MonsterDatabase {
                             poison = PoisonLevels.levelForEffectName(poisonName)
                             i += poisonTokenSkip(tokens, i + 1)
                         }
-                        // EA:, Manuel:, and other unknown key: value pairs — skip the value
-                        else -> { i++ }
+                        "EA:" -> {
+                            if (value.startsWith("\"")) {
+                                i += poisonTokenSkip(tokens, i + 1)
+                            } else {
+                                val elem = value.lowercase()
+                                if (attackElement.isEmpty() && elem in ATTACK_ELEMENTS) {
+                                    attackElement = elem
+                                }
+                                i++
+                            }
+                        }
+                        // Manuel: and other unknown key: value pairs — skip the value
+                        else -> {
+                            if (value.startsWith("\"")) {
+                                i += poisonTokenSkip(tokens, i + 1)
+                            } else {
+                                i++
+                            }
+                        }
                     }
                 }
                 // Unknown bare tokens — ignore
@@ -126,6 +145,7 @@ object MonsterDatabase {
             isCopyable = isCopyable,
             isWishable = isWishable,
             poison = poison,
+            attackElement = attackElement,
         )
     }
 
@@ -208,10 +228,15 @@ object MonsterDatabase {
                 isCopyable = p.isCopyable,
                 isWishable = p.isWishable,
                 poison = p.poison,
+                attackElement = p.attackElement,
                 drops = drops,
             )
             _byId[id] = monster
             _byName[name.lowercase()] = monster
         }
     }
+
+    private val ATTACK_ELEMENTS = setOf(
+        "hot", "cold", "spooky", "stench", "sleaze", "slime", "supercold",
+    )
 }

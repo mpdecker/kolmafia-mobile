@@ -143,7 +143,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase80"
+        const val REVISION = "phase82"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1955,6 +1955,8 @@ class GameRuntimeLibrary(
         registerAshP28Batch(scope)
         registerAshP29Batch(scope)
         registerAshP38Batch(scope)
+        registerAshP39Batch(scope)
+        registerAshP40Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }
