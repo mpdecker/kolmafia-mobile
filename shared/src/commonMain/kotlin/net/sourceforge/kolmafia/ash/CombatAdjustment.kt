@@ -151,6 +151,72 @@ internal object CombatAdjustment {
 
     fun experienceBonus(modifiers: CurrentModifiers, character: CharacterState?): Double =
         experienceBonus(modifiers.values, character)
+
+    /**
+     * Desktop-lite ML adjustment for Atk/Def/HP: unknown/zero base stays 0;
+     * otherwise [max(1, base + ml)]. Full scaling/beeosity deferred.
+     */
+    fun monsterStatWithMl(base: Int, ml: Int): Int {
+        if (base == 0) return 0
+        return max(1, base + ml)
+    }
+
+    fun monsterAttack(monster: MonsterDefinition?, ml: Int): Int =
+        monsterStatWithMl(monster?.attack ?: 0, ml)
+
+    fun monsterDefense(monster: MonsterDefinition?, ml: Int): Int =
+        monsterStatWithMl(monster?.defense ?: 0, ml)
+
+    fun monsterHp(monster: MonsterDefinition?, ml: Int): Int =
+        monsterStatWithMl(monster?.hp ?: 0, ml)
+
+    fun monsterInitiative(monster: MonsterDefinition?): Int =
+        monster?.initiative ?: 0
+
+    fun monsterPhylum(monster: MonsterDefinition?): String =
+        monster?.phylum.orEmpty()
+
+    fun monsterDefenseElement(monster: MonsterDefinition?): String =
+        monster?.defenseElement.orEmpty()
+
+    /** Desktop [MonsterData.initPenalty]. */
+    fun initPenalty(monsterLevel: Int): Int =
+        when {
+            monsterLevel <= 20 -> 0
+            monsterLevel <= 40 -> monsterLevel - 20
+            monsterLevel <= 60 -> 20 + 2 * (monsterLevel - 40)
+            monsterLevel <= 80 -> 60 + 3 * (monsterLevel - 60)
+            monsterLevel <= 100 -> 120 + 4 * (monsterLevel - 80)
+            else -> 200 + 5 * (monsterLevel - 100)
+        }
+
+    /** Desktop [MonsterData.getInitiative(ml)] — ±10000 / -1 sentinels unchanged. */
+    fun monsterInitiativeWithMl(monster: MonsterDefinition?, ml: Int): Int {
+        val base = monster?.initiative ?: 0
+        if (base == -1 || base == 10000 || base == -10000) return base
+        return base + initPenalty(ml)
+    }
+
+    /**
+     * Desktop-lite [MonsterData.getJumpChance].
+     * [initMl] feeds initPenalty; [attackMl] feeds attack (desktop quirk: overload ml
+     * only affects initiative, while attack uses current character ML).
+     */
+    fun jumpChance(
+        monster: MonsterDefinition?,
+        initBonus: Int,
+        initMl: Int,
+        attackMl: Int,
+        baseMainstat: Int,
+    ): Int {
+        if (monster == null) return 0
+        val monsterInit = monsterInitiativeWithMl(monster, initMl)
+        if (monsterInit == 10000) return 0
+        if (monsterInit == -10000) return 100
+        val attack = monsterAttack(monster, attackMl)
+        val jump = 100 - monsterInit + initBonus + max(0, baseMainstat - attack)
+        return jump.coerceIn(0, 100)
+    }
 }
 
 internal fun GameRuntimeLibrary.lastLocationName(): String =

@@ -24,6 +24,8 @@ internal object MonsterEntityFields {
             "min_meat" -> AshValue.of((monster?.meatDrop ?: 0).toLong())
             "max_meat" -> AshValue.of((monster?.meatDrop ?: 0).toLong())
             "phylum" -> AshValue(AshType.PHYLUM, monster?.phylum ?: "")
+            "attack_element" -> AshValue(AshType.ELEMENT, monster?.attackElement ?: "")
+            "defense_element" -> AshValue(AshType.ELEMENT, monster?.defenseElement ?: "")
             "boss" -> AshValue.of(monster?.isBoss ?: false)
             "ghost" -> AshValue.of(monster?.isGhost ?: false)
             "lucky" -> AshValue.of(monster?.isLucky ?: false)

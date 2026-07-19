@@ -376,6 +376,56 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_monsterCombatStats_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "huge mosquito")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals("16", outputLib(lib, """print(monster_attack());""").trim())
+        assertEquals("14", outputLib(lib, """print(monster_defense());""").trim())
+        assertEquals("18", outputLib(lib, """print(monster_hp());""").trim())
+        assertEquals("20", outputLib(lib, """print(monster_initiative());""").trim())
+        assertEquals("bug", outputLib(lib, """print(monster_phylum());""").trim())
+        assertEquals(
+            "16",
+            outputLib(lib, """print(monster_attack(to_monster("huge mosquito")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_monsterElement_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "Axe Wound")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals("sleaze", outputLib(lib, """print(monster_element());""").trim())
+        assertEquals(
+            "cold",
+            outputLib(lib, """print(to_monster("Axe Wound")["attack_element"]);""").trim(),
+        )
+        assertEquals(
+            "sleaze",
+            outputLib(lib, """print(to_monster("Axe Wound")["defense_element"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_jumpChance_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "huge mosquito")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals("80", outputLib(lib, """print(jump_chance());""").trim())
+        assertEquals(
+            "60",
+            outputLib(lib, """print(jump_chance(to_monster("huge mosquito"), 0, 40));""").trim(),
+        )
+    }
+
+    @Test
     fun corpus_servantVykeaEntity_live() = runBlocking {
         val lib = GameRuntimeLibrary()
         assertEquals("Cat", outputLib(lib, """print(to_servant("Cat"));""").trim())

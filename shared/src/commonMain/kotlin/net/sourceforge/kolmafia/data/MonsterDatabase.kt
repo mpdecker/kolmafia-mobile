@@ -50,6 +50,7 @@ object MonsterDatabase {
         val isWishable: Boolean = true,
         val poison: Int = Int.MAX_VALUE,
         val attackElement: String = "",
+        val defenseElement: String = "",
     )
 
     private fun parseParams(params: String): ParsedParams {
@@ -72,6 +73,7 @@ object MonsterDatabase {
         var isWishable = true
         var poison = Int.MAX_VALUE
         var attackElement = ""
+        var defenseElement = ""
 
         var i = 0
         while (i < tokens.size) {
@@ -106,8 +108,19 @@ object MonsterDatabase {
                                 i += poisonTokenSkip(tokens, i + 1)
                             } else {
                                 val elem = value.lowercase()
-                                if (attackElement.isEmpty() && elem in ATTACK_ELEMENTS) {
+                                if (attackElement.isEmpty() && elem in ELEMENT_VALUES) {
                                     attackElement = elem
+                                }
+                                i++
+                            }
+                        }
+                        "ED:" -> {
+                            if (value.startsWith("\"")) {
+                                i += poisonTokenSkip(tokens, i + 1)
+                            } else {
+                                val elem = value.lowercase()
+                                if (defenseElement.isEmpty() && elem in ELEMENT_VALUES) {
+                                    defenseElement = elem
                                 }
                                 i++
                             }
@@ -146,6 +159,7 @@ object MonsterDatabase {
             isWishable = isWishable,
             poison = poison,
             attackElement = attackElement,
+            defenseElement = defenseElement,
         )
     }
 
@@ -229,6 +243,7 @@ object MonsterDatabase {
                 isWishable = p.isWishable,
                 poison = p.poison,
                 attackElement = p.attackElement,
+                defenseElement = p.defenseElement,
                 drops = drops,
             )
             _byId[id] = monster
@@ -236,7 +251,7 @@ object MonsterDatabase {
         }
     }
 
-    private val ATTACK_ELEMENTS = setOf(
+    private val ELEMENT_VALUES = setOf(
         "hot", "cold", "spooky", "stench", "sleaze", "slime", "supercold",
     )
 }

@@ -173,4 +173,73 @@ class CombatAdjustmentTest {
         assertEquals(2.0, CombatAdjustment.experienceBonus(values, CharacterState(characterClass = 5)))
         assertEquals(0.0, CombatAdjustment.experienceBonus(values, null))
     }
+
+    @Test
+    fun monsterStatWithMl_zeroBaseStaysZero() {
+        assertEquals(0, CombatAdjustment.monsterStatWithMl(0, 40))
+        assertEquals(0, CombatAdjustment.monsterAttack(null, 10))
+        assertEquals(0, CombatAdjustment.monsterDefense(null, 10))
+        assertEquals(0, CombatAdjustment.monsterHp(null, 10))
+        assertEquals(0, CombatAdjustment.monsterInitiative(null))
+        assertEquals("", CombatAdjustment.monsterPhylum(null))
+    }
+
+    @Test
+    fun monsterStatWithMl_appliesMaxOneFloor() {
+        assertEquals(41, CombatAdjustment.monsterStatWithMl(1, 40))
+        assertEquals(56, CombatAdjustment.monsterStatWithMl(16, 40))
+        // Negative ML can floor at 1 when base is positive
+        assertEquals(1, CombatAdjustment.monsterStatWithMl(5, -10))
+    }
+
+    @Test
+    fun initPenalty_matchesDesktopTiers() {
+        assertEquals(0, CombatAdjustment.initPenalty(20))
+        assertEquals(0, CombatAdjustment.initPenalty(0))
+        assertEquals(1, CombatAdjustment.initPenalty(21))
+        assertEquals(20, CombatAdjustment.initPenalty(40))
+        assertEquals(22, CombatAdjustment.initPenalty(41))
+        assertEquals(60, CombatAdjustment.initPenalty(60))
+        assertEquals(63, CombatAdjustment.initPenalty(61))
+        assertEquals(120, CombatAdjustment.initPenalty(80))
+        assertEquals(124, CombatAdjustment.initPenalty(81))
+        assertEquals(200, CombatAdjustment.initPenalty(100))
+        assertEquals(205, CombatAdjustment.initPenalty(101))
+    }
+
+    @Test
+    fun jumpChance_sentinelsAndClamp() {
+        fun monster(init: Int, atk: Int = 10) = MonsterDefinition(
+            name = "test",
+            id = 1,
+            image = "",
+            attack = atk,
+            defense = 0,
+            hp = 10,
+            initiative = init,
+            meatDrop = 0,
+            phylum = "bug",
+            isBoss = false,
+            isGhost = false,
+            isLucky = false,
+            isScaling = false,
+            scale = 0,
+            cap = 0,
+            floor = 0,
+            drops = emptyList(),
+        )
+        assertEquals(0, CombatAdjustment.jumpChance(null, 0, 0, 0, 0))
+        assertEquals(0, CombatAdjustment.jumpChance(monster(10000), 0, 0, 0, 0))
+        assertEquals(100, CombatAdjustment.jumpChance(monster(-10000), 0, 0, 0, 0))
+        // 100 - 20 + 0 + max(0, 0-10) = 80
+        assertEquals(80, CombatAdjustment.jumpChance(monster(20, atk = 10), 0, 0, 0, 0))
+        // mainstat excess: 100 - 20 + 0 + 15 = 95
+        assertEquals(95, CombatAdjustment.jumpChance(monster(20, atk = 10), 0, 0, 0, 25))
+        // initPenalty(40)=20 → monsterInit 40 → 100-40=60
+        assertEquals(60, CombatAdjustment.jumpChance(monster(20, atk = 10), 0, 40, 0, 0))
+        // Clamp high
+        assertEquals(100, CombatAdjustment.jumpChance(monster(0, atk = 0), 50, 0, 0, 100))
+        // Clamp low
+        assertEquals(0, CombatAdjustment.jumpChance(monster(200, atk = 0), 0, 0, 0, 0))
+    }
 }
