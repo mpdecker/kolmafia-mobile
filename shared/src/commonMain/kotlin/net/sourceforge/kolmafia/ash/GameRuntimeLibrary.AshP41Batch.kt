@@ -38,20 +38,24 @@ internal fun GameRuntimeLibrary.registerAshP41Batch(scope: AshScope) {
     }
 
     regFn(scope, "monster_defense", AshType.INT, emptyList()) { _, _ ->
+        val mods = buildCurrentModifiers()
         AshValue.of(
             CombatAdjustment.monsterDefense(
                 lastMonster(),
                 currentMl(),
                 buildMonsterExpressionContext(),
+                CombatAdjustment.reduceEnemyDefensePercent(mods),
             ).toLong(),
         )
     }
     regFn(scope, "monster_defense", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->
+        val mods = buildCurrentModifiers()
         AshValue.of(
             CombatAdjustment.monsterDefense(
                 resolveMonsterDefinition(args[0].toString()),
                 currentMl(),
                 buildMonsterExpressionContext(),
+                CombatAdjustment.reduceEnemyDefensePercent(mods),
             ).toLong(),
         )
     }

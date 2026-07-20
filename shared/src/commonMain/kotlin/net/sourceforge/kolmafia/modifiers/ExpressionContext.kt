@@ -76,6 +76,9 @@ data class ExpressionContext(
     val basementLevel: Int = 0,
     /** Character max HP for HP token (not monster HP). */
     val characterMaxHp: Int = 0,
+
+    /** Lowercase equipped item names for equipped() in monster expressions. */
+    val equippedItemNames: Set<String> = emptySet(),
 ) {
     fun variable(c: Char): Double = when (c) {
         'A' -> ascensions.toDouble()
@@ -131,6 +134,10 @@ data class ExpressionContext(
         (activeEffects[name.lowercase()] ?: 0).toDouble()
 
     fun hasSkill(name: String): Boolean = name.lowercase() in skills
+
+    /** equipped(item) — 1 if any slot has the item (case-insensitive), else 0. */
+    fun equippedValue(itemName: String): Double =
+        if (itemName.lowercase() in equippedItemNames) 1.0 else 0.0
 
     fun locContains(text: String): Boolean =
         currentLocation.contains(text, ignoreCase = true)

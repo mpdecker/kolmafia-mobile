@@ -47,12 +47,14 @@ internal fun GameRuntimeLibrary.registerAshP46Batch(scope: AshScope) {
     }
 
     regFn(scope, "will_usually_miss", AshType.BOOLEAN, emptyList()) { _, _ ->
+        val mods = buildCurrentModifiers()
         AshValue.of(
             CombatAdjustment.willUsuallyMiss(
                 monster = lastMonster(),
                 hitStat = hitStat(),
                 ml = currentMl(),
                 expressionContext = buildMonsterExpressionContext(),
+                reduceEnemyDefensePercent = CombatAdjustment.reduceEnemyDefensePercent(mods),
             ),
         )
     }

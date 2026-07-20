@@ -13,6 +13,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.character.CharacterApiResponse
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
@@ -533,6 +534,98 @@ class AshCompatibilityCorpusTest {
         assertEquals(
             "38",
             outputLib(lib, """print(monster_hp(to_monster("amok putty")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_mlMult_caveBarsNoMl() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(buffedmox = "50", mox = "50", buffedmus = "50", mus = "50"),
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char)
+        // Scale:20 → Atk 70 with ML=0 (MLMult:5 idle until ML applied)
+        assertEquals(
+            "70",
+            outputLib(lib, """print(monster_attack(to_monster("clan of cave bars")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_expressionScale_sausageGoblin() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString("_sausageFights", "3")
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(buffedmox = "50", mox = "50"))
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char, preferences = prefs)
+        // Scale 1+2*3=7 → Atk min(57, 10000)=57
+        assertEquals(
+            "57",
+            outputLib(lib, """print(monster_attack(to_monster("sausage goblin")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_baseMainstatExp_guyMadeOfBees() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "20.0",
+            outputLib(lib, """print(to_monster("Guy Made Of Bees")["base_mainstat_exp"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_reduceEnemyDefense_sharpshooterHat() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = KoLCharacter()
+        char.updateEquipment(EquipmentSlot.HAT, "sharpshooter's hat")
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char)
+        assertEquals(
+            "13",
+            outputLib(lib, """print(monster_defense(to_monster("huge mosquito")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_physicalResistance_ancientProtector() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "100",
+            outputLib(lib, """print(to_monster("ancient protector spirit")["physical_resistance"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_physicalResistance_mosquitoNoMl() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        // ML=0 → no fight-time boost
+        assertEquals(
+            "0",
+            outputLib(lib, """print(to_monster("huge mosquito")["physical_resistance"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_rawAttack_mosquito() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "16",
+            outputLib(lib, """print(to_monster("huge mosquito")["raw_attack"]);""").trim(),
         )
     }
 
