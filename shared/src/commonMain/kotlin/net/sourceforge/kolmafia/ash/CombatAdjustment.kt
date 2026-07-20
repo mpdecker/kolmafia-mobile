@@ -8,11 +8,15 @@ import kotlin.math.sqrt
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.MainStat
 import net.sourceforge.kolmafia.data.AdventureDatabase
+import net.sourceforge.kolmafia.data.CombatDatabase
+import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.data.MonsterDefinition
+import net.sourceforge.kolmafia.modifiers.BooleanModifier
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.modifiers.ModifierValues
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.modifiers.StatNames
 
 /**
  * Combat adjustment math ported from desktop [KoLCharacter] / [RuntimeLibrary].
@@ -201,6 +205,7 @@ internal object CombatAdjustment {
      * Desktop-lite [MonsterData.getJumpChance].
      * [initMl] feeds initPenalty; [attackMl] feeds attack (desktop quirk: overload ml
      * only affects initiative, while attack uses current character ML).
+     * Missing Init: → −1. Overclocked +200 vs Source Agent.
      */
     fun jumpChance(
         monster: MonsterDefinition?,
@@ -208,16 +213,128 @@ internal object CombatAdjustment {
         initMl: Int,
         attackMl: Int,
         baseMainstat: Int,
+        hasOverclocked: Boolean = false,
     ): Int {
         if (monster == null) return 0
+        if (!monster.hasInitiative) return -1
         val monsterInit = monsterInitiativeWithMl(monster, initMl)
         if (monsterInit == 10000) return 0
         if (monsterInit == -10000) return 100
+        var charInit = initBonus
+        if (hasOverclocked && monster.name.contains("Source Agent")) {
+            charInit += 200
+        }
         val attack = monsterAttack(monster, attackMl)
-        val jump = 100 - monsterInit + initBonus + max(0, baseMainstat - attack)
+        val jump = 100 - monsterInit + charInit + max(0, baseMainstat - attack)
         return jump.coerceIn(0, 100)
     }
+
+    /**
+     * Desktop [AreaCombatData.getJumpChance]: min jump chance over weight &gt; 0
+     * monsters in the zone; unknown/empty zone → 0.
+     */
+    fun locationJumpChance(
+        locationName: String,
+        initBonus: Int,
+        initMl: Int,
+        attackMl: Int,
+        baseMainstat: Int,
+        hasOverclocked: Boolean = false,
+        resolveMonster: (String) -> MonsterDefinition?,
+    ): Int {
+        val data = CombatDatabase.getByLocation(locationName) ?: return 0
+        var minJump: Int? = null
+        for (mw in data.monsters) {
+            if (mw.weight <= 0) continue
+            val chance = jumpChance(
+                resolveMonster(mw.name),
+                initBonus,
+                initMl,
+                attackMl,
+                baseMainstat,
+                hasOverclocked,
+            )
+            minJump = if (minJump == null) chance else min(minJump, chance)
+        }
+        return minJump ?: 0
+    }
+
+    /** Desktop [AreaCombatData.hitPercent]. */
+    fun hitPercent(attack: Int, defense: Int): Double {
+        val percent = 100.0 * (attack - defense) / 18.0 + 50.0
+        return percent.coerceIn(0.0, 100.0)
+    }
+
+    /**
+     * Desktop-lite [EquipmentManager.getHitStatType] — Mox-req weapon → moxie, else muscle.
+     * Knife / Fourth Saber / skill edges deferred.
+     */
+    fun hitStatKind(weaponName: String?): HitStatKind {
+        if (weaponName.isNullOrBlank()) return HitStatKind.MUSCLE
+        val req = EquipmentDatabase.getByName(weaponName)?.statRequirement
+            ?: return HitStatKind.MUSCLE
+        return if (req.startsWith("Mox", ignoreCase = true)) HitStatKind.MOXIE else HitStatKind.MUSCLE
+    }
+
+    fun buffedHitStat(
+        character: CharacterState?,
+        modifiers: CurrentModifiers,
+        weaponName: String?,
+    ): Int {
+        if (modifiers.values.get(BooleanModifier.ATTACKS_CANT_MISS)) return Int.MAX_VALUE
+        val mus = resolveBuffedMuscle(character, modifiers)
+        val mox = resolveBuffedMoxie(character, modifiers)
+        return when (hitStatKind(weaponName)) {
+            HitStatKind.MOXIE -> mox
+            HitStatKind.MUSCLE -> mus
+        }
+    }
+
+    fun currentHitStatName(weaponName: String?): String =
+        when (hitStatKind(weaponName)) {
+            HitStatKind.MOXIE -> StatNames.MOXIE
+            HitStatKind.MUSCLE -> StatNames.MUSCLE
+        }
+
+    /** Desktop [MonsterData.willUsuallyDodge] with offenseModifier (ASH uses 0). */
+    fun willUsuallyDodge(
+        monster: MonsterDefinition?,
+        buffedMoxie: Int,
+        ml: Int,
+        offenseModifier: Int = 0,
+    ): Boolean {
+        if (monster == null) return false
+        val attack = monsterAttack(monster, ml)
+        return buffedMoxie - (attack + offenseModifier) - 6 > 0
+    }
+
+    /** Desktop [MonsterData.willUsuallyMiss] with defenseModifier (ASH uses 0). */
+    fun willUsuallyMiss(
+        monster: MonsterDefinition?,
+        hitStat: Int,
+        ml: Int,
+        defenseModifier: Int = 0,
+    ): Boolean {
+        if (monster == null) return false
+        val defense = monsterDefense(monster, ml)
+        return hitPercent(hitStat - defenseModifier, defense) <= 50.0
+    }
+
+    private fun resolveBuffedMuscle(character: CharacterState?, modifiers: CurrentModifiers): Int {
+        val fromMods = modifiers.buffedMuscle()
+        if (fromMods != 0) return fromMods
+        return character?.buffedMusc ?: 0
+    }
+
+    private fun resolveBuffedMoxie(character: CharacterState?, modifiers: CurrentModifiers): Int {
+        val fromMods = modifiers.buffedMoxie()
+        if (fromMods != 0) return fromMods
+        return character?.buffedMoxie ?: 0
+    }
 }
+
+/** Desktop-lite hit-stat kind (ranged/Mox → moxie, else muscle). */
+internal enum class HitStatKind { MUSCLE, MOXIE }
 
 internal fun GameRuntimeLibrary.lastLocationName(): String =
     preferences?.getString(Preferences.LAST_LOCATION, "") ?: ""

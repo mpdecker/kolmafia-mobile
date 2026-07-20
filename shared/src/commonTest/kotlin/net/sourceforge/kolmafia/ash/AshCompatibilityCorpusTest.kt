@@ -423,6 +423,73 @@ class AshCompatibilityCorpusTest {
             "60",
             outputLib(lib, """print(jump_chance(to_monster("huge mosquito"), 0, 40));""").trim(),
         )
+        val locationExpected = CombatAdjustment.locationJumpChance(
+            "The Spooky Forest", 0, 0, 0, 0,
+        ) { net.sourceforge.kolmafia.data.MonsterDatabase.getByName(it) }
+        assertEquals(
+            locationExpected.toString(),
+            outputLib(lib, """print(jump_chance(to_location("The Spooky Forest"), 0, 0));""").trim(),
+        )
+        assertEquals(
+            "0",
+            outputLib(lib, """print(jump_chance(to_location("Nowhere Land That Does Not Exist")));""").trim(),
+        )
+        assertEquals(
+            "-1",
+            outputLib(lib, """print(jump_chance(to_monster("crazy bastard")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_meatItemDrops_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "huge mosquito")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals("10", outputLib(lib, """print(meat_drop());""").trim())
+        assertEquals("-1", outputLib(lib, """print(meat_drop(to_monster("none")));""").trim())
+        assertEquals(
+            "30.0",
+            outputLib(
+                lib,
+                """print(to_string(item_drops(to_monster("huge mosquito"))[to_item("delicious swamp muck")]));""",
+            ).trim(),
+        )
+    }
+
+    @Test
+    fun corpus_hitMiss_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, "huge mosquito")
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(
+                    buffedmox = "40",
+                    buffedmus = "10",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char, preferences = prefs)
+        assertEquals("true", outputLib(lib, """print(to_string(will_usually_dodge()));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(will_usually_miss()));""").trim())
+        assertEquals("Muscle", outputLib(lib, """print(current_hit_stat());""").trim())
+    }
+
+    @Test
+    fun corpus_allMonstersWithId_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "true",
+            outputLib(
+                lib,
+                """print(to_string(all_monsters_with_id()[to_monster("huge mosquito")]));""",
+            ).trim(),
+        )
     }
 
     @Test

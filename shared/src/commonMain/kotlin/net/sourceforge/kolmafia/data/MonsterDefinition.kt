@@ -8,6 +8,8 @@ data class MonsterDefinition(
     val defense: Int,
     val hp: Int,
     val initiative: Int,
+    /** False when monsters.txt has no Init: attribute (desktop initiative == null). */
+    val hasInitiative: Boolean = true,
     val meatDrop: Int,
     val phylum: String,          // dude, beast, undead, etc.
     val isBoss: Boolean,

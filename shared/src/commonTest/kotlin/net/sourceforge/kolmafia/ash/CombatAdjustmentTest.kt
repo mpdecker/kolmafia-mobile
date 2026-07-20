@@ -3,8 +3,14 @@ package net.sourceforge.kolmafia.ash
 import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.MainStat
+import net.sourceforge.kolmafia.data.CombatDatabase
+import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.MonsterDatabase
 import net.sourceforge.kolmafia.data.MonsterDefinition
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
@@ -241,5 +247,143 @@ class CombatAdjustmentTest {
         assertEquals(100, CombatAdjustment.jumpChance(monster(0, atk = 0), 50, 0, 0, 100))
         // Clamp low
         assertEquals(0, CombatAdjustment.jumpChance(monster(200, atk = 0), 0, 0, 0, 0))
+    }
+
+    @Test
+    fun jumpChance_missingInit_returnsMinusOne() {
+        val missing = MonsterDefinition(
+            name = "no init", id = 1, image = "", attack = 10, defense = 0, hp = 10,
+            initiative = 0, hasInitiative = false, meatDrop = 0, phylum = "dude",
+            isBoss = false, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val initZero = MonsterDefinition(
+            name = "init zero", id = 2, image = "", attack = 10, defense = 0, hp = 10,
+            initiative = 0, hasInitiative = true, meatDrop = 0, phylum = "dude",
+            isBoss = false, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        assertEquals(-1, CombatAdjustment.jumpChance(missing, 0, 0, 0, 0))
+        // Init: 0 present → formula 100 - 0 + 0 + max(0,0-10) = 100
+        assertEquals(100, CombatAdjustment.jumpChance(initZero, 0, 0, 0, 0))
+    }
+
+    @Test
+    fun jumpChance_overclockedSourceAgent() {
+        val agent = MonsterDefinition(
+            name = "Source Agent", id = 1945, image = "", attack = 30, defense = 30, hp = 40,
+            initiative = 25, hasInitiative = true, meatDrop = 0, phylum = "construct",
+            isBoss = false, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val without = CombatAdjustment.jumpChance(agent, 0, 0, 0, 0, hasOverclocked = false)
+        val with = CombatAdjustment.jumpChance(agent, 0, 0, 0, 0, hasOverclocked = true)
+        // 100 - 25 + 0 + max(0, 0-30) = 75 without; +200 init → clamp 100 with
+        assertEquals(75, without)
+        assertEquals(100, with)
+        assertTrue(with > without)
+    }
+
+    @Test
+    fun hasInitiative_parsedFromMonstersTxt() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val mosquito = MonsterDatabase.getByName("huge mosquito")!!
+        assertTrue(mosquito.hasInitiative)
+        assertEquals(20, mosquito.initiative)
+        val noInit = MonsterDatabase.getByName("crazy bastard")!!
+        assertFalse(noInit.hasInitiative)
+        val agent = MonsterDatabase.getByName("Source Agent")!!
+        // Init: [expr] present but unparsed → hasInitiative true, numeric 0
+        assertTrue(agent.hasInitiative)
+        assertEquals(0, agent.initiative)
+    }
+
+    @Test
+    fun locationJumpChance_minOverPositiveWeight() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val zone = CombatDatabase.getByLocation("The Spooky Forest")!!
+        val weighted = zone.monsters.filter { it.weight > 0 }
+        assertTrue(weighted.size >= 2)
+        val resolve = { name: String -> MonsterDatabase.getByName(name) }
+        val perMonster = weighted.map { mw ->
+            CombatAdjustment.jumpChance(resolve(mw.name), 0, 0, 0, 0)
+        }
+        val expected = perMonster.minOrNull()!!
+        assertEquals(
+            expected,
+            CombatAdjustment.locationJumpChance(
+                "The Spooky Forest",
+                initBonus = 0,
+                initMl = 0,
+                attackMl = 0,
+                baseMainstat = 0,
+                resolveMonster = resolve,
+            ),
+        )
+        // Zero-weight / negative-weight entries must not raise the min
+        assertTrue(zone.monsters.any { it.weight <= 0 })
+    }
+
+    @Test
+    fun locationJumpChance_unknownLocation_returnsZero() {
+        assertEquals(
+            0,
+            CombatAdjustment.locationJumpChance(
+                "Nowhere Land That Does Not Exist",
+                initBonus = 0,
+                initMl = 0,
+                attackMl = 0,
+                baseMainstat = 0,
+                resolveMonster = { null },
+            ),
+        )
+    }
+
+    @Test
+    fun hitPercent_matchesDesktopFormula() {
+        assertEquals(50.0, CombatAdjustment.hitPercent(10, 10), 0.0001)
+        assertEquals(100.0, CombatAdjustment.hitPercent(100, 0), 0.0001)
+        assertEquals(0.0, CombatAdjustment.hitPercent(0, 100), 0.0001)
+        // Equal atk/def → 50; +9 atk → 100
+        assertEquals(100.0, CombatAdjustment.hitPercent(19, 10), 0.0001)
+    }
+
+    @Test
+    fun willUsuallyDodge_threshold() {
+        fun monster(atk: Int) = MonsterDefinition(
+            name = "test", id = 1, image = "", attack = atk, defense = 0, hp = 10,
+            initiative = 0, meatDrop = 0, phylum = "bug", isBoss = false, isGhost = false,
+            isLucky = false, isScaling = false, scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        assertFalse(CombatAdjustment.willUsuallyDodge(null, 100, 0))
+        // mox - atk - 6 > 0 → mox > atk + 6
+        assertFalse(CombatAdjustment.willUsuallyDodge(monster(16), 22, 0))
+        assertTrue(CombatAdjustment.willUsuallyDodge(monster(16), 23, 0))
+    }
+
+    @Test
+    fun willUsuallyMiss_atFiftyPercentBoundary() {
+        fun monster(def: Int) = MonsterDefinition(
+            name = "test", id = 1, image = "", attack = 0, defense = def, hp = 10,
+            initiative = 0, meatDrop = 0, phylum = "bug", isBoss = false, isGhost = false,
+            isLucky = false, isScaling = false, scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        assertFalse(CombatAdjustment.willUsuallyMiss(null, 100, 0))
+        // hitStat == defense → hitPercent 50 → usually miss
+        assertTrue(CombatAdjustment.willUsuallyMiss(monster(14), 14, 0))
+        // hitStat clearly above → not usually miss
+        assertFalse(CombatAdjustment.willUsuallyMiss(monster(14), 40, 0))
+    }
+
+    @Test
+    fun hitStatKind_moxWeaponIsMoxie() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        assertEquals(HitStatKind.MOXIE, CombatAdjustment.hitStatKind("airblaster gun"))
+        assertEquals(HitStatKind.MUSCLE, CombatAdjustment.hitStatKind("adobe adze"))
+        assertEquals(HitStatKind.MUSCLE, CombatAdjustment.hitStatKind(null))
+        assertEquals(HitStatKind.MUSCLE, CombatAdjustment.hitStatKind(""))
     }
 }

@@ -6,7 +6,8 @@ import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * AshP43 — monster-focused jump_chance ASH library.
- * Mirrors desktop [RuntimeLibrary] / [MonsterData.getJumpChance] (location overloads deferred).
+ * Mirrors desktop [RuntimeLibrary] / [MonsterData.getJumpChance]
+ * (location overloads in AshP44; Init/Overclocked polish AshP48).
  */
 internal fun GameRuntimeLibrary.registerAshP43Batch(scope: AshScope) {
     fun currentMl(): Int =
@@ -27,6 +28,11 @@ internal fun GameRuntimeLibrary.registerAshP43Batch(scope: AshScope) {
     fun lastMonster() =
         resolveMonsterDefinition(preferences?.getString(Preferences.LAST_MONSTER, "") ?: "")
 
+    fun hasOverclocked(): Boolean =
+        skillManager?.state?.value?.skills?.any {
+            it.id == OVERCLOCKED_SKILL_ID || it.name.equals("Overclocked", ignoreCase = true)
+        } == true
+
     fun jump(monster: MonsterDefinition?, initBonus: Int, initMl: Int): Int =
         CombatAdjustment.jumpChance(
             monster = monster,
@@ -34,6 +40,7 @@ internal fun GameRuntimeLibrary.registerAshP43Batch(scope: AshScope) {
             initMl = initMl,
             attackMl = currentMl(),
             baseMainstat = baseMainstat(),
+            hasOverclocked = hasOverclocked(),
         )
 
     regFn(scope, "jump_chance", AshType.INT, emptyList()) { _, _ ->
@@ -79,3 +86,6 @@ internal fun GameRuntimeLibrary.registerAshP43Batch(scope: AshScope) {
         )
     }
 }
+
+/** Desktop [SkillPool.OVERCLOCKED]. */
+internal const val OVERCLOCKED_SKILL_ID = 21001

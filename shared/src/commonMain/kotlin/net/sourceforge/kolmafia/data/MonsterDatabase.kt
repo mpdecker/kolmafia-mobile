@@ -36,6 +36,7 @@ object MonsterDatabase {
         val defense: Int = 0,
         val hp: Int = 0,
         val initiative: Int = 0,
+        val hasInitiative: Boolean = false,
         val meatDrop: Int = 0,
         val phylum: String = "",
         val isBoss: Boolean = false,
@@ -59,6 +60,7 @@ object MonsterDatabase {
         var defense = 0
         var hp = 0
         var initiative = 0
+        var hasInitiative = false
         var meatDrop = 0
         var phylum = ""
         var isBoss = false
@@ -91,7 +93,11 @@ object MonsterDatabase {
                         "Atk:" -> { attack = value.toIntOrNull() ?: 0; i++ }
                         "Def:" -> { defense = value.toIntOrNull() ?: 0; i++ }
                         "HP:" -> { hp = value.toIntOrNull() ?: 0; i++ }
-                        "Init:" -> { initiative = value.toIntOrNull() ?: 0; i++ }
+                        "Init:" -> {
+                            hasInitiative = true
+                            initiative = value.toIntOrNull() ?: 0
+                            i++
+                        }
                         "Meat:" -> { meatDrop = value.toIntOrNull() ?: 0; i++ }
                         "P:" -> { phylum = value; i++ }
                         "Scale:" -> { scale = value.toIntOrNull() ?: 0; isScaling = true; i++ }
@@ -145,6 +151,7 @@ object MonsterDatabase {
             defense = defense,
             hp = hp,
             initiative = initiative,
+            hasInitiative = hasInitiative,
             meatDrop = meatDrop,
             phylum = phylum,
             isBoss = isBoss,
@@ -229,6 +236,7 @@ object MonsterDatabase {
                 defense = p.defense,
                 hp = p.hp,
                 initiative = p.initiative,
+                hasInitiative = p.hasInitiative,
                 meatDrop = p.meatDrop,
                 phylum = p.phylum,
                 isBoss = p.isBoss,
