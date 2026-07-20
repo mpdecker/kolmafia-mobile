@@ -33,10 +33,17 @@ object MonsterDatabase {
 
     private data class ParsedParams(
         val attack: Int = 0,
+        val attackExpression: String? = null,
+        val hasAttack: Boolean = false,
         val defense: Int = 0,
+        val defenseExpression: String? = null,
+        val hasDefense: Boolean = false,
         val hp: Int = 0,
+        val hpExpression: String? = null,
+        val hasHp: Boolean = false,
         val initiative: Int = 0,
         val hasInitiative: Boolean = false,
+        val initiativeExpression: String? = null,
         val meatDrop: Int = 0,
         val phylum: String = "",
         val isBoss: Boolean = false,
@@ -57,10 +64,17 @@ object MonsterDatabase {
     private fun parseParams(params: String): ParsedParams {
         val tokens = params.split(' ').filter { it.isNotEmpty() }
         var attack = 0
+        var attackExpression: String? = null
+        var hasAttack = false
         var defense = 0
+        var defenseExpression: String? = null
+        var hasDefense = false
         var hp = 0
+        var hpExpression: String? = null
+        var hasHp = false
         var initiative = 0
         var hasInitiative = false
+        var initiativeExpression: String? = null
         var meatDrop = 0
         var phylum = ""
         var isBoss = false
@@ -70,6 +84,8 @@ object MonsterDatabase {
         var scale = 0
         var cap = 0
         var floor = 0
+        var sawCap = false
+        var sawFloor = false
         var article = ""
         var isCopyable = true
         var isWishable = true
@@ -90,19 +106,74 @@ object MonsterDatabase {
                 token.endsWith(':') -> {
                     val value = tokens.getOrNull(i + 1) ?: ""
                     when (token) {
-                        "Atk:" -> { attack = value.toIntOrNull() ?: 0; i++ }
-                        "Def:" -> { defense = value.toIntOrNull() ?: 0; i++ }
-                        "HP:" -> { hp = value.toIntOrNull() ?: 0; i++ }
+                        "Atk:" -> {
+                            hasAttack = true
+                            if (value.startsWith("[")) {
+                                attackExpression = value.removePrefix("[").removeSuffix("]")
+                                attack = 0
+                            } else {
+                                attackExpression = null
+                                attack = value.toIntOrNull() ?: 0
+                            }
+                            i++
+                        }
+                        "Def:" -> {
+                            hasDefense = true
+                            if (value.startsWith("[")) {
+                                defenseExpression = value.removePrefix("[").removeSuffix("]")
+                                defense = 0
+                            } else {
+                                defenseExpression = null
+                                defense = value.toIntOrNull() ?: 0
+                            }
+                            i++
+                        }
+                        "HP:" -> {
+                            hasHp = true
+                            if (value.startsWith("[")) {
+                                hpExpression = value.removePrefix("[").removeSuffix("]")
+                                hp = 0
+                            } else {
+                                hpExpression = null
+                                hp = value.toIntOrNull() ?: 0
+                            }
+                            i++
+                        }
                         "Init:" -> {
                             hasInitiative = true
-                            initiative = value.toIntOrNull() ?: 0
+                            if (value.startsWith("[")) {
+                                initiativeExpression = value.removePrefix("[").removeSuffix("]")
+                                initiative = 0
+                            } else {
+                                initiativeExpression = null
+                                initiative = value.toIntOrNull() ?: 0
+                            }
                             i++
                         }
                         "Meat:" -> { meatDrop = value.toIntOrNull() ?: 0; i++ }
                         "P:" -> { phylum = value; i++ }
-                        "Scale:" -> { scale = value.toIntOrNull() ?: 0; isScaling = true; i++ }
-                        "Cap:" -> { cap = value.toIntOrNull() ?: 0; i++ }
-                        "Floor:" -> { floor = value.toIntOrNull() ?: 0; i++ }
+                        "Scale:" -> {
+                            isScaling = true
+                            // Expression Scale deferred — leave numeric 0
+                            scale = if (value.startsWith("[")) 0 else (value.toIntOrNull() ?: 0)
+                            i++
+                        }
+                        "Cap:" -> {
+                            sawCap = true
+                            cap = when {
+                                value == "?" -> MonsterDefinition.DEFAULT_CAP
+                                else -> value.toIntOrNull() ?: MonsterDefinition.DEFAULT_CAP
+                            }
+                            i++
+                        }
+                        "Floor:" -> {
+                            sawFloor = true
+                            floor = when {
+                                value == "?" -> MonsterDefinition.DEFAULT_FLOOR
+                                else -> value.toIntOrNull() ?: MonsterDefinition.DEFAULT_FLOOR
+                            }
+                            i++
+                        }
                         "Article:" -> { article = value; i++ }
                         "Poison:" -> {
                             val poisonName = readQuotedOrSingleValue(tokens, i + 1)
@@ -146,12 +217,30 @@ object MonsterDatabase {
             i++
         }
 
+        val effectiveCap = when {
+            !isScaling -> cap
+            sawCap -> cap
+            else -> MonsterDefinition.DEFAULT_CAP
+        }
+        val effectiveFloor = when {
+            !isScaling -> floor
+            sawFloor -> floor
+            else -> MonsterDefinition.DEFAULT_FLOOR
+        }
+
         return ParsedParams(
             attack = attack,
+            attackExpression = attackExpression,
+            hasAttack = hasAttack,
             defense = defense,
+            defenseExpression = defenseExpression,
+            hasDefense = hasDefense,
             hp = hp,
+            hpExpression = hpExpression,
+            hasHp = hasHp,
             initiative = initiative,
             hasInitiative = hasInitiative,
+            initiativeExpression = initiativeExpression,
             meatDrop = meatDrop,
             phylum = phylum,
             isBoss = isBoss,
@@ -159,8 +248,8 @@ object MonsterDatabase {
             isLucky = isLucky,
             isScaling = isScaling,
             scale = scale,
-            cap = cap,
-            floor = floor,
+            cap = effectiveCap,
+            floor = effectiveFloor,
             article = article,
             isCopyable = isCopyable,
             isWishable = isWishable,
@@ -233,10 +322,17 @@ object MonsterDatabase {
                 id = id,
                 image = image,
                 attack = p.attack,
+                attackExpression = p.attackExpression,
+                hasAttack = p.hasAttack,
                 defense = p.defense,
+                defenseExpression = p.defenseExpression,
+                hasDefense = p.hasDefense,
                 hp = p.hp,
+                hpExpression = p.hpExpression,
+                hasHp = p.hasHp,
                 initiative = p.initiative,
                 hasInitiative = p.hasInitiative,
+                initiativeExpression = p.initiativeExpression,
                 meatDrop = p.meatDrop,
                 phylum = p.phylum,
                 isBoss = p.isBoss,

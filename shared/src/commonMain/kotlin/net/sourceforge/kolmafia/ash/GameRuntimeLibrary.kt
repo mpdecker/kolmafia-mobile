@@ -30,6 +30,8 @@ import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
+import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.modifiers.ExpressionContext
 import net.sourceforge.kolmafia.modifiers.StatNames
 import net.sourceforge.kolmafia.location.LocationDatabase
 import net.sourceforge.kolmafia.mood.MoodManager
@@ -143,7 +145,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase90"
+        const val REVISION = "phase95"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1465,6 +1467,41 @@ class GameRuntimeLibrary(
             ?.toSet()
             ?: emptySet()
         return CurrentModifiers(state, effects, passiveSkills)
+    }
+
+    /**
+     * Context for evaluating monster Init/Atk: [expr]
+     * (pref + KW/KV/KC + MUS/MOX/ML/… + smithsness K).
+     */
+    internal fun buildMonsterExpressionContext(): ExpressionContext {
+        val prefs = preferences
+        val kisses = dreadKissesTracker
+        val state = character?.state?.value ?: CharacterState()
+        val mods = buildCurrentModifiers()
+        val ml = CombatAdjustment.monsterLevelAdjustment(
+            mods,
+            state,
+            lastLocationName(),
+        )
+        return ExpressionContext(
+            level = state.level,
+            ascensions = state.ascensionNumber,
+            audience = state.audience,
+            challengePath = state.challengePath,
+            className = state.className,
+            smithsness = mods.values.get(DoubleModifier.SMITHSNESS),
+            prefLookup = { name -> prefs?.getString(name, "") ?: "" },
+            dreadKissWoods = kisses?.kissesForLocation("Woods")?.toInt() ?: 1,
+            dreadKissVillage = kisses?.kissesForLocation("Village")?.toInt() ?: 1,
+            dreadKissCastle = kisses?.kissesForLocation("Castle")?.toInt() ?: 1,
+            buffedMuscle = state.buffedMusc,
+            buffedMysticality = state.buffedMyst,
+            buffedMoxie = state.buffedMoxie,
+            monsterLevel = ml,
+            mindControlLevel = state.mindControlLevel,
+            basementLevel = 0,
+            characterMaxHp = state.maxHp,
+        )
     }
 
     internal fun extractQuestPlace(urlOrPath: String): String? =

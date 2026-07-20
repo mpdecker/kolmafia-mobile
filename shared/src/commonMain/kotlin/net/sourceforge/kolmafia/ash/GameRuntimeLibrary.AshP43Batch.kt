@@ -41,6 +41,7 @@ internal fun GameRuntimeLibrary.registerAshP43Batch(scope: AshScope) {
             attackMl = currentMl(),
             baseMainstat = baseMainstat(),
             hasOverclocked = hasOverclocked(),
+            expressionContext = buildMonsterExpressionContext(),
         )
 
     regFn(scope, "jump_chance", AshType.INT, emptyList()) { _, _ ->

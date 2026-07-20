@@ -441,6 +441,102 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_expressionInit_sourceAgent() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString("sourceAgentsDefeated", "0")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals(
+            "25",
+            outputLib(lib, """print(monster_initiative(to_monster("Source Agent")));""").trim(),
+        )
+        assertEquals(
+            "75",
+            outputLib(lib, """print(jump_chance(to_monster("Source Agent"), 0, 0));""").trim(),
+        )
+        prefs.setString("sourceAgentsDefeated", "2")
+        assertEquals(
+            "75",
+            outputLib(lib, """print(monster_initiative(to_monster("Source Agent")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_expressionAtk_sourceAgent() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString("sourceAgentsDefeated", "0")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals(
+            "30",
+            outputLib(lib, """print(monster_attack(to_monster("Source Agent")));""").trim(),
+        )
+        prefs.setString("sourceAgentsDefeated", "2")
+        assertEquals(
+            "90",
+            outputLib(lib, """print(monster_attack(to_monster("Source Agent")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_expressionDef_sourceAgent() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString("sourceAgentsDefeated", "0")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals(
+            "30",
+            outputLib(lib, """print(monster_defense(to_monster("Source Agent")));""").trim(),
+        )
+        prefs.setString("sourceAgentsDefeated", "2")
+        assertEquals(
+            "90",
+            outputLib(lib, """print(monster_defense(to_monster("Source Agent")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_expressionHp_sourceAgent() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val prefs = Preferences(MapSettings())
+        prefs.setString("sourceAgentsDefeated", "0")
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals(
+            "40",
+            outputLib(lib, """print(monster_hp(to_monster("Source Agent")));""").trim(),
+        )
+        prefs.setString("sourceAgentsDefeated", "2")
+        assertEquals(
+            "120",
+            outputLib(lib, """print(monster_hp(to_monster("Source Agent")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_scaleStats_amokPutty() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(buffedmox = "50", mox = "50", buffedmus = "50", mus = "50"),
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char)
+        assertEquals(
+            "51",
+            outputLib(lib, """print(monster_attack(to_monster("amok putty")));""").trim(),
+        )
+        assertEquals(
+            "38",
+            outputLib(lib, """print(monster_hp(to_monster("amok putty")));""").trim(),
+        )
+    }
+
+    @Test
     fun corpus_meatItemDrops_live() = runBlocking {
         val db = GameDatabase()
         db.load()

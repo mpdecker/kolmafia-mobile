@@ -86,21 +86,31 @@ internal fun GameRuntimeLibrary.registerAshP39Batch(scope: AshScope) {
 
     regFn(scope, "expected_damage", AshType.INT, emptyList()) { _, _ ->
         val monsterName = preferences?.getString(Preferences.LAST_MONSTER, "") ?: ""
+        val mods = buildCurrentModifiers()
+        val state = character?.state?.value
+        val ml = CombatAdjustment.monsterLevelAdjustment(mods, state, lastLocationName())
         AshValue.of(
             CombatAdjustment.expectedDamage(
                 resolveMonsterDefinition(monsterName),
-                character?.state?.value,
-                buildCurrentModifiers(),
+                state,
+                mods,
+                ml = ml,
+                expressionContext = buildMonsterExpressionContext(),
             ).toLong(),
         )
     }
 
     regFn(scope, "expected_damage", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->
+        val mods = buildCurrentModifiers()
+        val state = character?.state?.value
+        val ml = CombatAdjustment.monsterLevelAdjustment(mods, state, lastLocationName())
         AshValue.of(
             CombatAdjustment.expectedDamage(
                 resolveMonsterDefinition(args[0].toString()),
-                character?.state?.value,
-                buildCurrentModifiers(),
+                state,
+                mods,
+                ml = ml,
+                expressionContext = buildMonsterExpressionContext(),
             ).toLong(),
         )
     }

@@ -32,6 +32,7 @@ internal fun GameRuntimeLibrary.registerAshP44Batch(scope: AshScope) {
             hasOverclocked = skillManager?.state?.value?.skills?.any {
                 it.id == OVERCLOCKED_SKILL_ID || it.name.equals("Overclocked", ignoreCase = true)
             } == true,
+            expressionContext = buildMonsterExpressionContext(),
             resolveMonster = { resolveMonsterDefinition(it) },
         )
 

@@ -41,6 +41,7 @@ internal fun GameRuntimeLibrary.registerAshP46Batch(scope: AshScope) {
                 monster = lastMonster(),
                 buffedMoxie = buffedMoxie(),
                 ml = currentMl(),
+                expressionContext = buildMonsterExpressionContext(),
             ),
         )
     }
@@ -51,6 +52,7 @@ internal fun GameRuntimeLibrary.registerAshP46Batch(scope: AshScope) {
                 monster = lastMonster(),
                 hitStat = hitStat(),
                 ml = currentMl(),
+                expressionContext = buildMonsterExpressionContext(),
             ),
         )
     }

@@ -14,6 +14,7 @@ import net.sourceforge.kolmafia.data.MonsterDatabase
 import net.sourceforge.kolmafia.data.MonsterDefinition
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.modifiers.ExpressionContext
 import net.sourceforge.kolmafia.modifiers.ModifierValues
 
 class CombatAdjustmentTest {
@@ -285,6 +286,180 @@ class CombatAdjustmentTest {
     }
 
     @Test
+    fun resolveBaseInitiative_evaluatesPrefExpression() {
+        val agent = MonsterDefinition(
+            name = "Source Agent", id = 1945, image = "", attack = 30, defense = 30, hp = 40,
+            initiative = 0, hasInitiative = true,
+            initiativeExpression = "25+25*pref(sourceAgentsDefeated)",
+            meatDrop = 0, phylum = "construct",
+            isBoss = false, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val atZero = ExpressionContext(prefLookup = { if (it == "sourceAgentsDefeated") "0" else "" })
+        val atTwo = ExpressionContext(prefLookup = { if (it == "sourceAgentsDefeated") "2" else "" })
+        assertEquals(25, CombatAdjustment.resolveBaseInitiative(agent, atZero))
+        assertEquals(75, CombatAdjustment.resolveBaseInitiative(agent, atTwo))
+        // jump: 100 - 25 = 75; with Overclocked clamps to 100
+        assertEquals(75, CombatAdjustment.jumpChance(agent, 0, 0, 0, 0, false, atZero))
+        assertEquals(100, CombatAdjustment.jumpChance(agent, 0, 0, 0, 0, true, atZero))
+    }
+
+    @Test
+    fun resolveBaseInitiative_evaluatesDreadKissTokens() {
+        val bugbear = MonsterDefinition(
+            name = "cold bugbear", id = 1393, image = "", attack = 400, defense = 400, hp = 600,
+            initiative = 0, hasInitiative = true,
+            initiativeExpression = "15+KW*10",
+            meatDrop = 0, phylum = "beast",
+            isBoss = false, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val ctx = ExpressionContext(dreadKissWoods = 3)
+        assertEquals(45, CombatAdjustment.resolveBaseInitiative(bugbear, ctx))
+    }
+
+    @Test
+    fun resolveBaseAttack_evaluatesPrefExpression() {
+        val agent = MonsterDefinition(
+            name = "Source Agent", id = 1945, image = "", attack = 0, defense = 0, hp = 0,
+            attackExpression = "30+30*pref(sourceAgentsDefeated)+ML",
+            initiative = 0, hasInitiative = true,
+            meatDrop = 0, phylum = "construct",
+            isBoss = false, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val atZero = ExpressionContext(
+            prefLookup = { if (it == "sourceAgentsDefeated") "0" else "" },
+            monsterLevel = 0,
+        )
+        val atTwo = ExpressionContext(
+            prefLookup = { if (it == "sourceAgentsDefeated") "2" else "" },
+            monsterLevel = 0,
+        )
+        val withMl = ExpressionContext(
+            prefLookup = { if (it == "sourceAgentsDefeated") "0" else "" },
+            monsterLevel = 40,
+        )
+        assertEquals(30, CombatAdjustment.resolveBaseAttack(agent, atZero))
+        assertEquals(90, CombatAdjustment.resolveBaseAttack(agent, atTwo))
+        // Expression includes ML inside formula — no outer +ml
+        assertEquals(70, CombatAdjustment.monsterAttack(agent, ml = 999, withMl))
+        assertEquals(30, CombatAdjustment.monsterAttack(agent, ml = 999, atZero))
+    }
+
+    @Test
+    fun resolveBaseAttack_bracketLiteral_noOuterMl() {
+        val drippy = MonsterDefinition(
+            name = "drippy bat", id = 2163, image = "", attack = 0, defense = 0, hp = 0,
+            attackExpression = "200",
+            initiative = 100, hasInitiative = true,
+            meatDrop = 0, phylum = "beast",
+            isBoss = false, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        assertEquals(200, CombatAdjustment.monsterAttack(drippy, ml = 40, ExpressionContext.EMPTY))
+    }
+
+    @Test
+    fun resolveBaseAttack_moxFormula() {
+        val baron = MonsterDefinition(
+            name = "Baron von Ratsworth", id = 286, image = "", attack = 0, defense = 0, hp = 0,
+            attackExpression = "MOX+min(13,3+A)",
+            initiative = 80, hasInitiative = true,
+            meatDrop = 0, phylum = "beast",
+            isBoss = true, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val ctx = ExpressionContext(buffedMoxie = 10, ascensions = 0)
+        // 10+min(13,3)=13
+        assertEquals(13, CombatAdjustment.resolveBaseAttack(baron, ctx))
+    }
+
+    @Test
+    fun resolveBaseDefense_evaluatesPrefExpression() {
+        val agent = MonsterDefinition(
+            name = "Source Agent", id = 1945, image = "", attack = 0, defense = 0, hp = 0,
+            defenseExpression = "30+30*pref(sourceAgentsDefeated)+ML",
+            initiative = 0, hasInitiative = true,
+            meatDrop = 0, phylum = "construct",
+            isBoss = false, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val atZero = ExpressionContext(
+            prefLookup = { if (it == "sourceAgentsDefeated") "0" else "" },
+            monsterLevel = 0,
+        )
+        val atTwo = ExpressionContext(
+            prefLookup = { if (it == "sourceAgentsDefeated") "2" else "" },
+            monsterLevel = 0,
+        )
+        val withMl = ExpressionContext(
+            prefLookup = { if (it == "sourceAgentsDefeated") "0" else "" },
+            monsterLevel = 40,
+        )
+        assertEquals(30, CombatAdjustment.resolveBaseDefense(agent, atZero))
+        assertEquals(90, CombatAdjustment.resolveBaseDefense(agent, atTwo))
+        assertEquals(70, CombatAdjustment.monsterDefense(agent, ml = 999, withMl))
+        assertEquals(30, CombatAdjustment.monsterDefense(agent, ml = 999, atZero))
+    }
+
+    @Test
+    fun resolveBaseDefense_musFormula() {
+        val baron = MonsterDefinition(
+            name = "Baron von Ratsworth", id = 286, image = "", attack = 0, defense = 0, hp = 0,
+            defenseExpression = "MUS+min(13,3+A)",
+            initiative = 80, hasInitiative = true,
+            meatDrop = 0, phylum = "beast",
+            isBoss = true, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val ctx = ExpressionContext(buffedMuscle = 10, ascensions = 0)
+        assertEquals(13, CombatAdjustment.resolveBaseDefense(baron, ctx))
+    }
+
+    @Test
+    fun resolveBaseHp_evaluatesPrefExpression() {
+        val agent = MonsterDefinition(
+            name = "Source Agent", id = 1945, image = "", attack = 0, defense = 0, hp = 0,
+            hpExpression = "40+40*pref(sourceAgentsDefeated)+ML",
+            initiative = 0, hasInitiative = true,
+            meatDrop = 0, phylum = "construct",
+            isBoss = false, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val atZero = ExpressionContext(
+            prefLookup = { if (it == "sourceAgentsDefeated") "0" else "" },
+            monsterLevel = 0,
+        )
+        val atTwo = ExpressionContext(
+            prefLookup = { if (it == "sourceAgentsDefeated") "2" else "" },
+            monsterLevel = 0,
+        )
+        val withMl = ExpressionContext(
+            prefLookup = { if (it == "sourceAgentsDefeated") "0" else "" },
+            monsterLevel = 40,
+        )
+        assertEquals(40, CombatAdjustment.resolveBaseHp(agent, atZero))
+        assertEquals(120, CombatAdjustment.resolveBaseHp(agent, atTwo))
+        assertEquals(80, CombatAdjustment.monsterHp(agent, ml = 999, withMl))
+        assertEquals(40, CombatAdjustment.monsterHp(agent, ml = 999, atZero))
+    }
+
+    @Test
+    fun resolveBaseHp_characterHpFormula() {
+        val baron = MonsterDefinition(
+            name = "Baron von Ratsworth", id = 286, image = "", attack = 0, defense = 0, hp = 0,
+            hpExpression = "HP*1.25",
+            initiative = 80, hasInitiative = true,
+            meatDrop = 0, phylum = "beast",
+            isBoss = true, isGhost = false, isLucky = false, isScaling = false,
+            scale = 0, cap = 0, floor = 0, drops = emptyList(),
+        )
+        val ctx = ExpressionContext(characterMaxHp = 100)
+        assertEquals(125, CombatAdjustment.resolveBaseHp(baron, ctx))
+    }
+
+    @Test
     fun hasInitiative_parsedFromMonstersTxt() = runBlocking {
         val db = GameDatabase()
         db.load()
@@ -294,9 +469,16 @@ class CombatAdjustmentTest {
         val noInit = MonsterDatabase.getByName("crazy bastard")!!
         assertFalse(noInit.hasInitiative)
         val agent = MonsterDatabase.getByName("Source Agent")!!
-        // Init: [expr] present but unparsed → hasInitiative true, numeric 0
+        // Init: [expr] present → hasInitiative true, expression stored, numeric cache 0
         assertTrue(agent.hasInitiative)
         assertEquals(0, agent.initiative)
+        assertEquals("25+25*pref(sourceAgentsDefeated)", agent.initiativeExpression)
+        assertEquals("30+30*pref(sourceAgentsDefeated)+ML", agent.attackExpression)
+        assertEquals(0, agent.attack)
+        assertEquals("30+30*pref(sourceAgentsDefeated)+ML", agent.defenseExpression)
+        assertEquals(0, agent.defense)
+        assertEquals("40+40*pref(sourceAgentsDefeated)+ML", agent.hpExpression)
+        assertEquals(0, agent.hp)
     }
 
     @Test

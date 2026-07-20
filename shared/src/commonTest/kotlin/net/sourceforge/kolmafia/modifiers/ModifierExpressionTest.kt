@@ -119,8 +119,48 @@ class ModifierExpressionTest {
         val restricted = base.copy(isRestricted = true)
         assertEquals(0.0, eval("interact()", restricted))
     }
-    @Test fun `pref always returns 0`() {
-        assertEquals(0.0, eval("pref(_somePreference)"))
+    @Test fun `pref reads numeric preference`() {
+        val ctx = base.copy(prefLookup = { if (it == "_somePreference") "7" else "" })
+        assertEquals(7.0, eval("pref(_somePreference)", ctx))
+    }
+
+    @Test fun `pref true false and contains`() {
+        val ctx = base.copy(prefLookup = { name ->
+            when (name) {
+                "flagOn" -> "true"
+                "flagOff" -> "false"
+                "list" -> "a,b,c"
+                else -> ""
+            }
+        })
+        assertEquals(1.0, eval("pref(flagOn)", ctx))
+        assertEquals(0.0, eval("pref(flagOff)", ctx))
+        assertEquals(1.0, eval("pref(list,b)", ctx))
+        assertEquals(0.0, eval("pref(list,z)", ctx))
+    }
+
+    @Test fun `KW KV KC dread kiss variables`() {
+        val ctx = base.copy(dreadKissWoods = 3, dreadKissVillage = 2, dreadKissCastle = 4)
+        assertEquals(3.0, eval("KW", ctx))
+        assertEquals(2.0, eval("KV", ctx))
+        assertEquals(4.0, eval("KC", ctx))
+        assertEquals(45.0, eval("15+KW*10", ctx))
+    }
+
+    @Test fun `MUS MOX ML HP STAT monster tokens`() {
+        val ctx = base.copy(
+            buffedMuscle = 50,
+            buffedMysticality = 40,
+            buffedMoxie = 60,
+            monsterLevel = 10,
+            characterMaxHp = 200,
+        )
+        assertEquals(50.0, eval("MUS", ctx))
+        assertEquals(60.0, eval("MOX", ctx))
+        assertEquals(10.0, eval("ML", ctx))
+        assertEquals(200.0, eval("HP", ctx))
+        assertEquals(60.0, eval("STAT", ctx))
+        assertEquals(70.0, eval("MOX+ML", ctx))
     }
 
     // ── Compound expressions (real modifiers.txt patterns) ────────────────────
@@ -137,9 +177,12 @@ class ModifierExpressionTest {
         // [min(11,L)] with level=10 → min(11,10) = 10
         assertEquals(10.0, eval("min(11,L)"))
     }
-    @Test fun `pref-dependent formula returns base`() {
-        // [20+20*pref(bondItem1)] → 20+20*0=20 (pref returns 0)
-        assertEquals(20.0, eval("20+20*pref(bondItem1)"))
+    @Test fun `pref-dependent formula uses live pref`() {
+        val ctx = base.copy(prefLookup = { if (it == "bondItem1") "1" else "" })
+        // [20+20*pref(bondItem1)] → 20+20*1=40
+        assertEquals(40.0, eval("20+20*pref(bondItem1)", ctx))
+        // unset → 20
+        assertEquals(20.0, eval("20+20*pref(bondItem1)", base))
     }
 
     // ── ModifierExpression.evaluate companion ─────────────────────────────────
