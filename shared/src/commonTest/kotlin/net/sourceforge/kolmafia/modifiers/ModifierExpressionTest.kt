@@ -119,6 +119,18 @@ class ModifierExpressionTest {
         val restricted = base.copy(isRestricted = true)
         assertEquals(0.0, eval("interact()", restricted))
     }
+    @Test fun `equipped returns 1 when item worn`() {
+        val ctx = base.copy(equippedItemNames = setOf("party hard t-shirt", "god lobster's crown"))
+        assertEquals(1.0, eval("equipped(PARTY HARD T-shirt)", ctx))
+        assertEquals(1.0, eval("equipped(God Lobster's Crown)", ctx))
+        assertEquals(0.0, eval("equipped(missing shirt)", ctx))
+        assertEquals(120.0, eval("20+100*equipped(PARTY HARD T-shirt)", ctx))
+    }
+
+    @Test fun `equipped returns 0 when empty set`() {
+        assertEquals(0.0, eval("equipped(PARTY HARD T-shirt)"))
+    }
+
     @Test fun `pref reads numeric preference`() {
         val ctx = base.copy(prefLookup = { if (it == "_somePreference") "7" else "" })
         assertEquals(7.0, eval("pref(_somePreference)", ctx))

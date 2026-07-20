@@ -119,6 +119,7 @@ class ModifierExpression(private val src: String) {
         // ── Game-state — string args (unquoted) ───────────────────────────────
         "effect"   -> ctx.effectTurns(readStringArg())
         "skill"    -> if (ctx.hasSkill(readStringArg())) 1.0 else 0.0
+        "equipped" -> ctx.equippedValue(readStringArg())
         "pref"     -> {
             val prefName = readStringArg()
             val contains = if (peek() == ',') {

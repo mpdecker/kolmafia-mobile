@@ -145,7 +145,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase95"
+        const val REVISION = "phase102"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1501,7 +1501,25 @@ class GameRuntimeLibrary(
             mindControlLevel = state.mindControlLevel,
             basementLevel = 0,
             characterMaxHp = state.maxHp,
+            equippedItemNames = state.equippedItems()
+                .map { it.second.lowercase() }
+                .filter { it.isNotBlank() }
+                .toSet(),
         )
+    }
+
+    /** Desktop garbage-shirt XP ×2 when shirt equipped and charge remains. */
+    internal fun garbageShirtXpMultiplier(): Int {
+        val state = character?.state?.value ?: return 1
+        val shirt = state.equippedItem(net.sourceforge.kolmafia.character.EquipmentSlot.SHIRT)
+            ?.lowercase()
+            .orEmpty()
+        if (shirt != "makeshift garbage shirt") return 1
+        val prefs = preferences ?: return 1
+        val charge = prefs.getString("garbageShirtCharge", "")
+            .toIntOrNull()
+            ?: prefs.getInt("garbageShirtCharge", 0)
+        return if (charge > 0) 2 else 1
     }
 
     internal fun extractQuestPlace(urlOrPath: String): String? =
@@ -1926,7 +1944,21 @@ class GameRuntimeLibrary(
                 gameDatabase,
             )
             AshType.VYKEA -> VykeaEntityFields.resolve(base.toString(), field)
-            AshType.MONSTER -> MonsterEntityFields.resolve(base.toString(), field, gameDatabase)
+            AshType.MONSTER -> {
+                val mods = buildCurrentModifiers()
+                val state = character?.state?.value
+                val ml = CombatAdjustment.monsterLevelAdjustment(mods, state, lastLocationName())
+                val ctx = buildMonsterExpressionContext()
+                val xpMult = garbageShirtXpMultiplier()
+                MonsterEntityFields.resolve(
+                    base.toString(),
+                    field,
+                    gameDatabase,
+                    expressionContext = ctx,
+                    ml = ml,
+                    xpMultiplier = xpMult,
+                )
+            }
             AshType.LOCATION -> LocationEntityFields.resolve(
                 base.toString(),
                 field,

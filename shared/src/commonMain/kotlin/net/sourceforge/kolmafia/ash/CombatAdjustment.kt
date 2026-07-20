@@ -26,6 +26,8 @@ import net.sourceforge.kolmafia.modifiers.StatNames
  */
 internal object CombatAdjustment {
 
+    data class ScaleParams(val scale: Int, val cap: Int, val floor: Int)
+
     fun elementalResistanceByLevel(levels: Int, mystBonus: Boolean, isMystClass: Boolean): Double {
         val value = if (levels > 4) {
             90.0 - 50.0 * (5.0 / 6.0).pow(levels - 4)
@@ -171,8 +173,45 @@ internal object CombatAdjustment {
     }
 
     /**
-     * Numeric Scale path for attack (beeosity = 1):
+     * Desktop [MonsterData.ML]: global ML × evaluate(MLMult, default=1).
+     * Absent MLMult → identity; MLMult:0 → zero ML contribution.
+     */
+    fun effectiveMonsterLevel(
+        monster: MonsterDefinition?,
+        ml: Int,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        if (monster == null || !monster.hasMlMult) return ml
+        val mult = monster.mlMultExpression?.let {
+            ModifierExpression(it).evaluate(expressionContext ?: ExpressionContext.EMPTY).toInt()
+        } ?: monster.mlMult
+        return ml * mult
+    }
+
+    /**
+     * Resolve Scale/Cap/Floor: expression eval when present, else numeric fields.
+     */
+    fun resolveScaleParams(
+        monster: MonsterDefinition,
+        expressionContext: ExpressionContext? = null,
+    ): ScaleParams {
+        val ctx = expressionContext ?: ExpressionContext.EMPTY
+        val scale = monster.scaleExpression?.let {
+            ModifierExpression(it).evaluate(ctx).toInt()
+        } ?: monster.scale
+        val cap = monster.capExpression?.let {
+            ModifierExpression(it).evaluate(ctx).toInt()
+        } ?: monster.cap
+        val floor = monster.floorExpression?.let {
+            ModifierExpression(it).evaluate(ctx).toInt()
+        } ?: monster.floor
+        return ScaleParams(scale = scale, cap = cap, floor = floor)
+    }
+
+    /**
+     * Scale path for attack (beeosity = 1):
      * max(1, max(floor, min(cap, buffedMoxie + scale) + max(ml, 0))).
+     * [ml] should already be [effectiveMonsterLevel] when called from [monsterAttack].
      */
     fun scaledAttack(
         monster: MonsterDefinition,
@@ -180,15 +219,17 @@ internal object CombatAdjustment {
         expressionContext: ExpressionContext? = null,
     ): Int {
         val buffedMoxie = expressionContext?.buffedMoxie ?: 0
-        var attack = min(buffedMoxie + monster.scale, monster.cap)
+        val p = resolveScaleParams(monster, expressionContext)
+        var attack = min(buffedMoxie + p.scale, p.cap)
         attack += max(ml, 0)
-        attack = max(attack, monster.floor)
+        attack = max(attack, p.floor)
         return max(1, attack)
     }
 
     /**
-     * Numeric Scale path for defense (beeosity = 1, REDUCE_ENEMY_DEFENSE deferred):
+     * Scale path for defense (beeosity = 1):
      * max(1, max(floor, min(cap, buffedMuscle + scale) + max(ml, 0))).
+     * REDUCE_ENEMY_DEFENSE applied by [monsterDefense].
      */
     fun scaledDefense(
         monster: MonsterDefinition,
@@ -196,14 +237,15 @@ internal object CombatAdjustment {
         expressionContext: ExpressionContext? = null,
     ): Int {
         val buffedMuscle = expressionContext?.buffedMuscle ?: 0
-        var defense = min(buffedMuscle + monster.scale, monster.cap)
+        val p = resolveScaleParams(monster, expressionContext)
+        var defense = min(buffedMuscle + p.scale, p.cap)
         defense += max(ml, 0)
-        defense = max(defense, monster.floor)
+        defense = max(defense, p.floor)
         return max(1, defense)
     }
 
     /**
-     * Numeric Scale path for HP (beeosity = 1):
+     * Scale path for HP (beeosity = 1):
      * max(1, max(floor*0.75, floor((min(cap, buffedMuscle + scale) + max(ml, 0)) * 0.75))).
      */
     fun scaledHp(
@@ -212,11 +254,148 @@ internal object CombatAdjustment {
         expressionContext: ExpressionContext? = null,
     ): Int {
         val buffedMuscle = expressionContext?.buffedMuscle ?: 0
-        var hp = min(buffedMuscle + monster.scale, monster.cap)
+        val p = resolveScaleParams(monster, expressionContext)
+        var hp = min(buffedMuscle + p.scale, p.cap)
         hp = floor((hp + max(ml, 0)) * 0.75).toInt()
-        val floorAdj = (monster.floor * 0.75).toInt()
+        val floorAdj = (p.floor * 0.75).toInt()
         hp = max(hp, floorAdj)
         return max(1, hp)
+    }
+
+    /**
+     * Desktop [MonsterData.getRawAttack]: pre-ML.
+     * Scale (no Atk:) → buffed moxie + scale, cap/floor, no ML; missing → −1;
+     * else max(1, [resolveBaseAttack]).
+     */
+    fun monsterRawAttack(
+        monster: MonsterDefinition?,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        if (monster == null) return 0
+        if (!monster.hasAttack) {
+            if (monster.isScaling) return rawScaledAttack(monster, expressionContext)
+            return -1
+        }
+        return max(1, resolveBaseAttack(monster, expressionContext))
+    }
+
+    /**
+     * Desktop [MonsterData.getRawDefense]: pre-ML, no REDUCE_ENEMY_DEFENSE.
+     */
+    fun monsterRawDefense(
+        monster: MonsterDefinition?,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        if (monster == null) return 0
+        if (!monster.hasDefense) {
+            if (monster.isScaling) return rawScaledDefense(monster, expressionContext)
+            return -1
+        }
+        return max(1, resolveBaseDefense(monster, expressionContext))
+    }
+
+    /**
+     * Desktop [MonsterData.getRawHP]: pre-ML.
+     * Scale path applies floor/cap before ×0.75 (unlike [scaledHp]).
+     */
+    fun monsterRawHp(
+        monster: MonsterDefinition?,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        if (monster == null) return 0
+        if (!monster.hasHp) {
+            if (monster.isScaling) return rawScaledHp(monster, expressionContext)
+            return -1
+        }
+        return max(1, resolveBaseHp(monster, expressionContext))
+    }
+
+    /**
+     * Desktop [MonsterData.getRawInitiative]: evaluate(init, 0); no initPenalty.
+     * Missing Init: → 0 (desktop evaluate null default).
+     */
+    fun monsterRawInitiative(
+        monster: MonsterDefinition?,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        if (monster == null) return 0
+        if (!monster.hasInitiative) return 0
+        return resolveBaseInitiative(monster, expressionContext)
+    }
+
+    /** Raw Scale Atk: `val > cap ? cap : max(val, floor)`, no ML. */
+    fun rawScaledAttack(
+        monster: MonsterDefinition,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        val buffedMoxie = expressionContext?.buffedMoxie ?: 0
+        val p = resolveScaleParams(monster, expressionContext)
+        var attack = buffedMoxie + p.scale
+        attack = if (attack > p.cap) p.cap else max(attack, p.floor)
+        return max(1, attack)
+    }
+
+    /** Raw Scale Def: same order as [rawScaledAttack], muscle-based. */
+    fun rawScaledDefense(
+        monster: MonsterDefinition,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        val buffedMuscle = expressionContext?.buffedMuscle ?: 0
+        val p = resolveScaleParams(monster, expressionContext)
+        var defense = buffedMuscle + p.scale
+        defense = if (defense > p.cap) p.cap else max(defense, p.floor)
+        return max(1, defense)
+    }
+
+    /**
+     * Raw Scale HP: floor/cap on (muscle+scale), then `floor(max(1, hp * 0.75))`.
+     */
+    fun rawScaledHp(
+        monster: MonsterDefinition,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        val buffedMuscle = expressionContext?.buffedMuscle ?: 0
+        val p = resolveScaleParams(monster, expressionContext)
+        var hp = buffedMuscle + p.scale
+        hp = if (hp > p.cap) p.cap else max(hp, p.floor)
+        return floor(max(1.0, hp * 0.75)).toInt()
+    }
+
+    /**
+     * Desktop-lite [MonsterData.getExperience] (beeosity = 1).
+     * Scale-implied / default attack-based / explicit Exp: [expr] or numeric.
+     * [ml] is global ML; [effectiveMonsterLevel] applied for Scale/default formulas.
+     */
+    fun monsterExperience(
+        monster: MonsterDefinition?,
+        ml: Int,
+        expressionContext: ExpressionContext? = null,
+        xpMultiplier: Int = 1,
+    ): Double {
+        if (monster == null) return 0.0
+        val mult = max(1, xpMultiplier).toDouble()
+        val ctx = expressionContext ?: ExpressionContext.EMPTY
+        val effectiveMl = effectiveMonsterLevel(monster, ml, expressionContext)
+
+        if (monster.hasExperience || monster.experienceExpression != null) {
+            val raw = monster.experienceExpression?.let {
+                ModifierExpression(it).evaluate(ctx)
+            } ?: monster.experience.toDouble()
+            return raw * mult / 2.0
+        }
+
+        if (monster.isScaling) {
+            val mainstat = maxOf(ctx.buffedMuscle, ctx.buffedMysticality, ctx.buffedMoxie)
+            val p = resolveScaleParams(monster, expressionContext)
+            var exp = mainstat + p.scale
+            exp = if (exp > p.cap) p.cap else max(exp, p.floor)
+            val mlTerm = max(effectiveMl, 0).toDouble()
+            return max(1.0, (exp / 8.0 + mlTerm / 6.0) * mult)
+        }
+
+        // Pass raw [ml] so monsterAttack applies MLMult once.
+        val attack = monsterAttack(monster, ml, expressionContext).toDouble()
+        return max((attack - effectiveMl) / 8.0 + effectiveMl / 6.0, 0.0) * mult
     }
 
     /**
@@ -239,6 +418,7 @@ internal object CombatAdjustment {
     /**
      * Desktop-lite [MonsterData.getAttack]: expression → resolve only;
      * Scale (no Atk:) → [scaledAttack]; integer → [monsterStatWithMl].
+     * [ml] is global ML; converted via [effectiveMonsterLevel] before Scale / integer paths.
      */
     fun monsterAttack(
         monster: MonsterDefinition?,
@@ -248,10 +428,11 @@ internal object CombatAdjustment {
         if (monster?.attackExpression != null) {
             return resolveBaseAttack(monster, expressionContext)
         }
+        val effectiveMl = effectiveMonsterLevel(monster, ml, expressionContext)
         if (monster != null && monster.isScaling && !monster.hasAttack) {
-            return scaledAttack(monster, ml, expressionContext)
+            return scaledAttack(monster, effectiveMl, expressionContext)
         }
-        return monsterStatWithMl(monster?.attack ?: 0, ml)
+        return monsterStatWithMl(monster?.attack ?: 0, effectiveMl)
     }
 
     /**
@@ -273,21 +454,37 @@ internal object CombatAdjustment {
 
     /**
      * Desktop-lite [MonsterData.getDefense]: expression → resolve only;
-     * Scale (no Def:) → [scaledDefense]; integer → [monsterStatWithMl].
-     * REDUCE_ENEMY_DEFENSE deferred.
+     * Scale (no Def:) → [scaledDefense]; integer → [monsterStatWithMl];
+     * then [applyEnemyDefenseReduce] for Reduce Enemy Defense %.
+     * [ml] is global ML; converted via [effectiveMonsterLevel] before Scale / integer paths.
      */
     fun monsterDefense(
         monster: MonsterDefinition?,
         ml: Int,
         expressionContext: ExpressionContext? = null,
+        reduceEnemyDefensePercent: Double = 0.0,
     ): Int {
-        if (monster?.defenseExpression != null) {
-            return resolveBaseDefense(monster, expressionContext)
+        val effectiveMl = effectiveMonsterLevel(monster, ml, expressionContext)
+        val raw = when {
+            monster == null -> 0
+            monster.defenseExpression != null -> resolveBaseDefense(monster, expressionContext)
+            monster.isScaling && !monster.hasDefense -> scaledDefense(monster, effectiveMl, expressionContext)
+            else -> monsterStatWithMl(monster.defense, effectiveMl)
         }
-        if (monster != null && monster.isScaling && !monster.hasDefense) {
-            return scaledDefense(monster, ml, expressionContext)
-        }
-        return monsterStatWithMl(monster?.defense ?: 0, ml)
+        return applyEnemyDefenseReduce(raw, reduceEnemyDefensePercent)
+    }
+
+    /** Percent from [DoubleModifier.REDUCE_ENEMY_DEFENSE] (0–100 scale). */
+    fun reduceEnemyDefensePercent(modifiers: CurrentModifiers?): Double =
+        modifiers?.values?.get(DoubleModifier.REDUCE_ENEMY_DEFENSE) ?: 0.0
+
+    /**
+     * Desktop: `floor(max(1, defense * (1 - reduce/100)))`.
+     * Raw 0 (unknown / null) stays 0.
+     */
+    fun applyEnemyDefenseReduce(rawDefense: Int, reducePercent: Double): Int {
+        if (rawDefense <= 0) return rawDefense
+        return floor(max(1.0, rawDefense * (1.0 - reducePercent / 100.0))).toInt()
     }
 
     /**
@@ -311,6 +508,7 @@ internal object CombatAdjustment {
     /**
      * Desktop-lite [MonsterData.getHP]: expression → resolve only;
      * Scale (no HP:) → [scaledHp]; integer → [monsterStatWithMl]. Beeosity deferred.
+     * [ml] is global ML; converted via [effectiveMonsterLevel] before Scale / integer paths.
      */
     fun monsterHp(
         monster: MonsterDefinition?,
@@ -320,10 +518,11 @@ internal object CombatAdjustment {
         if (monster?.hpExpression != null) {
             return resolveBaseHp(monster, expressionContext)
         }
+        val effectiveMl = effectiveMonsterLevel(monster, ml, expressionContext)
         if (monster != null && monster.isScaling && !monster.hasHp) {
-            return scaledHp(monster, ml, expressionContext)
+            return scaledHp(monster, effectiveMl, expressionContext)
         }
-        return monsterStatWithMl(monster?.hp ?: 0, ml)
+        return monsterStatWithMl(monster?.hp ?: 0, effectiveMl)
     }
 
     /**
@@ -353,6 +552,91 @@ internal object CombatAdjustment {
 
     fun monsterDefenseElement(monster: MonsterDefinition?): String =
         monster?.defenseElement.orEmpty()
+
+    private fun evaluateResistanceValue(
+        numeric: Int,
+        expression: String?,
+        expressionContext: ExpressionContext?,
+    ): Int {
+        if (expression != null) {
+            return ModifierExpression(expression)
+                .evaluate(expressionContext ?: ExpressionContext.EMPTY)
+                .toInt()
+        }
+        return numeric
+    }
+
+    /**
+     * Desktop [MonsterData.handleMonsterLevel] phys-res boost:
+     * `min(floor(ML() / 2.5), 50)`; Scale monsters clamp negative boost to 0.
+     * Uses [effectiveMonsterLevel] (AshP58 MLMult).
+     */
+    fun mlPhysicalResistanceBoost(
+        monster: MonsterDefinition?,
+        ml: Int,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        val effectiveMl = effectiveMonsterLevel(monster, ml, expressionContext)
+        var boost = min(floor(effectiveMl / 2.5).toInt(), 50)
+        if (monster?.isScaling == true && boost < 0) boost = 0
+        return boost
+    }
+
+    /**
+     * Desktop [MonsterData.getPhysicalResistance] plus fight-time
+     * [MonsterData.handleMonsterLevel] ML boost when [ml] ≠ 0.
+     */
+    fun monsterPhysicalResistance(
+        monster: MonsterDefinition?,
+        expressionContext: ExpressionContext? = null,
+        ml: Int = 0,
+    ): Int {
+        if (monster == null) return 0
+        val base = evaluateResistanceValue(
+            monster.physicalResistance,
+            monster.physicalResistanceExpression,
+            expressionContext,
+        )
+        val boost = mlPhysicalResistanceBoost(monster, ml, expressionContext)
+        if (boost <= base) return base
+        return if (base == 0) boost else max(boost, base)
+    }
+
+    /** Desktop [MonsterData.getElementalResistance]. */
+    fun monsterElementalResistance(
+        monster: MonsterDefinition?,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        if (monster == null) return 0
+        return evaluateResistanceValue(
+            monster.elementalResistance,
+            monster.elementalResistanceExpression,
+            expressionContext,
+        )
+    }
+
+    /**
+     * Desktop [MonsterData.getResistance]: per-element attr, else [monsterElementalResistance].
+     * [element] is hot/cold/stench/spooky/sleaze (case-insensitive).
+     */
+    fun monsterElementResistance(
+        monster: MonsterDefinition?,
+        element: String,
+        expressionContext: ExpressionContext? = null,
+    ): Int {
+        if (monster == null) return 0
+        val (numeric, expression) = when (element.lowercase()) {
+            "hot" -> monster.hotResistance to monster.hotResistanceExpression
+            "cold" -> monster.coldResistance to monster.coldResistanceExpression
+            "stench" -> monster.stenchResistance to monster.stenchResistanceExpression
+            "spooky" -> monster.spookyResistance to monster.spookyResistanceExpression
+            "sleaze" -> monster.sleazeResistance to monster.sleazeResistanceExpression
+            else -> return monsterElementalResistance(monster, expressionContext)
+        }
+        val specific = evaluateResistanceValue(numeric, expression, expressionContext)
+        if (specific == 0) return monsterElementalResistance(monster, expressionContext)
+        return specific
+    }
 
     /** Desktop [MonsterData.initPenalty]. */
     fun initPenalty(monsterLevel: Int): Int =
@@ -494,9 +778,10 @@ internal object CombatAdjustment {
         ml: Int,
         defenseModifier: Int = 0,
         expressionContext: ExpressionContext? = null,
+        reduceEnemyDefensePercent: Double = 0.0,
     ): Boolean {
         if (monster == null) return false
-        val defense = monsterDefense(monster, ml, expressionContext)
+        val defense = monsterDefense(monster, ml, expressionContext, reduceEnemyDefensePercent)
         return hitPercent(hitStat - defenseModifier, defense) <= 50.0
     }
 

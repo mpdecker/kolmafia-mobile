@@ -51,14 +51,37 @@ object MonsterDatabase {
         val isLucky: Boolean = false,
         val isScaling: Boolean = false,
         val scale: Int = 0,
+        val scaleExpression: String? = null,
         val cap: Int = 0,
+        val capExpression: String? = null,
         val floor: Int = 0,
+        val floorExpression: String? = null,
+        val experience: Int = 0,
+        val experienceExpression: String? = null,
+        val hasExperience: Boolean = false,
+        val mlMult: Int = 1,
+        val mlMultExpression: String? = null,
+        val hasMlMult: Boolean = false,
         val article: String = "",
         val isCopyable: Boolean = true,
         val isWishable: Boolean = true,
         val poison: Int = Int.MAX_VALUE,
         val attackElement: String = "",
         val defenseElement: String = "",
+        val physicalResistance: Int = 0,
+        val physicalResistanceExpression: String? = null,
+        val elementalResistance: Int = 0,
+        val elementalResistanceExpression: String? = null,
+        val hotResistance: Int = 0,
+        val hotResistanceExpression: String? = null,
+        val coldResistance: Int = 0,
+        val coldResistanceExpression: String? = null,
+        val stenchResistance: Int = 0,
+        val stenchResistanceExpression: String? = null,
+        val spookyResistance: Int = 0,
+        val spookyResistanceExpression: String? = null,
+        val sleazeResistance: Int = 0,
+        val sleazeResistanceExpression: String? = null,
     )
 
     private fun parseParams(params: String): ParsedParams {
@@ -82,8 +105,17 @@ object MonsterDatabase {
         var isLucky = false
         var isScaling = false
         var scale = 0
+        var scaleExpression: String? = null
         var cap = 0
+        var capExpression: String? = null
         var floor = 0
+        var floorExpression: String? = null
+        var experience = 0
+        var experienceExpression: String? = null
+        var hasExperience = false
+        var mlMult = 1
+        var mlMultExpression: String? = null
+        var hasMlMult = false
         var sawCap = false
         var sawFloor = false
         var article = ""
@@ -92,6 +124,20 @@ object MonsterDatabase {
         var poison = Int.MAX_VALUE
         var attackElement = ""
         var defenseElement = ""
+        var physicalResistance = 0
+        var physicalResistanceExpression: String? = null
+        var elementalResistance = 0
+        var elementalResistanceExpression: String? = null
+        var hotResistance = 0
+        var hotResistanceExpression: String? = null
+        var coldResistance = 0
+        var coldResistanceExpression: String? = null
+        var stenchResistance = 0
+        var stenchResistanceExpression: String? = null
+        var spookyResistance = 0
+        var spookyResistanceExpression: String? = null
+        var sleazeResistance = 0
+        var sleazeResistanceExpression: String? = null
 
         var i = 0
         while (i < tokens.size) {
@@ -104,10 +150,11 @@ object MonsterDatabase {
                 token == "NOWISH" -> isWishable = false
                 token == "ULTRARARE" -> { /* ignored */ }
                 token.endsWith(':') -> {
-                    val value = tokens.getOrNull(i + 1) ?: ""
+                    val peek = tokens.getOrNull(i + 1) ?: ""
                     when (token) {
                         "Atk:" -> {
                             hasAttack = true
+                            val (value, skip) = readBracketOrToken(tokens, i + 1)
                             if (value.startsWith("[")) {
                                 attackExpression = value.removePrefix("[").removeSuffix("]")
                                 attack = 0
@@ -115,10 +162,11 @@ object MonsterDatabase {
                                 attackExpression = null
                                 attack = value.toIntOrNull() ?: 0
                             }
-                            i++
+                            i += skip
                         }
                         "Def:" -> {
                             hasDefense = true
+                            val (value, skip) = readBracketOrToken(tokens, i + 1)
                             if (value.startsWith("[")) {
                                 defenseExpression = value.removePrefix("[").removeSuffix("]")
                                 defense = 0
@@ -126,10 +174,11 @@ object MonsterDatabase {
                                 defenseExpression = null
                                 defense = value.toIntOrNull() ?: 0
                             }
-                            i++
+                            i += skip
                         }
                         "HP:" -> {
                             hasHp = true
+                            val (value, skip) = readBracketOrToken(tokens, i + 1)
                             if (value.startsWith("[")) {
                                 hpExpression = value.removePrefix("[").removeSuffix("]")
                                 hp = 0
@@ -137,10 +186,11 @@ object MonsterDatabase {
                                 hpExpression = null
                                 hp = value.toIntOrNull() ?: 0
                             }
-                            i++
+                            i += skip
                         }
                         "Init:" -> {
                             hasInitiative = true
+                            val (value, skip) = readBracketOrToken(tokens, i + 1)
                             if (value.startsWith("[")) {
                                 initiativeExpression = value.removePrefix("[").removeSuffix("]")
                                 initiative = 0
@@ -148,43 +198,124 @@ object MonsterDatabase {
                                 initiativeExpression = null
                                 initiative = value.toIntOrNull() ?: 0
                             }
-                            i++
+                            i += skip
                         }
-                        "Meat:" -> { meatDrop = value.toIntOrNull() ?: 0; i++ }
-                        "P:" -> { phylum = value; i++ }
+                        "Meat:" -> { meatDrop = peek.toIntOrNull() ?: 0; i++ }
+                        "P:" -> { phylum = peek; i++ }
                         "Scale:" -> {
                             isScaling = true
-                            // Expression Scale deferred — leave numeric 0
-                            scale = if (value.startsWith("[")) 0 else (value.toIntOrNull() ?: 0)
-                            i++
+                            val (value, skip) = readBracketOrToken(tokens, i + 1)
+                            if (value.startsWith("[")) {
+                                scaleExpression = value.removePrefix("[").removeSuffix("]")
+                                scale = 0
+                            } else {
+                                scaleExpression = null
+                                scale = value.toIntOrNull() ?: 0
+                            }
+                            i += skip
                         }
                         "Cap:" -> {
                             sawCap = true
-                            cap = when {
-                                value == "?" -> MonsterDefinition.DEFAULT_CAP
-                                else -> value.toIntOrNull() ?: MonsterDefinition.DEFAULT_CAP
+                            val (value, skip) = readBracketOrToken(tokens, i + 1)
+                            if (value.startsWith("[")) {
+                                capExpression = value.removePrefix("[").removeSuffix("]")
+                                cap = MonsterDefinition.DEFAULT_CAP
+                            } else {
+                                capExpression = null
+                                cap = when {
+                                    value == "?" -> MonsterDefinition.DEFAULT_CAP
+                                    else -> value.toIntOrNull() ?: MonsterDefinition.DEFAULT_CAP
+                                }
                             }
-                            i++
+                            i += skip
                         }
                         "Floor:" -> {
                             sawFloor = true
-                            floor = when {
-                                value == "?" -> MonsterDefinition.DEFAULT_FLOOR
-                                else -> value.toIntOrNull() ?: MonsterDefinition.DEFAULT_FLOOR
+                            val (value, skip) = readBracketOrToken(tokens, i + 1)
+                            if (value.startsWith("[")) {
+                                floorExpression = value.removePrefix("[").removeSuffix("]")
+                                floor = MonsterDefinition.DEFAULT_FLOOR
+                            } else {
+                                floorExpression = null
+                                floor = when {
+                                    value == "?" -> MonsterDefinition.DEFAULT_FLOOR
+                                    else -> value.toIntOrNull() ?: MonsterDefinition.DEFAULT_FLOOR
+                                }
                             }
-                            i++
+                            i += skip
                         }
-                        "Article:" -> { article = value; i++ }
+                        "Exp:" -> {
+                            hasExperience = true
+                            val (value, skip) = readBracketOrToken(tokens, i + 1)
+                            if (value.startsWith("[")) {
+                                experienceExpression = value.removePrefix("[").removeSuffix("]")
+                                experience = 0
+                            } else {
+                                experienceExpression = null
+                                experience = value.toIntOrNull() ?: 0
+                            }
+                            i += skip
+                        }
+                        "MLMult:" -> {
+                            hasMlMult = true
+                            val r = readNumOrExpr(tokens, i + 1)
+                            mlMultExpression = r.expression
+                            mlMult = if (r.expression != null) 1 else r.value
+                            i += r.skip
+                        }
+                        "Phys:" -> {
+                            val r = readNumOrExpr(tokens, i + 1)
+                            physicalResistance = r.value
+                            physicalResistanceExpression = r.expression
+                            i += r.skip
+                        }
+                        "Elem:" -> {
+                            val r = readNumOrExpr(tokens, i + 1)
+                            elementalResistance = r.value
+                            elementalResistanceExpression = r.expression
+                            i += r.skip
+                        }
+                        "ElemHot:" -> {
+                            val r = readNumOrExpr(tokens, i + 1)
+                            hotResistance = r.value
+                            hotResistanceExpression = r.expression
+                            i += r.skip
+                        }
+                        "ElemCold:" -> {
+                            val r = readNumOrExpr(tokens, i + 1)
+                            coldResistance = r.value
+                            coldResistanceExpression = r.expression
+                            i += r.skip
+                        }
+                        "ElemStench:" -> {
+                            val r = readNumOrExpr(tokens, i + 1)
+                            stenchResistance = r.value
+                            stenchResistanceExpression = r.expression
+                            i += r.skip
+                        }
+                        "ElemSpooky:" -> {
+                            val r = readNumOrExpr(tokens, i + 1)
+                            spookyResistance = r.value
+                            spookyResistanceExpression = r.expression
+                            i += r.skip
+                        }
+                        "ElemSleaze:" -> {
+                            val r = readNumOrExpr(tokens, i + 1)
+                            sleazeResistance = r.value
+                            sleazeResistanceExpression = r.expression
+                            i += r.skip
+                        }
+                        "Article:" -> { article = peek; i++ }
                         "Poison:" -> {
                             val poisonName = readQuotedOrSingleValue(tokens, i + 1)
                             poison = PoisonLevels.levelForEffectName(poisonName)
                             i += poisonTokenSkip(tokens, i + 1)
                         }
                         "EA:" -> {
-                            if (value.startsWith("\"")) {
+                            if (peek.startsWith("\"")) {
                                 i += poisonTokenSkip(tokens, i + 1)
                             } else {
-                                val elem = value.lowercase()
+                                val elem = peek.lowercase()
                                 if (attackElement.isEmpty() && elem in ELEMENT_VALUES) {
                                     attackElement = elem
                                 }
@@ -192,10 +323,10 @@ object MonsterDatabase {
                             }
                         }
                         "ED:" -> {
-                            if (value.startsWith("\"")) {
+                            if (peek.startsWith("\"")) {
                                 i += poisonTokenSkip(tokens, i + 1)
                             } else {
-                                val elem = value.lowercase()
+                                val elem = peek.lowercase()
                                 if (defenseElement.isEmpty() && elem in ELEMENT_VALUES) {
                                     defenseElement = elem
                                 }
@@ -204,10 +335,13 @@ object MonsterDatabase {
                         }
                         // Manuel: and other unknown key: value pairs — skip the value
                         else -> {
-                            if (value.startsWith("\"")) {
-                                i += poisonTokenSkip(tokens, i + 1)
-                            } else {
-                                i++
+                            when {
+                                peek.startsWith("\"") -> i += poisonTokenSkip(tokens, i + 1)
+                                peek.startsWith("[") -> {
+                                    val (_, skip) = readBracketOrToken(tokens, i + 1)
+                                    i += skip
+                                }
+                                else -> i++
                             }
                         }
                     }
@@ -248,15 +382,70 @@ object MonsterDatabase {
             isLucky = isLucky,
             isScaling = isScaling,
             scale = scale,
+            scaleExpression = scaleExpression,
             cap = effectiveCap,
+            capExpression = capExpression,
             floor = effectiveFloor,
+            floorExpression = floorExpression,
+            experience = experience,
+            experienceExpression = experienceExpression,
+            hasExperience = hasExperience,
+            mlMult = mlMult,
+            mlMultExpression = mlMultExpression,
+            hasMlMult = hasMlMult,
             article = article,
             isCopyable = isCopyable,
             isWishable = isWishable,
             poison = poison,
             attackElement = attackElement,
             defenseElement = defenseElement,
+            physicalResistance = physicalResistance,
+            physicalResistanceExpression = physicalResistanceExpression,
+            elementalResistance = elementalResistance,
+            elementalResistanceExpression = elementalResistanceExpression,
+            hotResistance = hotResistance,
+            hotResistanceExpression = hotResistanceExpression,
+            coldResistance = coldResistance,
+            coldResistanceExpression = coldResistanceExpression,
+            stenchResistance = stenchResistance,
+            stenchResistanceExpression = stenchResistanceExpression,
+            spookyResistance = spookyResistance,
+            spookyResistanceExpression = spookyResistanceExpression,
+            sleazeResistance = sleazeResistance,
+            sleazeResistanceExpression = sleazeResistanceExpression,
         )
+    }
+
+    private data class NumOrExpr(val value: Int, val expression: String?, val skip: Int)
+
+    private fun readNumOrExpr(tokens: List<String>, start: Int): NumOrExpr {
+        val (value, skip) = readBracketOrToken(tokens, start)
+        return if (value.startsWith("[")) {
+            NumOrExpr(0, value.removePrefix("[").removeSuffix("]"), skip)
+        } else {
+            NumOrExpr(value.toIntOrNull() ?: 0, null, skip)
+        }
+    }
+
+    /**
+     * Read a single token, or a `[...]` value that may span space-split tokens
+     * (e.g. `equipped(PARTY HARD T-shirt)`).
+     * @return pair of (joined value, token count consumed from [start])
+     */
+    private fun readBracketOrToken(tokens: List<String>, start: Int): Pair<String, Int> {
+        val first = tokens.getOrNull(start) ?: return "" to 0
+        if (!first.startsWith("[")) return first to 1
+        var depth = first.count { it == '[' } - first.count { it == ']' }
+        if (depth <= 0) return first to 1
+        val parts = mutableListOf(first)
+        var idx = start + 1
+        while (idx < tokens.size && depth > 0) {
+            val t = tokens[idx]
+            parts.add(t)
+            depth += t.count { it == '[' } - t.count { it == ']' }
+            idx++
+        }
+        return parts.joinToString(" ") to (idx - start)
     }
 
     private fun readQuotedOrSingleValue(tokens: List<String>, start: Int): String {
@@ -340,14 +529,37 @@ object MonsterDatabase {
                 isLucky = p.isLucky,
                 isScaling = p.isScaling,
                 scale = p.scale,
+                scaleExpression = p.scaleExpression,
                 cap = p.cap,
+                capExpression = p.capExpression,
                 floor = p.floor,
+                floorExpression = p.floorExpression,
+                experience = p.experience,
+                experienceExpression = p.experienceExpression,
+                hasExperience = p.hasExperience,
+                mlMult = p.mlMult,
+                mlMultExpression = p.mlMultExpression,
+                hasMlMult = p.hasMlMult,
                 article = p.article,
                 isCopyable = p.isCopyable,
                 isWishable = p.isWishable,
                 poison = p.poison,
                 attackElement = p.attackElement,
                 defenseElement = p.defenseElement,
+                physicalResistance = p.physicalResistance,
+                physicalResistanceExpression = p.physicalResistanceExpression,
+                elementalResistance = p.elementalResistance,
+                elementalResistanceExpression = p.elementalResistanceExpression,
+                hotResistance = p.hotResistance,
+                hotResistanceExpression = p.hotResistanceExpression,
+                coldResistance = p.coldResistance,
+                coldResistanceExpression = p.coldResistanceExpression,
+                stenchResistance = p.stenchResistance,
+                stenchResistanceExpression = p.stenchResistanceExpression,
+                spookyResistance = p.spookyResistance,
+                spookyResistanceExpression = p.spookyResistanceExpression,
+                sleazeResistance = p.sleazeResistance,
+                sleazeResistanceExpression = p.sleazeResistanceExpression,
                 drops = drops,
             )
             _byId[id] = monster

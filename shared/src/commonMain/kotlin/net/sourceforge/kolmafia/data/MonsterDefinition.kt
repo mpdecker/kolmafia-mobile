@@ -31,14 +31,49 @@ data class MonsterDefinition(
     val isLucky: Boolean,
     val isScaling: Boolean,      // true if Scale: present
     val scale: Int,
+    /** Inner Scale: [expression] text; null for numeric Scale / ?. */
+    val scaleExpression: String? = null,
     val cap: Int,
+    /** Inner Cap: [expression] text; null for numeric Cap / ?. */
+    val capExpression: String? = null,
     val floor: Int,
+    /** Inner Floor: [expression] text; null for numeric Floor / ?. */
+    val floorExpression: String? = null,
+    /** Numeric Exp: when present; 0 if expression or absent. */
+    val experience: Int = 0,
+    /** Inner Exp: [expression] text; null for numeric Exp / absent. */
+    val experienceExpression: String? = null,
+    /** True when monsters.txt has an Exp: attribute. */
+    val hasExperience: Boolean = false,
+    /**
+     * Numeric MLMult: when present; default 1 when absent.
+     * Desktop [MonsterData.ML] = globalMl × evaluate(mlMult, 1).
+     */
+    val mlMult: Int = 1,
+    /** Inner MLMult: [expression] text; null for numeric MLMult / absent. */
+    val mlMultExpression: String? = null,
+    /** True when monsters.txt has an MLMult: attribute. */
+    val hasMlMult: Boolean = false,
     val article: String = "",
     val isCopyable: Boolean = true,
     val isWishable: Boolean = true,
     val poison: Int = Int.MAX_VALUE,
     val attackElement: String = "",
     val defenseElement: String = "",
+    val physicalResistance: Int = 0,
+    val physicalResistanceExpression: String? = null,
+    val elementalResistance: Int = 0,
+    val elementalResistanceExpression: String? = null,
+    val hotResistance: Int = 0,
+    val hotResistanceExpression: String? = null,
+    val coldResistance: Int = 0,
+    val coldResistanceExpression: String? = null,
+    val stenchResistance: Int = 0,
+    val stenchResistanceExpression: String? = null,
+    val spookyResistance: Int = 0,
+    val spookyResistanceExpression: String? = null,
+    val sleazeResistance: Int = 0,
+    val sleazeResistanceExpression: String? = null,
     val drops: List<MonsterDrop>
 ) {
     companion object {
