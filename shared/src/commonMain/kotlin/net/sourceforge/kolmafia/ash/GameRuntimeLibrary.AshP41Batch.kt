@@ -19,41 +19,74 @@ internal fun GameRuntimeLibrary.registerAshP41Batch(scope: AshScope) {
         resolveMonsterDefinition(preferences?.getString(Preferences.LAST_MONSTER, "") ?: "")
 
     regFn(scope, "monster_attack", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of(CombatAdjustment.monsterAttack(lastMonster(), currentMl()).toLong())
+        AshValue.of(
+            CombatAdjustment.monsterAttack(
+                lastMonster(),
+                currentMl(),
+                buildMonsterExpressionContext(),
+            ).toLong(),
+        )
     }
     regFn(scope, "monster_attack", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->
         AshValue.of(
-            CombatAdjustment.monsterAttack(resolveMonsterDefinition(args[0].toString()), currentMl())
-                .toLong(),
+            CombatAdjustment.monsterAttack(
+                resolveMonsterDefinition(args[0].toString()),
+                currentMl(),
+                buildMonsterExpressionContext(),
+            ).toLong(),
         )
     }
 
     regFn(scope, "monster_defense", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of(CombatAdjustment.monsterDefense(lastMonster(), currentMl()).toLong())
+        AshValue.of(
+            CombatAdjustment.monsterDefense(
+                lastMonster(),
+                currentMl(),
+                buildMonsterExpressionContext(),
+            ).toLong(),
+        )
     }
     regFn(scope, "monster_defense", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->
         AshValue.of(
-            CombatAdjustment.monsterDefense(resolveMonsterDefinition(args[0].toString()), currentMl())
-                .toLong(),
+            CombatAdjustment.monsterDefense(
+                resolveMonsterDefinition(args[0].toString()),
+                currentMl(),
+                buildMonsterExpressionContext(),
+            ).toLong(),
         )
     }
 
     regFn(scope, "monster_hp", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of(CombatAdjustment.monsterHp(lastMonster(), currentMl()).toLong())
+        AshValue.of(
+            CombatAdjustment.monsterHp(
+                lastMonster(),
+                currentMl(),
+                buildMonsterExpressionContext(),
+            ).toLong(),
+        )
     }
     regFn(scope, "monster_hp", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->
         AshValue.of(
-            CombatAdjustment.monsterHp(resolveMonsterDefinition(args[0].toString()), currentMl())
-                .toLong(),
+            CombatAdjustment.monsterHp(
+                resolveMonsterDefinition(args[0].toString()),
+                currentMl(),
+                buildMonsterExpressionContext(),
+            ).toLong(),
         )
     }
 
     regFn(scope, "monster_initiative", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of(CombatAdjustment.monsterInitiative(lastMonster()).toLong())
+        AshValue.of(
+            CombatAdjustment.monsterInitiative(lastMonster(), buildMonsterExpressionContext())
+                .toLong(),
+        )
     }
     regFn(scope, "monster_initiative", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->
         AshValue.of(
-            CombatAdjustment.monsterInitiative(resolveMonsterDefinition(args[0].toString())).toLong(),
+            CombatAdjustment.monsterInitiative(
+                resolveMonsterDefinition(args[0].toString()),
+                buildMonsterExpressionContext(),
+            ).toLong(),
         )
     }
 

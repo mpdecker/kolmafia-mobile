@@ -48,6 +48,34 @@ data class ExpressionContext(
     val mainhandItemName: String = "",
     /** Pasta thrall level for [P] in modifier expressions. */
     val thrallLevel: Int = 0,
+
+    /**
+     * Preference string lookup for pref(name) / pref(name, contains).
+     * Defaults to empty string (numeric 0), matching unset prefs.
+     */
+    val prefLookup: (String) -> String = { "" },
+
+    /** Dreadsylvania Woods kisses for KW (desktop max(count, 1)). */
+    val dreadKissWoods: Int = 1,
+    /** Dreadsylvania Village kisses for KV. */
+    val dreadKissVillage: Int = 1,
+    /** Dreadsylvania Castle kisses for KC. */
+    val dreadKissCastle: Int = 1,
+
+    /** Buffed Muscle for MUS monster-expression token. */
+    val buffedMuscle: Int = 0,
+    /** Buffed Mysticality for MYS. */
+    val buffedMysticality: Int = 0,
+    /** Buffed Moxie for MOX. */
+    val buffedMoxie: Int = 0,
+    /** Monster level adjustment for ML. */
+    val monsterLevel: Int = 0,
+    /** Mind-control device level for MCD. */
+    val mindControlLevel: Int = 0,
+    /** Basement level for BL (stub 0 until BasementRequest port). */
+    val basementLevel: Int = 0,
+    /** Character max HP for HP token (not monster HP). */
+    val characterMaxHp: Int = 0,
 ) {
     fun variable(c: Char): Double = when (c) {
         'A' -> ascensions.toDouble()
@@ -66,6 +94,37 @@ data class ExpressionContext(
         'X' -> gender.toDouble()
         'Y' -> fury.toDouble()
         else -> 0.0
+    }
+
+    /** Multi-letter monster-expression tokens. Bare K remains smithsness via [variable]. */
+    fun multiLetterVariable(word: String): Double? = when (word) {
+        "KW" -> dreadKissWoods.toDouble()
+        "KV" -> dreadKissVillage.toDouble()
+        "KC" -> dreadKissCastle.toDouble()
+        "MUS" -> buffedMuscle.toDouble()
+        "MYS" -> buffedMysticality.toDouble()
+        "MOX" -> buffedMoxie.toDouble()
+        "ML" -> monsterLevel.toDouble()
+        "MCD" -> mindControlLevel.toDouble()
+        "BL" -> basementLevel.toDouble()
+        "HP" -> characterMaxHp.toDouble()
+        "STAT" -> maxOf(buffedMuscle, buffedMysticality, buffedMoxie).toDouble()
+        else -> null
+    }
+
+    /**
+     * Desktop [Expression] pref bytecode: contains-check form, else true→1 / false→0 / parseDouble.
+     */
+    fun prefValue(name: String, contains: String? = null): Double {
+        val raw = prefLookup(name)
+        if (contains != null) {
+            return if (raw.contains(contains)) 1.0 else 0.0
+        }
+        return when {
+            raw.contains("true") -> 1.0
+            raw.contains("false") -> 0.0
+            else -> raw.toDoubleOrNull() ?: 0.0
+        }
     }
 
     fun effectTurns(name: String): Double =

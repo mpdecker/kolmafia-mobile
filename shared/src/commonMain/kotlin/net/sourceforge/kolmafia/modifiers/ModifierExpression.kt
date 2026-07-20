@@ -93,6 +93,9 @@ class ModifierExpression(private val src: String) {
         // Single uppercase letter = context variable
         if (word.length == 1 && word[0].isUpperCase()) return ctx.variable(word[0])
 
+        // Multi-letter monster tokens (KW/KV/KC) before function-call check
+        ctx.multiLetterVariable(word)?.let { return it }
+
         // Must be followed by '(' to be a function
         spaces()
         if (peek() != '(') return 0.0
@@ -116,7 +119,16 @@ class ModifierExpression(private val src: String) {
         // ── Game-state — string args (unquoted) ───────────────────────────────
         "effect"   -> ctx.effectTurns(readStringArg())
         "skill"    -> if (ctx.hasSkill(readStringArg())) 1.0 else 0.0
-        "pref"     -> { readStringArg(); if (peek() == ',') { skipComma(); readStringArg() }; 0.0 }
+        "pref"     -> {
+            val prefName = readStringArg()
+            val contains = if (peek() == ',') {
+                skipComma()
+                readStringArg()
+            } else {
+                null
+            }
+            ctx.prefValue(prefName, contains)
+        }
         "loc"      -> if (ctx.locContains(readStringArg())) 1.0 else 0.0
         "zone"     -> if (ctx.zoneContains(readStringArg())) 1.0 else 0.0
         "env"      -> if (ctx.envContains(readStringArg())) 1.0 else 0.0
