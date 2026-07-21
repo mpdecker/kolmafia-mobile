@@ -249,4 +249,12 @@ class ModifierExpressionTest {
         val ctx = base.copy(familiarName = "leprechaun")
         assertTrue(eval("fam(Leprechaun)", ctx) >= 0.0)
     }
+
+    @Test fun `lt compares pref values for fact conditions`() {
+        val ctx = ExpressionContext(prefLookup = { name ->
+            if (name == "_bookOfFactsTatters") "5" else ""
+        })
+        assertEquals(1.0, eval("lt(pref(_bookOfFactsTatters),11)", ctx))
+        assertEquals(0.0, eval("lt(pref(_bookOfFactsTatters),3)", ctx))
+    }
 }

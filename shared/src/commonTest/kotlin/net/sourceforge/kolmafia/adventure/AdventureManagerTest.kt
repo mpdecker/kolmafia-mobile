@@ -17,7 +17,9 @@ import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.data.AdventureDatabase
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.MonsterWeight
 import net.sourceforge.kolmafia.data.ZoneCombatData
 import net.sourceforge.kolmafia.data.ZoneLookup
@@ -353,6 +355,58 @@ class AdventureManagerTest {
         manager.runAdventures(dreadWoods, 1, this).join()
 
         assertEquals(2L, kissTracker.kissesForLocation("Dreadsylvanian Woods"))
+    }
+
+    @Test
+    fun ocrsCombat_populatesTrackerAndStrippedLastMonster() = runTest {
+        MonsterStatusTracker.resetLastMonster()
+        val ocrsHtml = """
+            <html><body>You're fighting!
+            <script>var ocrs = ["huge"];</script>
+            <span id='monname'>huge huge mosquito</span>
+            <!-- MONSTERID: 1341 -->
+            </body></html>
+        """.trimIndent()
+        val prefs = Preferences(MapSettings())
+        val db = GameDatabase()
+        runBlocking { db.load() }
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("adventure.php") ->
+                    respond(ocrsHtml, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "text/html"))
+                request.url.encodedPath.contains("fight.php") ->
+                    respond(
+                        """<html><body><span id='monname'>huge huge mosquito</span><p>You win the fight!</p></body></html>""",
+                        HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "text/html"),
+                    )
+                request.url.encodedPath.contains("api.php") ->
+                    respond(STATUS_JSON_ADVENTURES_LEFT, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"))
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val client = HttpClient(engine) {
+            install(HttpCookies)
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+        val manager = AdventureManager(
+            AdventureRequest(client),
+            FightRequest(client),
+            ChoiceRequest(client),
+            CharacterRequest(client),
+            KoLCharacter(),
+            prefs,
+            GameEventBus(),
+            gameDatabase = db,
+        )
+        manager.runAdventures(testLocation, 1, this).join()
+        assertEquals("huge mosquito", prefs.getString(Preferences.LAST_MONSTER, ""))
+        assertEquals(listOf("huge"), MonsterStatusTracker.getLastMonster()?.randomModifiers)
+        MonsterStatusTracker.resetLastMonster()
     }
 
     @Test

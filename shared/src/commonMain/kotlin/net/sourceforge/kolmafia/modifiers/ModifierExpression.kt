@@ -115,6 +115,11 @@ class ModifierExpression(private val src: String) {
         "floor"  -> floor(parseAddSub(ctx))
         "abs"    -> abs(parseAddSub(ctx))
         "sqrt"   -> sqrt(parseAddSub(ctx).coerceAtLeast(0.0))
+        "lt"     -> { val a = parseAddSub(ctx); skipComma(); val b = parseAddSub(ctx); compare(a, b) { x, y -> x < y } }
+        "lte"    -> { val a = parseAddSub(ctx); skipComma(); val b = parseAddSub(ctx); compare(a, b) { x, y -> x <= y } }
+        "gt"     -> { val a = parseAddSub(ctx); skipComma(); val b = parseAddSub(ctx); compare(a, b) { x, y -> x > y } }
+        "gte"    -> { val a = parseAddSub(ctx); skipComma(); val b = parseAddSub(ctx); compare(a, b) { x, y -> x >= y } }
+        "eq"     -> { val a = parseAddSub(ctx); skipComma(); val b = parseAddSub(ctx); compare(a, b) { x, y -> x == y } }
 
         // ── Game-state — string args (unquoted) ───────────────────────────────
         "effect"   -> ctx.effectTurns(readStringArg())
@@ -149,6 +154,9 @@ class ModifierExpression(private val src: String) {
     }
 
     private fun skipComma() { spaces(); if (peek() == ',') pos++; spaces() }
+
+    private fun compare(a: Double, b: Double, predicate: (Double, Double) -> Boolean): Double =
+        if (predicate(a, b)) 1.0 else 0.0
 
     /** Reads an unquoted string arg up to the next unbalanced ')' or ','. */
     private fun readStringArg(): String {

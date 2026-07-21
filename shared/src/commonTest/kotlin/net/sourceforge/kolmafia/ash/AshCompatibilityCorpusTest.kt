@@ -15,11 +15,11 @@ import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
-import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.DreadKissesTracker
@@ -403,7 +403,7 @@ class AshCompatibilityCorpusTest {
         val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
         assertEquals("sleaze", outputLib(lib, """print(monster_element());""").trim())
         assertEquals(
-            "cold",
+            "hot",
             outputLib(lib, """print(to_monster("Axe Wound")["attack_element"]);""").trim(),
         )
         assertEquals(
@@ -626,6 +626,142 @@ class AshCompatibilityCorpusTest {
         assertEquals(
             "16",
             outputLib(lib, """print(to_monster("huge mosquito")["raw_attack"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_baseAttack_mosquitoMlZero() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "16",
+            outputLib(lib, """print(to_monster("huge mosquito")["base_attack"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_monsterAttackElements_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "2",
+            outputLib(
+                lib,
+                """print(count(to_monster("A.M.C. gremlin")["attack_elements"]));""",
+            ).trim(),
+        )
+        assertEquals(
+            "hot",
+            outputLib(
+                lib,
+                """print(to_monster("A.M.C. gremlin")["attack_elements"][1]);""",
+            ).trim(),
+        )
+    }
+
+    @Test
+    fun corpus_monsterSubTypesImages_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "ghost",
+            outputLib(
+                lib,
+                """print(to_monster("ancient protector spirit")["sub_types"][0]);""",
+            ).trim(),
+        )
+        assertEquals(
+            "7",
+            outputLib(lib, """print(count(to_monster("Ed the Undying")["images"]));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_monsterAttributesRandomModifiers_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        val attrs = outputLib(
+            lib,
+            """print(to_monster("huge mosquito")["attributes"]);""",
+        ).trim()
+        assert(attrs.startsWith("Atk: 16"))
+        assertEquals(
+            "0",
+            outputLib(
+                lib,
+                """print(count(to_monster("huge mosquito")["random_modifiers"]));""",
+            ).trim(),
+        )
+    }
+
+    @Test
+    fun corpus_lastMonsterRandomModifiers_live() = runBlocking {
+        MonsterStatusTracker.resetLastMonster()
+        val db = GameDatabase()
+        db.load()
+        val template = db.monster("huge mosquito")!!
+        MonsterStatusTracker.setNextMonster(template, listOf("huge"))
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, template.name)
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals(
+            "1",
+            outputLib(lib, """print(count(last_monster()["random_modifiers"]));""").trim(),
+        )
+        MonsterStatusTracker.resetLastMonster()
+    }
+
+    @Test
+    fun corpus_monsterSprinkles_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "1",
+            outputLib(lib, """print(to_monster("gingerbread pigeon")["min_sprinkles"]);""").trim(),
+        )
+        assertEquals(
+            "3",
+            outputLib(lib, """print(to_monster("gingerbread pigeon")["max_sprinkles"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_monsterFact_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = net.sourceforge.kolmafia.character.KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(classId = "1"),
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = char)
+        assertEquals(
+            "effect",
+            outputLib(lib, """print(to_monster("huge mosquito")["fact_type"]);""").trim(),
+        )
+        assertEquals(
+            "",
+            outputLib(lib, """print(to_monster("nonexistent critter")["fact"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_monsterMetadata_poisonGroup() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "none",
+            outputLib(lib, """print(to_monster("huge mosquito")["poison"]);""").trim(),
+        )
+        assertEquals(
+            "1",
+            outputLib(lib, """print(to_monster("huge mosquito")["group"]);""").trim(),
         )
     }
 

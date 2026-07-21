@@ -3,7 +3,10 @@ package net.sourceforge.kolmafia.data
 data class MonsterDefinition(
     val name: String,
     val id: Int,
+    /** First image from the comma-separated monsters.txt image column. */
     val image: String,
+    /** All images from the comma-separated monsters.txt image column. */
+    val images: List<String> = emptyList(),
     val attack: Int,
     /** Inner Atk: [expression] text when attack is expression-based; null for numeric Atk. */
     val attackExpression: String? = null,
@@ -28,6 +31,8 @@ data class MonsterDefinition(
     val phylum: String,          // dude, beast, undead, etc.
     val isBoss: Boolean,
     val isGhost: Boolean,
+    /** Desktop subtype flags (BUGBEAR, GHOST, SKELETON, …) in parse order. */
+    val subTypes: List<String> = emptyList(),
     val isLucky: Boolean,
     val isScaling: Boolean,      // true if Scale: present
     val scale: Int,
@@ -58,6 +63,15 @@ data class MonsterDefinition(
     val isCopyable: Boolean = true,
     val isWishable: Boolean = true,
     val poison: Int = Int.MAX_VALUE,
+    /** Desktop Group: default 1 when absent. */
+    val group: Int = 1,
+    /** Desktop Manuel: override; null → use [name] at bracket time. */
+    val manuelName: String? = null,
+    /** Desktop Wiki: override; null → use [name] at bracket time. */
+    val wikiName: String? = null,
+    /** All EA: tokens in parse order; bracket output uses [canonicalElementOrder]. */
+    val attackElements: List<String> = emptyList(),
+    /** Last element in desktop EnumSet order; mirrors getAttackElement(). */
     val attackElement: String = "",
     val defenseElement: String = "",
     val physicalResistance: Int = 0,
@@ -74,6 +88,14 @@ data class MonsterDefinition(
     val spookyResistanceExpression: String? = null,
     val sleazeResistance: Int = 0,
     val sleazeResistanceExpression: String? = null,
+    val minSprinkles: Int = 0,
+    val minSprinklesExpression: String? = null,
+    val maxSprinkles: Int = 0,
+    val maxSprinklesExpression: String? = null,
+    /** Raw monsters.txt parameters column (desktop MonsterData.attributes). */
+    val attributes: String = "",
+    /** Combat random modifiers; empty for bundled template monsters. */
+    val randomModifiers: List<String> = emptyList(),
     val drops: List<MonsterDrop>
 ) {
     companion object {

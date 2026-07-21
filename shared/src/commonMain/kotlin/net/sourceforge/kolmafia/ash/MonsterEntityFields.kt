@@ -1,7 +1,14 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.character.AscensionPath
+import net.sourceforge.kolmafia.character.CharacterClass
+import net.sourceforge.kolmafia.data.FactDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.MonsterPartsDatabase
+import net.sourceforge.kolmafia.data.MonsterDefinition
+import net.sourceforge.kolmafia.data.PoisonLevels
+import net.sourceforge.kolmafia.data.canonicalElementOrder
+import net.sourceforge.kolmafia.data.primaryAttackElement
 import net.sourceforge.kolmafia.modifiers.ExpressionContext
 
 /**
@@ -10,6 +17,7 @@ import net.sourceforge.kolmafia.modifiers.ExpressionContext
 internal object MonsterEntityFields {
 
     private val partsAggregateType = AggregateType(AshType.INT, AshType.STRING)
+    private val elementArrayType = AggregateType(AshType.INT, AshType.ELEMENT)
 
     fun resolve(
         monsterName: String,
@@ -18,17 +26,34 @@ internal object MonsterEntityFields {
         expressionContext: ExpressionContext? = null,
         ml: Int = 0,
         xpMultiplier: Int = 1,
+        reduceEnemyDefensePercent: Double = 0.0,
+        characterClass: CharacterClass = CharacterClass.UNKNOWN,
+        ascensionPath: AscensionPath = AscensionPath.NONE,
+        monsterOverride: MonsterDefinition? = null,
     ): AshValue {
-        val monster = gameDatabase?.monster(monsterName)
+        val monster = monsterOverride ?: gameDatabase?.monster(monsterName)
         return when (fieldName.lowercase()) {
             "id" -> AshValue.of((monster?.id ?: 0).toLong())
             "name" -> AshValue.of(monster?.name ?: "")
             "article" -> AshValue.of(monster?.article ?: "")
             "image" -> AshValue.of(monster?.image ?: "")
-            "base_hp" -> AshValue.of((monster?.hp ?: 0).toLong())
-            "base_attack" -> AshValue.of((monster?.attack ?: 0).toLong())
-            "base_defense" -> AshValue.of((monster?.defense ?: 0).toLong())
-            "base_initiative" -> AshValue.of((monster?.initiative ?: 0).toLong())
+            "base_hp" -> AshValue.of(
+                CombatAdjustment.monsterHp(monster, ml, expressionContext).toLong(),
+            )
+            "base_attack" -> AshValue.of(
+                CombatAdjustment.monsterAttack(monster, ml, expressionContext).toLong(),
+            )
+            "base_defense" -> AshValue.of(
+                CombatAdjustment.monsterDefense(
+                    monster,
+                    ml,
+                    expressionContext,
+                    reduceEnemyDefensePercent,
+                ).toLong(),
+            )
+            "base_initiative" -> AshValue.of(
+                CombatAdjustment.monsterInitiativeWithMl(monster, ml, expressionContext).toLong(),
+            )
             "raw_hp" -> AshValue.of(
                 CombatAdjustment.monsterRawHp(monster, expressionContext).toLong(),
             )
@@ -52,7 +77,11 @@ internal object MonsterEntityFields {
             "min_meat" -> AshValue.of((monster?.meatDrop ?: 0).toLong())
             "max_meat" -> AshValue.of((monster?.meatDrop ?: 0).toLong())
             "phylum" -> AshValue(AshType.PHYLUM, monster?.phylum ?: "")
-            "attack_element" -> AshValue(AshType.ELEMENT, monster?.attackElement ?: "")
+            "attack_element" -> AshValue(
+                AshType.ELEMENT,
+                primaryAttackElement(monster?.attackElements ?: emptyList()),
+            )
+            "attack_elements" -> attackElementsAggregate(monster?.attackElements ?: emptyList())
             "defense_element" -> AshValue(AshType.ELEMENT, monster?.defenseElement ?: "")
             "physical_resistance" -> AshValue.of(
                 CombatAdjustment.monsterPhysicalResistance(monster, expressionContext, ml).toLong(),
@@ -80,9 +109,47 @@ internal object MonsterEntityFields {
             "lucky" -> AshValue.of(monster?.isLucky ?: false)
             "copyable" -> AshValue.of(monster?.isCopyable ?: true)
             "wishable" -> AshValue.of(monster?.isWishable ?: true)
+            "poison" -> AshValue.effect(
+                PoisonLevels.effectNameForLevel(monster?.poison ?: Int.MAX_VALUE),
+            )
+            "group" -> AshValue.of((monster?.group ?: 1).toLong())
+            "manuel_name" -> AshValue.of(monster?.manuelName ?: monster?.name ?: "")
+            "wiki_name" -> AshValue.of(monster?.wikiName ?: monster?.name ?: "")
+            "sub_types" -> stringListAggregate(monster?.subTypes ?: emptyList())
+            "images" -> stringListAggregate(monster?.images ?: emptyList())
+            "random_modifiers" -> stringListAggregate(monster?.randomModifiers ?: emptyList())
+            "attributes" -> AshValue.of(monster?.attributes ?: "")
+            "fact" -> AshValue.of(
+                FactDatabase.factString(monster, characterClass, ascensionPath, expressionContext),
+            )
+            "fact_type" -> AshValue.of(
+                FactDatabase.factTypeString(monster, characterClass, ascensionPath, expressionContext),
+            )
+            "min_sprinkles" -> AshValue.of(
+                CombatAdjustment.monsterMinSprinkles(monster, expressionContext).toLong(),
+            )
+            "max_sprinkles" -> AshValue.of(
+                CombatAdjustment.monsterMaxSprinkles(monster, expressionContext).toLong(),
+            )
             "parts" -> partsAggregate(monster?.id ?: 0)
             else -> throw ScriptException("monster has no field '$fieldName'")
         }
+    }
+
+    private fun attackElementsAggregate(elements: List<String>): AggregateValue {
+        val result = AggregateValue(elementArrayType)
+        canonicalElementOrder(elements).forEachIndexed { i, elem ->
+            result[AshValue.of(i)] = AshValue(AshType.ELEMENT, elem)
+        }
+        return result
+    }
+
+    private fun stringListAggregate(values: List<String>): AggregateValue {
+        val result = AggregateValue(partsAggregateType)
+        values.forEachIndexed { i, value ->
+            result[AshValue.of(i)] = AshValue.of(value)
+        }
+        return result
     }
 
     private fun partsAggregate(monsterId: Int): AggregateValue {

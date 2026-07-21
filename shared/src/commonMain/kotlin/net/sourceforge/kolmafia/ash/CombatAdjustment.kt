@@ -553,6 +553,30 @@ internal object CombatAdjustment {
     fun monsterDefenseElement(monster: MonsterDefinition?): String =
         monster?.defenseElement.orEmpty()
 
+    fun monsterMinSprinkles(
+        monster: MonsterDefinition?,
+        expressionContext: ExpressionContext?,
+    ): Int {
+        if (monster == null) return 0
+        return evaluateResistanceValue(
+            monster.minSprinkles,
+            monster.minSprinklesExpression,
+            expressionContext,
+        )
+    }
+
+    fun monsterMaxSprinkles(
+        monster: MonsterDefinition?,
+        expressionContext: ExpressionContext?,
+    ): Int {
+        if (monster == null) return 0
+        return evaluateResistanceValue(
+            monster.maxSprinkles,
+            monster.maxSprinklesExpression,
+            expressionContext,
+        )
+    }
+
     private fun evaluateResistanceValue(
         numeric: Int,
         expression: String?,

@@ -48,6 +48,7 @@ object MonsterDatabase {
         val phylum: String = "",
         val isBoss: Boolean = false,
         val isGhost: Boolean = false,
+        val subTypes: List<String> = emptyList(),
         val isLucky: Boolean = false,
         val isScaling: Boolean = false,
         val scale: Int = 0,
@@ -66,6 +67,10 @@ object MonsterDatabase {
         val isCopyable: Boolean = true,
         val isWishable: Boolean = true,
         val poison: Int = Int.MAX_VALUE,
+        val group: Int = 1,
+        val manuelName: String? = null,
+        val wikiName: String? = null,
+        val attackElements: List<String> = emptyList(),
         val attackElement: String = "",
         val defenseElement: String = "",
         val physicalResistance: Int = 0,
@@ -82,6 +87,10 @@ object MonsterDatabase {
         val spookyResistanceExpression: String? = null,
         val sleazeResistance: Int = 0,
         val sleazeResistanceExpression: String? = null,
+        val minSprinkles: Int = 0,
+        val minSprinklesExpression: String? = null,
+        val maxSprinkles: Int = 0,
+        val maxSprinklesExpression: String? = null,
     )
 
     private fun parseParams(params: String): ParsedParams {
@@ -102,6 +111,7 @@ object MonsterDatabase {
         var phylum = ""
         var isBoss = false
         var isGhost = false
+        val subTypes = mutableListOf<String>()
         var isLucky = false
         var isScaling = false
         var scale = 0
@@ -122,7 +132,10 @@ object MonsterDatabase {
         var isCopyable = true
         var isWishable = true
         var poison = Int.MAX_VALUE
-        var attackElement = ""
+        var group = 1
+        var manuelName: String? = null
+        var wikiName: String? = null
+        val attackElements = mutableListOf<String>()
         var defenseElement = ""
         var physicalResistance = 0
         var physicalResistanceExpression: String? = null
@@ -138,13 +151,28 @@ object MonsterDatabase {
         var spookyResistanceExpression: String? = null
         var sleazeResistance = 0
         var sleazeResistanceExpression: String? = null
+        var minSprinkles = 0
+        var minSprinklesExpression: String? = null
+        var maxSprinkles = 0
+        var maxSprinklesExpression: String? = null
 
         var i = 0
         while (i < tokens.size) {
             val token = tokens[i]
             when {
                 token == "BOSS" -> isBoss = true
-                token == "GHOST" -> isGhost = true
+                token == "GHOST" -> {
+                    isGhost = true
+                    subTypes.add("ghost")
+                }
+                token == "BUGBEAR" -> subTypes.add("bugbear")
+                token == "SKELETON" -> subTypes.add("skeleton")
+                token == "VAMPIRE" -> subTypes.add("vampire")
+                token == "WEREWOLF" -> subTypes.add("werewolf")
+                token == "ZOMBIE" -> subTypes.add("zombie")
+                token == "SEAL" -> subTypes.add("seal")
+                token == "SNAKE" -> subTypes.add("snake")
+                token == "DRIPPY" -> subTypes.add("drippy")
                 token == "LUCKY" -> isLucky = true
                 token == "NOCOPY" -> isCopyable = false
                 token == "NOWISH" -> isWishable = false
@@ -306,21 +334,42 @@ object MonsterDatabase {
                             i += r.skip
                         }
                         "Article:" -> { article = peek; i++ }
+                        "Group:" -> {
+                            group = peek.toIntOrNull() ?: 1
+                            i++
+                        }
                         "Poison:" -> {
                             val poisonName = readQuotedOrSingleValue(tokens, i + 1)
                             poison = PoisonLevels.levelForEffectName(poisonName)
                             i += poisonTokenSkip(tokens, i + 1)
                         }
+                        "Manuel:" -> {
+                            manuelName = readQuotedOrSingleValue(tokens, i + 1)
+                            i += poisonTokenSkip(tokens, i + 1)
+                        }
+                        "Wiki:" -> {
+                            wikiName = readQuotedOrSingleValue(tokens, i + 1)
+                            i += poisonTokenSkip(tokens, i + 1)
+                        }
+                        "SprinkleMin:" -> {
+                            val r = readNumOrExpr(tokens, i + 1)
+                            minSprinklesExpression = r.expression
+                            minSprinkles = if (r.expression != null) 0 else r.value
+                            i += r.skip
+                        }
+                        "SprinkleMax:" -> {
+                            val r = readNumOrExpr(tokens, i + 1)
+                            maxSprinklesExpression = r.expression
+                            maxSprinkles = if (r.expression != null) 0 else r.value
+                            i += r.skip
+                        }
                         "EA:" -> {
-                            if (peek.startsWith("\"")) {
-                                i += poisonTokenSkip(tokens, i + 1)
-                            } else {
-                                val elem = peek.lowercase()
-                                if (attackElement.isEmpty() && elem in ELEMENT_VALUES) {
-                                    attackElement = elem
-                                }
-                                i++
+                            val raw = readQuotedOrSingleValue(tokens, i + 1)
+                            val elem = raw.lowercase()
+                            if (elem in ELEMENT_VALUES) {
+                                attackElements.add(elem)
                             }
+                            i += poisonTokenSkip(tokens, i + 1)
                         }
                         "ED:" -> {
                             if (peek.startsWith("\"")) {
@@ -379,6 +428,7 @@ object MonsterDatabase {
             phylum = phylum,
             isBoss = isBoss,
             isGhost = isGhost,
+            subTypes = subTypes,
             isLucky = isLucky,
             isScaling = isScaling,
             scale = scale,
@@ -397,7 +447,11 @@ object MonsterDatabase {
             isCopyable = isCopyable,
             isWishable = isWishable,
             poison = poison,
-            attackElement = attackElement,
+            group = group,
+            manuelName = manuelName,
+            wikiName = wikiName,
+            attackElements = attackElements,
+            attackElement = primaryAttackElement(attackElements),
             defenseElement = defenseElement,
             physicalResistance = physicalResistance,
             physicalResistanceExpression = physicalResistanceExpression,
@@ -413,6 +467,10 @@ object MonsterDatabase {
             spookyResistanceExpression = spookyResistanceExpression,
             sleazeResistance = sleazeResistance,
             sleazeResistanceExpression = sleazeResistanceExpression,
+            minSprinkles = minSprinkles,
+            minSprinklesExpression = minSprinklesExpression,
+            maxSprinkles = maxSprinkles,
+            maxSprinklesExpression = maxSprinklesExpression,
         )
     }
 
@@ -496,7 +554,8 @@ object MonsterDatabase {
 
             val name = parts[0]
             val id = parts[1].toIntOrNull() ?: continue
-            val image = parts[2]
+            val images = parts[2].split(',').map { it.trim() }.filter { it.isNotEmpty() }
+            val image = images.firstOrNull() ?: ""
             val paramStr = parts[3]
 
             val p = parseParams(paramStr)
@@ -510,6 +569,7 @@ object MonsterDatabase {
                 name = name,
                 id = id,
                 image = image,
+                images = images,
                 attack = p.attack,
                 attackExpression = p.attackExpression,
                 hasAttack = p.hasAttack,
@@ -526,6 +586,7 @@ object MonsterDatabase {
                 phylum = p.phylum,
                 isBoss = p.isBoss,
                 isGhost = p.isGhost,
+                subTypes = p.subTypes,
                 isLucky = p.isLucky,
                 isScaling = p.isScaling,
                 scale = p.scale,
@@ -544,6 +605,10 @@ object MonsterDatabase {
                 isCopyable = p.isCopyable,
                 isWishable = p.isWishable,
                 poison = p.poison,
+                group = p.group,
+                manuelName = p.manuelName,
+                wikiName = p.wikiName,
+                attackElements = p.attackElements,
                 attackElement = p.attackElement,
                 defenseElement = p.defenseElement,
                 physicalResistance = p.physicalResistance,
@@ -560,14 +625,16 @@ object MonsterDatabase {
                 spookyResistanceExpression = p.spookyResistanceExpression,
                 sleazeResistance = p.sleazeResistance,
                 sleazeResistanceExpression = p.sleazeResistanceExpression,
+                minSprinkles = p.minSprinkles,
+                minSprinklesExpression = p.minSprinklesExpression,
+                maxSprinkles = p.maxSprinkles,
+                maxSprinklesExpression = p.maxSprinklesExpression,
+                attributes = paramStr,
+                randomModifiers = emptyList(),
                 drops = drops,
             )
             _byId[id] = monster
             _byName[name.lowercase()] = monster
         }
     }
-
-    private val ELEMENT_VALUES = setOf(
-        "hot", "cold", "spooky", "stench", "sleaze", "slime", "supercold",
-    )
 }
