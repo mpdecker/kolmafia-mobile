@@ -92,6 +92,8 @@ data class MonsterDefinition(
     val minSprinklesExpression: String? = null,
     val maxSprinkles: Int = 0,
     val maxSprinklesExpression: String? = null,
+    /** Desktop beeCount: count of b/B in name (wandering bees id 1075–1083 → 0). */
+    val beeCount: Int = 0,
     /** Raw monsters.txt parameters column (desktop MonsterData.attributes). */
     val attributes: String = "",
     /** Combat random modifiers; empty for bundled template monsters. */

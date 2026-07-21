@@ -164,8 +164,22 @@ internal object CombatAdjustment {
         experienceBonus(modifiers.values, character)
 
     /**
+     * Desktop [MonsterData.getBeeosity]: 1 + beeCount/5 in Beecore.
+     */
+    fun monsterBeeosity(monster: MonsterDefinition?, inBeecore: Boolean): Double =
+        if (monster == null || !inBeecore) 1.0 else 1.0 + monster.beeCount / 5.0
+
+    private fun beeosityFor(
+        monster: MonsterDefinition?,
+        expressionContext: ExpressionContext?,
+    ): Double = monsterBeeosity(monster, expressionContext?.inBeecore == true)
+
+    private fun applyBeeosity(value: Int, beeosity: Double): Int =
+        if (value <= 0) value else max(1, floor(value * beeosity).toInt())
+
+    /**
      * Desktop-lite ML adjustment for Atk/Def/HP: unknown/zero base stays 0;
-     * otherwise [max(1, base + ml)]. Beeosity deferred.
+     * otherwise [max(1, base + ml)]. Beeosity applied by callers on effective paths.
      */
     fun monsterStatWithMl(base: Int, ml: Int): Int {
         if (base == 0) return 0
@@ -209,8 +223,8 @@ internal object CombatAdjustment {
     }
 
     /**
-     * Scale path for attack (beeosity = 1):
-     * max(1, max(floor, min(cap, buffedMoxie + scale) + max(ml, 0))).
+     * Scale path for attack:
+     * max(1, max(floor, floor((min(cap, buffedMoxie + scale) + max(ml, 0)) * beeosity))).
      * [ml] should already be [effectiveMonsterLevel] when called from [monsterAttack].
      */
     fun scaledAttack(
@@ -222,13 +236,14 @@ internal object CombatAdjustment {
         val p = resolveScaleParams(monster, expressionContext)
         var attack = min(buffedMoxie + p.scale, p.cap)
         attack += max(ml, 0)
+        attack = applyBeeosity(attack, beeosityFor(monster, expressionContext))
         attack = max(attack, p.floor)
         return max(1, attack)
     }
 
     /**
-     * Scale path for defense (beeosity = 1):
-     * max(1, max(floor, min(cap, buffedMuscle + scale) + max(ml, 0))).
+     * Scale path for defense:
+     * max(1, max(floor, floor((min(cap, buffedMuscle + scale) + max(ml, 0)) * beeosity))).
      * REDUCE_ENEMY_DEFENSE applied by [monsterDefense].
      */
     fun scaledDefense(
@@ -240,13 +255,14 @@ internal object CombatAdjustment {
         val p = resolveScaleParams(monster, expressionContext)
         var defense = min(buffedMuscle + p.scale, p.cap)
         defense += max(ml, 0)
+        defense = applyBeeosity(defense, beeosityFor(monster, expressionContext))
         defense = max(defense, p.floor)
         return max(1, defense)
     }
 
     /**
-     * Scale path for HP (beeosity = 1):
-     * max(1, max(floor*0.75, floor((min(cap, buffedMuscle + scale) + max(ml, 0)) * 0.75))).
+     * Scale path for HP:
+     * max(1, max(floor*0.75, floor((min(cap, buffedMuscle + scale) + max(ml, 0)) * 0.75 * beeosity))).
      */
     fun scaledHp(
         monster: MonsterDefinition,
@@ -256,7 +272,9 @@ internal object CombatAdjustment {
         val buffedMuscle = expressionContext?.buffedMuscle ?: 0
         val p = resolveScaleParams(monster, expressionContext)
         var hp = min(buffedMuscle + p.scale, p.cap)
-        hp = floor((hp + max(ml, 0)) * 0.75).toInt()
+        hp += max(ml, 0)
+        val beeosity = beeosityFor(monster, expressionContext)
+        hp = floor(hp * 0.75 * beeosity).toInt()
         val floorAdj = (p.floor * 0.75).toInt()
         hp = max(hp, floorAdj)
         return max(1, hp)
@@ -425,14 +443,15 @@ internal object CombatAdjustment {
         ml: Int,
         expressionContext: ExpressionContext? = null,
     ): Int {
+        val beeosity = beeosityFor(monster, expressionContext)
         if (monster?.attackExpression != null) {
-            return resolveBaseAttack(monster, expressionContext)
+            return applyBeeosity(resolveBaseAttack(monster, expressionContext), beeosity)
         }
         val effectiveMl = effectiveMonsterLevel(monster, ml, expressionContext)
         if (monster != null && monster.isScaling && !monster.hasAttack) {
             return scaledAttack(monster, effectiveMl, expressionContext)
         }
-        return monsterStatWithMl(monster?.attack ?: 0, effectiveMl)
+        return applyBeeosity(monsterStatWithMl(monster?.attack ?: 0, effectiveMl), beeosity)
     }
 
     /**
@@ -465,11 +484,14 @@ internal object CombatAdjustment {
         reduceEnemyDefensePercent: Double = 0.0,
     ): Int {
         val effectiveMl = effectiveMonsterLevel(monster, ml, expressionContext)
+        val beeosity = beeosityFor(monster, expressionContext)
         val raw = when {
             monster == null -> 0
-            monster.defenseExpression != null -> resolveBaseDefense(monster, expressionContext)
-            monster.isScaling && !monster.hasDefense -> scaledDefense(monster, effectiveMl, expressionContext)
-            else -> monsterStatWithMl(monster.defense, effectiveMl)
+            monster.defenseExpression != null ->
+                applyBeeosity(resolveBaseDefense(monster, expressionContext), beeosity)
+            monster.isScaling && !monster.hasDefense ->
+                scaledDefense(monster, effectiveMl, expressionContext)
+            else -> applyBeeosity(monsterStatWithMl(monster.defense, effectiveMl), beeosity)
         }
         return applyEnemyDefenseReduce(raw, reduceEnemyDefensePercent)
     }
@@ -506,8 +528,8 @@ internal object CombatAdjustment {
     }
 
     /**
-     * Desktop-lite [MonsterData.getHP]: expression → resolve only;
-     * Scale (no HP:) → [scaledHp]; integer → [monsterStatWithMl]. Beeosity deferred.
+     * Desktop-lite [MonsterData.getHP]: expression → resolve + beeosity;
+     * Scale (no HP:) → [scaledHp]; integer → [monsterStatWithMl] + beeosity.
      * [ml] is global ML; converted via [effectiveMonsterLevel] before Scale / integer paths.
      */
     fun monsterHp(
@@ -515,14 +537,15 @@ internal object CombatAdjustment {
         ml: Int,
         expressionContext: ExpressionContext? = null,
     ): Int {
+        val beeosity = beeosityFor(monster, expressionContext)
         if (monster?.hpExpression != null) {
-            return resolveBaseHp(monster, expressionContext)
+            return applyBeeosity(resolveBaseHp(monster, expressionContext), beeosity)
         }
         val effectiveMl = effectiveMonsterLevel(monster, ml, expressionContext)
         if (monster != null && monster.isScaling && !monster.hasHp) {
             return scaledHp(monster, effectiveMl, expressionContext)
         }
-        return monsterStatWithMl(monster?.hp ?: 0, effectiveMl)
+        return applyBeeosity(monsterStatWithMl(monster?.hp ?: 0, effectiveMl), beeosity)
     }
 
     /**

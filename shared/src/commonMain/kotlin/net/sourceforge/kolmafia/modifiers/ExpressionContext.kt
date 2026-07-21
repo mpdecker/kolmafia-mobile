@@ -79,6 +79,8 @@ data class ExpressionContext(
 
     /** Lowercase equipped item names for equipped() in monster expressions. */
     val equippedItemNames: Set<String> = emptySet(),
+    /** Bees Hate You path: monster stats scale with name b-count. */
+    val inBeecore: Boolean = false,
 ) {
     fun variable(c: Char): Double = when (c) {
         'A' -> ascensions.toDouble()

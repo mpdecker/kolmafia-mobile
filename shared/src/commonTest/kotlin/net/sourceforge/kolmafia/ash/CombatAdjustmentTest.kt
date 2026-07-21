@@ -568,4 +568,18 @@ class CombatAdjustmentTest {
         assertEquals(HitStatKind.MUSCLE, CombatAdjustment.hitStatKind(null))
         assertEquals(HitStatKind.MUSCLE, CombatAdjustment.hitStatKind(""))
     }
+
+    @Test
+    fun monsterAttack_beecoreBeeosity_effectiveOnly() = runBlocking {
+        MonsterDatabase.load()
+        val bat = MonsterDatabase.getByName("beefy bodyguard bat")!!
+        assertEquals(3, bat.beeCount)
+        assertEquals(1.6, CombatAdjustment.monsterBeeosity(bat, inBeecore = true))
+        assertEquals(1.0, CombatAdjustment.monsterBeeosity(bat, inBeecore = false))
+        val beecore = ExpressionContext(inBeecore = true)
+        val normal = ExpressionContext(inBeecore = false)
+        assertEquals(25, CombatAdjustment.monsterAttack(bat, ml = 0, normal))
+        assertEquals(40, CombatAdjustment.monsterAttack(bat, ml = 0, beecore))
+        assertEquals(25, CombatAdjustment.monsterRawAttack(bat, beecore))
+    }
 }

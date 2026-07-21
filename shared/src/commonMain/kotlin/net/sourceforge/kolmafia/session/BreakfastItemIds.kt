@@ -26,6 +26,7 @@ object BreakfastItemIds {
     const val REPLICA_RESOLUTION_ID       = 11213
     const val REPLICA_SMITH_ID            = 11219
     const val ALLIED_RADIO_BACKPACK_ID    = 11933
+    const val HANDHELD_ALLIED_RADIO_ID    = 11946
     const val ANTICHEESE_ID               = 142
     const val APRIL_SHOWER_THOUGHTS_SHIELD = 11884
     const val MR_STORE_2002_CATALOG_ID    = 11257

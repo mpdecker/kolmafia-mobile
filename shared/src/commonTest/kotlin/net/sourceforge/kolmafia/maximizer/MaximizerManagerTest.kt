@@ -11,6 +11,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
@@ -574,5 +575,55 @@ class MaximizerManagerTest {
         assertTrue(hatEquipped)
         assertTrue(shirtEquipped)
         assertTrue(pantsEquipped)
+    }
+
+    private class BeeosityStubDb : GameDatabase() {
+        override fun item(id: Int): ItemData? = when (id) {
+            1 -> ItemData(1, "plain hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+            2 -> ItemData(2, "babbling book", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+            else -> null
+        }
+        override fun item(name: String): ItemData? = when (name.lowercase()) {
+            "plain hat" -> item(1)
+            "babbling book" -> item(2)
+            else -> null
+        }
+        override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+            "plain hat" -> ModifierEntry("Item", "plain hat", "Mysticality: +1")
+            "babbling book" -> ModifierEntry("Item", "babbling book", "Mysticality: +10")
+            else -> null
+        }
+    }
+
+    @Test fun maximize_beecore_skipsHighBeeosityItem() = runBlocking {
+        val character = KoLCharacter()
+        character.updateFromApiResponse(
+            CharacterApiResponse(path = "Bees Hate You", kingliberated = "0"),
+        )
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    1 to InventoryItem(1, "plain hat", 1, ItemType.HAT),
+                    2 to InventoryItem(2, "babbling book", 1, ItemType.HAT),
+                ))
+            )
+        }
+        var equippedId: Int? = null
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                equippedId = itemId
+                return Result.success(Unit)
+            }
+        }
+        val mgr = MaximizerManager(BeeosityStubDb(), inv, equip, character)
+        val result = mgr.maximize("mysticality, beeosity")
+        assertTrue(result.success)
+        assertEquals(1, equippedId)
     }
 }

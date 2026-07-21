@@ -17,6 +17,7 @@ import net.sourceforge.kolmafia.adventure.TowerDoorStatus
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
+import net.sourceforge.kolmafia.combat.RandomModifierStats
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.character.CharacterState
@@ -43,6 +44,7 @@ import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestChoiceRules
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.recovery.RecoveryManager
+import net.sourceforge.kolmafia.request.AlliedRadioRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.ChewRequest
@@ -73,7 +75,12 @@ import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.DemonInCombatNameSync
+import net.sourceforge.kolmafia.session.DemonNamesManager
+import net.sourceforge.kolmafia.session.AlliedRadioManager
+import net.sourceforge.kolmafia.session.SummoningChamberManager
 import net.sourceforge.kolmafia.session.WildfireCampManager
+import net.sourceforge.kolmafia.session.YegDemonNameSync
 import net.sourceforge.kolmafia.session.PastaThrall
 import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -141,6 +148,11 @@ class GameRuntimeLibrary(
     internal val adventureSpentTracker: AdventureSpentTracker? = null,
     internal val dreadKissesTracker: DreadKissesTracker? = null,
     internal val wildfireCampManager: WildfireCampManager? = null,
+    internal val summoningChamberManager: SummoningChamberManager? = null,
+    internal val alliedRadioManager: AlliedRadioManager? = null,
+    internal val yegDemonNameSync: YegDemonNameSync? = null,
+    internal val demonInCombatNameSync: DemonInCombatNameSync? = null,
+    internal val demonNamesManager: DemonNamesManager? = null,
 ) : RuntimeLibrary() {
 
     companion object {
@@ -148,7 +160,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase111"
+        const val REVISION = "phase121"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -560,6 +572,18 @@ class GameRuntimeLibrary(
 
         Regex("^volcano(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliVolcano(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^summon(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSummon(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^demons(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliDemons(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^alliedradio(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliAlliedRadio(m.groupValues[1].trim(), rt::print)
         },
 
         Regex("^factory$", RegexOption.IGNORE_CASE) to { _, _ ->
@@ -1411,6 +1435,17 @@ class GameRuntimeLibrary(
         ) {
             wildfireCampManager?.parseCaptain(html)
         }
+        if (url != null && url.contains("whichchoice=${YegDemonNameSync.CARGO_CULT_CHOICE}")) {
+            yegDemonNameSync?.parsePocketPickFromUrl(url, html)
+        }
+        if (url != null && (
+                url.contains("whichchoice=${DemonInCombatNameSync.ALLIED_RADIO_BACKPACK_CHOICE}") ||
+                url.contains("whichchoice=${DemonInCombatNameSync.ALLIED_RADIO_HANDHELD_CHOICE}")
+            )
+        ) {
+            preferences?.let { AlliedRadioRequest.parseVisitChoice(html, it) }
+            demonInCombatNameSync?.parseRadioResponse(html)
+        }
     }
 
     internal fun processVisitQuestHooks(html: String, url: String? = null) {
@@ -1508,6 +1543,7 @@ class GameRuntimeLibrary(
                 .map { it.second.lowercase() }
                 .filter { it.isNotBlank() }
                 .toSet(),
+            inBeecore = state.inBeecore,
         )
     }
 
@@ -1958,6 +1994,7 @@ class GameRuntimeLibrary(
                 val override = if (base.monsterUseInstance()) {
                     MonsterStatusTracker.getLastMonster()
                         ?.takeIf { it.name.equals(monsterName, ignoreCase = true) }
+                        ?.let { inst -> RandomModifierStats.apply(inst, inst.randomModifiers, ctx) }
                 } else {
                     null
                 }

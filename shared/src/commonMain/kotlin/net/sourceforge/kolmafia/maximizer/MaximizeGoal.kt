@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.maximizer
 
+import net.sourceforge.kolmafia.character.Beeosity
 import net.sourceforge.kolmafia.modifiers.BooleanModifier
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 
@@ -19,6 +20,8 @@ data class MaximizeSpec(
     val minPrice: Int? = null,
     val allowCreatable: Boolean = false,
     val forbidCreatable: Boolean = false,
+    /** Desktop Evaluator beeosity limit (default 2). */
+    val maxBeeosity: Int = 2,
 )
 
 /** Parses desktop-style maximize goal strings into modifier tags and constraints. */
@@ -29,7 +32,7 @@ object MaximizeGoal {
         if (trimmed.isBlank()) return null
         if (!trimmed.contains(',')) {
             val primary = parseSingleModifier(trimmed) ?: return null
-            return MaximizeSpec(primary)
+            return applyEquipBeeosityFloor(MaximizeSpec(primary))
         }
         var primary: DoubleModifier? = null
         val required = mutableSetOf<BooleanModifier>()
@@ -45,10 +48,14 @@ object MaximizeGoal {
         var minPrice: Int? = null
         var allowCreatable = false
         var forbidCreatable = false
+        var maxBeeosity = 2
         for (term in splitTerms(trimmed)) {
             val t = term.trim()
             if (t.isBlank()) continue
             when {
+                t.equals("beeosity", ignoreCase = true) -> maxBeeosity = 1
+                t.startsWith("beeosity ", ignoreCase = true) ->
+                    maxBeeosity = t.substring(9).trim().toIntOrNull() ?: 2
                 t.startsWith("equip ", ignoreCase = true) ->
                     equip.add(unquote(t.substring(6).trim()))
                 t.startsWith("switch thrall ", ignoreCase = true) ->
@@ -83,22 +90,34 @@ object MaximizeGoal {
                 }
             }
         }
-        return MaximizeSpec(
-            primary = primary ?: DoubleModifier.MUS,
-            requiredBooleans = required,
-            forbiddenBooleans = forbidden,
-            equipRequired = equip,
-            switchFamiliars = switches,
-            switchThralls = switchThralls,
-            enthronedFamiliars = enthrones,
-            bjornifiedFamiliars = bjorns,
-            requireMelee = requireMelee,
-            requireHands = requireHands,
-            maxPrice = maxPrice,
-            minPrice = minPrice,
-            allowCreatable = allowCreatable,
-            forbidCreatable = forbidCreatable,
+        return applyEquipBeeosityFloor(
+            MaximizeSpec(
+                primary = primary ?: DoubleModifier.MUS,
+                requiredBooleans = required,
+                forbiddenBooleans = forbidden,
+                equipRequired = equip,
+                switchFamiliars = switches,
+                switchThralls = switchThralls,
+                enthronedFamiliars = enthrones,
+                bjornifiedFamiliars = bjorns,
+                requireMelee = requireMelee,
+                requireHands = requireHands,
+                maxPrice = maxPrice,
+                minPrice = minPrice,
+                allowCreatable = allowCreatable,
+                forbidCreatable = forbidCreatable,
+                maxBeeosity = maxBeeosity,
+            ),
         )
+    }
+
+    internal fun applyEquipBeeosityFloor(spec: MaximizeSpec): MaximizeSpec {
+        val equipFloor = spec.equipRequired.sumOf { Beeosity.itemBeeosity(it) }
+        return if (equipFloor > spec.maxBeeosity) {
+            spec.copy(maxBeeosity = equipFloor)
+        } else {
+            spec
+        }
     }
 
     fun parse(goal: String): DoubleModifier? = parseSpec(goal)?.primary

@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.data
 
 import net.sourceforge.kolmafia.shared.generated.resources.Res
+import net.sourceforge.kolmafia.utilities.leetify
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
 // Parses monsters.txt from the bundled compose resources.
@@ -12,6 +13,7 @@ object MonsterDatabase {
 
     private val _byId = mutableMapOf<Int, MonsterDefinition>()
     private val _byName = mutableMapOf<String, MonsterDefinition>()
+    private val _byLeetName = mutableMapOf<String, MonsterDefinition>()
     private var loaded = false
 
     val byId: Map<Int, MonsterDefinition> get() = _byId
@@ -26,6 +28,16 @@ object MonsterDatabase {
 
     fun getById(id: Int): MonsterDefinition? = _byId[id]
     fun getByName(name: String): MonsterDefinition? = _byName[name.lowercase()]
+
+    fun translateLeetMonsterName(leetName: String): String =
+        _byLeetName[leetName]?.name ?: leetName
+
+    /** Desktop [MonsterData] beeCount from name; wandering bees excluded. */
+    fun computeBeeCount(name: String, id: Int): Int {
+        if (id in 1075..1083) return 0
+        return name.count { it == 'b' || it == 'B' }
+    }
+
     fun all(): Collection<MonsterDefinition> = _byId.values
     fun byPhylum(phylum: String): List<MonsterDefinition> =
         _byId.values.filter { it.phylum.equals(phylum, ignoreCase = true) }
@@ -629,12 +641,14 @@ object MonsterDatabase {
                 minSprinklesExpression = p.minSprinklesExpression,
                 maxSprinkles = p.maxSprinkles,
                 maxSprinklesExpression = p.maxSprinklesExpression,
+                beeCount = computeBeeCount(name, id),
                 attributes = paramStr,
                 randomModifiers = emptyList(),
                 drops = drops,
             )
             _byId[id] = monster
             _byName[name.lowercase()] = monster
+            _byLeetName[leetify(name)] = monster
         }
     }
 }

@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.combat
 
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.MonsterDatabase
 import net.sourceforge.kolmafia.data.MonsterDefinition
 
 object RandomModifierParser {
@@ -117,6 +118,7 @@ object RandomModifierParser {
 
         val modifiers = mutableListOf<String>()
         val count = ocrsTokens.lastIndex
+        var leet = false
         for (j in ocrsTokens.indices) {
             val token = ocrsTokens[j]
             if (token == "drippy") continue
@@ -132,9 +134,17 @@ object RandomModifierParser {
                 continue
             }
 
+            if (mapped == "1337") {
+                leet = true
+            }
+
             modifiers.add(mapped)
             val remove = mapped + if (j == count) " " else ", "
             name = singleStringDelete(name, remove)
+        }
+
+        if (leet) {
+            name = MonsterDatabase.translateLeetMonsterName(name)
         }
 
         return ParseResult(trimmed + name.trim(), modifiers)

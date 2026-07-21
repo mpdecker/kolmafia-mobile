@@ -147,6 +147,16 @@ data class CharacterState(
         get() = ascensionPath == AscensionPath.LOW_KEY
     val isKingdomOfExploathing: Boolean
         get() = ascensionPath == AscensionPath.KINGDOM_OF_EXPLOATHING
+    val inDisguise: Boolean
+        get() = ascensionPath == AscensionPath.DISGUISES_DELIMIT
+    val inDinocore: Boolean
+        get() = ascensionPath == AscensionPath.DINOSAURS
+    val inHatTrick: Boolean
+        get() = ascensionPath == AscensionPath.HAT_TRICK
+    val inNuclearAutumn: Boolean
+        get() = ascensionPath == AscensionPath.NUCLEAR_AUTUMN || ascensionPath == AscensionPath.NUCLEAR
+    val inBeecore: Boolean
+        get() = !kingLiberated && ascensionPath == AscensionPath.BEES_HATE_YOU
 
     // ── Computed: main buffed stat ────────────────────────────────────────────
     val buffedMainStat: Int get() = when (mainStat) {
