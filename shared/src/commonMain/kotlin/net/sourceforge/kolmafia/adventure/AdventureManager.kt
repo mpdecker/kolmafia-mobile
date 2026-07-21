@@ -12,6 +12,8 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceContext
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
 import net.sourceforge.kolmafia.adventure.choice.ChoiceSolvers
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
+import net.sourceforge.kolmafia.combat.RandomModifierParser
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.character.KoLCharacter
@@ -327,6 +329,7 @@ class AdventureManager(
         if (lastTurnResponseText.isNotBlank()) {
             lastFightHtml = lastTurnResponseText
         }
+        prepareCombatMonster(lastTurnResponseText)
         val macro = combatMacroResolver?.invoke(location.id)
             ?: MacroStrategy.forLocation(location.id, preferences)
         val fightHtml = fightRequest.fight(macro).getOrElse {
@@ -342,7 +345,7 @@ class AdventureManager(
         if (result.won) {
             edServantManager?.addCombatExperience()
         }
-        if (result.monster.isNotEmpty()) {
+        if (result.monster.isNotEmpty() && MonsterStatusTracker.getLastMonster() == null) {
             preferences.setString(Preferences.LAST_MONSTER, result.monster)
         }
         questDatabase?.let {
@@ -386,6 +389,21 @@ class AdventureManager(
             return null
         }
         return result
+    }
+
+    private fun prepareCombatMonster(adventureHtml: String) {
+        if (adventureHtml.isBlank() || gameDatabase == null) return
+        val displayName = AdventureParser.parseEncounterMonsterName(adventureHtml) ?: return
+        val parsed = RandomModifierParser.parseRandomModifiers(displayName, adventureHtml)
+        val template = RandomModifierParser.resolveTemplate(
+            parsed.strippedName,
+            adventureHtml,
+            gameDatabase,
+        ) ?: gameDatabase.monster(parsed.strippedName)
+            ?: gameDatabase.monster(displayName)
+            ?: return
+        MonsterStatusTracker.setNextMonster(template, parsed.modifiers)
+        preferences.setString(Preferences.LAST_MONSTER, template.name)
     }
 
     internal suspend fun resolveChoice(

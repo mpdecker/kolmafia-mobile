@@ -81,14 +81,18 @@ internal fun GameRuntimeLibrary.registerAshP41Batch(scope: AshScope) {
 
     regFn(scope, "monster_initiative", AshType.INT, emptyList()) { _, _ ->
         AshValue.of(
-            CombatAdjustment.monsterInitiative(lastMonster(), buildMonsterExpressionContext())
-                .toLong(),
+            CombatAdjustment.monsterInitiativeWithMl(
+                lastMonster(),
+                currentMl(),
+                buildMonsterExpressionContext(),
+            ).toLong(),
         )
     }
     regFn(scope, "monster_initiative", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->
         AshValue.of(
-            CombatAdjustment.monsterInitiative(
+            CombatAdjustment.monsterInitiativeWithMl(
                 resolveMonsterDefinition(args[0].toString()),
+                currentMl(),
                 buildMonsterExpressionContext(),
             ).toLong(),
         )

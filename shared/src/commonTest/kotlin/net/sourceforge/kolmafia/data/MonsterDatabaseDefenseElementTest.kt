@@ -21,7 +21,8 @@ class MonsterDatabaseDefenseElementTest {
         // Axe Wound: ED: sleaze EA: cold
         val monster = MonsterDatabase.getByName("Axe Wound")!!
         assertEquals("sleaze", monster.defenseElement)
-        assertEquals("cold", monster.attackElement)
+        assertEquals("hot", monster.attackElement)
+        assertEquals(listOf("none", "cold", "hot"), canonicalElementOrder(monster.attackElements))
     }
 
     @Test

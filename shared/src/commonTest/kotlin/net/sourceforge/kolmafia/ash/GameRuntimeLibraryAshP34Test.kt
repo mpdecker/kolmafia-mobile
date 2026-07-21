@@ -67,7 +67,7 @@ class GameRuntimeLibraryAshP34Test {
         db.load()
         val lib = GameRuntimeLibrary(gameDatabase = db)
         val failed = runCatching {
-            outputLib(lib, """print(to_monster("huge mosquito")["manuel_name"]);""")
+            outputLib(lib, """print(to_monster("huge mosquito")["bee_count"]);""")
         }.isFailure
         assertTrue(failed)
     }

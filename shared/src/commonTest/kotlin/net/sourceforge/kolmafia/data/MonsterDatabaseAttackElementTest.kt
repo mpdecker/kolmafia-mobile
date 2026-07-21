@@ -14,16 +14,17 @@ class MonsterDatabaseAttackElementTest {
     }
 
     @Test
-    fun parse_ea_noneAlone_leavesEmpty() = runBlocking {
+    fun parse_ea_quotedBadSpelling() = runBlocking {
         MonsterDatabase.load()
-        // Anime Smiley only has EA: "bad spelling" (quoted factoid) — no elemental EA
-        assertEquals("", MonsterDatabase.getByName("Anime Smiley")?.attackElement)
+        val smiley = MonsterDatabase.getByName("Anime Smiley")!!
+        assertEquals(listOf("bad spelling"), canonicalElementOrder(smiley.attackElements))
+        assertEquals("bad spelling", smiley.attackElement)
     }
 
     @Test
-    fun parse_ea_skipsNoneBeforeElement() = runBlocking {
+    fun parse_ea_enumOrderLastForMultiEa() = runBlocking {
         MonsterDatabase.load()
-        // A.M.C. gremlin: EA: hot EA: none → first elemental is hot
+        // Astronomer: EA: hot EA: none → enum-order last is hot
         assertEquals("hot", MonsterDatabase.getByName("Astronomer")?.attackElement)
     }
 }

@@ -44,7 +44,7 @@ class GameRuntimeLibraryAshP42Test {
         db.load()
         val lib = GameRuntimeLibrary(gameDatabase = db)
         assertEquals(
-            "cold",
+            "hot",
             outputLib(lib, """print(to_monster("Axe Wound")["attack_element"]);""").trim(),
         )
         assertEquals(

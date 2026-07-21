@@ -16,6 +16,9 @@ import net.sourceforge.kolmafia.adventure.TowerDoorConfig
 import net.sourceforge.kolmafia.adventure.TowerDoorStatus
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
+import net.sourceforge.kolmafia.character.AscensionPath
+import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
@@ -145,7 +148,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase102"
+        const val REVISION = "phase111"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1950,13 +1953,25 @@ class GameRuntimeLibrary(
                 val ml = CombatAdjustment.monsterLevelAdjustment(mods, state, lastLocationName())
                 val ctx = buildMonsterExpressionContext()
                 val xpMult = garbageShirtXpMultiplier()
+                val reduce = CombatAdjustment.reduceEnemyDefensePercent(mods)
+                val monsterName = base.monsterRefName()
+                val override = if (base.monsterUseInstance()) {
+                    MonsterStatusTracker.getLastMonster()
+                        ?.takeIf { it.name.equals(monsterName, ignoreCase = true) }
+                } else {
+                    null
+                }
                 MonsterEntityFields.resolve(
-                    base.toString(),
+                    monsterName,
                     field,
                     gameDatabase,
                     expressionContext = ctx,
                     ml = ml,
                     xpMultiplier = xpMult,
+                    reduceEnemyDefensePercent = reduce,
+                    characterClass = state?.characterClassEnum ?: CharacterClass.UNKNOWN,
+                    ascensionPath = state?.ascensionPath ?: AscensionPath.NONE,
+                    monsterOverride = override,
                 )
             }
             AshType.LOCATION -> LocationEntityFields.resolve(

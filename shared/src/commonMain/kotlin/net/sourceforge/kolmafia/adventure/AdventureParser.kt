@@ -127,6 +127,9 @@ object AdventureParser {
 
     fun canStillSteal(html: String): Boolean = CAN_STEAL_PATTERN.containsMatchIn(html)
 
+    fun parseEncounterMonsterName(html: String): String? =
+        MONSTER_NAME.find(html)?.groupValues?.get(1)
+
     fun parseFightResult(html: String): AdventureResult.Combat {
         val won = WIN_PATTERN.containsMatchIn(html)
         val monster = MONSTER_NAME.find(html)?.groupValues?.get(1) ?: "Unknown"

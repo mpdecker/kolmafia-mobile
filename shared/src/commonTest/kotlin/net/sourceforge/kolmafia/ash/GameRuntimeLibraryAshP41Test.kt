@@ -68,9 +68,9 @@ class GameRuntimeLibraryAshP41Test {
             CombatAdjustment.monsterHp(mosquito, ml).toString(),
             outputLib(lib, """print(monster_hp(to_monster("huge mosquito")));""").trim(),
         )
-        // Initiative stays base
+        // Initiative includes initPenalty(ML); ML=40 → penalty 20
         assertEquals(
-            mosquito.initiative.toString(),
+            CombatAdjustment.monsterInitiativeWithMl(mosquito, ml).toString(),
             outputLib(lib, """print(monster_initiative(to_monster("huge mosquito")));""").trim(),
         )
     }

@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.preferences.Preferences
 
 internal fun GameRuntimeLibrary.registerCombatStubs(scope: AshScope) {
@@ -12,10 +13,12 @@ internal fun GameRuntimeLibrary.registerCombatStubs(scope: AshScope) {
         AshValue.of(adventureManager?.fightFollowsChoice ?: false)
     }
 
-    // last_monster() → monster  — reads _lastMonster preference
+    // last_monster() → monster  — reads tracker instance or _lastMonster preference
     regFn(scope, "last_monster", AshType.MONSTER, emptyList()) { _, _ ->
-        val name = preferences?.getString(Preferences.LAST_MONSTER, "") ?: ""
-        AshValue(AshType.MONSTER, name)
+        val name = MonsterStatusTracker.getLastMonsterName().ifEmpty {
+            preferences?.getString(Preferences.LAST_MONSTER, "") ?: ""
+        }
+        AshValue(AshType.MONSTER, MonsterAshRef(name, useInstance = true))
     }
 
     // copiers_used(skill) → int — returns timesCast for the named skill
