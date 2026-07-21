@@ -20,6 +20,10 @@ import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.request.SummoningChamberRequest
+import net.sourceforge.kolmafia.session.SummoningChamberManager
+import net.sourceforge.kolmafia.session.DemonTypes
+import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -1868,5 +1872,30 @@ class GameRuntimeLibraryCliTest {
         val lib = GameRuntimeLibrary(preferences = preferences, httpClient = client)
         val out = outputLib(lib, """cli_execute("volcano step");""")
         assertTrue(out.contains("Current position"))
+    }
+
+    @Test
+    fun cliExecute_summon_delegatesToManager() = runBlocking {
+        val preferences = prefs()
+        preferences.setString("demonName7", "Ak'gyxoth")
+        val retrieve = object : RetrieveItemService(null, null, null, null, null, null, null, null, null, null, null) {
+            override suspend fun retrieve(itemId: Int, qty: Int): Int = qty
+        }
+        val client = HttpClient(MockEngine { respond("You light three black candles.", HttpStatusCode.OK) })
+        val mgr = SummoningChamberManager(
+            preferences,
+            SummoningChamberRequest(client),
+            retrieve,
+            null,
+            null,
+            null,
+        )
+        val lib = GameRuntimeLibrary(
+            preferences = preferences,
+            summoningChamberManager = mgr,
+        )
+        val out = outputLib(lib, """cli_execute("summon 7");""")
+        assertTrue(out.contains("Summoning Ak'gyxoth"))
+        assertTrue(preferences.getBoolean(Preferences.DEMON_SUMMONED, false))
     }
 }

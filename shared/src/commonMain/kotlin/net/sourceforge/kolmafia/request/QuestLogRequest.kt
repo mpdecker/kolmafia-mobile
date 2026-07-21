@@ -9,6 +9,7 @@ import net.sourceforge.kolmafia.data.QuestLogDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.quest.QuestLogConsequenceSync
 import net.sourceforge.kolmafia.preferences.Preferences
 
 open class QuestLogRequest(
@@ -34,7 +35,12 @@ open class QuestLogRequest(
         }
     }
 
-    internal fun parsePage(html: String, which: Int = 1) {
+    internal fun parsePage(html: String, which: Int = 1, ascensionNumber: Int = 0) {
+        if (which == 3) {
+            preferences?.let {
+                QuestLogConsequenceSync.applyAccomplishments(html, it, ascensionNumber)
+            }
+        }
         if (which == 1) {
             clearAbsentCompletedQuestPrefs(html)
         }

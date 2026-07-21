@@ -29,7 +29,9 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.familiar.FamiliarIds
 import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -406,6 +408,68 @@ class AdventureManagerTest {
         manager.runAdventures(testLocation, 1, this).join()
         assertEquals("huge mosquito", prefs.getString(Preferences.LAST_MONSTER, ""))
         assertEquals(listOf("huge"), MonsterStatusTracker.getLastMonster()?.randomModifiers)
+        MonsterStatusTracker.resetLastMonster()
+    }
+
+    @Test
+    fun runAdventures_updatesIntergnatDemonName_afterEldritchCombat() = runTest {
+        MonsterStatusTracker.resetLastMonster()
+        val ocrsHtml = """
+            <html><body>You're fighting!
+            <span id='monname'>ELDRITCH HORROR beefy bodyguard bat</span>
+            </body></html>
+        """.trimIndent()
+        val fightHtml = """
+            <html><body><span id='monname'>beefy bodyguard bat</span>
+            used to be a Ak'gyxoth but then I took
+            <p>You win the fight!</p></body></html>
+        """.trimIndent()
+        val prefs = Preferences(MapSettings())
+        val intergnatSync = IntergnatDemonNameSync(prefs)
+        val db = GameDatabase()
+        runBlocking { db.load() }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(
+                    classId = "1",
+                    familiar = FamiliarIds.INTERGNAT.toString(),
+                ),
+            )
+        }
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("adventure.php") ->
+                    respond(ocrsHtml, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "text/html"))
+                request.url.encodedPath.contains("fight.php") ->
+                    respond(fightHtml, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "text/html"))
+                request.url.encodedPath.contains("api.php") ->
+                    respond(STATUS_JSON_ADVENTURES_LEFT, HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"))
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val client = HttpClient(engine) {
+            install(HttpCookies)
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; isLenient = true })
+            }
+        }
+        val manager = AdventureManager(
+            AdventureRequest(client),
+            FightRequest(client),
+            ChoiceRequest(client),
+            CharacterRequest(client),
+            char,
+            prefs,
+            GameEventBus(),
+            gameDatabase = db,
+            intergnatDemonNameSync = intergnatSync,
+        )
+        manager.runAdventures(testLocation, 1, this).join()
+        assertEquals(listOf("eldritch"), MonsterStatusTracker.getLastMonster()?.randomModifiers)
+        assertEquals("Ak'gyxoth", intergnatSync.demonName())
         MonsterStatusTracker.resetLastMonster()
     }
 

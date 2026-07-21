@@ -47,6 +47,17 @@ class Preferences(private val settings: Settings) {
 
         // Combat tracking
         const val LAST_MONSTER             = "_lastMonster"   // string; last monster fought
+        const val DEMON_NAME_12              = "demonName12"    // Intergnat demon name (desktop key)
+        const val DEMON_NAME_13              = "demonName13"    // Yeg demon name (cargo scrap syllables)
+        const val DEMON_NAME_14              = "demonName14"    // Demon in Combat name
+        const val DEMON_NAME_14_SEGMENTS     = "demonName14Segments"
+        const val DEMON_SUMMONED             = "demonSummoned"  // daily demon summon flag
+        const val CARGO_POCKET_SCRAPS        = "cargoPocketScraps"
+        const val CARGO_POCKET_EMPTIED       = "_cargoPocketEmptied"
+        const val ALLIED_RADIO_DROPS_USED    = "_alliedRadioDropsUsed"
+        const val ALLIED_RADIO_MATERIEL_INTEL = "_alliedRadioMaterielIntel"
+        const val ALLIED_RADIO_WILDSUN_BOON  = "_alliedRadioWildsunBoon"
+        const val NONCOMBAT_FORCER_ACTIVE    = "noncombatForcerActive"
         const val COUNTER_NAMES            = "counterNames"   // pipe-separated counter pref names
 
         // Mood

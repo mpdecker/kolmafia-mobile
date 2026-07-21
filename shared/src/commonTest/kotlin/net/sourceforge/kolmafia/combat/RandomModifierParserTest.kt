@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.combat
 
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -45,6 +46,16 @@ class RandomModifierParserTest {
             html,
         )
         assertEquals(listOf("powerPixel"), result.modifiers)
+    }
+
+    @Test
+    fun parseRandomModifiers_leetTokenResolvesCanonicalName() = runBlocking {
+        net.sourceforge.kolmafia.data.MonsterDatabase.load()
+        val leetName = net.sourceforge.kolmafia.utilities.leetify("Naughty Sorceress")
+        val html = """<script>var ocrs = ["leet"];</script>"""
+        val result = RandomModifierParser.parseRandomModifiers("The $leetName", html)
+        assertEquals("The Naughty Sorceress", result.strippedName)
+        assertEquals(listOf("1337"), result.modifiers)
     }
 
     @Test

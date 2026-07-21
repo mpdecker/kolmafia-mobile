@@ -15,6 +15,8 @@ import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.character.AscensionPath
+import net.sourceforge.kolmafia.combat.EncounterModifierPipeline
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
@@ -699,6 +701,32 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_beefyBat_beecoreBaseAttack() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = KoLCharacter()
+        char.updateFromApiResponse(
+            CharacterApiResponse(path = "Bees Hate You", kingliberated = "0"),
+        )
+        val beecoreLib = GameRuntimeLibrary(gameDatabase = db, character = char)
+        assertEquals(
+            "40",
+            outputLib(
+                beecoreLib,
+                """print(to_monster("beefy bodyguard bat")["base_attack"]);""",
+            ).trim(),
+        )
+        val defaultLib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "25",
+            outputLib(
+                defaultLib,
+                """print(to_monster("beefy bodyguard bat")["base_attack"]);""",
+            ).trim(),
+        )
+    }
+
+    @Test
     fun corpus_lastMonsterRandomModifiers_live() = runBlocking {
         MonsterStatusTracker.resetLastMonster()
         val db = GameDatabase()
@@ -711,6 +739,40 @@ class AshCompatibilityCorpusTest {
         assertEquals(
             "1",
             outputLib(lib, """print(count(last_monster()["random_modifiers"]));""").trim(),
+        )
+        assertEquals(
+            "36",
+            outputLib(lib, """print(last_monster()["base_hp"]);""").trim(),
+        )
+        assertEquals(
+            "18",
+            outputLib(lib, """print(to_monster("huge mosquito")["base_hp"]);""").trim(),
+        )
+        MonsterStatusTracker.resetLastMonster()
+    }
+
+    @Test
+    fun corpus_lastMonsterMaskPipeline_live() = runBlocking {
+        MonsterStatusTracker.resetLastMonster()
+        val db = GameDatabase()
+        db.load()
+        val template = db.monster("Naughty Sorceress")!!
+        val modifiers = mutableListOf<String>()
+        EncounterModifierPipeline.applyPostOcrs(
+            "Naughty Sorceress wearing a Boss Bat mask",
+            modifiers,
+            EncounterModifierPipeline.EncounterModifierContext(
+                familiarId = 0,
+                ascensionPath = AscensionPath.DISGUISES_DELIMIT,
+            ),
+        )
+        MonsterStatusTracker.setNextMonster(template, modifiers)
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.LAST_MONSTER, template.name)
+        val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
+        assertEquals(
+            "Boss Bat mask",
+            outputLib(lib, """print(last_monster()["random_modifiers"][0]);""").trim(),
         )
         MonsterStatusTracker.resetLastMonster()
     }

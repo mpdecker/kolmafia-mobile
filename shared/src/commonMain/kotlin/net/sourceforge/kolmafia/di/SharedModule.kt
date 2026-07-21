@@ -34,6 +34,14 @@ import net.sourceforge.kolmafia.thrall.PastaThrallManager
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.DemonInCombatNameSync
+import net.sourceforge.kolmafia.session.DemonNamesManager
+import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
+import net.sourceforge.kolmafia.session.YegDemonNameSync
+import net.sourceforge.kolmafia.session.AlliedRadioManager
+import net.sourceforge.kolmafia.session.SummoningChamberManager
+import net.sourceforge.kolmafia.request.AlliedRadioRequest
+import net.sourceforge.kolmafia.request.SummoningChamberRequest
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.character.DailyResourceTracker
@@ -211,6 +219,33 @@ val sharedModule = module {
     singleOf(::BanishManager)
     singleOf(::AdventureSpentTracker)
     singleOf(::DreadKissesTracker)
+    singleOf(::IntergnatDemonNameSync)
+    singleOf(::YegDemonNameSync)
+    singleOf(::DemonInCombatNameSync)
+    single {
+        DemonNamesManager(
+            preferences = get(),
+            segmentSync = get(),
+        )
+    }
+    single {
+        SummoningChamberManager(
+            preferences = get(),
+            request = SummoningChamberRequest(get()),
+            retrieveItemService = get(),
+            inventoryManager = get(),
+            familiarRequest = get(),
+            familiarManager = get(),
+        )
+    }
+    single {
+        AlliedRadioManager(
+            preferences = get(),
+            request = AlliedRadioRequest(get(), get()),
+            inventoryManager = get(),
+            segmentSync = get(),
+        )
+    }
     singleOf(::WildfireCampManager)
     singleOf(::EffectManager)
     single {
@@ -260,6 +295,9 @@ val sharedModule = module {
             edServantManager = get(),
             adventureSpentTracker = get(),
             dreadKissesTracker = get(),
+            intergnatDemonNameSync = get(),
+            yegDemonNameSync = get(),
+            demonInCombatNameSync = get(),
         )
     }
     single {
@@ -315,6 +353,11 @@ val sharedModule = module {
             adventureSpentTracker = get(),
             dreadKissesTracker    = get(),
             wildfireCampManager   = get(),
+            summoningChamberManager = get(),
+            alliedRadioManager = get(),
+            yegDemonNameSync = get(),
+            demonInCombatNameSync = get(),
+            demonNamesManager = get(),
         )
     }
     singleOf(::ScriptManager)

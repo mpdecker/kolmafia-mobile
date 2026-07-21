@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.maximizer
 
+import net.sourceforge.kolmafia.character.Beeosity
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
@@ -275,7 +276,23 @@ open class MaximizerManager(
             isFamiliarCarriedItem,
             familiarCarryScorer,
         )
+        if (charState.inBeecore &&
+            loadoutBeeosity(charState.equipment, bestPerSlot) > effectiveSpec.maxBeeosity
+        ) {
+            return MaximizePlan(goal, effectiveSpec, scoreBefore, scoreBefore, emptyMap())
+        }
         return MaximizePlan(goal, effectiveSpec, scoreBefore, scoreAfter, bestPerSlot)
+    }
+
+    private fun loadoutBeeosity(
+        base: Map<EquipmentSlot, String>,
+        assignment: Map<EquipmentSlot, Pair<String, Double>>,
+    ): Int {
+        val merged = base.toMutableMap()
+        assignment.forEach { (slot, pair) ->
+            if (pair.first.isNotBlank()) merged[slot] = pair.first
+        }
+        return Beeosity.equipmentBeeosity(merged)
     }
 
     private data class MaximizePlan(
@@ -672,6 +689,11 @@ open class MaximizerManager(
     )
 
     private fun itemMeetsConstraints(itemName: String, spec: MaximizeSpec): Boolean {
+        if (character.state.value.inBeecore &&
+            Beeosity.itemBeeosity(itemName) > spec.maxBeeosity
+        ) {
+            return false
+        }
         val price = effectivePrice(itemName)
         if (spec.maxPrice != null && price > spec.maxPrice) return false
         if (spec.minPrice != null && price < spec.minPrice) return false

@@ -28,6 +28,7 @@ enum class AscensionPath(
     TEETOTALER("Teetotaler", canDrink = false, pathId = 2, pathImage = "bowl.gif"),
     BOOZETAFARIAN("Boozetafarian", canEat = false, pathId = 1, pathImage = "martini.gif"),
     OXYGENARIAN("Oxygenarian", canEat = false, canDrink = false, pathId = 3, pathImage = "smalloxy.gif"),
+    BEES_HATE_YOU("Bees Hate You", pathId = 4, pathImage = "beeicon"),
 
     // ── Avatar / special class paths ─────────────────────────────────────────
     AVATAR_OF_BORIS(
@@ -202,6 +203,16 @@ enum class AscensionPath(
         pathImage = "zootomist.gif",
         pointsPreference = "zootomistPoints",
         avatarPath = true,
+    ),
+    DISGUISES_DELIMIT(
+        "Disguises Delimit",
+        pathId = 34,
+        pathImage = "dd_icon",
+    ),
+    DINOSAURS(
+        "Fall of the Dinosaurs",
+        pathId = 46,
+        pathImage = "dinostuffy",
     ),
     HAT_TRICK("Hat Trick", pathId = 54, pathImage = "hat_bycocket.gif"),
     MEAT(

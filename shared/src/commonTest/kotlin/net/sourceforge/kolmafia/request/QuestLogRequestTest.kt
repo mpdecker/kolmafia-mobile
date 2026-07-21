@@ -7,6 +7,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 import net.sourceforge.kolmafia.data.QuestLogDatabase
+import net.sourceforge.kolmafia.data.QuestLogConsequenceDatabase
 import net.sourceforge.kolmafia.data.QuestLogEntry
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
@@ -96,5 +97,22 @@ class QuestLogRequestTest {
         val request = QuestLogRequest(client, db())
         request.syncAll()
         assertEquals(3, callCount)
+    }
+
+    @Test fun parsePage_page3_setsDemonNameFromAccomplishments() {
+        QuestLogConsequenceDatabase.injectForTest(
+            QuestLogConsequenceDatabase.parseForTest(
+                "QUEST_LOG	demonName9	;&middot;([^<]*?), the Smith<br	demonName9=\$1",
+            ),
+        )
+        val settings = MapSettings()
+        val prefs = Preferences(settings)
+        val request = QuestLogRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            db(settings),
+            prefs,
+        )
+        request.parsePage(";&middot;Hammer Time, the Smith<br", which = 3)
+        assertEquals("Hammer Time", prefs.getString("demonName9", ""))
     }
 }

@@ -12,6 +12,7 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceContext
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
 import net.sourceforge.kolmafia.adventure.choice.ChoiceSolvers
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
+import net.sourceforge.kolmafia.combat.EncounterModifierPipeline
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.combat.RandomModifierParser
 import net.sourceforge.kolmafia.banish.BanishManager
@@ -43,6 +44,10 @@ import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
+import net.sourceforge.kolmafia.request.AlliedRadioRequest
+import net.sourceforge.kolmafia.session.DemonInCombatNameSync
+import net.sourceforge.kolmafia.session.YegDemonNameSync
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
@@ -83,6 +88,9 @@ class AdventureManager(
     private val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     private val adventureSpentTracker: AdventureSpentTracker? = null,
     private val dreadKissesTracker: DreadKissesTracker? = null,
+    private val intergnatDemonNameSync: IntergnatDemonNameSync? = null,
+    private val yegDemonNameSync: YegDemonNameSync? = null,
+    private val demonInCombatNameSync: DemonInCombatNameSync? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -341,6 +349,11 @@ class AdventureManager(
         val result = AdventureParser.parseFightResult(fightHtml)
         if (!_inMultiFight) _fightFollowsChoice = false
         dreadKissesTracker?.updateFromFight(location.name, fightHtml)
+        intergnatDemonNameSync?.updateFromFight(
+            fightHtml,
+            familiarId = character.state.value.familiarId,
+            randomModifiers = MonsterStatusTracker.getLastMonster()?.randomModifiers.orEmpty(),
+        )
         eventBus.emit(GameEvent.CombatFinished(result.won, result.monster))
         if (result.won) {
             edServantManager?.addCombatExperience()
@@ -395,14 +408,24 @@ class AdventureManager(
         if (adventureHtml.isBlank() || gameDatabase == null) return
         val displayName = AdventureParser.parseEncounterMonsterName(adventureHtml) ?: return
         val parsed = RandomModifierParser.parseRandomModifiers(displayName, adventureHtml)
-        val template = RandomModifierParser.resolveTemplate(
+        val modifiers = parsed.modifiers.toMutableList()
+        val charState = character.state.value
+        val strippedName = EncounterModifierPipeline.applyPostOcrs(
             parsed.strippedName,
+            modifiers,
+            EncounterModifierPipeline.EncounterModifierContext(
+                familiarId = charState.familiarId,
+                ascensionPath = charState.ascensionPath,
+            ),
+        )
+        val template = RandomModifierParser.resolveTemplate(
+            strippedName,
             adventureHtml,
             gameDatabase,
-        ) ?: gameDatabase.monster(parsed.strippedName)
+        ) ?: gameDatabase.monster(strippedName)
             ?: gameDatabase.monster(displayName)
             ?: return
-        MonsterStatusTracker.setNextMonster(template, parsed.modifiers)
+        MonsterStatusTracker.setNextMonster(template, modifiers)
         preferences.setString(Preferences.LAST_MONSTER, template.name)
     }
 
@@ -441,10 +464,13 @@ class AdventureManager(
             if (option > 0 && skillUses > 0) skillUses--
             lastChosenOption = option
 
-            val html = choiceRequest.choose(currentChoiceId, option).getOrElse { e ->
+            val extraFormFields = cargoPocketFormFields(currentChoiceId, option, ctx)
+            val html = choiceRequest.choose(currentChoiceId, option, extraFormFields).getOrElse { e ->
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(e)))
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
+            syncCargoPocketPick(currentChoiceId, option, extraFormFields, html)
+            syncAlliedRadioResponse(currentChoiceId, html)
             questDatabase?.let {
                 QuestChoiceRules.apply(
                     currentChoiceId, html, it, option, preferences, inventory, optionLabel,
@@ -519,5 +545,36 @@ class AdventureManager(
                 return
             }
         }
+    }
+
+    private fun cargoPocketFormFields(
+        choiceId: Int,
+        option: Int,
+        ctx: ChoiceContext,
+    ): Map<String, String> {
+        if (choiceId != YegDemonNameSync.CARGO_CULT_CHOICE || option != 1) return emptyMap()
+        val pocket = ctx.preferences.getString("choiceAdventure$choiceId").toIntOrNull()
+            ?: return emptyMap()
+        return mapOf("pocket" to pocket.toString())
+    }
+
+    private fun syncCargoPocketPick(
+        choiceId: Int,
+        option: Int,
+        extraFormFields: Map<String, String>,
+        html: String,
+    ) {
+        if (choiceId != YegDemonNameSync.CARGO_CULT_CHOICE || option != 1) return
+        val sync = yegDemonNameSync ?: return
+        val pocket = extraFormFields["pocket"]?.toIntOrNull()
+            ?: preferences.getString("choiceAdventure$choiceId").toIntOrNull()
+            ?: return
+        sync.parsePocketPick(pocket, html)
+    }
+
+    private fun syncAlliedRadioResponse(choiceId: Int, html: String) {
+        if (!DemonInCombatNameSync.isAlliedRadioChoice(choiceId)) return
+        preferences?.let { AlliedRadioRequest.parseVisitChoice(html, it) }
+        demonInCombatNameSync?.parseRadioResponse(html)
     }
 }

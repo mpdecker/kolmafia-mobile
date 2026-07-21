@@ -57,4 +57,24 @@ class MaximizeGoalTest {
         assertTrue(spec.allowCreatable)
         assertTrue(spec.forbidCreatable)
     }
+
+    @Test fun parseSpec_beeosityKeyword() {
+        val defaultSpec = MaximizeGoal.parseSpec("muscle")
+        assertNotNull(defaultSpec)
+        assertEquals(2, defaultSpec.maxBeeosity)
+
+        val limitOne = MaximizeGoal.parseSpec("muscle, beeosity")
+        assertNotNull(limitOne)
+        assertEquals(1, limitOne.maxBeeosity)
+
+        val limitFive = MaximizeGoal.parseSpec("muscle, beeosity 5")
+        assertNotNull(limitFive)
+        assertEquals(5, limitFive.maxBeeosity)
+    }
+
+    @Test fun parseSpec_equipRaisesBeeosityFloor() {
+        val spec = MaximizeGoal.parseSpec("muscle, beeosity, equip \"babbling book\"")
+        assertNotNull(spec)
+        assertEquals(4, spec.maxBeeosity)
+    }
 }
