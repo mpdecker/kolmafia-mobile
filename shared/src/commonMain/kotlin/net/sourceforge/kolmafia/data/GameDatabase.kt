@@ -53,10 +53,12 @@ open class GameDatabase {
         // Quest log text patterns (for quest state detection)
         QuestLogDatabase.load()
         QuestLogConsequenceDatabase.load()
+        ItemDescriptionConsequenceDatabase.load()
         QuestCouncilDatabase.load()
         JourneymanDatabase.load()
         WitchessSolutionDatabase.load()
         VolcanoMazeDatabase.load()
+        PocketDatabase.load()
         CultShortsDatabase.load()
 
         isLoaded = true

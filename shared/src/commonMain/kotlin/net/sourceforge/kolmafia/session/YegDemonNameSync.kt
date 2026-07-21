@@ -13,23 +13,6 @@ class YegDemonNameSync(private val preferences: Preferences) {
     fun demonName(): String =
         preferences.getString(Preferences.DEMON_NAME_13, "")
 
-    fun parsePocketPick(pocket: Int, responseText: String) {
-        if (pocket !in 1..666) return
-        if (responseText.contains("leave your pockets unplundered")) return
-        if (responseText.contains("the power of the pockets has been exhausted for the day")) {
-            preferences.setBoolean(Preferences.CARGO_POCKET_EMPTIED, true)
-            return
-        }
-        if (responseText.contains("That pocket is empty")) return
-        checkScrapPocket(pocket, responseText)
-    }
-
-    fun parsePocketPickFromUrl(url: String, responseText: String) {
-        val pocket = extractPocketFromUrl(url)
-        if (pocket == 0) return
-        parsePocketPick(pocket, responseText)
-    }
-
     fun knownScrapPockets(): Map<Int, String> {
         val value = preferences.getString(Preferences.CARGO_POCKET_SCRAPS, "")
         if (value.isEmpty()) return emptyMap()
@@ -82,7 +65,7 @@ class YegDemonNameSync(private val preferences: Preferences) {
         )
     }
 
-    private fun checkScrapPocket(pocket: Int, responseText: String) {
+    fun checkScrapPocket(pocket: Int, responseText: String) {
         val match = SCRAP_PATTERN.find(responseText) ?: return
         if (match.groupValues[1].isNotEmpty()) {
             return
@@ -100,15 +83,10 @@ class YegDemonNameSync(private val preferences: Preferences) {
     }
 
     companion object {
-        const val CARGO_CULT_CHOICE = 1420
         private const val SCRAP_COUNT = 7
 
         private val SCRAP_PATTERN = Regex(
             """This pocket contains a (waterlogged )?scrap of paper that reads: <[Bb]>([^<]+)</[Bb]>""",
         )
-        private val URL_POCKET_PATTERN = Regex("""pocket=(\d+)""")
-
-        fun extractPocketFromUrl(url: String): Int =
-            URL_POCKET_PATTERN.find(url)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
     }
 }

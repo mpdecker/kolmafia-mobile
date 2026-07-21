@@ -78,6 +78,9 @@ import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
+import net.sourceforge.kolmafia.session.CargoCultManager
+import net.sourceforge.kolmafia.session.CargoPocketSync
+import net.sourceforge.kolmafia.quest.ItemDescriptionConsequenceSync
 import net.sourceforge.kolmafia.session.SummoningChamberManager
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.YegDemonNameSync
@@ -150,6 +153,8 @@ class GameRuntimeLibrary(
     internal val wildfireCampManager: WildfireCampManager? = null,
     internal val summoningChamberManager: SummoningChamberManager? = null,
     internal val alliedRadioManager: AlliedRadioManager? = null,
+    internal val cargoPocketSync: CargoPocketSync? = null,
+    internal val cargoCultManager: CargoCultManager? = null,
     internal val yegDemonNameSync: YegDemonNameSync? = null,
     internal val demonInCombatNameSync: DemonInCombatNameSync? = null,
     internal val demonNamesManager: DemonNamesManager? = null,
@@ -160,7 +165,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase121"
+        const val REVISION = "phase126"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -584,6 +589,10 @@ class GameRuntimeLibrary(
 
         Regex("^alliedradio(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliAlliedRadio(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^cargo(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliCargo(m.groupValues[1].trim(), rt::print)
         },
 
         Regex("^factory$", RegexOption.IGNORE_CASE) to { _, _ ->
@@ -1435,8 +1444,13 @@ class GameRuntimeLibrary(
         ) {
             wildfireCampManager?.parseCaptain(html)
         }
-        if (url != null && url.contains("whichchoice=${YegDemonNameSync.CARGO_CULT_CHOICE}")) {
-            yegDemonNameSync?.parsePocketPickFromUrl(url, html)
+        if (url != null && url.contains("whichchoice=${CargoPocketSync.CARGO_CULT_CHOICE}")) {
+            if (url.contains("pocket=") &&
+                (html.contains("You're fighting") || html.contains("fight.php"))
+            ) {
+                cargoPocketSync?.registerPocketFight(url)
+            }
+            cargoPocketSync?.parsePocketPickFromUrl(url, html)
         }
         if (url != null && (
                 url.contains("whichchoice=${DemonInCombatNameSync.ALLIED_RADIO_BACKPACK_CHOICE}") ||
@@ -1446,7 +1460,15 @@ class GameRuntimeLibrary(
             preferences?.let { AlliedRadioRequest.parseVisitChoice(html, it) }
             demonInCombatNameSync?.parseRadioResponse(html)
         }
+        if (url != null && url.contains("desc_item.php")) {
+            extractDescItemId(url)?.let { descId ->
+                preferences?.let { ItemDescriptionConsequenceSync.applyItemDescription(descId, html, it) }
+            }
+        }
     }
+
+    private fun extractDescItemId(url: String): String? =
+        Regex("""whichitem=(\d+)""").find(url)?.groupValues?.getOrNull(1)
 
     internal fun processVisitQuestHooks(html: String, url: String? = null) {
         processVisitResponseHooks(html, url)
@@ -2085,6 +2107,9 @@ class GameRuntimeLibrary(
         registerAshP45Batch(scope)
         registerAshP46Batch(scope)
         registerAshP47Batch(scope)
+        registerAshP81Batch(scope)
+        registerAshP82Batch(scope)
+        registerAshP83Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

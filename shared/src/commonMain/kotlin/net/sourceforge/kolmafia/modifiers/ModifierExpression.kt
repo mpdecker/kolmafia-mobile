@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.modifiers
 
 import kotlin.math.*
+import net.sourceforge.kolmafia.util.RomanNumerals
 
 /**
  * Recursive-descent evaluator for KoLmafia modifier expressions.
@@ -15,7 +16,7 @@ import kotlin.math.*
  *   variable ::= single uppercase letter
  *   function_call ::= name '(' args... ')'
  *
- * Numeric functions: min, max, ceil, floor, abs, sqrt
+ * Numeric functions: min, max, ceil, floor, abs, sqrt, roman
  * String-arg functions: effect, skill, pref, loc, zone, env, path, class, fam,
  *                       famattr, mainhand, res, mod, interact
  */
@@ -150,6 +151,8 @@ class ModifierExpression(private val src: String) {
         "famattr" -> ctx.famattrValue(readStringArg())
         "mainhand" -> ctx.mainhandValue(readStringArg())
         "res" -> ctx.resValue(readStringArg())
+        "stripcommas" -> readStringArg().replace(",", "").toDoubleOrNull() ?: 0.0
+        "roman" -> RomanNumerals.parse(readStringArg()).toDouble()
         else -> { readStringArg(); 0.0 }
     }
 

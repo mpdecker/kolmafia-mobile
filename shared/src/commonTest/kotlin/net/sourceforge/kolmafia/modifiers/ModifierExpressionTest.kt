@@ -197,6 +197,10 @@ class ModifierExpressionTest {
         assertEquals(20.0, eval("20+20*pref(bondItem1)", base))
     }
 
+    @Test fun `stripcommas removes commas from number text`() {
+        assertEquals(1234.0, eval("""stripcommas("1,234")""", base))
+    }
+
     // ── ModifierExpression.evaluate companion ─────────────────────────────────
 
     @Test fun `evaluate strips brackets`() {
