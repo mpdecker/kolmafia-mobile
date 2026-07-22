@@ -10,6 +10,7 @@ object EffectDatabase {
 
     private val byId = mutableMapOf<Int, EffectData>()
     private val byName = mutableMapOf<String, EffectData>()
+    private val byDescId = mutableMapOf<String, EffectData>()
     private var loaded = false
 
     suspend fun load() {
@@ -21,7 +22,22 @@ object EffectDatabase {
 
     fun getById(id: Int): EffectData? = byId[id]
     fun getByName(name: String): EffectData? = byName[name.lowercase()]
+    fun getByDescId(descId: String): EffectData? = byDescId[descId]
     fun all(): Collection<EffectData> = byId.values
+
+    /** Test hook — register an effect without loading statuseffects.txt. */
+    internal fun registerForTest(effect: EffectData) {
+        byId[effect.id] = effect
+        byName[effect.name.lowercase()] = effect
+        byDescId[effect.descId] = effect
+    }
+
+    internal fun resetForTest() {
+        byId.clear()
+        byName.clear()
+        byDescId.clear()
+        loaded = false
+    }
     fun goodEffects(): List<EffectData> = byId.values.filter { it.quality == EffectQuality.GOOD }
     fun badEffects(): List<EffectData> = byId.values.filter { it.quality == EffectQuality.BAD }
 
@@ -52,6 +68,7 @@ object EffectDatabase {
             val effect = EffectData(id, name, image, descId, quality, attributes)
             byId[id] = effect
             byName[name.lowercase()] = effect
+            byDescId[descId] = effect
         }
     }
 }

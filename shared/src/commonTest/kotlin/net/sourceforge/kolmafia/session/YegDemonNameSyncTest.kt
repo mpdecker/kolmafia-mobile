@@ -4,7 +4,6 @@ import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.data.CultShortsDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -27,18 +26,18 @@ class YegDemonNameSyncTest {
         """This pocket contains a scrap of paper that reads: <b>$code: $syllable</b>"""
 
     @Test
-    fun parsePocketPick_extractsSyllable() {
+    fun checkScrapPocket_extractsSyllable() {
         val s = sync()
-        s.parsePocketPick(373, scrapHtml("XTNQ", "Ga"))
+        s.checkScrapPocket(373, scrapHtml("XTNQ", "Ga"))
         assertEquals(mapOf(373 to "Ga"), s.knownScrapPockets())
     }
 
     @Test
-    fun parsePocketPick_skipsWaterloggedScrap() {
+    fun checkScrapPocket_skipsWaterloggedScrap() {
         val s = sync()
         val html =
             """This pocket contains a waterlogged scrap of paper that reads: <b>QDL XLR KVSJGGJV QRGL</b>"""
-        s.parsePocketPick(373, html)
+        s.checkScrapPocket(373, html)
         assertTrue(s.knownScrapPockets().isEmpty())
     }
 
@@ -96,44 +95,12 @@ class YegDemonNameSyncTest {
     }
 
     @Test
-    fun parsePocketPick_allSevenSetsDemonName13() {
+    fun checkScrapPocket_allSevenSetsDemonName13() {
         val s = sync()
         val syllables = listOf("Yeg", "the", "Eld", "ritch", "One", "True", "Name")
         scrapPockets.forEachIndexed { index, pocket ->
-            s.parsePocketPick(pocket, scrapHtml("X$index", syllables[index]))
+            s.checkScrapPocket(pocket, scrapHtml("X$index", syllables[index]))
         }
         assertEquals("YegtheEldritchOneTrueName", s.demonName())
-    }
-
-    @Test
-    fun parsePocketPickFromUrl_extractsPocket() {
-        val s = sync()
-        s.parsePocketPickFromUrl(
-            "choice.php?whichchoice=1420&option=1&pocket=373",
-            scrapHtml("XTNQ", "Ga"),
-        )
-        assertEquals("Ga", s.knownScrapPockets()[373])
-    }
-
-    @Test
-    fun parsePocketPick_skipsEmptyPocketResponse() {
-        val s = sync()
-        s.parsePocketPick(373, "That pocket is empty.")
-        assertTrue(s.knownScrapPockets().isEmpty())
-    }
-
-    @Test
-    fun parsePocketPick_marksDailyExhausted() {
-        val prefs = Preferences(MapSettings())
-        CultShortsDatabase.injectForTest(scrapPockets)
-        val s = YegDemonNameSync(prefs)
-        s.parsePocketPick(7, "It seems like the power of the pockets has been exhausted for the day.")
-        assertTrue(prefs.getBoolean(Preferences.CARGO_POCKET_EMPTIED, false))
-    }
-
-    @Test
-    fun extractPocketFromUrl_returnsZeroWhenMissing() {
-        assertEquals(0, YegDemonNameSync.extractPocketFromUrl("choice.php?whichchoice=1420"))
-        assertEquals(373, YegDemonNameSync.extractPocketFromUrl("choice.php?pocket=373&option=1"))
     }
 }

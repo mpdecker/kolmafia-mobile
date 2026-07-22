@@ -3,7 +3,6 @@ package net.sourceforge.kolmafia.quest
 import com.russhwolf.settings.MapSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.data.QuestLogConsequenceDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SummoningChamberManager
@@ -76,11 +75,26 @@ class QuestLogConsequenceSyncTest {
     }
 
     @Test
-    fun applyAccomplishments_skipsModifierExpressionRules() {
+    fun applyAccomplishments_setsRoyaltyFromCommaNumber() {
+        QuestLogConsequenceDatabase.injectForTest(
+            QuestLogConsequenceDatabase.parseForTest(
+                "QUEST_LOG	royalty	You have accumulated ([\\d,]+) Royalty	royalty=[\$1]",
+            ),
+        )
+        val p = prefs()
+        QuestLogConsequenceSync.applyAccomplishments(
+            "You have accumulated 12,345 Royalty",
+            p,
+        )
+        assertEquals(12345, p.getInt(Preferences.ROYALTY, 0))
+    }
+
+    @Test
+    fun parseForTest_includesRoyaltyExpressionRule() {
         val parsed = QuestLogConsequenceDatabase.parseForTest(
             "QUEST_LOG	royalty	You have accumulated ([\\d,]+) Royalty	royalty=[\$1]",
         )
-        assertTrue(parsed.isEmpty())
+        assertEquals(1, parsed.size)
     }
 
     @Test

@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.session
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
 import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.DailyResourceTracker
@@ -44,6 +45,7 @@ class SessionManager(
     private val breakfastManager: BreakfastManager? = null,
     private val outfitManager: OutfitManager? = null,
     private val sessionLogger: SessionLogger? = null,
+    private val gameRuntimeLibrary: GameRuntimeLibrary? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -60,7 +62,8 @@ class SessionManager(
 
                         // Gate rollover clear on actual day change
                         val lastDay = preferences.getInt(Preferences.LAST_DAYCOUNT, -1)
-                        if (charState.dayCount != lastDay) {
+                        val dayChanged = charState.dayCount != lastDay
+                        if (dayChanged) {
                             banishManager?.clearExpiredAndRollover(charState.currentRun)
                             breakfastManager?.clearBreakfastPrefs()
                             preferences.setInt(Preferences.LAST_DAYCOUNT, charState.dayCount)
@@ -77,6 +80,13 @@ class SessionManager(
                         moodManager?.loadActiveMood()
                         banishManager?.load()
                         outfitManager?.refreshCustomOutfits()
+
+                        inventoryManager.fetchInventory()
+                        effectManager.fetchEffects()
+                        if (dayChanged) {
+                            gameRuntimeLibrary?.updateOneDesc()
+                        }
+                        gameRuntimeLibrary?.checkDynamicModifiers()
 
                         // Run breakfast actions
                         breakfastManager?.runBreakfast(

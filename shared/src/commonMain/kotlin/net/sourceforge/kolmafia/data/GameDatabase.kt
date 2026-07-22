@@ -18,6 +18,8 @@ open class GameDatabase {
 
         // Skills, familiars, outfits, bounties
         SkillDefinitionDatabase.load()
+        SkillDescriptionConsequenceDatabase.load()
+        CombatSkillConsequenceDatabase.load()
         FamiliarDefinitionDatabase.load()
         OutfitDatabase.load()
         BountyDatabase.load()
@@ -38,6 +40,7 @@ open class GameDatabase {
 
         // Monsters and crafting
         MonsterDatabase.load()
+        MonsterConsequenceDatabase.load()
         MonsterPartsDatabase.load()
         FactDatabase.load()
         ConcoctionDatabase.load()
@@ -53,10 +56,14 @@ open class GameDatabase {
         // Quest log text patterns (for quest state detection)
         QuestLogDatabase.load()
         QuestLogConsequenceDatabase.load()
+        ItemDescriptionConsequenceDatabase.load()
+        EffectDescriptionConsequenceDatabase.load()
+        DescriptionConsequenceRegistry.load()
         QuestCouncilDatabase.load()
         JourneymanDatabase.load()
         WitchessSolutionDatabase.load()
         VolcanoMazeDatabase.load()
+        PocketDatabase.load()
         CultShortsDatabase.load()
 
         isLoaded = true

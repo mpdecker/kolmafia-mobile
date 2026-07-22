@@ -38,6 +38,9 @@ import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
 import net.sourceforge.kolmafia.session.YegDemonNameSync
+import net.sourceforge.kolmafia.request.CargoCultistShortsRequest
+import net.sourceforge.kolmafia.session.CargoCultManager
+import net.sourceforge.kolmafia.session.CargoPocketSync
 import net.sourceforge.kolmafia.session.AlliedRadioManager
 import net.sourceforge.kolmafia.session.SummoningChamberManager
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
@@ -221,6 +224,16 @@ val sharedModule = module {
     singleOf(::DreadKissesTracker)
     singleOf(::IntergnatDemonNameSync)
     singleOf(::YegDemonNameSync)
+    single { CargoPocketSync(get(), get()) }
+    single {
+        CargoCultManager(
+            preferences = get(),
+            request = CargoCultistShortsRequest(get()),
+            pocketSync = get(),
+            yegDemonNameSync = get(),
+            inventoryManager = get(),
+        )
+    }
     singleOf(::DemonInCombatNameSync)
     single {
         DemonNamesManager(
@@ -297,6 +310,7 @@ val sharedModule = module {
             dreadKissesTracker = get(),
             intergnatDemonNameSync = get(),
             yegDemonNameSync = get(),
+            cargoPocketSync = get(),
             demonInCombatNameSync = get(),
         )
     }
@@ -355,6 +369,8 @@ val sharedModule = module {
             wildfireCampManager   = get(),
             summoningChamberManager = get(),
             alliedRadioManager = get(),
+            cargoPocketSync = get(),
+            cargoCultManager = get(),
             yegDemonNameSync = get(),
             demonInCombatNameSync = get(),
             demonNamesManager = get(),
@@ -381,6 +397,7 @@ val sharedModule = module {
             breakfastManager     = get(),
             outfitManager        = get(),
             sessionLogger        = get(),
+            gameRuntimeLibrary   = get(),
         )
     }
     singleOf(::ShopRequest)

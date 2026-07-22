@@ -231,7 +231,7 @@ data class ExpressionContext(
             gender = state.gender.modifierValue,
             telescopeUpgrades = state.telescopeUpgrades,
             activeEffects = effects.associate { it.name.lowercase() to it.duration },
-            skills = passiveSkillNames,
+            skills = passiveSkillNames.map { it.lowercase() }.toSet(),
             challengePath = state.challengePath,
             className = state.className,
             isRestricted = state.isRestricted,

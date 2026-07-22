@@ -23,6 +23,7 @@ import net.sourceforge.kolmafia.data.ZoneLookup
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
@@ -48,6 +49,7 @@ import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.YegDemonNameSync
+import net.sourceforge.kolmafia.session.CargoPocketSync
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
@@ -90,6 +92,7 @@ class AdventureManager(
     private val dreadKissesTracker: DreadKissesTracker? = null,
     private val intergnatDemonNameSync: IntergnatDemonNameSync? = null,
     private val yegDemonNameSync: YegDemonNameSync? = null,
+    private val cargoPocketSync: CargoPocketSync? = null,
     private val demonInCombatNameSync: DemonInCombatNameSync? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
@@ -418,11 +421,12 @@ class AdventureManager(
                 ascensionPath = charState.ascensionPath,
             ),
         )
+        val disambiguatedName = MonsterConsequenceSync.disambiguateMonster(strippedName, adventureHtml)
         val template = RandomModifierParser.resolveTemplate(
-            strippedName,
+            disambiguatedName,
             adventureHtml,
             gameDatabase,
-        ) ?: gameDatabase.monster(strippedName)
+        ) ?: gameDatabase.monster(disambiguatedName)
             ?: gameDatabase.monster(displayName)
             ?: return
         MonsterStatusTracker.setNextMonster(template, modifiers)
@@ -470,6 +474,7 @@ class AdventureManager(
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
             syncCargoPocketPick(currentChoiceId, option, extraFormFields, html)
+            syncCargoPocketVisit(currentChoiceId, html)
             syncAlliedRadioResponse(currentChoiceId, html)
             questDatabase?.let {
                 QuestChoiceRules.apply(
@@ -485,6 +490,7 @@ class AdventureManager(
 
             val next = AdventureParser.parseAdventureResponse(html, "")
             if (next is AdventureResult.Combat) {
+                syncCargoPocketFight(currentChoiceId, option, extraFormFields)
                 _fightFollowsChoice = true
                 _inMultiFight = true
                 break
@@ -552,7 +558,7 @@ class AdventureManager(
         option: Int,
         ctx: ChoiceContext,
     ): Map<String, String> {
-        if (choiceId != YegDemonNameSync.CARGO_CULT_CHOICE || option != 1) return emptyMap()
+        if (choiceId != CargoPocketSync.CARGO_CULT_CHOICE || option != 1) return emptyMap()
         val pocket = ctx.preferences.getString("choiceAdventure$choiceId").toIntOrNull()
             ?: return emptyMap()
         return mapOf("pocket" to pocket.toString())
@@ -564,12 +570,30 @@ class AdventureManager(
         extraFormFields: Map<String, String>,
         html: String,
     ) {
-        if (choiceId != YegDemonNameSync.CARGO_CULT_CHOICE || option != 1) return
-        val sync = yegDemonNameSync ?: return
+        if (choiceId != CargoPocketSync.CARGO_CULT_CHOICE || option != 1) return
+        val sync = cargoPocketSync ?: return
         val pocket = extraFormFields["pocket"]?.toIntOrNull()
             ?: preferences.getString("choiceAdventure$choiceId").toIntOrNull()
             ?: return
         sync.parsePocketPick(pocket, html)
+    }
+
+    private fun syncCargoPocketFight(
+        choiceId: Int,
+        option: Int,
+        extraFormFields: Map<String, String>,
+    ) {
+        if (choiceId != CargoPocketSync.CARGO_CULT_CHOICE || option != 1) return
+        val sync = cargoPocketSync ?: return
+        val pocket = extraFormFields["pocket"]?.toIntOrNull()
+            ?: preferences.getString("choiceAdventure$choiceId").toIntOrNull()
+            ?: return
+        sync.registerPocketFightFromPocket(pocket)
+    }
+
+    private fun syncCargoPocketVisit(choiceId: Int, html: String) {
+        if (choiceId != CargoPocketSync.CARGO_CULT_CHOICE) return
+        cargoPocketSync?.parseAvailablePockets(html)
     }
 
     private fun syncAlliedRadioResponse(choiceId: Int, html: String) {

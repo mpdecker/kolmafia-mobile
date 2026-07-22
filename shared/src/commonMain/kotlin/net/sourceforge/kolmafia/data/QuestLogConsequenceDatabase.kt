@@ -3,24 +3,10 @@ package net.sourceforge.kolmafia.data
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
-/** Desktop consequences.txt QUEST_LOG row — applied to questlog.php?which=3. */
-data class QuestLogConsequenceRule(
-    val spec: String,
-    val pattern: Regex,
-    val actions: List<QuestLogConsequenceAction>,
-)
-
-sealed class QuestLogConsequenceAction {
-    data class SetString(val key: String, val groupIndex: Int) : QuestLogConsequenceAction()
-    data class SetLiteral(val key: String, val value: String) : QuestLogConsequenceAction()
-    data class SetBoolean(val key: String, val value: Boolean) : QuestLogConsequenceAction()
-    data class SetAscensions(val key: String) : QuestLogConsequenceAction()
-}
-
 @OptIn(ExperimentalResourceApi::class)
 object QuestLogConsequenceDatabase {
 
-    private val rules = mutableListOf<QuestLogConsequenceRule>()
+    private val rules = mutableListOf<ConsequenceRule>()
     private var loaded = false
 
     suspend fun load() {
@@ -31,20 +17,20 @@ object QuestLogConsequenceDatabase {
         loaded = true
     }
 
-    fun rules(): List<QuestLogConsequenceRule> = rules.toList()
+    fun rules(): List<ConsequenceRule> = rules.toList()
 
     /** Test-only: parse text without file I/O. */
-    internal fun parseForTest(text: String): List<QuestLogConsequenceRule> = parse(text)
+    internal fun parseForTest(text: String): List<ConsequenceRule> = parse(text)
 
     /** Test-only: inject parsed rules without file I/O. */
-    internal fun injectForTest(parsed: List<QuestLogConsequenceRule>) {
+    internal fun injectForTest(parsed: List<ConsequenceRule>) {
         rules.clear()
         rules.addAll(parsed)
         loaded = true
     }
 
-    private fun parse(text: String): List<QuestLogConsequenceRule> {
-        val result = mutableListOf<QuestLogConsequenceRule>()
+    private fun parse(text: String): List<ConsequenceRule> {
+        val result = mutableListOf<ConsequenceRule>()
         for (raw in text.lines()) {
             val line = raw.trim()
             if (line.isEmpty() || line.startsWith("#")) continue
@@ -54,11 +40,10 @@ object QuestLogConsequenceDatabase {
             val spec = parts[1]
             val regexText = parts[2]
             val actionTexts = parts.drop(3)
-            if (actionTexts.any { it.contains('[') }) continue
-            val actions = actionTexts.mapNotNull { parseAction(it) }
+            val actions = actionTexts.mapNotNull { ConsequenceActionParser.parseAction(it) }
             if (actions.isEmpty()) continue
             result.add(
-                QuestLogConsequenceRule(
+                ConsequenceRule(
                     spec = spec,
                     pattern = Regex(regexText),
                     actions = actions,
@@ -66,17 +51,5 @@ object QuestLogConsequenceDatabase {
             )
         }
         return result
-    }
-
-    private fun parseAction(action: String): QuestLogConsequenceAction? {
-        val eq = action.indexOf('=')
-        if (eq <= 0) return null
-        val key = action.substring(0, eq).trim()
-        val value = action.substring(eq + 1).trim()
-        if (value == "ascensions") return QuestLogConsequenceAction.SetAscensions(key)
-        if (value == "true") return QuestLogConsequenceAction.SetBoolean(key, true)
-        if (value == "false") return QuestLogConsequenceAction.SetBoolean(key, false)
-        val groupMatch = Regex("""^\$(\d+)$""").matchEntire(value) ?: return QuestLogConsequenceAction.SetLiteral(key, value)
-        return QuestLogConsequenceAction.SetString(key, groupMatch.groupValues[1].toInt())
     }
 }

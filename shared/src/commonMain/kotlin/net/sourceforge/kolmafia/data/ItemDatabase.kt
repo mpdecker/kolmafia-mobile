@@ -12,6 +12,7 @@ object ItemDatabase {
     private val byId = mutableMapOf<Int, ItemData>()
     private val byName = mutableMapOf<String, ItemData>()
     private val byPlural = mutableMapOf<String, ItemData>()
+    private val byDescId = mutableMapOf<String, ItemData>()
     private var loaded = false
 
     suspend fun load() {
@@ -23,6 +24,7 @@ object ItemDatabase {
 
     fun getById(id: Int): ItemData? = byId[id]
     fun getByName(name: String): ItemData? = byName[name.lowercase()]
+    fun getByDescId(descId: String): ItemData? = byDescId[descId]
     fun getByPluralOrName(name: String): ItemData? {
         val lower = name.lowercase()
         return byName[lower] ?: byPlural[lower]
@@ -33,6 +35,7 @@ object ItemDatabase {
     internal fun registerForTest(item: ItemData) {
         byId[item.id] = item
         byName[item.name.lowercase()] = item
+        byDescId[item.descId] = item
         item.plural?.let { byPlural[it.lowercase()] = item }
     }
 
@@ -40,6 +43,7 @@ object ItemDatabase {
         byId.clear()
         byName.clear()
         byPlural.clear()
+        byDescId.clear()
         loaded = false
     }
 
@@ -69,6 +73,7 @@ object ItemDatabase {
             val item = ItemData(id, name, descId, image, primaryUse, secondaryUses, access, autosell, plural)
             byId[id] = item
             byName[name.lowercase()] = item
+            byDescId[descId] = item
             plural?.let { byPlural[it.lowercase()] = item }
         }
     }

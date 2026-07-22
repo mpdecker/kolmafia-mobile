@@ -121,3 +121,8 @@ internal fun stringFromEntry(entry: ModifierEntry?, tag: String): String {
     val sm = StringModifier.byTag(tag) ?: return ""
     return if (entry != null) ModifierParser.parse(entry.modifiers).get(sm) ?: "" else ""
 }
+
+internal fun stringsFromEntry(entry: ModifierEntry?, sm: StringModifier): List<String> {
+    if (entry == null) return emptyList()
+    return ModifierParser.parse(entry.modifiers).getAll(sm)
+}

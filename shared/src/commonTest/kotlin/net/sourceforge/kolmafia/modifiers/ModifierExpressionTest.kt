@@ -108,6 +108,13 @@ class ModifierExpressionTest {
         assertEquals(1.0, eval("path(Teetotaler)"))
         assertEquals(0.0, eval("path(Hardcore)"))
     }
+    @Test fun `path reads comma-containing path names`() {
+        val robot = base.copy(challengePath = "You, Robot")
+        assertEquals(1.0, eval("path(You, Robot)", robot))
+        assertEquals(0.0, eval("path(You, Robot)"))
+        assertEquals(12.0, eval("(11+path(You, Robot)*5)-4", robot))
+        assertEquals(7.0, eval("(11+path(You, Robot)*5)-4"))
+    }
     @Test fun `class matches substring`() {
         assertEquals(1.0, eval("class(Disco)"))
         assertEquals(0.0, eval("class(Seal)"))
@@ -195,6 +202,10 @@ class ModifierExpressionTest {
         assertEquals(40.0, eval("20+20*pref(bondItem1)", ctx))
         // unset → 20
         assertEquals(20.0, eval("20+20*pref(bondItem1)", base))
+    }
+
+    @Test fun `stripcommas removes commas from number text`() {
+        assertEquals(1234.0, eval("""stripcommas("1,234")""", base))
     }
 
     // ── ModifierExpression.evaluate companion ─────────────────────────────────
