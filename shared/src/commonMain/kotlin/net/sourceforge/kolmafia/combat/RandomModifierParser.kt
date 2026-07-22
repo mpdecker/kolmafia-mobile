@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.combat
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.MonsterDatabase
 import net.sourceforge.kolmafia.data.MonsterDefinition
+import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
 
 object RandomModifierParser {
 
@@ -157,9 +158,13 @@ object RandomModifierParser {
     ): MonsterDefinition? {
         if (gameDatabase == null) return null
         parseMonsterId(responseText)?.let { id ->
-            gameDatabase.monster(id)?.let { return it }
+            gameDatabase.monster(id)?.let { monster ->
+                val disambiguated = MonsterConsequenceSync.disambiguateMonster(monster.name, responseText)
+                return gameDatabase.monster(disambiguated) ?: gameDatabase.monster(id)
+            }
         }
-        return gameDatabase.monster(strippedName)
+        val disambiguatedName = MonsterConsequenceSync.disambiguateMonster(strippedName, responseText)
+        return gameDatabase.monster(disambiguatedName)
     }
 
     private fun extractOcrsTokens(responseText: String): List<String> {

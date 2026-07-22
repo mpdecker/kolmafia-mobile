@@ -51,5 +51,8 @@ enum class BooleanModifier(val tag: String) {
 
         fun byTag(tag: String): BooleanModifier? =
             byTagLower[tag.lowercase()] ?: aliases[tag.lowercase()]
+
+        fun parseModifierFromDesc(enchantment: String): String? =
+            ModifierEnchantmentParser.parseBooleanModifierFromDesc(enchantment)
     }
 }

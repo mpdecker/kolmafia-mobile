@@ -23,6 +23,7 @@ import net.sourceforge.kolmafia.data.ZoneLookup
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
@@ -420,11 +421,12 @@ class AdventureManager(
                 ascensionPath = charState.ascensionPath,
             ),
         )
+        val disambiguatedName = MonsterConsequenceSync.disambiguateMonster(strippedName, adventureHtml)
         val template = RandomModifierParser.resolveTemplate(
-            strippedName,
+            disambiguatedName,
             adventureHtml,
             gameDatabase,
-        ) ?: gameDatabase.monster(strippedName)
+        ) ?: gameDatabase.monster(disambiguatedName)
             ?: gameDatabase.monster(displayName)
             ?: return
         MonsterStatusTracker.setNextMonster(template, modifiers)

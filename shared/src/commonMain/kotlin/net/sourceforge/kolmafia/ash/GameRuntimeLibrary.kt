@@ -80,6 +80,13 @@ import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
 import net.sourceforge.kolmafia.session.CargoCultManager
 import net.sourceforge.kolmafia.session.CargoPocketSync
+import net.sourceforge.kolmafia.quest.DynamicItemModifierSync
+import net.sourceforge.kolmafia.quest.BirdOfTheDaySync
+import net.sourceforge.kolmafia.quest.DescriptionConsequenceSync
+import net.sourceforge.kolmafia.quest.CombatSkillConsequenceSync
+import net.sourceforge.kolmafia.quest.EffectDescriptionConsequenceSync
+import net.sourceforge.kolmafia.quest.SkillGrantingEquipmentSync
+import net.sourceforge.kolmafia.quest.SkillDescriptionConsequenceSync
 import net.sourceforge.kolmafia.quest.ItemDescriptionConsequenceSync
 import net.sourceforge.kolmafia.session.SummoningChamberManager
 import net.sourceforge.kolmafia.session.WildfireCampManager
@@ -160,12 +167,16 @@ class GameRuntimeLibrary(
     internal val demonNamesManager: DemonNamesManager? = null,
 ) : RuntimeLibrary() {
 
+    init {
+        preferences?.let { DynamicItemModifierSync.applyCachedOverrides(it) }
+    }
+
     companion object {
         /** Used in tests where no game managers are needed. */
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase126"
+        const val REVISION = "phase136"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -741,6 +752,7 @@ class GameRuntimeLibrary(
                 effectManager?.fetchEffects()
                 familiarManager?.fetchFamiliars()
                 questLogRequest?.syncAll()
+                checkDynamicModifiers()
             }
         },
 
@@ -1465,10 +1477,39 @@ class GameRuntimeLibrary(
                 preferences?.let { ItemDescriptionConsequenceSync.applyItemDescription(descId, html, it) }
             }
         }
+        if (url != null && url.contains("desc_effect.php")) {
+            extractDescEffectId(url)?.let { descId ->
+                preferences?.let { EffectDescriptionConsequenceSync.applyEffectDescription(descId, html, it) }
+            }
+        }
+        if (url != null && url.contains("desc_skill.php") && url.contains("self=true")) {
+            extractDescSkillId(url)?.let { skillId ->
+                preferences?.let { prefs ->
+                    SkillDescriptionConsequenceSync.applySkillDescription(skillId, html, prefs)
+                    if (skillId == BirdOfTheDaySync.SEEK_OUT_A_BIRD_SKILL_ID) {
+                        BirdOfTheDaySync.applySeekBirdSkillDescription(html, prefs)
+                    }
+                }
+            }
+        }
+        if (url != null && (url.contains("fight.php") || html.contains("You're fighting"))) {
+            preferences?.let { prefs ->
+                val exprCtx = character?.state?.value?.let { state ->
+                    ExpressionContext.from(state, emptyList())
+                } ?: ExpressionContext.EMPTY
+                CombatSkillConsequenceSync.applyFromFightHtml(html, prefs, exprCtx)
+            }
+        }
     }
 
     private fun extractDescItemId(url: String): String? =
         Regex("""whichitem=(\d+)""").find(url)?.groupValues?.getOrNull(1)
+
+    private fun extractDescEffectId(url: String): String? =
+        Regex("""whicheffect=([0-9a-zA-Z]+)""").find(url)?.groupValues?.getOrNull(1)
+
+    private fun extractDescSkillId(url: String): Int? =
+        Regex("""whichskill=(\d+)""").find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
 
     internal fun processVisitQuestHooks(html: String, url: String? = null) {
         processVisitResponseHooks(html, url)
@@ -1522,11 +1563,17 @@ class GameRuntimeLibrary(
     internal fun buildCurrentModifiers(): CurrentModifiers {
         val state = character?.state?.value ?: CharacterState()
         val effects = effectManager?.state?.value?.effects ?: emptyList()
-        val passiveSkills = skillManager?.state?.value?.skills
+        val apiSkills = skillManager?.state?.value?.skills
             ?.map { it.name }
             ?.toSet()
             ?: emptySet()
-        return CurrentModifiers(state, effects, passiveSkills)
+        val db = gameDatabase
+        val equipmentSkills = if (db != null) {
+            SkillGrantingEquipmentSync.grantedSkillNames(buildCheckContext(), db)
+        } else {
+            emptySet()
+        }
+        return CurrentModifiers(state, effects, apiSkills + equipmentSkills)
     }
 
     /**
@@ -1857,6 +1904,63 @@ class GameRuntimeLibrary(
         if (item != null) {
             kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, "default") }
         }
+    }
+
+    fun updateOneDesc() {
+        DescriptionConsequenceSync.pathForToday()?.let { visitKolPage(it) }
+    }
+
+    fun checkDynamicModifiers() {
+        val prefs = preferences ?: return
+        val db = gameDatabase ?: return
+        val context = buildCheckContext()
+        val currentClass = character?.state?.value?.className.orEmpty()
+        val previousClass = prefs.getString("_lastKnownClass", "")
+        val playerClassChanged = previousClass.isNotBlank() && previousClass != currentClass
+        val visits = (
+            DynamicItemModifierSync.checkMods(prefs, context, db, playerClassChanged) +
+                DynamicItemModifierSync.checkExtendedMods(prefs, context, db) +
+                DynamicItemModifierSync.checkLoginDescChecks(prefs, context, db) +
+                DynamicItemModifierSync.checkOwnedItemDescriptions(
+                    context,
+                    db,
+                    DynamicItemModifierSync.OWNED_DESC_ITEMS,
+                )
+            ).distinctBy { it.path }
+        for (visit in visits) {
+            visitKolPage(visit.path)
+        }
+        if (currentClass.isNotBlank()) {
+            prefs.setString("_lastKnownClass", currentClass)
+        }
+    }
+
+    internal fun buildCheckContext(): DynamicItemModifierSync.CheckContext {
+        val inventoryIds = inventoryManager?.state?.value?.items
+            ?.filterValues { it.quantity > 0 }
+            ?.keys
+            ?.toSet()
+            ?: emptySet()
+        val equippedNames = character?.state?.value?.equipment
+            ?.values
+            ?.filter { it.isNotBlank() }
+            ?.toSet()
+            ?: emptySet()
+        val activeEffects = effectManager?.state?.value?.effects
+            ?.map { it.name }
+            ?.toSet()
+            ?: emptySet()
+        val closetIds = kotlinx.coroutines.runBlocking {
+            closetRequest?.fetchContents()?.keys?.toSet() ?: emptySet()
+        }
+        val ascensionPath = character?.state?.value?.ascensionPath ?: AscensionPath.NONE
+        return DynamicItemModifierSync.CheckContext(
+            inventoryItemIds = inventoryIds,
+            equippedItemNames = equippedNames,
+            activeEffectNames = activeEffects,
+            closetItemIds = closetIds,
+            ascensionPath = ascensionPath,
+        )
     }
 
     private fun visitKolPage(path: String, applyQuestHooks: Boolean = false) {

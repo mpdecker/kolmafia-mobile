@@ -78,6 +78,18 @@ object SkillDefinitionDatabase {
 
     fun all(): Collection<SkillDefinition> = _byId.values
 
+    /** Test hook — register a skill without loading classskills.txt. */
+    internal fun registerForTest(skill: SkillDefinition) {
+        _byId[skill.id] = skill
+        _byName[skill.name.lowercase()] = skill
+    }
+
+    internal fun resetForTest() {
+        _byId.clear()
+        _byName.clear()
+        loaded = false
+    }
+
     fun combatSkills(): List<SkillDefinition> = _byId.values.filter { it.isCombat }
 
     fun passiveSkills(): List<SkillDefinition> = _byId.values.filter { it.isPassive }

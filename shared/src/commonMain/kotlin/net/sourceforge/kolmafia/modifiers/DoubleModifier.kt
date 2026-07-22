@@ -214,5 +214,8 @@ enum class DoubleModifier(val tag: String, val multiple: Boolean = false) {
             entries.associateBy { it.tag.lowercase() }
 
         fun byTag(tag: String): DoubleModifier? = byTagLower[tag.lowercase()]
+
+        fun parseModifierFromDesc(enchantment: String): String? =
+            ModifierEnchantmentParser.parseDoubleModifierFromDesc(enchantment)
     }
 }

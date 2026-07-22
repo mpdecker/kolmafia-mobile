@@ -1,14 +1,53 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.modifiers.BitmapModifier
+import net.sourceforge.kolmafia.modifiers.BooleanModifier
+import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.modifiers.ModifierParser
+import net.sourceforge.kolmafia.modifiers.StringModifier
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
 @OptIn(ExperimentalResourceApi::class)
 object ModifierDatabase {
     private val _byTypeAndName = mutableMapOf<String, MutableMap<String, ModifierEntry>>()
+    private val _bundledByTypeAndName = mutableMapOf<String, MutableMap<String, ModifierEntry>>()
     private val _allByName = mutableMapOf<String, MutableList<ModifierEntry>>()
     private val _synergies = mutableListOf<ModifierEntry>()
+    private val _inventorySkillProviderNames = mutableSetOf<String>()
     private var loaded = false
+
+    /** Desktop [ModifierDatabase.CARRIED_OVER] tag names preserved on override. */
+    private val CARRIED_OVER_TAGS: Set<String> = buildSet {
+        add(StringModifier.CLASS.tag)
+        add(StringModifier.WIKI_NAME.tag)
+        add(StringModifier.STAT_TUNING.tag)
+        add(StringModifier.EQUIPS_ON.tag)
+        add(StringModifier.FAMILIAR_EFFECT.tag)
+        add(StringModifier.SKILL.tag)
+        add(StringModifier.RECIPE.tag)
+        add(StringModifier.LAST_AVAILABLE_DATE.tag)
+        add(StringModifier.CONDITIONAL_SKILL_EQUIPPED.tag)
+        add(StringModifier.CONDITIONAL_SKILL_INVENTORY.tag)
+        add(StringModifier.LANTERN_ELEMENT.tag)
+        add(BitmapModifier.BRIMSTONE.tag)
+        add(BitmapModifier.CLOATHING.tag)
+        add(BitmapModifier.SYNERGETIC.tag)
+        add(BitmapModifier.RAVEOSITY.tag)
+        add(BitmapModifier.MCHUGELARGE.tag)
+        add(BitmapModifier.STINKYCHEESE.tag)
+        add(BooleanModifier.NONSTACKABLE_WATCH.tag)
+        add(BooleanModifier.NOPULL.tag)
+        add(BooleanModifier.ALTERS_PAGE_TEXT.tag)
+        add(BooleanModifier.BLIND.tag)
+        add(BooleanModifier.BREAKABLE.tag)
+        add(BooleanModifier.DROPS_ITEMS.tag)
+        add(BooleanModifier.DROPS_MEAT.tag)
+        add(DoubleModifier.THORNS.tag)
+        add(DoubleModifier.SPORADIC_THORNS.tag)
+        add(DoubleModifier.DAMAGE_AURA.tag)
+        add(DoubleModifier.SPORADIC_DAMAGE_AURA.tag)
+    }
 
     val byTypeAndName: Map<String, Map<String, ModifierEntry>> get() = _byTypeAndName
     val allByName: Map<String, List<ModifierEntry>> get() = _allByName
@@ -32,11 +71,109 @@ object ModifierDatabase {
                 _synergies += entry
             } else {
                 _byTypeAndName.getOrPut(entityType) { mutableMapOf() }[name] = entry
+                _bundledByTypeAndName.getOrPut(entityType) { mutableMapOf() }[name] = entry
                 _allByName.getOrPut(name.lowercase()) { mutableListOf() } += entry
             }
         }
+        rebuildInventorySkillProviders()
         loaded = true
     }
+
+    /** Desktop [ModifierDatabase.getInventorySkillProviders] item names. */
+    fun inventorySkillProviderNames(): Set<String> = _inventorySkillProviderNames
+
+    private fun rebuildInventorySkillProviders() {
+        _inventorySkillProviderNames.clear()
+        val items = _byTypeAndName["Item"] ?: return
+        for ((name, entry) in items) {
+            if (isInventorySkillProvider(entry.modifiers)) {
+                _inventorySkillProviderNames += name
+            }
+        }
+    }
+
+    private fun isInventorySkillProvider(modifiers: String): Boolean {
+        val parsed = ModifierParser.parse(modifiers)
+        if (parsed.getAll(StringModifier.CONDITIONAL_SKILL_INVENTORY).isNotEmpty()) {
+            return true
+        }
+        return parsed.getAll(StringModifier.CONDITIONAL_SKILL_EQUIPPED).any { skillName ->
+            SkillDefinitionDatabase.getByName(skillName)?.isNonCombat == true
+        }
+    }
+
+    /** Desktop [ModifierDatabase.overrideModifier] — replace runtime modifier string, preserving CARRIED_OVER. */
+    fun overrideModifier(entityType: String, name: String, modifierString: String) {
+        val base = _bundledByTypeAndName[entityType]?.get(name)?.modifiers.orEmpty()
+        val merged = mergeCarriedOver(base, modifierString)
+        _byTypeAndName.getOrPut(entityType) { mutableMapOf() }[name] =
+            ModifierEntry(entityType, name, merged)
+    }
+
+    internal fun mergeCarriedOver(base: String, override: String): String {
+        if (base.isBlank()) return override
+        val overrideTags = modifierTags(override)
+        val carried = modifierTokens(base).filter { token ->
+            modifierTag(token) in CARRIED_OVER_TAGS && modifierTag(token) !in overrideTags
+        }
+        if (carried.isEmpty()) return override
+        return (listOf(override.trim()) + carried).filter { it.isNotBlank() }.joinToString(", ")
+    }
+
+    internal fun resetOverridesForTest() {
+        for ((type, entries) in _bundledByTypeAndName) {
+            val live = _byTypeAndName.getOrPut(type) { mutableMapOf() }
+            for ((name, entry) in entries) {
+                live[name] = entry
+            }
+        }
+    }
+
+    internal fun injectForTest(entityType: String, name: String, modifiers: String) {
+        val entry = ModifierEntry(entityType, name, modifiers)
+        _byTypeAndName.getOrPut(entityType) { mutableMapOf() }[name] = entry
+        _bundledByTypeAndName.getOrPut(entityType) { mutableMapOf() }[name] = entry
+        if (entityType == "Item" && isInventorySkillProvider(modifiers)) {
+            _inventorySkillProviderNames += name
+        }
+    }
+
+    internal fun resetForTest() {
+        _byTypeAndName.clear()
+        _bundledByTypeAndName.clear()
+        _allByName.clear()
+        _synergies.clear()
+        _inventorySkillProviderNames.clear()
+        loaded = false
+    }
+
+    private fun modifierTokens(modifiers: String): List<String> {
+        val result = mutableListOf<String>()
+        var depth = 0
+        var inQuote = false
+        var start = 0
+        for (i in modifiers.indices) {
+            when (modifiers[i]) {
+                '"' -> inQuote = !inQuote
+                '[' -> if (!inQuote) depth++
+                ']' -> if (!inQuote) depth--
+                ',' -> if (!inQuote && depth == 0) {
+                    result += modifiers.substring(start, i).trim()
+                    start = i + 1
+                }
+            }
+        }
+        result += modifiers.substring(start).trim()
+        return result.filter { it.isNotEmpty() }
+    }
+
+    private fun modifierTag(token: String): String {
+        val colon = token.indexOf(": ")
+        return if (colon < 0) token.trim() else token.substring(0, colon).trim()
+    }
+
+    private fun modifierTags(modifiers: String): Set<String> =
+        modifierTokens(modifiers).map { modifierTag(it) }.toSet()
 
     fun getItem(name: String): ModifierEntry?     = get("Item",    name)
     fun getEffect(name: String): ModifierEntry?   = get("Effect",  name)

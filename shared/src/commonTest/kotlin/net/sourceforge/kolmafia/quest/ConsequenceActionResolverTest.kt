@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.quest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import net.sourceforge.kolmafia.modifiers.ExpressionContext
 
 class ConsequenceActionResolverTest {
 
@@ -58,5 +59,37 @@ class ConsequenceActionResolverTest {
             """Maximum HP \+<span style="font-family: times new roman">(.*?)</span>""",
         )
         assertEquals("0", ConsequenceActionResolver.resolveValue("[(roman(\$1)/10)-2]", m))
+    }
+
+    @Test
+    fun resolveValue_pathExpressionUsesExpressionContext() {
+        val m = match("4 uses today", """(\d+) uses today""")
+        val robotCtx = ExpressionContext(challengePath = "You, Robot")
+        assertEquals(
+            "12",
+            ConsequenceActionResolver.resolveValue("[(11+path(You, Robot)*5)-\$1]", m, robotCtx),
+        )
+        assertEquals(
+            "7",
+            ConsequenceActionResolver.resolveValue("[(11+path(You, Robot)*5)-\$1]", m),
+        )
+    }
+
+    @Test
+    fun resolveReplacement_substitutesCaptureGroupsInQuotedTemplate() {
+        val m = match("""<img src="/ed4.gif">""", """/ed(\d)\.gif""")
+        assertEquals(
+            "Ed the Undying (4)",
+            ConsequenceActionResolver.resolveReplacement("Ed the Undying (\$1)", m),
+        )
+    }
+
+    @Test
+    fun parseAction_parsesQuotedReplacement() {
+        val action = net.sourceforge.kolmafia.data.ConsequenceActionParser.parseAction(
+            """"Ed the Undying ($1)"""",
+        )
+        assertIs<net.sourceforge.kolmafia.data.ConsequenceAction.ReturnReplacement>(action)
+        assertEquals("Ed the Undying ($1)", action.template)
     }
 }

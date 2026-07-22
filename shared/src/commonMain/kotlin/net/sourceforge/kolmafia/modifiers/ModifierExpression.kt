@@ -139,7 +139,7 @@ class ModifierExpression(private val src: String) {
         "loc"      -> if (ctx.locContains(readStringArg())) 1.0 else 0.0
         "zone"     -> if (ctx.zoneContains(readStringArg())) 1.0 else 0.0
         "env"      -> if (ctx.envContains(readStringArg())) 1.0 else 0.0
-        "path"     -> if (ctx.pathContains(readStringArg())) 1.0 else 0.0
+        "path"     -> if (ctx.pathContains(readStringUntilCloseParen())) 1.0 else 0.0
         "class"    -> if (ctx.classContains(readStringArg())) 1.0 else 0.0
         "interact" -> if (!ctx.isRestricted) 1.0 else 0.0
         "mod" -> {
@@ -182,6 +182,16 @@ class ModifierExpression(private val src: String) {
                 src[pos] == ',' && depth == 0 -> break
                 else -> sb.append(src[pos++])
             }
+        }
+        return sb.toString().trim()
+    }
+
+    /** Desktop path()/class()/env() args may contain commas — read until closing ')'. */
+    private fun readStringUntilCloseParen(): String {
+        spaces()
+        val sb = StringBuilder()
+        while (pos < src.length && src[pos] != ')') {
+            sb.append(src[pos++])
         }
         return sb.toString().trim()
     }

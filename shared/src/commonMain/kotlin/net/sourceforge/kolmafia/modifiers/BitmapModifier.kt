@@ -17,5 +17,8 @@ enum class BitmapModifier(val tag: String) {
             entries.associateBy { it.tag.lowercase() }
 
         fun byTag(tag: String): BitmapModifier? = byTagLower[tag.lowercase()]
+
+        fun parseModifierFromDesc(enchantment: String): String? =
+            ModifierEnchantmentParser.parseBitmapModifierFromDesc(enchantment)
     }
 }

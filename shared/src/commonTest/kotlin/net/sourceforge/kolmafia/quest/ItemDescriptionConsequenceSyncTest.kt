@@ -5,12 +5,14 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import net.sourceforge.kolmafia.data.ConsequenceRule
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemDescriptionConsequenceDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.MonsterDatabase
 import net.sourceforge.kolmafia.modifiers.ExpressionContext
 import net.sourceforge.kolmafia.modifiers.ModifierExpression
@@ -28,6 +30,7 @@ class ItemDescriptionConsequenceSyncTest {
     fun tearDown() {
         ItemDatabase.resetForTest()
         ItemDescriptionConsequenceDatabase.resetForTest()
+        ModifierDatabase.resetForTest()
     }
 
     private fun prefs(): Preferences = Preferences(MapSettings())
@@ -51,9 +54,10 @@ class ItemDescriptionConsequenceSyncTest {
     private fun injectRules(descId: String, vararg ruleLines: String) {
         val rules = ruleLines.map { line ->
             val parts = line.split('\t')
+            val pattern = if (parts[1].isEmpty()) Regex("") else Regex(parts[1])
             ConsequenceRule(
                 spec = parts[0],
-                pattern = Regex(parts[1]),
+                pattern = pattern,
                 actions = listOfNotNull(
                     net.sourceforge.kolmafia.data.ConsequenceActionParser.parseAction(parts[2]),
                     parts.getOrNull(3)?.let { net.sourceforge.kolmafia.data.ConsequenceActionParser.parseAction(it) },
@@ -145,7 +149,49 @@ class ItemDescriptionConsequenceSyncTest {
     }
 
     @Test
-    fun parseForTest_skipsModsRules() {
+    fun applyItemDescription_setModsPrefAndOverridesItem() {
+        ModifierDatabase.injectForTest(
+            "Item",
+            "pantogram pants",
+            "Lasts Until Rollover",
+        )
+        registerItem(9574, "pantogram pants", "pantogram-desc")
+        injectRules(
+            "pantogram-desc",
+            "pantogram pants\t\t_pantogramModifier=mods",
+        )
+        val html = """
+            <font color=blue>Muscle +10<br>+60% Meat from Monsters</font>
+        """.trimIndent()
+        val p = prefs()
+        ItemDescriptionConsequenceSync.applyItemDescription("pantogram-desc", html, p)
+        assertEquals("Muscle: +10, Meat Drop: +60", p.getString("_pantogramModifier", ""))
+        val entry = ModifierDatabase.getItem("pantogram pants")
+        assertEquals("Muscle: +10, Meat Drop: +60", entry?.modifiers)
+    }
+
+    @Test
+    fun applyItemDescription_setModsCarriesOverConditionalSkills() {
+        ModifierDatabase.injectForTest(
+            "Item",
+            "latte lovers member's mug",
+            """Conditional Skill (Equipped): "Throw Latte on Opponent"""",
+        )
+        registerItem(1, "latte lovers member's mug", "latte-desc")
+        injectRules(
+            "latte-desc",
+            "latte lovers member's mug\t\tlatteModifier=mods",
+        )
+        val html = """<font color=blue>+5 Familiar Weight<br>+40% Meat from Monsters</font>"""
+        val p = prefs()
+        ItemDescriptionConsequenceSync.applyItemDescription("latte-desc", html, p)
+        val entry = ModifierDatabase.getItem("latte lovers member's mug")
+        assertTrue(entry?.modifiers?.contains("Familiar Weight: +5") == true)
+        assertTrue(entry?.modifiers?.contains("Throw Latte on Opponent") == true)
+    }
+
+    @Test
+    fun parseForTest_loadsModsRulesWithEmptyRegex() {
         registerItem(1, "no hat", "hat-desc")
         val parsed = ItemDescriptionConsequenceDatabase.parseForTest(
             """
@@ -153,8 +199,12 @@ class ItemDescriptionConsequenceSyncTest {
             DESC_ITEM	no hat	has a brim	hatBrim=true
             """.trimIndent(),
         )
-        assertEquals(1, parsed.size)
-        assertEquals("hat-desc", parsed.keys.single())
+        assertEquals(2, parsed["hat-desc"]?.size)
+    }
+
+    @Test
+    fun emptyRegex_matchesLikeDesktop() {
+        assertTrue(Regex("").find("any html") != null)
     }
 }
 

@@ -14,7 +14,13 @@ object ItemDescriptionConsequenceSync {
         for (rule in ItemDescriptionConsequenceDatabase.rulesForDescId(descId)) {
             val match = rule.pattern.find(html) ?: continue
             for (action in rule.actions) {
-                ConsequenceActionResolver.fireAction(action, match, preferences)
+                ConsequenceActionResolver.fireAction(
+                    action = action,
+                    match = match,
+                    preferences = preferences,
+                    itemSpec = rule.spec,
+                    html = html,
+                )
             }
         }
     }

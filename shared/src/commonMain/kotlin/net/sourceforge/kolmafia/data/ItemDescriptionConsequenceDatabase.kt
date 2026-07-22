@@ -50,8 +50,8 @@ object ItemDescriptionConsequenceDatabase {
             val spec = parts[1]
             val regexText = parts[2]
             val actionTexts = parts.drop(3)
-            if (regexText.isEmpty()) continue
-            if (actionTexts.any { it.substringAfter('=').trim() == "mods" }) continue
+            val hasModsAction = actionTexts.any { it.substringAfter('=').trim() == "mods" }
+            if (regexText.isEmpty() && !hasModsAction) continue
 
             val actions = actionTexts.mapNotNull { ConsequenceActionParser.parseAction(it) }
             if (actions.isEmpty()) continue
@@ -59,7 +59,7 @@ object ItemDescriptionConsequenceDatabase {
             val item = ItemDatabase.getByName(spec) ?: continue
             val rule = ConsequenceRule(
                 spec = spec,
-                pattern = Regex(regexText),
+                pattern = if (regexText.isEmpty()) Regex("") else Regex(regexText),
                 actions = actions,
             )
             result.getOrPut(item.descId) { mutableListOf() }.add(rule)

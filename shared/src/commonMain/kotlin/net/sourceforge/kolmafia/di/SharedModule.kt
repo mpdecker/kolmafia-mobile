@@ -397,6 +397,7 @@ val sharedModule = module {
             breakfastManager     = get(),
             outfitManager        = get(),
             sessionLogger        = get(),
+            gameRuntimeLibrary   = get(),
         )
     }
     singleOf(::ShopRequest)
