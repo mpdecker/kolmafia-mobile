@@ -107,7 +107,12 @@ open class RetrieveItemService(
                     )
                 }
                 val before = inventoryCount(itemId)
-                val bought = npcBuyRequest.buy(npcStore.storeKey, itemId, remaining).getOrDefault(0)
+                val bought = npcBuyRequest.buy(
+                    npcStore.storeKey,
+                    itemId,
+                    remaining,
+                    preferences,
+                ).getOrDefault(0)
                 inventoryManager?.fetchInventory()
                 val gained = (inventoryCount(itemId) - before).coerceAtLeast(bought)
                 remaining -= gained

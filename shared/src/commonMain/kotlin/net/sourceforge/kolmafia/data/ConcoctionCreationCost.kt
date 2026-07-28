@@ -68,8 +68,10 @@ object ConcoctionCreationCost {
         "CLIPART", "JEWELRY", "ROLLING_PIN", "SAUSAGE_O_MATIC", "MULTI_USE", "SINGLE_USE",
     )
 
-    fun primaryMethod(methods: Set<String>): String? =
-        METHOD_PRIORITY.firstOrNull { it in methods }
+    fun primaryMethod(methods: Set<String>): String? {
+        val normalized = ConcoctionMethodAliases.normalize(methods)
+        return METHOD_PRIORITY.firstOrNull { it in normalized }
+    }
 
     fun creationCost(methods: Set<String>): Long {
         val method = primaryMethod(methods) ?: return 0L

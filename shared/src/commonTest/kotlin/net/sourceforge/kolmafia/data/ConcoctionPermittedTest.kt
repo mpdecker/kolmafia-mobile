@@ -299,4 +299,94 @@ class ConcoctionPermittedTest {
             ),
         )
     }
+
+    @Test
+    fun isPermittedMethod_wsmithRequiresWeaponSkillAndSmithing() {
+        val concoction = ConcoctionData(
+            result = "asbestos crossbow",
+            resultQuantity = 1,
+            methods = setOf("WSMITH"),
+            ingredients = emptyList(),
+        )
+        assertFalse(
+            ConcoctionPermitted.isPermittedMethod(
+                concoction,
+                CharacterState(),
+                skills = emptyList(),
+                accessibleCount = { 0 },
+            ),
+        )
+        val weaponSkill = net.sourceforge.kolmafia.skill.SkillData(
+            1006, "Super-Advanced Meatsmithing", net.sourceforge.kolmafia.skill.SkillType.PASSIVE,
+            mpCost = 0, dailyLimit = 0, timesCast = 0,
+        )
+        val prefs = Preferences(MapSettings())
+        assertTrue(
+            ConcoctionPermitted.isPermittedMethod(
+                concoction,
+                CharacterState(),
+                skills = listOf(weaponSkill),
+                prefs = prefs,
+                accessibleCount = { id -> if (id == 338) 1 else 0 },
+            ),
+        )
+    }
+
+    @Test
+    fun isPermittedMethod_tinkerRequiresGnomadsAndBeach() {
+        val concoction = ConcoctionData(
+            result = "clockwork widget",
+            resultQuantity = 1,
+            methods = setOf("TINKER"),
+            ingredients = emptyList(),
+        )
+        val prefs = Preferences(MapSettings())
+        assertFalse(
+            ConcoctionPermitted.isPermittedMethod(
+                concoction,
+                CharacterState(zodiacSign = "Wombat"),
+                prefs = prefs,
+            ),
+        )
+        prefs.setInt("lastDesertUnlock", 1)
+        assertTrue(
+            ConcoctionPermitted.isPermittedMethod(
+                concoction,
+                CharacterState(zodiacSign = "Wombat", ascensionNumber = 1),
+                prefs = prefs,
+            ),
+        )
+    }
+
+    @Test
+    fun isPermittedMethod_sauceRequiresReagentSkillAndKitchen() {
+        val concoction = ConcoctionData(
+            result = "bitter pill",
+            resultQuantity = 1,
+            methods = setOf("SAUCE"),
+            ingredients = emptyList(),
+        )
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean("hasRange", true)
+        val reagentSkill = net.sourceforge.kolmafia.skill.SkillData(
+            4006, "Advanced Saucecrafting", net.sourceforge.kolmafia.skill.SkillType.PASSIVE,
+            mpCost = 0, dailyLimit = 0, timesCast = 0,
+        )
+        assertFalse(
+            ConcoctionPermitted.isPermittedMethod(
+                concoction,
+                CharacterState(),
+                skills = emptyList(),
+                prefs = prefs,
+            ),
+        )
+        assertTrue(
+            ConcoctionPermitted.isPermittedMethod(
+                concoction,
+                CharacterState(adventuresLeft = 5),
+                skills = listOf(reagentSkill),
+                prefs = prefs,
+            ),
+        )
+    }
 }

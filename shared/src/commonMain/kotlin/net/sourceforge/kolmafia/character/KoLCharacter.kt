@@ -76,6 +76,7 @@ class KoLCharacter {
             roninLeft = response.roninleft.toIntOrNull() ?: 0,
             isHardcore = response.hardcore == "1",
             kingLiberated = response.kingliberated == "1",
+            skillsRecalled = response.recalledskills == "1",
             limitMode = response.limitmode,
 
             // Class-specific resources

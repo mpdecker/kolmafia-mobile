@@ -1,0 +1,27 @@
+package net.sourceforge.kolmafia.ash
+
+import com.russhwolf.settings.MapSettings
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.preferences.Preferences
+
+class GameRuntimeLibraryAshP157Test {
+
+    @Test
+    fun revision_phase181() {
+        assertEquals("phase181", GameRuntimeLibrary.REVISION)
+    }
+
+    @Test
+    fun shopVisitHook_appliesDripArmorySync() {
+        val p = Preferences(MapSettings())
+        val lib = GameRuntimeLibrary(preferences = p, character = KoLCharacter())
+        lib.processVisitResponseHooks(
+            html = """<b>drippy shield</b><td>Driplet (50)</td>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=driparmory",
+        )
+        assertTrue(p.getBoolean("drippyShieldUnlocked", false))
+    }
+}

@@ -70,4 +70,14 @@ class NpcBuyRequestTest {
         assertEquals(4, preferences.getInt("lastPirateEphemeraReset", -1))
         assertEquals("pirate tract", preferences.getString("lastPirateEphemera", ""))
     }
+
+    @Test
+    fun buy_wildfireSetsBlartPrefWhenPrefsProvided() = runTest {
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        val engine = MockEngine {
+            respond("<html>You acquire an item: <b>B. L. A. R. T.</b></html>", HttpStatusCode.OK)
+        }
+        NpcBuyRequest(HttpClient(engine)).buy("wildfire", 10790, 1, preferences)
+        assertTrue(preferences.getBoolean("itemBoughtPerAscension10790", false))
+    }
 }

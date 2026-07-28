@@ -76,6 +76,47 @@ object CoinmasterPurchaseAccessibility {
     private const val STAR_SHIRT = 1133
     private const val SUGAR_SHIRT = 4191
     private const val YELLOW_SUBMARINE = 8376
+    private const val PIXEL_PILL = 5906
+    private const val PIXEL_ENERGY_TANK = 5907
+    private const val PIXEL_GRAPPLING_HOOK = 6173
+
+    private const val VIRAL_VIDEO = 9017
+    private const val PLUS_ONE = 9020
+    private const val GALLON_OF_MILK = 9021
+    private const val PRINT_SCREEN = 9022
+    private const val DAILY_DUNGEON_MALWARE = 9024
+
+    private const val SINISTER_DEMON_MASK = 4637
+    private const val CHAMPION_BELT = 4638
+    private const val SPACE_TRIP_HEADPHONES = 4639
+    private const val METEOID_ICE_BEAM = 4646
+    private const val DUNGEON_FIST_GAUNTLET = 4647
+    private const val FOLDER_JACKASS_PLUMBER = 6631
+
+    private const val TALES_OF_DREAD = 6423
+    private const val BRASS_DREAD_FLASK = 6428
+    private const val SILVER_DREAD_FLASK = 6429
+    private const val FOLDER_21 = 6638
+
+    private const val MINI_KIWI_INTOXICATING_SPIRITS = 11602
+    private const val DENTADENT = 11977
+    private const val MONODENT_OF_THE_SEA = 11975
+
+    private val BACON_ONE_TIME_ITEMS = mapOf(
+        VIRAL_VIDEO to "_internetViralVideoBought",
+        PLUS_ONE to "_internetPlusOneBought",
+        GALLON_OF_MILK to "_internetGallonOfMilkBought",
+        PRINT_SCREEN to "_internetPrintScreenButtonBought",
+        DAILY_DUNGEON_MALWARE to "_internetDailyDungeonMalwareBought",
+    )
+
+    private val ARCADE_LOCKED_ITEMS = intArrayOf(
+        SINISTER_DEMON_MASK,
+        CHAMPION_BELT,
+        SPACE_TRIP_HEADPHONES,
+        METEOID_ICE_BEAM,
+        DUNGEON_FIST_GAUNTLET,
+    )
 
     private const val FOOD_DRIVE_BUTTON = 10691
     private const val BOOZE_DRIVE_BUTTON = 10692
@@ -155,9 +196,73 @@ object CoinmasterPurchaseAccessibility {
                 sugarsheetsItemAvailable(itemId, hasSkill)
             nickname == "5dprinter" ->
                 FiveDPrinterAccessibility.isItemAvailable(itemId, prefs)
+            nickname == "bacon" ||
+                master.masterName.equals("Internet Meme Shop", ignoreCase = true) ->
+                baconItemAvailable(itemId, prefs)
+            nickname == "arcade" ||
+                master.masterName.equals("Arcade Ticket Counter", ignoreCase = true) ->
+                arcadeItemAvailable(itemId, prefs, accessibleCount)
+            nickname == "dv" ||
+                master.masterName.equals("The Terrified Eagle Inn", ignoreCase = true) ->
+                dreadsylvaniaItemAvailable(itemId, prefs, accessibleCount)
+            nickname == "kiwi" ||
+                master.masterName.equals("Kiwi Kwiki Mart", ignoreCase = true) ->
+                kiwiItemAvailable(itemId, prefs)
+            nickname == "fixodent" ||
+                master.masterName.equals("Craft with Teeth", ignoreCase = true) ->
+                fixodentItemAvailable(itemId, accessibleCount)
+            nickname == "piraterealm" ||
+                nickname == "piraterealmfunalog" ||
+                master.masterName.equals("PirateRealm Fun-a-Log", ignoreCase = true) ->
+                FunALogUnlockPrefs.isItemAvailable(itemId, prefs)
+            nickname == "driparmory" ||
+                master.masterName.equals("Drip Institute Armory", ignoreCase = true) ->
+                DripArmoryPrefs.isItemAvailable(itemId, prefs, accessibleCount)
             else -> true
         }
     }
+
+    private fun baconItemAvailable(itemId: Int, prefs: Preferences?): Boolean {
+        val prefKey = BACON_ONE_TIME_ITEMS[itemId] ?: return true
+        return prefs?.getBoolean(prefKey, false) != true
+    }
+
+    private fun arcadeItemAvailable(
+        itemId: Int,
+        prefs: Preferences?,
+        accessibleCount: (Int) -> Int,
+    ): Boolean = when (itemId) {
+        FOLDER_JACKASS_PLUMBER ->
+            FolderHolderAccessibility.hasFolderHolder(accessibleCount)
+        in ARCADE_LOCKED_ITEMS ->
+            prefs?.getBoolean("lockedItem$itemId", true) != true
+        else -> true
+    }
+
+    private fun dreadsylvaniaItemAvailable(
+        itemId: Int,
+        prefs: Preferences?,
+        accessibleCount: (Int) -> Int,
+    ): Boolean = when (itemId) {
+        TALES_OF_DREAD -> prefs?.getBoolean("itemBoughtPerCharacter6423", false) != true
+        BRASS_DREAD_FLASK -> prefs?.getBoolean("itemBoughtPerCharacter6428", false) != true
+        SILVER_DREAD_FLASK -> prefs?.getBoolean("itemBoughtPerCharacter6429", false) != true
+        FOLDER_21 -> FolderHolderAccessibility.hasFolderHolder(accessibleCount)
+        else -> true
+    }
+
+    private fun kiwiItemAvailable(itemId: Int, prefs: Preferences?): Boolean =
+        when (itemId) {
+            MINI_KIWI_INTOXICATING_SPIRITS ->
+                prefs?.getBoolean("_miniKiwiIntoxicatingSpiritsBought", false) != true
+            else -> true
+        }
+
+    private fun fixodentItemAvailable(itemId: Int, accessibleCount: (Int) -> Int): Boolean =
+        when (itemId) {
+            DENTADENT -> accessibleCount(MONODENT_OF_THE_SEA) > 0
+            else -> true
+        }
 
     private fun crimbo20ItemAvailable(itemId: Int, accessibleCount: (Int) -> Int): Boolean {
         if (itemId in CRIMBO20_ONE_TIME_ITEMS) {
@@ -182,6 +287,8 @@ object CoinmasterPurchaseAccessibility {
         prefs: Preferences?,
     ): Boolean = when (itemId) {
         YELLOW_SUBMARINE -> !DesertBeachAccessibility.isAvailable(state, prefs)
+        PIXEL_PILL, PIXEL_ENERGY_TANK, PIXEL_GRAPPLING_HOOK ->
+            prefs?.getBoolean(CoinmasterShopSync.MYSTIC_PSYCHOSIS_ITEMS_UNLOCKED, false) == true
         else -> true
     }
 

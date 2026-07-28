@@ -20,6 +20,7 @@ import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import kotlin.test.*
@@ -90,11 +91,11 @@ private fun storageFails() = StorageRequest(
 )
 
 private fun npcSucceeds(qty: Int) = object : NpcBuyRequest(HttpClient(MockEngine { respond("") })) {
-    override suspend fun buy(storeKey: String, itemId: Int, quantity: Int) = Result.success(qty)
+    override suspend fun buy(storeKey: String, itemId: Int, quantity: Int, prefs: Preferences?) = Result.success(qty)
 }
 
 private fun npcFails() = object : NpcBuyRequest(HttpClient(MockEngine { respond("") })) {
-    override suspend fun buy(storeKey: String, itemId: Int, quantity: Int) = Result.success(0)
+    override suspend fun buy(storeKey: String, itemId: Int, quantity: Int, prefs: Preferences?) = Result.success(0)
 }
 
 private fun displaySucceeds() = object : net.sourceforge.kolmafia.request.DisplayCaseRequest(HttpClient(MockEngine { respond("") })) {
@@ -196,7 +197,7 @@ class RetrieveItemServiceTest {
     fun retrieve_skipsNpc_whenNoNpcStoreForItem() = runTest {
         var npcCalled = false
         val fakeNpc = object : NpcBuyRequest(HttpClient(MockEngine { respond("") })) {
-            override suspend fun buy(storeKey: String, itemId: Int, quantity: Int): Result<Int> {
+            override suspend fun buy(storeKey: String, itemId: Int, quantity: Int, prefs: Preferences?): Result<Int> {
                 npcCalled = true
                 return Result.success(quantity)
             }

@@ -55,10 +55,15 @@ object NpcPurchaseAccessibility {
     private const val TRICK_TOT_ROBOT = 9143
     private const val TRICK_TOT_UNICORN = 9138
     private const val TRICK_TOT_LIBERTY = 9145
+    private const val BLART = 10790
+    private const val RAINPROOF_BARREL_CAULK = 10794
+    private const val PUMP_GREASE = 10795
     private const val FISHING_POLE = 9007
     private const val FISHING_HAT = 9011
     private const val PIRATE_FLEDGES = 3033
     private const val SWASHBUCKLING_GETUP = 9
+    private const val BUGBEAR_COSTUME = 1
+    private val BUGBEAR_PIECE_IDS = intArrayOf(169, 79)
     private val SWASHBUCKLING_PIECE_IDS = intArrayOf(224, 402, 403)
     private val PIRATE_EPHEMERA_REGEX = Regex("pirate (?:brochure|pamphlet|tract)", RegexOption.IGNORE_CASE)
 
@@ -131,7 +136,8 @@ object NpcPurchaseAccessibility {
             "knobdisp" ->
                 dispensaryOpen(state, prefs, accessibleCount)
             "doc" -> docStoreAvailable(itemId, state, prefs)
-            "bugbear" -> !state.inNuclearAutumn
+            "bugbear" ->
+                !state.inNuclearAutumn && hasOutfitPieces(BUGBEAR_COSTUME, accessibleCount)
             "chateau" ->
                 prefs?.getBoolean("chateauAvailable", false) == true
             "blackmarket" -> {
@@ -144,9 +150,7 @@ object NpcPurchaseAccessibility {
             }
             "wildfire" -> {
                 if (!state.isFirecore) return false
-                when (itemId) {
-                    else -> true
-                }
+                wildfireItemAvailable(itemId, prefs)
             }
             "hippy" -> hippyStoreAvailable(storeName, state, prefs, accessibleCount)
             "chinatown" -> chinatownAvailable(accessibleCount)
@@ -183,6 +187,13 @@ object NpcPurchaseAccessibility {
                 else -> true
             }
         }
+    }
+
+    private fun wildfireItemAvailable(itemId: Int, prefs: Preferences?): Boolean = when (itemId) {
+        BLART -> prefs?.getBoolean("itemBoughtPerAscension10790", false) != true
+        RAINPROOF_BARREL_CAULK -> prefs?.getBoolean("itemBoughtPerAscension10794", false) != true
+        PUMP_GREASE -> prefs?.getBoolean("itemBoughtPerAscension10795", false) != true
+        else -> true
     }
 
     private fun docStoreAvailable(itemId: Int, state: CharacterState, prefs: Preferences?): Boolean {
@@ -347,15 +358,18 @@ object NpcPurchaseAccessibility {
     }
 
     private fun hasOutfitPieces(outfitId: Int, accessibleCount: (Int) -> Int): Boolean {
+        if (outfitId == BUGBEAR_COSTUME) {
+            return BUGBEAR_PIECE_IDS.all { accessibleCount(it) > 0 }
+        }
+        if (outfitId == SWASHBUCKLING_GETUP) {
+            return SWASHBUCKLING_PIECE_IDS.all { accessibleCount(it) > 0 }
+        }
         val outfit = OutfitDatabase.getById(outfitId)
         if (outfit != null) {
             return outfit.equipment.all { pieceName ->
                 val pieceId = ItemDatabase.getByName(pieceName)?.id ?: return false
                 accessibleCount(pieceId) > 0
             }
-        }
-        if (outfitId == SWASHBUCKLING_GETUP) {
-            return SWASHBUCKLING_PIECE_IDS.all { accessibleCount(it) > 0 }
         }
         return false
     }
