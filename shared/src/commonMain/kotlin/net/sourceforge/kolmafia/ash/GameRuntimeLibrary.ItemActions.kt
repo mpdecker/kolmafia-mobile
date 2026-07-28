@@ -11,7 +11,9 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
         val qty = args[0].toLong().toInt()
         val req = useItemRequest ?: return@regFn AshValue.of(false)
-        AshValue.of(kotlinx.coroutines.runBlocking { req.use(itemId, qty) }.isSuccess)
+        val result = kotlinx.coroutines.runBlocking { req.use(itemId, qty) }
+        result.getOrNull()?.let { applyItemUseResponse(itemId, it) }
+        AshValue.of(result.isSuccess)
     }
 
     // 2. eat(qty: int, it: item) → boolean

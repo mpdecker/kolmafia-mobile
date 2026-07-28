@@ -308,4 +308,121 @@ class CoinmasterShopSyncTest {
         )
         assertFalse(p.getBoolean("drippyShieldUnlocked", false))
     }
+
+    @Test
+    fun chronerShop_visitSetsTimeTowerAvailable() {
+        val p = prefs()
+        CoinmasterShopSync.apply(
+            html = """<b>flak shield</b> Chroner (20)""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=twitch_alliedhq",
+            prefs = p,
+        )
+        assertTrue(p.getBoolean("timeTowerAvailable", false))
+    }
+
+    @Test
+    fun chronerShop_visitClearsTimeTowerWhenShopGone() {
+        val p = prefs()
+        p.setBoolean("timeTowerAvailable", true)
+        CoinmasterShopSync.apply(
+            html = """That store isn't there anymore.""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=shakeshop",
+            prefs = p,
+        )
+        assertFalse(p.getBoolean("timeTowerAvailable", true))
+    }
+
+    @Test
+    fun chronerShop_skipsBuyActionUrl() {
+        val p = prefs()
+        p.setBoolean("timeTowerAvailable", false)
+        CoinmasterShopSync.apply(
+            html = """<b>flak shield</b>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=twitch_alliedhq&action=buy",
+            prefs = p,
+        )
+        assertFalse(p.getBoolean("timeTowerAvailable", false))
+    }
+
+    @Test
+    fun twitchPlace_setsTimeTowerAvailable() {
+        val p = prefs()
+        net.sourceforge.kolmafia.shop.TimeTowerSync.syncFromTwitchPlaceHtml(
+            html = """<b>Time-Twitching Tower</b> town_tower""",
+            prefs = p,
+        )
+        assertTrue(p.getBoolean("timeTowerAvailable", false))
+    }
+
+    @Test
+    fun twitchPlace_clearsTimeTowerWhenTemporalEther() {
+        val p = prefs()
+        p.setBoolean("timeTowerAvailable", true)
+        net.sourceforge.kolmafia.shop.TimeTowerSync.syncFromTwitchPlaceHtml(
+            html = """You drift through the temporal ether.""",
+            prefs = p,
+        )
+        assertFalse(p.getBoolean("timeTowerAvailable", true))
+    }
+
+    @Test
+    fun trapper_visitSetsQuestPrefsWhenYetiFursPresent() {
+        val p = prefs()
+        CoinmasterShopSync.apply(
+            html = """I'm plumb stocked up on everythin' 'cept yeti furs, Adventurer.""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=trapper",
+            prefs = p,
+            state = net.sourceforge.kolmafia.character.CharacterState(ascensionNumber = 9),
+        )
+        assertEquals(9, p.getInt("lastTr4pz0rQuest", -1))
+        assertEquals(
+            net.sourceforge.kolmafia.quest.QuestDatabase.FINISHED,
+            p.getString(net.sourceforge.kolmafia.quest.Quest.TRAPPER.prefKey, "unstarted"),
+        )
+    }
+
+    @Test
+    fun lathe_visitSetsSpinmasterLatheVisited() {
+        val p = prefs()
+        CoinmasterShopSync.apply(
+            html = """<b>SpinMaster lathe</b>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=lathe",
+            prefs = p,
+        )
+        assertTrue(p.getBoolean("_spinmasterLatheVisited", false))
+    }
+
+    @Test
+    fun september_firstVisitParsesEmberBalance() {
+        val p = prefs()
+        CoinmasterShopSync.apply(
+            html = """<b>You have 1,234 Embers.</b>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=september",
+            prefs = p,
+        )
+        assertTrue(p.getBoolean("_septEmberBalanceChecked", false))
+        assertEquals(1234, p.getInt("availableSeptEmbers", 0))
+    }
+
+    @Test
+    fun junkmagazine_visitAdvancesHippyQuestFromUnstarted() {
+        val p = prefs()
+        CoinmasterShopSync.apply(
+            html = """<b>Worse Homes and Gardens</b>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=junkmagazine",
+            prefs = p,
+        )
+        assertEquals("step2", p.getString(net.sourceforge.kolmafia.quest.Quest.HIPPY.prefKey, "unstarted"))
+    }
+
+    @Test
+    fun september_skipsBuyActionUrl() {
+        val p = prefs()
+        CoinmasterShopSync.apply(
+            html = """<b>You have 5 Embers.</b>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=september&action=buy",
+            prefs = p,
+        )
+        assertFalse(p.getBoolean("_septEmberBalanceChecked", false))
+    }
 }

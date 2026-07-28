@@ -176,4 +176,71 @@ class CoinmasterAccessibilityTest {
             ),
         )
     }
+
+    @Test
+    fun chronerShops_requireTimeTowerAvailable() {
+        val master = CoinmasterData(
+            masterName = "Allied HQ",
+            nickname = "twitch_alliedhq",
+            token = "Chroner",
+            shopId = "twitch_alliedhq",
+            buyItems = emptyList(),
+            sellItems = emptyList(),
+        )
+        val p = Preferences(MapSettings())
+        assertFalse(CoinmasterAccessibility.isAccessible(master, CharacterState(), p))
+        p.setBoolean("timeTowerAvailable", true)
+        assertTrue(CoinmasterAccessibility.isAccessible(master, CharacterState(), p))
+    }
+
+    @Test
+    fun trapper_requiresLevelQuestAndNonZombiecore() {
+        val master = CoinmasterData(
+            masterName = "The Trapper",
+            nickname = "trapper",
+            token = "yeti fur",
+            shopId = "trapper",
+            buyItems = emptyList(),
+            sellItems = emptyList(),
+        )
+        val p = Preferences(MapSettings())
+        p.setInt("lastTr4pz0rQuest", 3)
+        assertFalse(
+            CoinmasterAccessibility.isAccessible(
+                master,
+                CharacterState(level = 5, ascensionNumber = 3),
+                p,
+            ),
+        )
+        assertFalse(
+            CoinmasterAccessibility.isAccessible(
+                master,
+                CharacterState(level = 10, ascensionNumber = 4),
+                p,
+            ),
+        )
+        assertTrue(
+            CoinmasterAccessibility.isAccessible(
+                master,
+                CharacterState(level = 10, ascensionNumber = 3),
+                p,
+            ),
+        )
+    }
+
+    @Test
+    fun sbbShops_requireSleazeAirportPref() {
+        val master = CoinmasterData(
+            masterName = "The Frozen Brogurt Stand",
+            nickname = "sbb_brogurt",
+            token = "Beach Buck",
+            shopId = "sbb_brogurt",
+            buyItems = emptyList(),
+            sellItems = emptyList(),
+        )
+        val p = Preferences(MapSettings())
+        assertFalse(CoinmasterAccessibility.isAccessible(master, CharacterState(), p))
+        p.setBoolean("_sleazeAirportToday", true)
+        assertTrue(CoinmasterAccessibility.isAccessible(master, CharacterState(), p))
+    }
 }

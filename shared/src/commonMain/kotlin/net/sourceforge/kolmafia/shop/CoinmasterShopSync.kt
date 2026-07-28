@@ -108,6 +108,15 @@ object CoinmasterShopSync {
                 prefs.setInt(season.swaggerPref, swagger)
             }
         }
+
+        val visitRows = presentItems.map { itemId ->
+            ShopRow(
+                rowId = itemId,
+                item = ItemStack(itemId = itemId, count = 1),
+                price = itemPrices[itemId] ?: 0,
+            )
+        }
+        CoinmasterVisitInventory.replaceBuyRows(CoinmasterVisitInventory.SWAGGER, visitRows)
     }
 
     fun apply(html: String, url: String?, prefs: Preferences?, state: CharacterState? = null) {
@@ -124,10 +133,29 @@ object CoinmasterShopSync {
             "blackmarket" -> syncBlackMarket(prefs, state)
             "piraterealm" -> syncPirateRealmFunALog(html, url, prefs)
             "driparmory" -> syncDripArmory(html, url, prefs)
+            "conmerch" -> syncConmerch(html, url, prefs)
+            in TimeTowerSync.CHRONER_SHOP_IDS -> syncTimeTowerChronerShop(html, url, prefs)
+            "trapper" -> syncTrapper(html, url, prefs, state)
+            "lathe" -> syncLathe(html, url, prefs)
+            "september" -> syncSeptember(html, url, prefs)
+            "junkmagazine" -> syncJunkMagazine(html, url, prefs)
+            "flowertradein" -> syncFlowerTradein(html, url, prefs)
+            "crimbo25_sammy" -> syncCrimbo25Sammy(html, url, prefs)
+            "armory" -> syncArmoryAndLeggery(html, url, prefs)
+            else -> {
+                if (shopId.startsWith("crimbo23_")) {
+                    syncCrimbo23Shop(html, url, prefs)
+                }
+            }
         }
     }
 
-    fun applyPurchasedItem(master: CoinmasterData, itemId: Int, prefs: Preferences?) {
+    fun applyPurchasedItem(
+        master: CoinmasterData,
+        itemId: Int,
+        prefs: Preferences?,
+        gameDatabase: net.sourceforge.kolmafia.data.GameDatabase? = null,
+    ) {
         if (prefs == null) return
         when (master.nickname.lowercase()) {
             "bacon" -> when (itemId) {
@@ -157,6 +185,7 @@ object CoinmasterShopSync {
                     prefs.setBoolean("_cosmicSixPackConjured", true)
                 }
             }
+            "wereprofessor_tinker" -> TinkeringBenchPurchasedItem.apply(master, itemId, gameDatabase)
         }
     }
 
@@ -253,5 +282,57 @@ object CoinmasterShopSync {
     private fun syncDripArmory(html: String, url: String?, prefs: Preferences) {
         if (url?.contains("action=buy", ignoreCase = true) == true) return
         DripArmoryPrefs.syncFromShopHtml(html, prefs)
+    }
+
+    private fun syncTimeTowerChronerShop(html: String, url: String?, prefs: Preferences) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        TimeTowerSync.syncFromChronerShopHtml(html, prefs)
+    }
+
+    private fun syncConmerch(html: String, url: String?, prefs: Preferences) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        MerchTableSync.syncFromShopHtml(html, prefs)
+    }
+
+    private fun syncFlowerTradein(html: String, url: String?, prefs: Preferences) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        FlowerTradeinSync.syncFromShopHtml(html, prefs)
+    }
+
+    private fun syncCrimbo25Sammy(html: String, url: String?, prefs: Preferences) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        Crimbo25SammySync.syncFromShopHtml(html, prefs)
+    }
+
+    private fun syncArmoryAndLeggery(html: String, url: String?, prefs: Preferences) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        ArmoryAndLeggerySync.syncFromShopHtml(html, prefs)
+    }
+
+    private fun syncCrimbo23Shop(html: String, url: String?, prefs: Preferences) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        val shopId = extractShopId(url) ?: return
+        Crimbo23ShopSync.syncFromShopHtml(html, shopId, prefs)
+    }
+
+    private fun syncTrapper(html: String, url: String?, prefs: Preferences, state: CharacterState?) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        val ascension = state?.ascensionNumber ?: 0
+        TrapperSync.syncFromShopHtml(html, prefs, ascension)
+    }
+
+    private fun syncLathe(html: String, url: String?, prefs: Preferences) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        SpinMasterLatheSync.syncFromShopHtml(prefs)
+    }
+
+    private fun syncSeptember(html: String, url: String?, prefs: Preferences) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        SeptEmberSync.syncFromShopHtml(html, prefs)
+    }
+
+    private fun syncJunkMagazine(html: String, url: String?, prefs: Preferences) {
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        JunkMagazineSync.syncFromShopHtml(prefs)
     }
 }

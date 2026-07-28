@@ -9,6 +9,7 @@ import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.LimitModeGates
+import net.sourceforge.kolmafia.preferences.Preferences
 
 open class StorageRequest(private val client: HttpClient) {
 
@@ -65,8 +66,9 @@ open class StorageRequest(private val client: HttpClient) {
 
     open suspend fun fetchClassifiedContents(
         characterState: CharacterState?,
+        prefs: Preferences? = null,
     ): StoragePullRules.StorageContents =
-        StoragePullRules.classifyContents(fetchRawContents(), characterState)
+        StoragePullRules.classifyContents(fetchRawContents(), characterState, prefs)
 
     open suspend fun fetchStorageContents(characterState: CharacterState?): Map<Int, Int> =
         fetchClassifiedContents(characterState).storage

@@ -70,6 +70,9 @@ import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.shop.CoinmasterShopSync
 import net.sourceforge.kolmafia.shop.NpcShopSync
+import net.sourceforge.kolmafia.shop.SeptEmberSync
+import net.sourceforge.kolmafia.shop.SleazeAirportSync
+import net.sourceforge.kolmafia.shop.TimeTowerSync
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
@@ -110,6 +113,7 @@ import net.sourceforge.kolmafia.quest.SkillGrantingEquipmentSync
 import net.sourceforge.kolmafia.quest.SkillDescriptionConsequenceSync
 import net.sourceforge.kolmafia.quest.ItemDescriptionConsequenceSync
 import net.sourceforge.kolmafia.quest.CrownBjornDescSync
+import net.sourceforge.kolmafia.quest.Crimbo23ZoneSync
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.session.SummoningChamberManager
 import net.sourceforge.kolmafia.session.WildfireCampManager
@@ -202,7 +206,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase181"
+        const val REVISION = "phase190"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1500,6 +1504,14 @@ class GameRuntimeLibrary(
         return "https://wiki.a.kolmafia.us/wiki/$slug"
     }
 
+    internal fun applyItemUseResponse(itemId: Int, html: String) {
+        val prefs = preferences ?: return
+        when (itemId) {
+            SleazeAirportSync.SPRING_BEACH_TICKET ->
+                SleazeAirportSync.syncFromSpringBeachTicketUse(html, prefs)
+        }
+    }
+
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
         if (url?.contains("wildfire", ignoreCase = true) == true ||
             html.contains("wildfire_captain", ignoreCase = true)
@@ -1628,6 +1640,23 @@ class GameRuntimeLibrary(
             url.contains("place=shop", ignoreCase = true)
         ) {
             preferences?.let { CoinmasterShopSync.applySwaggerVisit(html, url, it) }
+        }
+        if (url != null && url.contains("place.php", ignoreCase = true) &&
+            url.contains("place=twitch", ignoreCase = true)
+        ) {
+            preferences?.let { TimeTowerSync.syncFromTwitchPlaceHtml(html, it) }
+        }
+        if (url != null && url.contains("place.php", ignoreCase = true) &&
+            url.contains("whichplace=crimbo23", ignoreCase = true)
+        ) {
+            preferences?.let { Crimbo23ZoneSync.syncFromPlaceHtml(html, it) }
+        }
+        if (url != null && (
+                url.contains("adventure.php", ignoreCase = true) ||
+                url.contains("place.php", ignoreCase = true)
+            )
+        ) {
+            preferences?.let { SleazeAirportSync.syncFromVisit(html, url, it) }
         }
         if (url != null && url.contains("knoll_mushrooms.php", ignoreCase = true)) {
             character?.let { MushroomPlotSync.apply(preferences, it, html, url) }
@@ -2072,6 +2101,20 @@ class GameRuntimeLibrary(
         for (visit in visits) {
             visitKolPage(visit.path)
         }
+        val state = character?.state?.value
+        SeptEmberSync.checkBalance(
+            prefs = prefs,
+            accessibleCount = { itemId ->
+                kotlinx.coroutines.runBlocking {
+                    physicalAccessibleCount(
+                        itemId,
+                        db.item(itemId)?.name ?: return@runBlocking 0,
+                    )
+                }
+            },
+            isKingdomOfExploathing = state?.isKingdomOfExploathing == true,
+            onVisit = { visitKolPage(SeptEmberSync.SHOP_PATH) },
+        )
         if (currentClass.isNotBlank()) {
             prefs.setString("_lastKnownClass", currentClass)
         }
@@ -2091,6 +2134,7 @@ class GameRuntimeLibrary(
                 characterState = character?.state?.value,
                 gameDatabase = gameDatabase,
                 familiarManager = familiarManager,
+                preferences = preferences,
             ),
         )
 
@@ -2468,6 +2512,24 @@ class GameRuntimeLibrary(
         registerAshP156Batch(scope)
         registerAshP157Batch(scope)
         registerAshP158Batch(scope)
+        registerAshP159Batch(scope)
+        registerAshP160Batch(scope)
+        registerAshP161Batch(scope)
+        registerAshP162Batch(scope)
+        registerAshP163Batch(scope)
+        registerAshP164Batch(scope)
+        registerAshP165Batch(scope)
+        registerAshP166Batch(scope)
+        registerAshP167Batch(scope)
+        registerAshP168Batch(scope)
+        registerAshP169Batch(scope)
+        registerAshP170Batch(scope)
+        registerAshP171Batch(scope)
+        registerAshP172Batch(scope)
+        registerAshP173Batch(scope)
+        registerAshP174Batch(scope)
+        registerAshP175Batch(scope)
+        registerAshP176Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

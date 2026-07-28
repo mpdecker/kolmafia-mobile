@@ -11,11 +11,14 @@ object CoinmasterPurchaseProbe {
         state: CharacterState,
         prefs: Preferences? = null,
         hasSkill: (Int) -> Boolean = { false },
+        hasEffect: (Int) -> Boolean = { false },
         accessibleCount: (Int) -> Int = { 0 },
     ): Boolean {
         if (prefs?.getBoolean("autoSatisfyWithCoinmasters", false) != true) return false
         val (master, row) = CoinmasterDatabase.findBuyRowForItem(itemId) ?: return false
-        if (!CoinmasterAccessibility.isAccessible(master, state, prefs, accessibleCount)) return false
+        if (!CoinmasterAccessibility.isAccessible(master, state, prefs, accessibleCount, hasEffect)) {
+            return false
+        }
         if (!CoinmasterPurchaseAccessibility.canPurchaseItem(
                 master,
                 itemId,
