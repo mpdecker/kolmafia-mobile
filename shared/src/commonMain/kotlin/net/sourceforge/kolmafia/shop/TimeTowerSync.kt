@@ -1,8 +1,9 @@
 package net.sourceforge.kolmafia.shop
 
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.StorageBucketMigration
 
-/** Desktop [QuestManager.handleTimeTower] pref sync + storage cache invalidation on toggle. */
+/** Desktop [QuestManager.handleTimeTower] pref sync + toolbelt bucket migration on toggle. */
 object TimeTowerSync {
 
     const val PREF = "timeTowerAvailable"
@@ -32,7 +33,6 @@ object TimeTowerSync {
     private fun setAvailable(available: Boolean, prefs: Preferences) {
         if (prefs.getBoolean(PREF, false) == available) return
         prefs.setBoolean(PREF, available)
-        prefs.setString(Preferences.CACHED_STORAGE, "")
-        prefs.setString(Preferences.CACHED_FREEPULLS, "")
+        StorageBucketMigration.migrateToolbelt(available, prefs)
     }
 }

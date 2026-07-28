@@ -18,33 +18,19 @@ object MerchTableSync {
     private val CHRONER_TOKEN_PATTERN =
         Regex("""You have ([\w,]+) Mr\. Chroner to trade\.""", RegexOption.IGNORE_CASE)
 
-    private val ITEM_PATTERN = Regex(
-        """<tr rel="(\d+)">.*?onClick='javascript:descitem\((\d+)\)'>.*?<b>(.*?)</b>.*?title="(.*?)".*?<b>([\d,]+)</b>.*?whichrow=(\d+)""",
-        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-    )
-
     fun syncFromShopHtml(html: String, prefs: Preferences) {
         TimeTowerSync.syncFromChronerShopHtml(html, prefs)
         syncTokenBalances(html, prefs)
 
-        val rows = mutableListOf<ShopRow>()
-        for (match in ITEM_PATTERN.findAll(html)) {
-            val itemId = match.groupValues[1].toIntOrNull() ?: continue
-            val currencyName = match.groupValues[4].trim()
-            val price = match.groupValues[5].replace(",", "").toIntOrNull() ?: continue
-            val rowId = match.groupValues[6].toIntOrNull() ?: continue
-
+        val rows = ShopRowParser.parseSingleCostRows(html).map { parsed ->
             val currencyId = when {
-                currencyName.equals("Chroner", ignoreCase = true) -> CHRONER
+                parsed.currencyName.equals("Chroner", ignoreCase = true) -> CHRONER
                 else -> MR_ACCESSORY
             }
-
-            rows.add(
-                ShopRow(
-                    rowId = rowId,
-                    item = ItemStack(itemId = itemId, count = 1),
-                    costs = listOf(ItemStack(itemId = currencyId, count = price)),
-                ),
+            ShopRow(
+                rowId = parsed.rowId,
+                item = ItemStack(itemId = parsed.itemId, count = 1),
+                costs = listOf(ItemStack(itemId = currencyId, count = parsed.price)),
             )
         }
 

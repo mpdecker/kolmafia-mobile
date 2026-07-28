@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.modifiers.ModifierParser
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -9,8 +10,21 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 @OptIn(ExperimentalResourceApi::class)
 object EquipmentDatabase {
 
+    const val USELESS_POWDER = 1437
+
+    private val PULVERIZABLE_USES = setOf(
+        ItemPrimaryUse.ACCESSORY,
+        ItemPrimaryUse.HAT,
+        ItemPrimaryUse.PANTS,
+        ItemPrimaryUse.SHIRT,
+        ItemPrimaryUse.WEAPON,
+        ItemPrimaryUse.OFFHAND,
+        ItemPrimaryUse.CONTAINER,
+    )
+
     private val byName = mutableMapOf<String, EquipmentData>()
     private val byItemId = mutableMapOf<Int, EquipmentData>()
+    private val pulverizeByItemId = mutableMapOf<Int, Int>()
     private var loaded = false
 
     private val handsTypePattern = Regex("""(\d+)-handed\s+(.+)""")
@@ -20,6 +34,8 @@ object EquipmentDatabase {
         val text = Res.readBytes("files/data/equipment.txt").decodeToString()
         parse(text)
         rebuildByItemId()
+        val pulverizeText = Res.readBytes("files/data/pulverize.txt").decodeToString()
+        loadPulverizeFromText(pulverizeText)
         loaded = true
     }
 
@@ -48,6 +64,124 @@ object EquipmentDatabase {
         }
     }
 
+    fun addPulverization(itemId: Int, result: Int) {
+        pulverizeByItemId[itemId] = result
+    }
+
+    fun isPulverizable(itemId: Int): Boolean {
+        if (itemId < 0) return false
+        val item = ItemDatabase.getById(itemId) ?: return false
+        if (item.primaryUse !in PULVERIZABLE_USES) return false
+        if (ItemDatabase.isQuestItem(itemId)) return false
+        return true
+    }
+
+    fun getPulverization(itemId: Int): Int {
+        if (itemId < 0) return -1
+        pulverizeByItemId[itemId]?.let { return it }
+        val derived = derivePulverization(itemId)
+        pulverizeByItemId[itemId] = derived
+        return derived
+    }
+
+    fun initializePulverization() {
+        for (item in ItemDatabase.all()) {
+            if (item.descId.isBlank()) continue
+            if (isPulverizable(item.id)) {
+                getPulverization(item.id)
+            }
+        }
+    }
+
+    internal fun derivePulverization(itemId: Int): Int {
+        if (!isPulverizable(itemId)) return -1
+
+        val item = ItemDatabase.getById(itemId) ?: return -1
+        if ('g' in item.access && !item.isTradeable) {
+            return USELESS_POWDER
+        }
+
+        if (NpcStoreDatabase.containsItem(itemId, validate = false)) {
+            return USELESS_POWDER
+        }
+
+        var pulver = PulverizeFlags.PULVERIZE_BITS or PulverizeFlags.ELEM_TWINKLY
+        val entry = ModifierDatabase.getItem(item.name)
+        if (entry != null) {
+            pulver = PulverizeImplications.apply(ModifierParser.parse(entry.modifiers), pulver)
+        }
+
+        val power = getPower(itemId)
+        pulver = pulver or when {
+            power >= 180 -> PulverizeFlags.YIELD_3W
+            power >= 160 -> PulverizeFlags.YIELD_1W3N_2W
+            power >= 140 -> PulverizeFlags.YIELD_4N_1W
+            power >= 120 -> PulverizeFlags.YIELD_3N
+            power >= 100 -> PulverizeFlags.YIELD_1N3P_2N
+            power >= 80 -> PulverizeFlags.YIELD_4P_1N
+            power >= 60 -> PulverizeFlags.YIELD_3P
+            power >= 40 -> PulverizeFlags.YIELD_2P
+            else -> PulverizeFlags.YIELD_1P
+        }
+        return pulver
+    }
+
+    internal fun loadPulverizeFromText(text: String) {
+        for (raw in text.lines()) {
+            val line = raw.trim()
+            if (line.isEmpty() || line.startsWith("#")) continue
+            val parts = line.split('\t')
+            if (parts.size < 2) continue
+
+            val itemName = parts[0].trim()
+            val itemId = ItemDatabase.getByName(itemName)?.id ?: continue
+            val spec = parts[1].trim()
+
+            val result = when {
+                spec.equals("nosmash", ignoreCase = true) -> -1
+                spec.equals("upgrade", ignoreCase = true) -> deriveUpgrade(itemName)
+                spec.toIntOrNull() != null ->
+                    PulverizeFlags.PULVERIZE_BITS or spec.toInt()
+                spec.endsWith("cluster", ignoreCase = true) -> deriveCluster(spec)
+                else -> ItemDatabase.getByName(spec)?.id ?: continue
+            }
+            addPulverization(itemId, result)
+        }
+    }
+
+    internal fun deriveUpgrade(name: String): Int {
+        var pulver = PulverizeFlags.PULVERIZE_BITS or
+            PulverizeFlags.MALUS_UPGRADE or
+            PulverizeFlags.YIELD_4N_1W
+        if (name.endsWith("powder", ignoreCase = true)) {
+            pulver = pulver or PulverizeFlags.YIELD_4P_1N
+        }
+
+        pulver = pulver or when {
+            name.startsWith("twinkly", ignoreCase = true) -> PulverizeFlags.ELEM_TWINKLY
+            name.startsWith("hot", ignoreCase = true) -> PulverizeFlags.ELEM_HOT
+            name.startsWith("cold", ignoreCase = true) -> PulverizeFlags.ELEM_COLD
+            name.startsWith("stench", ignoreCase = true) -> PulverizeFlags.ELEM_STENCH
+            name.startsWith("spook", ignoreCase = true) -> PulverizeFlags.ELEM_SPOOKY
+            name.startsWith("sleaz", ignoreCase = true) -> PulverizeFlags.ELEM_SLEAZE
+            else -> PulverizeFlags.ELEM_OTHER
+        }
+        return pulver
+    }
+
+    internal fun deriveCluster(spec: String): Int {
+        var pulver = PulverizeFlags.PULVERIZE_BITS or PulverizeFlags.YIELD_1C
+        pulver = when {
+            spec.startsWith("hot", ignoreCase = true) -> pulver or PulverizeFlags.ELEM_HOT
+            spec.startsWith("cold", ignoreCase = true) -> pulver or PulverizeFlags.ELEM_COLD
+            spec.startsWith("stench", ignoreCase = true) -> pulver or PulverizeFlags.ELEM_STENCH
+            spec.startsWith("spook", ignoreCase = true) -> pulver or PulverizeFlags.ELEM_SPOOKY
+            spec.startsWith("sleaz", ignoreCase = true) -> pulver or PulverizeFlags.ELEM_SLEAZE
+            else -> ItemDatabase.getByName(spec)?.id ?: -1
+        }
+        return pulver
+    }
+
     /** Test hook — inject equipment without loading equipment.txt. */
     internal fun registerForTest(itemId: Int, equipment: EquipmentData) {
         byName[equipment.name.lowercase()] = equipment
@@ -58,6 +192,7 @@ object EquipmentDatabase {
     internal fun resetForTest() {
         byName.clear()
         byItemId.clear()
+        pulverizeByItemId.clear()
         loaded = false
     }
 

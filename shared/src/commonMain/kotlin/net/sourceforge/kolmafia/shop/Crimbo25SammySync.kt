@@ -10,11 +10,6 @@ object Crimbo25SammySync {
     const val COLD_WAD = 1452
     const val TWINKLY_WAD = 1450
 
-    private val ITEM_PATTERN = Regex(
-        """<tr rel="(\d+)">.*?onClick='javascript:descitem\((\d+)\)'>.*?<b>(.*?)</b>.*?title="(.*?)".*?<b>([\d,]+)</b>.*?whichrow=(\d+)""",
-        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-    )
-
     private val PAREN_COUNT_PATTERN = Regex("""^(.+?)\s*\(([\d,]+)\)$""")
 
     private val CURRENCY_NAME_TO_ID = mapOf(
@@ -31,24 +26,10 @@ object Crimbo25SammySync {
     )
 
     fun syncFromShopHtml(html: String, prefs: Preferences) {
-        val rows = mutableListOf<ShopRow>()
-        for (match in ITEM_PATTERN.findAll(html)) {
-            val itemId = match.groupValues[1].toIntOrNull() ?: continue
-            val itemName = match.groupValues[3].trim()
-            val currencyName = match.groupValues[4].trim()
-            val price = match.groupValues[5].replace(",", "").toIntOrNull() ?: continue
-            val rowId = match.groupValues[6].toIntOrNull() ?: continue
-
-            val item = parseItemStack(itemId, itemName) ?: continue
-            val cost = parseCurrencyStack(currencyName, price) ?: continue
-
-            rows.add(
-                ShopRow(
-                    rowId = rowId,
-                    item = item,
-                    costs = listOf(cost),
-                ),
-            )
+        val rows = ShopRowParser.parseSingleCostRows(html).mapNotNull { parsed ->
+            val item = parseItemStack(parsed.itemId, parsed.itemName) ?: return@mapNotNull null
+            val costStack = parseCurrencyStack(parsed.currencyName, parsed.price) ?: return@mapNotNull null
+            ShopRow(rowId = parsed.rowId, item = item, costs = listOf(costStack))
         }
 
         CoinmasterVisitInventory.replaceBuyRows(SHOP_ID, rows)

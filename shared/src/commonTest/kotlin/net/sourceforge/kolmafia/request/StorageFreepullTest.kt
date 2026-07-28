@@ -10,6 +10,7 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.StorageBucketMigration
 
 class StorageFreepullTest {
 
@@ -100,5 +101,43 @@ class StorageFreepullTest {
         )
         assertEquals(1, withTower.freepulls[toolbeltId])
         assertEquals(0, withTower.storage.size)
+    }
+
+    @Test
+    fun migrateToolbelt_openMovesFromStorageCacheToFreepullCache() {
+        val toolbeltId = StoragePullRules.TIME_TWITCHING_TOOLBELT
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.CACHED_STORAGE, "$toolbeltId:2|500:1")
+        prefs.setString(Preferences.CACHED_FREEPULLS, "")
+
+        StorageBucketMigration.migrateToolbelt(timeTowerAvailable = true, prefs)
+
+        assertEquals("500:1", prefs.getString(Preferences.CACHED_STORAGE, ""))
+        assertEquals("$toolbeltId:2", prefs.getString(Preferences.CACHED_FREEPULLS, ""))
+    }
+
+    @Test
+    fun migrateToolbelt_closeMovesFromFreepullCacheToStorageCache() {
+        val toolbeltId = StoragePullRules.TIME_TWITCHING_TOOLBELT
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.CACHED_STORAGE, "500:1")
+        prefs.setString(Preferences.CACHED_FREEPULLS, "$toolbeltId:2")
+
+        StorageBucketMigration.migrateToolbelt(timeTowerAvailable = false, prefs)
+
+        assertEquals("500:1|$toolbeltId:2", prefs.getString(Preferences.CACHED_STORAGE, ""))
+        assertEquals("", prefs.getString(Preferences.CACHED_FREEPULLS, ""))
+    }
+
+    @Test
+    fun migrateToolbelt_noOpWhenToolbeltAbsentFromSourceBucket() {
+        val prefs = Preferences(MapSettings())
+        prefs.setString(Preferences.CACHED_STORAGE, "100:1")
+        prefs.setString(Preferences.CACHED_FREEPULLS, "200:2")
+
+        StorageBucketMigration.migrateToolbelt(timeTowerAvailable = true, prefs)
+
+        assertEquals("100:1", prefs.getString(Preferences.CACHED_STORAGE, ""))
+        assertEquals("200:2", prefs.getString(Preferences.CACHED_FREEPULLS, ""))
     }
 }

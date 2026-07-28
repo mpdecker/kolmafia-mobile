@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.shop
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase.Companion.FINISHED
 import net.sourceforge.kolmafia.quest.QuestDatabase.Companion.UNSTARTED
@@ -119,7 +120,13 @@ object CoinmasterShopSync {
         CoinmasterVisitInventory.replaceBuyRows(CoinmasterVisitInventory.SWAGGER, visitRows)
     }
 
-    fun apply(html: String, url: String?, prefs: Preferences?, state: CharacterState? = null) {
+    fun apply(
+        html: String,
+        url: String?,
+        prefs: Preferences?,
+        state: CharacterState? = null,
+        sessionLogger: SessionLogger? = null,
+    ) {
         if (prefs == null) return
         val shopId = extractShopId(url) ?: return
         when (shopId.lowercase()) {
@@ -141,7 +148,7 @@ object CoinmasterShopSync {
             "junkmagazine" -> syncJunkMagazine(html, url, prefs)
             "flowertradein" -> syncFlowerTradein(html, url, prefs)
             "crimbo25_sammy" -> syncCrimbo25Sammy(html, url, prefs)
-            "armory" -> syncArmoryAndLeggery(html, url, prefs)
+            "armory" -> syncArmoryAndLeggery(html, url, prefs, sessionLogger)
             else -> {
                 if (shopId.startsWith("crimbo23_")) {
                     syncCrimbo23Shop(html, url, prefs)
@@ -304,9 +311,14 @@ object CoinmasterShopSync {
         Crimbo25SammySync.syncFromShopHtml(html, prefs)
     }
 
-    private fun syncArmoryAndLeggery(html: String, url: String?, prefs: Preferences) {
+    private fun syncArmoryAndLeggery(
+        html: String,
+        url: String?,
+        prefs: Preferences,
+        sessionLogger: SessionLogger?,
+    ) {
         if (url?.contains("action=buy", ignoreCase = true) == true) return
-        ArmoryAndLeggerySync.syncFromShopHtml(html, prefs)
+        ArmoryAndLeggerySync.syncFromShopHtml(html, prefs, sessionLogger = sessionLogger)
     }
 
     private fun syncCrimbo23Shop(html: String, url: String?, prefs: Preferences) {

@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.shop
 
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.StandardRewardDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -25,6 +26,7 @@ object CoinmasterDatabase {
         if (loaded) return
         ItemDatabase.load()
         StandardRewardDatabase.load()
+        StandardRewardDatabase.derivePulverization()
         val shopsText = Res.readBytes("files/data/shops.txt").decodeToString()
         val coinText = Res.readBytes("files/data/coinmasters.txt").decodeToString()
         loadFromText(shopsText, coinText)
@@ -173,7 +175,9 @@ object CoinmasterDatabase {
         byShopId.clear()
         loaded = false
         StandardRewardDatabase.resetForTest()
+        EquipmentDatabase.resetForTest()
         CoinmasterVisitInventory.resetForTest()
+        ShopRowDatabase.resetForTest()
     }
 
     private fun register(data: CoinmasterData) {

@@ -32,7 +32,7 @@ class GameRuntimeLibraryAshP176Test {
         val prefs = Preferences(MapSettings())
         prefs.setBoolean("autoSatisfyWithCoinmasters", true)
 
-        assertTrue(canPurchase(MOSS_MACE, prefs) { if (it == CREPE_BITS) 1 else 0 })
+        assertTrue(canPurchase(MOSS_MACE, prefs) { if (it == MOSS_MULCH) 1 else 0 })
     }
 
     @Test
@@ -50,8 +50,8 @@ class GameRuntimeLibraryAshP176Test {
         val prefs = Preferences(MapSettings())
         prefs.setBoolean("autoSatisfyWithCoinmasters", true)
 
-        assertFalse(canPurchase(ADOBE_ARSECOVER, prefs) { if (it == CREPE_BITS) 5 else 0 })
-        assertTrue(canPurchase(ADOBE_ARSECOVER, prefs) { if (it == PETRIFIED_WOOD) 1 else 0 })
+        assertFalse(canPurchase(ADOBE_ARSECOVER, prefs) { if (it == MOSS_MULCH) 5 else 0 })
+        assertTrue(canPurchase(ADOBE_ARSECOVER, prefs) { if (it == ADOBE_ASSORTMENT) 1 else 0 })
     }
 
     @Test
@@ -61,7 +61,7 @@ class GameRuntimeLibraryAshP176Test {
         prefs.setBoolean("autoSatisfyWithCoinmasters", true)
 
         assertFalse(canPurchase(PHRYGIAN_CAP, prefs) { 0 })
-        assertTrue(canPurchase(PHRYGIAN_CAP, prefs) { if (it == ANGELBONE_FRAGMENTS) 1 else 0 })
+        assertTrue(canPurchase(PHRYGIAN_CAP, prefs) { if (it == CREPE_BITS) 1 else 0 })
     }
 
     @Test
@@ -96,9 +96,10 @@ class GameRuntimeLibraryAshP176Test {
         registerTestItem(MOSS_MACE, "moss mace")
         registerTestItem(ADOBE_ARSECOVER, "adobe arsecover")
         registerTestItem(PHRYGIAN_CAP, "crepe paper phrygian cap")
+        registerTestItem(MOSS_MULCH, "moss mulch")
+        registerTestItem(ADOBE_ASSORTMENT, "adobe assortment")
         registerTestItem(CREPE_BITS, "crepe paper pared cuttings")
         registerTestItem(PETRIFIED_WOOD, "petrified wood waste parts")
-        registerTestItem(ANGELBONE_FRAGMENTS, "angelbone fragments")
         StandardRewardDatabase.loadFromText(rewardsText, pulverizedText)
         CoinmasterDatabase.loadFromText(
             shopsText = "armory\tArmory and Leggery\n",
@@ -127,6 +128,8 @@ class GameRuntimeLibraryAshP176Test {
         private const val MOSS_MACE = 11504
         private const val ADOBE_ARSECOVER = 11512
         private const val PHRYGIAN_CAP = 11520
+        private const val MOSS_MULCH = 11510
+        private const val ADOBE_ASSORTMENT = 11518
         private const val CREPE_BITS = 11526
         private const val PETRIFIED_WOOD = 11534
         private const val ANGELBONE_FRAGMENTS = 12074
@@ -138,6 +141,8 @@ class GameRuntimeLibraryAshP176Test {
         """.trimIndent()
 
         private val SAMPLE_PULVERIZED = """
+            11510	2024	norm	moss mulch
+            11518	2024	hard	adobe assortment
             11526	2025	norm	crepe paper pared cuttings
             11534	2025	hard	petrified wood waste parts
             12074	2026	norm	angelbone fragments

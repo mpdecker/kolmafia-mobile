@@ -52,6 +52,7 @@ open class GameDatabase {
         NpcStoreDatabase.load()
         DailyLimitDatabase.load()
         net.sourceforge.kolmafia.shop.CoinmasterDatabase.load()
+        net.sourceforge.kolmafia.shop.ShopRowDatabase.load()
 
         // Quest log text patterns (for quest state detection)
         QuestLogDatabase.load()
@@ -65,6 +66,8 @@ open class GameDatabase {
         VolcanoMazeDatabase.load()
         PocketDatabase.load()
         CultShortsDatabase.load()
+
+        EquipmentDatabase.initializePulverization()
 
         isLoaded = true
     }

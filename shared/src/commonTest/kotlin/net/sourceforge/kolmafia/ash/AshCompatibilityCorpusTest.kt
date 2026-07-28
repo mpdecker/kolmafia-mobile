@@ -1400,6 +1400,48 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_descItem_prefetchOnMiss() = runBlocking {
+        DescriptionCache.clear()
+        val db = GameDatabase()
+        db.load()
+        val engine = MockEngine { request ->
+            assertTrue(request.url.encodedPath.endsWith("desc_item.php"))
+            respond(
+                """<div id="description"><p>Prefetched seal tooth.</p><script>""",
+                HttpStatusCode.OK,
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            httpClient = HttpClient(engine),
+        )
+        assertEquals(
+            "<p>Prefetched seal tooth.</p>",
+            outputLib(lib, """print(desc(to_item("seal tooth")));""").trim(),
+        )
+        DescriptionCache.clear()
+    }
+
+    @Test
+    fun corpus_armoryMeatNpc_afterVisitOverlay() {
+        registerCorpusItem(99060, "visit-only meat item")
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(MapSettings())
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        lib.processVisitResponseHooks(
+            """
+                <tr rel="99060">
+                <a onClick='javascript:descitem(99060)'><b>visit-only meat item</b></a>
+                <span title="Meat"><b>250</b></span>
+                <form action="shop.php?action=buy&whichshop=armory&whichrow=7777">
+                </tr>
+            """.trimIndent(),
+            "https://www.kingdomofloathing.com/shop.php?whichshop=armory",
+        )
+        assertEquals("true", outputLib(lib, """print(is_npc_item(99060, true));""").trim())
+        net.sourceforge.kolmafia.shop.NpcStoreVisitOverlay.resetForTest()
+    }
+
+    @Test
     fun corpus_pullsRemaining_fromStorageHook() {
         ConcoctionDatabase.resetForTest()
         val char = KoLCharacter()
@@ -2956,15 +2998,54 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_crimbo23FactoryValidate_live() {
+        registerCorpusItem(11480, "trick coin")
+        registerCorpusItem(11487, "prank Crimbo card")
+        registerCorpusItem(11408, "Elf Guard MPC")
+        registerCorpusItem(11409, "Crimbuccaneer piece of 12")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = """
+                crimbo23_elf_factory	Elf Guard Toy and Munitions Factory
+                crimbo23_pirate_factory	Crimbuccaneer Foundry
+            """.trimIndent(),
+            coinText = """
+                Elf Guard Toy and Munitions Factory	ROW1424	trick coin	Elf Guard MPC (10)
+                Crimbuccaneer Foundry	ROW1431	prank Crimbo card	Crimbuccaneer piece of 12 (10)
+            """.trimIndent(),
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        prefs.setInt(net.sourceforge.kolmafia.shop.Crimbo23ShopSync.AVAILABLE_ELF_MPC_PREF, 20)
+        prefs.setInt(net.sourceforge.kolmafia.shop.Crimbo23ShopSync.AVAILABLE_PIECE_OF_12_PREF, 20)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(meat = "100000"))
+            },
+            inventoryManager = emptyInventoryManager(),
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(11480, true));""").trim())
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(11487, true));""").trim())
+        prefs.setString("crimbo23FoundryControl", "elf")
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(11480, true));""").trim())
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(11487, true));""").trim())
+        prefs.setString("crimbo23FoundryControl", "pirate")
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(11480, true));""").trim())
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(11487, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterVisitInventory.resetForTest()
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
     fun corpus_armoryStandardRewardValidate_live() {
         registerCorpusItem(11504, "moss mace")
-        registerCorpusItem(11526, "crepe paper pared cuttings")
+        registerCorpusItem(11510, "moss mulch")
         net.sourceforge.kolmafia.data.StandardRewardDatabase.loadFromText(
             """
                 11504	2024	norm	SC	ROW1454	moss mace
             """.trimIndent(),
             """
-                11526	2025	norm	crepe paper pared cuttings
+                11510	2024	norm	moss mulch
             """.trimIndent(),
         )
         net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
@@ -2988,7 +3069,7 @@ class AshCompatibilityCorpusTest {
                 private val flow = kotlinx.coroutines.flow.MutableStateFlow(
                     InventoryState(
                         items = mapOf(
-                            11526 to InventoryItem(11526, "crepe paper pared cuttings", 2, ItemType.OTHER),
+                            11510 to InventoryItem(11510, "moss mulch", 2, ItemType.OTHER),
                         ),
                     ),
                 )
@@ -2999,6 +3080,236 @@ class AshCompatibilityCorpusTest {
         net.sourceforge.kolmafia.data.StandardRewardDatabase.resetForTest()
         net.sourceforge.kolmafia.shop.CoinmasterVisitInventory.resetForTest()
         net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_derivedPulverize_potteryHat() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "666666",
+            outputLib(
+                lib,
+                """print(pulverize(to_item("pottery hat"))[to_item("hot powder")]);""",
+            ).trim(),
+        )
+    }
+
+    @Test
+    fun corpus_shopRowDatabase_loadsBundledRow() {
+        registerCorpusItem(99001, "FDKOL tattoo")
+        registerCorpusItem(99002, "FDKOL commendation")
+        net.sourceforge.kolmafia.shop.ShopRowDatabase.loadFromText(
+            shopRowsText = "3\tfdkol\tFDKOL tattoo\tFDKOL commendation (100)\n",
+            shopsText = "fdkol\tFDKOL Requisitions Tent\n",
+        )
+        val row = net.sourceforge.kolmafia.shop.ShopRowDatabase.getShopRow(3)
+        assertEquals(99001, row?.item?.itemId)
+        assertEquals(99002, row?.costs?.single()?.itemId)
+        assertEquals(100, row?.costs?.single()?.count)
+        net.sourceforge.kolmafia.shop.ShopRowDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_shopVisitLearn_sessionLog() {
+        registerCorpusItem(99201, "visit-learned item")
+        registerCorpusItem(99202, "FDKOL commendation")
+        val prefs = Preferences(MapSettings())
+        val sessionLogger = net.sourceforge.kolmafia.session.SessionLogger(prefs, GameEventBus())
+        net.sourceforge.kolmafia.shop.ShopInventorySync.parseAndLearn(
+            html = """
+                <tr rel="99201">
+                <a onClick='javascript:descitem(99201)'><b>visit-learned item</b></a>
+                <span title="FDKOL commendation"><b>75</b></span>
+                <form action="shop.php?action=buy&whichshop=fdkol&whichrow=1500">
+                </tr>
+            """.trimIndent(),
+            url = "shop.php?whichshop=fdkol",
+            sessionLogger = sessionLogger,
+        )
+        val log = prefs.getString(net.sourceforge.kolmafia.session.SessionLogger.SESSION_LOG_KEY, "")
+        assertTrue(log.contains("1500\tfdkol\tvisit-learned item\tFDKOL commendation (75)"))
+        net.sourceforge.kolmafia.shop.ShopRowDatabase.resetForTest()
+        net.sourceforge.kolmafia.shop.CoinmasterVisitInventory.resetForTest()
+    }
+
+    @Test
+    fun corpus_visitLearnedCoinmasterValidate_live() {
+        registerCorpusItem(99301, "visit-learned item")
+        registerCorpusItem(99302, "FDKOL commendation")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "fdkol\tFDKOL Requisitions Tent\tNPCCOIN\n",
+            coinText = "FDKOL Requisitions Tent\tbuy\t75\tvisit-learned item\tROW1500\n",
+        )
+        net.sourceforge.kolmafia.shop.CoinmasterVisitInventory.registerVisitBuyRows(
+            "fdkol",
+            listOf(
+                net.sourceforge.kolmafia.shop.ShopRow(
+                    rowId = 1500,
+                    item = net.sourceforge.kolmafia.shop.ItemStack(itemId = 99301, count = 1),
+                    costs = listOf(net.sourceforge.kolmafia.shop.ItemStack(itemId = 99302, count = 75)),
+                ),
+            ),
+        )
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(meat = "100000"))
+            },
+            inventoryManager = object : InventoryManager(
+                HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+                GameEventBus(),
+            ) {
+                private val flow = MutableStateFlow(
+                    InventoryState(
+                        items = mapOf(
+                            99302 to InventoryItem(99302, "FDKOL commendation", 100, ItemType.OTHER),
+                        ),
+                    ),
+                )
+                override val state = flow.asStateFlow()
+            },
+        )
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(99301, true));""").trim())
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(99303, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+        net.sourceforge.kolmafia.shop.CoinmasterVisitInventory.resetForTest()
+    }
+
+    @Test
+    fun corpus_concShopVisitLearn_sessionLog() {
+        registerCorpusItem(99801, "bottle of gin")
+        registerCorpusItem(99802, "bottle of vodka")
+        net.sourceforge.kolmafia.shop.ShopRowDatabase.loadFromText(
+            shopRowsText = "",
+            shopsText = "still\tNash Crosby's Still\tCONC\tSTILL\n",
+        )
+        val prefs = Preferences(MapSettings())
+        val sessionLogger = net.sourceforge.kolmafia.session.SessionLogger(prefs, GameEventBus())
+        net.sourceforge.kolmafia.shop.ShopInventorySync.parseAndLearn(
+            html = """
+                <tr rel="99801">
+                <a onClick='javascript:descitem(99801)'><b>bottle of gin</b></a>
+                <span title="bottle of vodka"><b>1</b></span>
+                <form action="shop.php?action=buy&whichshop=still&whichrow=700">
+                </tr>
+            """.trimIndent(),
+            url = "shop.php?whichshop=still",
+            sessionLogger = sessionLogger,
+        )
+        val log = prefs.getString(net.sourceforge.kolmafia.session.SessionLogger.SESSION_LOG_KEY, "")
+        assertTrue(log.contains("bottle of gin\tSTILL, ROW700\tbottle of vodka"))
+        net.sourceforge.kolmafia.shop.ShopRowDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_mysticVisitOverlayValidate_live() {
+        registerCorpusItem(99901, "listed item A")
+        registerCorpusItem(99902, "listed item B")
+        registerCorpusItem(461, "red pixel")
+        registerCorpusItem(459, "white pixel")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "mystic\tThe Crackpot Mystic's Shed\tCOIN\n",
+            coinText = """
+                The Crackpot Mystic's Shed\tROW100\tlisted item A\tred pixel (10)
+                The Crackpot Mystic's Shed\tROW101\tlisted item B\twhite pixel (10)
+            """.trimIndent(),
+        )
+        net.sourceforge.kolmafia.shop.CoinmasterVisitInventory.registerVisitBuyRows(
+            "mystic",
+            listOf(
+                net.sourceforge.kolmafia.shop.ShopRow(
+                    rowId = 100,
+                    item = net.sourceforge.kolmafia.shop.ItemStack(itemId = 99901, count = 1),
+                    costs = listOf(net.sourceforge.kolmafia.shop.ItemStack(itemId = 461, count = 10)),
+                ),
+            ),
+        )
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(level = "6"))
+            },
+            inventoryManager = object : InventoryManager(
+                HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+                GameEventBus(),
+            ) {
+                private val flow = MutableStateFlow(
+                    InventoryState(
+                        items = mapOf(
+                            461 to InventoryItem(461, "red pixel", 100, ItemType.OTHER),
+                            459 to InventoryItem(459, "white pixel", 100, ItemType.OTHER),
+                        ),
+                    ),
+                )
+                override val state = flow.asStateFlow()
+            },
+        )
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(99901, true));""").trim())
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(99902, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+        net.sourceforge.kolmafia.shop.CoinmasterVisitInventory.resetForTest()
+    }
+
+    @Test
+    fun corpus_flowertradeinVisitOverlayValidate_live() {
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "flowertradein\tThe Central Loathing Floral Mercantile Exchange\n",
+            coinText = """
+                The Central Loathing Floral Mercantile Exchange	buy	1	Chroner	ROW759
+                The Central Loathing Floral Mercantile Exchange	buy	16	Chroner	ROW760
+            """.trimIndent(),
+        )
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(meat = "100000"))
+            },
+            inventoryManager = object : InventoryManager(
+                HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+                GameEventBus(),
+            ) {
+                private val flow = MutableStateFlow(
+                    InventoryState(
+                        items = mapOf(
+                            net.sourceforge.kolmafia.shop.FlowerTradeinAccessibility.ROSE to InventoryItem(
+                                net.sourceforge.kolmafia.shop.FlowerTradeinAccessibility.ROSE,
+                                "rose",
+                                2,
+                                ItemType.OTHER,
+                            ),
+                        ),
+                    ),
+                )
+                override val state = flow.asStateFlow()
+            },
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(7567, true));""").trim())
+        lib.processVisitResponseHooks(
+            """
+                <tr rel="7567">
+                <a onClick='javascript:descitem(7567)'><b>Chroner</b></a>
+                <span title="rose"><b>1</b></span>
+                <form action="shop.php?action=buy&whichshop=flowertradein&whichrow=759">
+                </tr>
+            """.trimIndent(),
+            "shop.php?whichshop=flowertradein",
+        )
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(7567, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterVisitInventory.replaceBuyRows(
+            net.sourceforge.kolmafia.shop.FlowerTradeinSync.SHOP_ID,
+            emptyList(),
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(7567, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+        net.sourceforge.kolmafia.shop.CoinmasterVisitInventory.resetForTest()
     }
 
     private fun emptyInventoryManager(): InventoryManager =

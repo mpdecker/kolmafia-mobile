@@ -15,8 +15,18 @@ object CoinmasterVisitInventory {
 
     fun hasVisited(shopId: String): Boolean = visitRows.containsKey(shopId.lowercase())
 
+    fun hasVisitOverlay(shopId: String): Boolean =
+        visitRows[shopId.lowercase()]?.isNotEmpty() == true
+
     fun replaceBuyRows(shopId: String, rows: List<ShopRow>) {
         visitRows[shopId.lowercase()] = rows
+    }
+
+    /** Runtime buy rows learned from generic shop inventory parse (AshP191). */
+    fun registerVisitBuyRows(shopId: String, rows: List<ShopRow>) {
+        val buyRows = rows.filter { row -> row.costs.isNotEmpty() && !row.isMeatPurchase }
+        if (buyRows.isEmpty()) return
+        visitRows[shopId.lowercase()] = buyRows
     }
 
     fun findBuyRow(shopId: String, itemId: Int): ShopRow? =
