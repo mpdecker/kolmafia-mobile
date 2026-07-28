@@ -5,6 +5,8 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.modifiers.BooleanModifier
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.shop.TimeTowerSync
 
 /** Desktop [StorageRequest.isFreePull] / [isNoPull] classification. */
 object StoragePullRules {
@@ -15,6 +17,7 @@ object StoragePullRules {
     const val JARLS_PAN_COSMIC_ID = 6304
     const val PETE_JACKET_ID = 7250
     const val PETE_JACKET_POPPED_ID = 7267
+    const val TIME_TWITCHING_TOOLBELT = 7566
 
     data class StorageContents(
         val storage: Map<Int, Int>,
@@ -27,6 +30,7 @@ object StoragePullRules {
     fun classifyContents(
         raw: Map<Int, Int>,
         characterState: CharacterState?,
+        prefs: Preferences? = null,
     ): StorageContents {
         if (canInteract(characterState)) {
             return StorageContents(storage = raw, freepulls = emptyMap())
@@ -36,14 +40,18 @@ object StoragePullRules {
         for ((itemId, qty) in raw) {
             when {
                 isNoPull(itemId) -> Unit
-                isFreePull(itemId, characterState) -> freepulls[itemId] = qty
+                isFreePull(itemId, characterState, prefs) -> freepulls[itemId] = qty
                 else -> storage[itemId] = qty
             }
         }
         return StorageContents(storage, freepulls)
     }
 
-    fun isFreePull(itemId: Int, characterState: CharacterState?): Boolean {
+    fun isFreePull(
+        itemId: Int,
+        characterState: CharacterState?,
+        prefs: Preferences? = null,
+    ): Boolean {
         val state = characterState ?: return false
         if ((itemId == BORIS_HELM_ID || itemId == BORIS_HELM_ASKEW_ID) && !state.isAxecore) {
             return false
@@ -57,6 +65,9 @@ object StoragePullRules {
             state.ascensionPath != AscensionPath.AVATAR_OF_SNEAKY_PETE
         ) {
             return false
+        }
+        if (itemId == TIME_TWITCHING_TOOLBELT) {
+            return prefs?.getBoolean(TimeTowerSync.PREF, false) == true
         }
         val name = ItemDatabase.getById(itemId)?.name ?: return false
         return ModifierDatabase.hasBooleanModifier(name, BooleanModifier.FREE_PULL)

@@ -36,7 +36,10 @@ object AccessibleItemCount {
         var total = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
         total += closetRequest?.fetchContents()?.get(itemId) ?: 0
         if (PullableItems.storagePullAllowed(context.characterState, itemId, context.gameDatabase)) {
-            val classified = storageRequest?.fetchClassifiedContents(context.characterState)
+            val classified = storageRequest?.fetchClassifiedContents(
+                context.characterState,
+                context.preferences,
+            )
             total += classified?.freepulls?.get(itemId) ?: 0
             if (StorageRequest.canUseStorage(context.characterState)) {
                 total += classified?.storage?.get(itemId) ?: 0

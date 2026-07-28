@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.shop
 
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.StandardRewardDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -23,13 +24,15 @@ object CoinmasterDatabase {
     suspend fun load() {
         if (loaded) return
         ItemDatabase.load()
+        StandardRewardDatabase.load()
         val shopsText = Res.readBytes("files/data/shops.txt").decodeToString()
         val coinText = Res.readBytes("files/data/coinmasters.txt").decodeToString()
         loadFromText(shopsText, coinText)
+        ArmoryAndLeggeryShopRows.rebuild()
         loaded = true
     }
 
-    internal fun loadFromText(shopsText: String, coinText: String) {
+    internal fun loadFromText(shopsText: String, coinText: String, rebuildArmory: Boolean = true) {
         masters.clear()
         byNickname.clear()
         byShopId.clear()
@@ -63,6 +66,28 @@ object CoinmasterDatabase {
 
         applyOverrides(builders)
         builders.values.map { it.build() }.forEach { register(it) }
+        if (rebuildArmory && StandardRewardDatabase.allStandardRewards().isNotEmpty()) {
+            ArmoryAndLeggeryShopRows.rebuild()
+        }
+    }
+
+    internal fun registerOrReplaceArmory(buyRows: List<ShopRow>) {
+        val shopId = ArmoryAndLeggeryShopRows.SHOP_ID
+        masters.removeAll { it.shopId?.equals(shopId, ignoreCase = true) == true }
+        byShopId.remove(shopId)
+        val staleNicknames = byNickname.filterValues { it.shopId?.equals(shopId, ignoreCase = true) == true }.keys
+        staleNicknames.forEach { byNickname.remove(it) }
+
+        register(
+            CoinmasterData(
+                masterName = ArmoryAndLeggeryShopRows.MASTER_NAME,
+                nickname = shopId,
+                token = null,
+                shopId = shopId,
+                buyItems = buyRows,
+                sellItems = emptyList(),
+            ),
+        )
     }
 
     fun findByNickname(nickname: String): CoinmasterData? =
@@ -79,11 +104,47 @@ object CoinmasterDatabase {
 
     fun findBuyRowForItem(itemId: Int): Pair<CoinmasterData, ShopRow>? {
         for (master in masters) {
+            val shopId = master.shopId?.lowercase()
+            val swaggerVisited = master.nickname.equals("swagger", ignoreCase = true) &&
+                CoinmasterVisitInventory.hasVisited(CoinmasterVisitInventory.SWAGGER)
+            if (shopId != null && CoinmasterVisitInventory.hasVisited(shopId)) {
+                CoinmasterVisitInventory.findBuyRow(shopId, itemId)?.let { return master to it }
+                if (CoinmasterVisitInventory.isDynamicShop(shopId)) continue
+            } else if (swaggerVisited) {
+                CoinmasterVisitInventory.findBuyRow(CoinmasterVisitInventory.SWAGGER, itemId)
+                    ?.let { return master to it }
+            }
+        }
+        for (master in masters) {
+            val shopId = master.shopId?.lowercase()
+            if (shopId != null && CoinmasterVisitInventory.isDynamicShop(shopId) &&
+                !CoinmasterVisitInventory.hasVisited(shopId)
+            ) {
+                continue
+            }
+            if (shopId != null && CoinmasterVisitInventory.hasVisited(shopId) &&
+                CoinmasterVisitInventory.isDynamicShop(shopId)
+            ) {
+                continue
+            }
+            if (master.nickname.equals("swagger", ignoreCase = true) &&
+                CoinmasterVisitInventory.hasVisited(CoinmasterVisitInventory.SWAGGER)
+            ) {
+                if (CoinmasterVisitInventory.findBuyRow(CoinmasterVisitInventory.SWAGGER, itemId) == null &&
+                    !SWAGGER_SEASON_ITEM_IDS.contains(itemId)
+                ) {
+                    continue
+                }
+            }
             val row = master.buyRowFor(itemId) ?: continue
             return master to row
         }
         return null
     }
+
+    private val SWAGGER_SEASON_ITEM_IDS = setOf(
+        7732, 4810, 4812, 8182, 8277, 8488, 8800, 9123, 9921, 10207, 10325, 10640, 11867, 4804,
+    )
 
     /** Desktop CoinmastersDatabase.contains(itemId, validate). */
     fun containsBuyItem(
@@ -92,6 +153,7 @@ object CoinmasterDatabase {
         state: CharacterState = CharacterState(),
         prefs: Preferences? = null,
         hasSkill: (Int) -> Boolean = { false },
+        hasEffect: (Int) -> Boolean = { false },
         accessibleCount: (Int) -> Int = { 0 },
     ): Boolean {
         if (!validate) return findBuyRowForItem(itemId) != null
@@ -100,6 +162,7 @@ object CoinmasterDatabase {
             state,
             prefs,
             hasSkill,
+            hasEffect,
             accessibleCount,
         )
     }
@@ -109,6 +172,8 @@ object CoinmasterDatabase {
         byNickname.clear()
         byShopId.clear()
         loaded = false
+        StandardRewardDatabase.resetForTest()
+        CoinmasterVisitInventory.resetForTest()
     }
 
     private fun register(data: CoinmasterData) {
@@ -259,6 +324,15 @@ object CoinmasterDatabase {
         "A Star Chart" to SpecialOverride(
             nickname = "starchart",
             shopId = "starchart",
+        ),
+        "The Swagger Shop" to SpecialOverride(
+            nickname = "swagger",
+            token = "swagger",
+            buyUrl = "peevpee.php",
+        ),
+        "Vending Machine" to SpecialOverride(
+            nickname = "vendingmachine",
+            shopId = "damachine",
         ),
     )
 

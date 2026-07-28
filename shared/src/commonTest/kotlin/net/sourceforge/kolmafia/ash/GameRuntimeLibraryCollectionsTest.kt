@@ -10,6 +10,7 @@ import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.ClosetRequest
+import net.sourceforge.kolmafia.request.StoragePullRules
 import net.sourceforge.kolmafia.request.StorageRequest
 
 class GameRuntimeLibraryCollectionsTest {
@@ -74,7 +75,11 @@ class GameRuntimeLibraryCollectionsTest {
         val fakeStorage = object : StorageRequest(
             HttpClient(MockEngine { respond("") })
         ) {
-            override suspend fun fetchContents(): Map<Int, Int> = mapOf(99 to 7)
+            override suspend fun fetchClassifiedContents(
+                characterState: net.sourceforge.kolmafia.character.CharacterState?,
+                prefs: Preferences?,
+            ): StoragePullRules.StorageContents =
+                StoragePullRules.StorageContents(storage = mapOf(99 to 7), freepulls = emptyMap())
         }
         val db = object : GameDatabase() {
             private val haggard = ItemData(99, "haggard item", "desc", "hag.gif",

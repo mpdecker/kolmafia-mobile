@@ -14,8 +14,8 @@ import net.sourceforge.kolmafia.quest.QuestDatabase.Companion.UNSTARTED
 class GameRuntimeLibraryAshP153Test {
 
     @Test
-    fun revision_phase181() {
-        assertEquals("phase181", GameRuntimeLibrary.REVISION)
+    fun revision_phase182() {
+        assertEquals("phase190", GameRuntimeLibrary.REVISION)
     }
 
     @Test

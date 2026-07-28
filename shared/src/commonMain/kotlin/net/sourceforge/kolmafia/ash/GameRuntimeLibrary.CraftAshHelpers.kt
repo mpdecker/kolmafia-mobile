@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.shop.CoinmasterSyncedTokenCount
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionCreationCost
 import net.sourceforge.kolmafia.data.ConcoctionData
@@ -58,7 +59,8 @@ internal fun GameRuntimeLibrary.inventoryItemCount(itemId: Int): Int =
 
 internal fun GameRuntimeLibrary.craftAccessibleCount(itemId: Int): Int {
     val name = ItemDatabase.getById(itemId)?.name ?: return 0
-    return kotlinx.coroutines.runBlocking { physicalAccessibleCount(itemId, name) }
+    val physical = kotlinx.coroutines.runBlocking { physicalAccessibleCount(itemId, name) }
+    return CoinmasterSyncedTokenCount.accessibleCount(itemId, preferences, physical)
 }
 
 internal fun GameRuntimeLibrary.isCraftPermitted(itemId: Int): Boolean {

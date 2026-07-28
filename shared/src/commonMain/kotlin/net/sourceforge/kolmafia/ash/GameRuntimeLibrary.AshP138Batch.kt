@@ -22,7 +22,6 @@ internal fun GameRuntimeLibrary.registerAshP138Batch(scope: AshScope) {
     regFn(scope, "is_coinmaster_item", AshType.BOOLEAN, listOf("id" to AshType.INT, "validate" to AshType.BOOLEAN)) { _, args ->
         val id = args[0].toLong().toInt()
         val validate = args[1].toBoolean()
-        val skills = craftSkills()
         AshValue.of(
             CoinmasterDatabase.containsBuyItem(
                 id,
@@ -30,7 +29,8 @@ internal fun GameRuntimeLibrary.registerAshP138Batch(scope: AshScope) {
                 state = craftCharacterState(),
                 prefs = preferences,
                 accessibleCount = { itemId -> craftAccessibleCount(itemId) },
-                hasSkill = { skillId -> skills.any { it.id == skillId } },
+                hasSkill = { skillId -> craftSkills().any { it.id == skillId } },
+                hasEffect = { effectId -> hasActiveEffect(effectId) },
             ),
         )
     }

@@ -59,10 +59,17 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
 
     // ── get_storage() → int[item] (live — fetches from api.php?what=storage) ─
     regFn(scope, "get_storage", itemIntType, emptyList()) { _, _ ->
-        val contents = kotlinx.coroutines.runBlocking {
-            storageRequest?.fetchContents() ?: emptyMap()
+        val classified = kotlinx.coroutines.runBlocking {
+            storageRequest?.fetchClassifiedContents(
+                character?.state?.value,
+                preferences,
+            )
         }
-        preferences?.let { CollectionCache.save(it, Preferences.CACHED_STORAGE, contents) }
+        val contents = classified?.storage ?: emptyMap()
+        preferences?.let { prefs ->
+            CollectionCache.save(prefs, Preferences.CACHED_STORAGE, contents)
+            CollectionCache.save(prefs, Preferences.CACHED_FREEPULLS, classified?.freepulls ?: emptyMap())
+        }
         mapToAggregate(contents)
     }
 
@@ -71,7 +78,26 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
     }
 
     regFn(scope, "storage_amount", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
-        AshValue.of(cachedItemAmount(Preferences.CACHED_STORAGE, args[0].toString()))
+        val itemName = args[0].toString()
+        val storage = cachedItemAmount(Preferences.CACHED_STORAGE, itemName)
+        val freepull = cachedItemAmount(Preferences.CACHED_FREEPULLS, itemName)
+        AshValue.of(storage + freepull)
+    }
+
+    // ── get_free_pulls() → int[item] (live — non-storage bucket from storage.php) ─
+    regFn(scope, "get_free_pulls", itemIntType, emptyList()) { _, _ ->
+        val contents = kotlinx.coroutines.runBlocking {
+            storageRequest?.fetchClassifiedContents(
+                character?.state?.value,
+                preferences,
+            )?.freepulls ?: emptyMap()
+        }
+        preferences?.let { CollectionCache.save(it, Preferences.CACHED_FREEPULLS, contents) }
+        mapToAggregate(contents)
+    }
+
+    regFn(scope, "get_cached_free_pulls", itemIntType, emptyList()) { _, _ ->
+        cachedAggregate(Preferences.CACHED_FREEPULLS)
     }
 
     // ── get_stash() → int[item] (live — fetches from clan_stash.php) ─────────

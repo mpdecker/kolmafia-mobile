@@ -10,15 +10,22 @@ import net.sourceforge.kolmafia.preferences.Preferences
  */
 object CoinmasterAccessibility {
 
+    private const val SPINMASTER_LATHE = 10582
+    private const val SEPTEMBER_CENSER = 11642
+    private const val WORSE_HOMES_GARDENS = 6731
+    private const val MILD_MANNERED_PROFESSOR = 2897
+
     fun inaccessibleReason(
         master: CoinmasterData,
         char: CharacterState,
         prefs: Preferences? = null,
         accessibleCount: (Int) -> Int = { 0 },
+        hasEffect: (Int) -> Boolean = { false },
     ): String? {
         if (!master.hasShopEndpoint()) return "Shop not available"
         for (nick in master.allNicknames) {
-            ruleFor(nick.lowercase(), prefs, accessibleCount)?.invoke(char)?.let { return it }
+            ruleFor(nick.lowercase(), prefs, accessibleCount, hasEffect, char.limitMode)?.invoke(char)
+                ?.let { return it }
         }
         return null
     }
@@ -28,12 +35,15 @@ object CoinmasterAccessibility {
         char: CharacterState,
         prefs: Preferences? = null,
         accessibleCount: (Int) -> Int = { 0 },
-    ): Boolean = inaccessibleReason(master, char, prefs, accessibleCount) == null
+        hasEffect: (Int) -> Boolean = { false },
+    ): Boolean = inaccessibleReason(master, char, prefs, accessibleCount, hasEffect) == null
 
     private fun ruleFor(
         nickname: String,
         prefs: Preferences?,
         accessibleCount: (Int) -> Int,
+        hasEffect: (Int) -> Boolean,
+        limitMode: String,
     ): ((CharacterState) -> String?)? = when (nickname) {
         "dimemaster", "dmt" ->
             { cs -> if (!cs.kingLiberated) "King Ralph must be freed first" else null }
@@ -94,6 +104,71 @@ object CoinmasterAccessibility {
             } else {
                 null
             }
+        }
+        in TimeTowerSync.CHRONER_SHOP_IDS -> { _ ->
+            TimeTowerAccessibility.inaccessibleReason(nickname, prefs)
+        }
+        "trapper" -> { cs ->
+            when {
+                cs.level < 8 -> "You haven't met the Trapper yet"
+                prefs?.getInt("lastTr4pz0rQuest", -1) != cs.ascensionNumber ->
+                    "You have unfinished business with the Trapper"
+                cs.inZombiecore -> "The trapper won't be back for quite a while"
+                else -> null
+            }
+        }
+        "lathe" -> { _ ->
+            if (accessibleCount(SPINMASTER_LATHE) <= 0) {
+                "You don't own a SpinMaster\u2122 lathe"
+            } else {
+                null
+            }
+        }
+        "september" -> { cs ->
+            when {
+                accessibleCount(SEPTEMBER_CENSER) <= 0 ->
+                    "You need a Sept-Ember Censer in order to shop here."
+                cs.isKingdomOfExploathing -> "Your Censer has exploaded."
+                else -> null
+            }
+        }
+        "junkmagazine" -> { _ ->
+            if (accessibleCount(WORSE_HOMES_GARDENS) <= 0) {
+                "You can't make that without a copy of Worse Homes and Gardens."
+            } else {
+                null
+            }
+        }
+        "sbb_brogurt", "brogurt", "sbb_taco", "taco_dan", "sbb_jimmy", "buffjimmy" -> { _ ->
+            SpringBreakBeachAccessibility.inaccessibleReason(prefs, limitMode)
+        }
+        "damachine", "vendingmachine" -> { cs ->
+            if (cs.isKingdomOfExploathing) {
+                "The vending machine exploded"
+            } else {
+                null
+            }
+        }
+        "wereprofessor_tinker" -> { _ ->
+            if (!hasEffect(MILD_MANNERED_PROFESSOR)) {
+                "Only a mild-mannered professor can work at their Tinkering Bench."
+            } else {
+                null
+            }
+        }
+        "flowertradein" -> { _ ->
+            if (!FlowerTradeinAccessibility.hasTradeFlower(accessibleCount)) {
+                "You have no roses or tulips"
+            } else {
+                null
+            }
+        }
+        "crimbo23_elf_armory", "crimbo23_pirate_armory",
+        "crimbo23_elf_bar", "crimbo23_pirate_bar",
+        "crimbo23_elf_cafe", "crimbo23_pirate_cafe",
+        "crimbo23_elf_factory", "crimbo23_pirate_factory",
+        -> { _ ->
+            Crimbo23ShopAccessibility.inaccessibleReason(nickname, prefs)
         }
         else -> null
     }

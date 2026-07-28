@@ -34,4 +34,5 @@ internal fun GameRuntimeLibrary.coinmasterItemAccessible(itemId: Int): Boolean =
         state = craftCharacterState(),
         prefs = preferences,
         accessibleCount = { id -> craftAccessibleCount(id) },
+        hasEffect = { effectId -> hasActiveEffect(effectId) },
     )

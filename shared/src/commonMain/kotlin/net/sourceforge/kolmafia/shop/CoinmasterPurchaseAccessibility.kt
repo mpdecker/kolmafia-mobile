@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.shop
 
 import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.data.StandardRewardDatabase
 import net.sourceforge.kolmafia.data.TorsoAwareness
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
@@ -102,6 +103,13 @@ object CoinmasterPurchaseAccessibility {
     private const val DENTADENT = 11977
     private const val MONODENT_OF_THE_SEA = 11975
 
+    private const val BROBERRY_BROGURT = 7455
+    private const val BROCOLATE_BROGURT = 7456
+    private const val FRENCH_BRONILLA_BROGURT = 7457
+    private const val TACO_FISH_TACO = 7451
+    private const val TACO_SAUCE = 7452
+    private const val SEWING_KIT = 7300
+
     private val BACON_ONE_TIME_ITEMS = mapOf(
         VIRAL_VIDEO to "_internetViralVideoBought",
         PLUS_ONE to "_internetPlusOneBought",
@@ -159,6 +167,7 @@ object CoinmasterPurchaseAccessibility {
         accessibleCount: (Int) -> Int,
         hasSkill: (Int) -> Boolean = { false },
     ): Boolean {
+        if (!standardRewardItemAvailable(itemId)) return false
         val nickname = master.nickname.lowercase()
         return when {
             nickname == "blackmarket" ||
@@ -218,9 +227,51 @@ object CoinmasterPurchaseAccessibility {
             nickname == "driparmory" ||
                 master.masterName.equals("Drip Institute Armory", ignoreCase = true) ->
                 DripArmoryPrefs.isItemAvailable(itemId, prefs, accessibleCount)
+            nickname == "sbb_brogurt" || nickname == "brogurt" ||
+                master.masterName.equals("The Frozen Brogurt Stand", ignoreCase = true) ->
+                sbbBrogurtItemAvailable(itemId, prefs)
+            nickname == "sbb_taco" || nickname == "taco_dan" ||
+                master.masterName.equals("Taco Dan's Taco Stand", ignoreCase = true) ->
+                sbbTacoItemAvailable(itemId, prefs)
+            nickname == "damachine" || nickname == "vendingmachine" ||
+                master.masterName.equals("Vending Machine", ignoreCase = true) ->
+                vendingMachineItemAvailable(itemId, accessibleCount)
+            nickname == "wereprofessor_tinker" ||
+                master.masterName.equals("Tinkering Bench", ignoreCase = true) ->
+                tinkeringBenchItemAvailable(itemId, accessibleCount)
             else -> true
         }
     }
+
+    fun standardRewardItemAvailable(itemId: Int): Boolean {
+        val reward = StandardRewardDatabase.findStandardReward(itemId) ?: return true
+        if (reward.row.equals("UNKNOWN", ignoreCase = true)) return false
+        if (StandardRewardDatabase.findPulverization(reward) == -1) return false
+        return true
+    }
+
+    private fun sbbBrogurtItemAvailable(itemId: Int, prefs: Preferences?): Boolean =
+        when (itemId) {
+            BROBERRY_BROGURT, BROCOLATE_BROGURT, FRENCH_BRONILLA_BROGURT ->
+                prefs?.getString("questESlBacteria", UNSTARTED) == FINISHED
+            else -> true
+        }
+
+    private fun sbbTacoItemAvailable(itemId: Int, prefs: Preferences?): Boolean =
+        when (itemId) {
+            TACO_FISH_TACO -> prefs?.getString("questESlFish", UNSTARTED) == FINISHED
+            TACO_SAUCE -> prefs?.getString("questESlSprinkles", UNSTARTED) == FINISHED
+            else -> true
+        }
+
+    private fun vendingMachineItemAvailable(itemId: Int, accessibleCount: (Int) -> Int): Boolean =
+        when (itemId) {
+            SEWING_KIT -> accessibleCount(SEWING_KIT) <= 0
+            else -> true
+        }
+
+    private fun tinkeringBenchItemAvailable(itemId: Int, accessibleCount: (Int) -> Int): Boolean =
+        TinkeringBenchGates.canMakeItem(itemId, accessibleCount)
 
     private fun baconItemAvailable(itemId: Int, prefs: Preferences?): Boolean {
         val prefKey = BACON_ONE_TIME_ITEMS[itemId] ?: return true
@@ -329,8 +380,13 @@ object CoinmasterPurchaseAccessibility {
     }
 
     private fun swaggerItemAvailable(itemId: Int, prefs: Preferences?): Boolean {
-        val prefKey = SWAGGER_SEASON_ITEMS[itemId] ?: return true
-        return prefs?.getBoolean(prefKey, false) == true
+        SWAGGER_SEASON_ITEMS[itemId]?.let { prefKey ->
+            return prefs?.getBoolean(prefKey, false) == true
+        }
+        if (CoinmasterVisitInventory.hasVisited(CoinmasterVisitInventory.SWAGGER)) {
+            return CoinmasterVisitInventory.containsItem(CoinmasterVisitInventory.SWAGGER, itemId)
+        }
+        return true
     }
 
     private fun crimbo17ItemAvailable(itemId: Int, state: CharacterState): Boolean =

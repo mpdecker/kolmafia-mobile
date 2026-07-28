@@ -10,8 +10,8 @@ import net.sourceforge.kolmafia.preferences.Preferences
 class GameRuntimeLibraryAshP155Test {
 
     @Test
-    fun revision_phase181() {
-        assertEquals("phase181", GameRuntimeLibrary.REVISION)
+    fun revision_phase182() {
+        assertEquals("phase190", GameRuntimeLibrary.REVISION)
     }
 
     @Test

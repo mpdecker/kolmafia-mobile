@@ -56,5 +56,19 @@ class OutfitCheckpoint private constructor(
         fun clearSaved() {
             saved = null
         }
+
+        /** Desktop [SpecialOutfit.forgetEquipment] — drop consumed gear from saved checkpoint. */
+        fun forgetEquipment(itemId: Int, gameDatabase: GameDatabase) {
+            val itemName = gameDatabase.item(itemId)?.name ?: return
+            val checkpoint = saved ?: return
+            saved = checkpoint.withoutEquipmentNamed(itemName)
+        }
+    }
+
+    private fun withoutEquipmentNamed(itemName: String): OutfitCheckpoint {
+        val updated = snapshot.mapValues { (_, equipped) ->
+            if (equipped.equals(itemName, ignoreCase = true)) null else equipped
+        }
+        return OutfitCheckpoint(updated, equipmentRequest, gameDatabase)
     }
 }

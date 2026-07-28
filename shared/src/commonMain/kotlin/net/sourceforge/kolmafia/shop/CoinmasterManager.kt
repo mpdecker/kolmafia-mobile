@@ -28,13 +28,36 @@ open class CoinmasterManager(
         CoinmasterRegistry.findBuyRowForItem(itemId)
 
     open suspend fun visit(master: CoinmasterData): Boolean {
-        val shopId = master.shopId ?: return false
+        val shopId = master.shopId
+        val buyUrl = master.buyUrl
+        if (shopId == null && buyUrl.isNullOrBlank()) return false
         return try {
-            val html = client.get("$KOL_BASE_URL/shop.php") {
-                parameter("whichshop", shopId)
-            }.bodyAsText()
-            val url = "$KOL_BASE_URL/shop.php?whichshop=$shopId"
-            CoinmasterShopSync.apply(html, url, preferences, character?.state?.value)
+            val (html, url) = if (shopId != null) {
+                val visitUrl = "$KOL_BASE_URL/shop.php?whichshop=$shopId"
+                val body = client.get("$KOL_BASE_URL/shop.php") {
+                    parameter("whichshop", shopId)
+                }.bodyAsText()
+                body to visitUrl
+            } else {
+                val path = buyUrl!!.removePrefix("/")
+                val isSwagger = master.nickname.equals("swagger", ignoreCase = true)
+                val visitUrl = if (isSwagger) {
+                    "$KOL_BASE_URL/$path?place=shop"
+                } else {
+                    "$KOL_BASE_URL/$path"
+                }
+                val body = client.get("$KOL_BASE_URL/$path") {
+                    if (isSwagger) {
+                        parameter("place", "shop")
+                    }
+                }.bodyAsText()
+                body to visitUrl
+            }
+            if (master.nickname.equals("swagger", ignoreCase = true)) {
+                CoinmasterShopSync.applySwaggerVisit(html, url, preferences)
+            } else {
+                CoinmasterShopSync.apply(html, url, preferences, character?.state?.value)
+            }
             val ascension = character?.state?.value?.ascensionNumber ?: 0
             NpcShopSync.applyShopVisit(html, url, preferences, ascension)
             true
@@ -53,7 +76,7 @@ open class CoinmasterManager(
         val after = inventoryCount(itemId)
         val bought = (after - before).coerceAtLeast(0)
         if (bought > 0) {
-            CoinmasterShopSync.applyPurchasedItem(master, itemId, preferences)
+            CoinmasterShopSync.applyPurchasedItem(master, itemId, preferences, gameDatabase)
         }
         return bought
     }
@@ -95,14 +118,14 @@ open class CoinmasterManager(
     open fun isAccessible(master: CoinmasterData): Boolean {
         if (!master.isAccessible()) return false
         val char = character?.state?.value ?: return true
-        return CoinmasterAccessibility.isAccessible(master, char)
+        return CoinmasterAccessibility.isAccessible(master, char, preferences)
     }
 
     open fun inaccessibleReason(master: CoinmasterData): String {
         if (!master.isAccessible()) return "Shop not available"
         val char = character?.state?.value
         if (char != null) {
-            CoinmasterAccessibility.inaccessibleReason(master, char)?.let { return it }
+            CoinmasterAccessibility.inaccessibleReason(master, char, preferences)?.let { return it }
         }
         return ""
     }
