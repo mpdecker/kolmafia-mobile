@@ -1,8 +1,13 @@
 package net.sourceforge.kolmafia.mood
 
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.effect.EffectState
+import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
+import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.UneffectRequest
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
@@ -13,6 +18,11 @@ open class MoodManager(
     private val uneffectRequest: UneffectRequest? = null,
 ) {
     var activeMood: Mood? = null
+
+    @Volatile
+    private var executing: Boolean = false
+
+    fun isExecuting(): Boolean = executing
 
     companion object {
         fun missingTriggers(
@@ -46,7 +56,38 @@ open class MoodManager(
 
     // ── Mood execution ────────────────────────────────────────────────────────
 
-    suspend fun executeActiveMood(
+    /**
+     * Desktop [MoodManager.checkpointedExecute]: snapshot equipment, run mood once, restore.
+     * Multiplicity is ignored (desktop always calls execute(0) from ASH).
+     */
+    suspend fun checkpointedExecute(
+        effectState: EffectState,
+        skillState: SkillState,
+        charState: CharacterState,
+        character: KoLCharacter? = null,
+        equipmentRequest: EquipmentRequest? = null,
+        gameDatabase: GameDatabase? = null,
+    ) {
+        if (executing) return
+        if (LimitModeGates.limitRecovery(charState.limitMode)) return
+        executing = true
+        try {
+            val checkpoint = if (character != null && equipmentRequest != null && gameDatabase != null) {
+                OutfitCheckpoint.snapshot(character, equipmentRequest, gameDatabase)
+            } else {
+                null
+            }
+            if (checkpoint != null) {
+                checkpoint.use { executeActiveMood(effectState, skillState, charState) }
+            } else {
+                executeActiveMood(effectState, skillState, charState)
+            }
+        } finally {
+            executing = false
+        }
+    }
+
+    open suspend fun executeActiveMood(
         effectState: EffectState,
         skillState: SkillState,
         charState: CharacterState,

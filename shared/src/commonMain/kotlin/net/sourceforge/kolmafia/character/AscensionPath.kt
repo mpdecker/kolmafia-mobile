@@ -20,6 +20,9 @@ enum class AscensionPath(
     val pointsPreference: String? = null,
     val avatarPath: Boolean = false,
     val allowsFamiliars: Boolean = true,
+    val stomachCapacity: Int = 15,
+    val liverCapacity: Int = 14,
+    val spleenCapacity: Int = 15,
 ) {
     NONE("None"),
     HARDCORE("Hardcore"),                           // not a real path; tracked separately
@@ -90,6 +93,9 @@ enum class AscensionPath(
         pathId = 28,
         pathImage = "radiation.gif",
         pointsPreference = "nuclearAutumnPoints",
+        stomachCapacity = 3,
+        liverCapacity = 2,
+        spleenCapacity = 3,
     ),
     GELATINOUS_NOOB(
         "Gelatinous Noob",
@@ -107,6 +113,9 @@ enum class AscensionPath(
         pathId = 41,
         pathImage = "robobattery.gif",
         pointsPreference = "youRobotPoints",
+        stomachCapacity = 0,
+        liverCapacity = 0,
+        spleenCapacity = 0,
     ),
     QUANTUM_TERRARIUM(
         "Quantum Terrarium",
@@ -169,6 +178,8 @@ enum class AscensionPath(
         "Small",
         pathId = 49,
         pathImage = "kiloskull.gif",
+        stomachCapacity = 2,
+        liverCapacity = 1,
     ),
     SHADOWS_OVER_LOATHING(
         "Shadows Over Loathing",
@@ -183,6 +194,8 @@ enum class AscensionPath(
         pathImage = "intrinsic_beast.gif",
         pointsPreference = "wereProfessorPoints",
         avatarPath = true,
+        stomachCapacity = 5,
+        liverCapacity = 4,
     ),
     ELEVEN_THINGS("11 Things I Hate About U", pathId = 51, pathImage = "ihatesu.gif"),
     AVANT_GUARD(
@@ -235,6 +248,9 @@ enum class AscensionPath(
         pathImage = "meat.gif",
         pointsPreference = "adventurerMeatsWorldPoints",
         avatarPath = true,
+        stomachCapacity = 0,
+        liverCapacity = 0,
+        spleenCapacity = 0,
     ),
     THRIFTY("Thrifty", pathId = 57, pathImage = "0dollars.gif"),
     TRENDY("Trendy", pathId = 7, pathImage = "trendyicon.gif"),

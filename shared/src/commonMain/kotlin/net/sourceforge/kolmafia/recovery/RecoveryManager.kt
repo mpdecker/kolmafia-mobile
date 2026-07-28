@@ -18,6 +18,9 @@ class RecoveryManager(
     private val skillManager: SkillManager,
     private val preferences: Preferences,
 ) {
+    @Volatile
+    var isRecoveryActive: Boolean = false
+
     companion object {
         fun needsHpRecovery(state: CharacterState, prefs: Preferences): Boolean {
             if (!prefs.getBoolean(Preferences.AUTO_RECOVER_HP, true)) return false
@@ -162,23 +165,28 @@ class RecoveryManager(
         skillState: SkillState,
         refreshStates: suspend () -> Triple<CharacterState, InventoryState, SkillState>,
     ): Boolean {
-        var state = charState
-        var inventory = invState
-        var skills = skillState
-        val target = hpRecoveryTarget(amount, state, preferences)
-        if (state.currentHp >= target) return true
-
-        repeat(MAX_CHECKPOINT_ITERATIONS) {
-            val before = state.currentHp
-            if (!recoverHp(state, inventory, skills)) return false
-            val refreshed = refreshStates()
-            state = refreshed.first
-            inventory = refreshed.second
-            skills = refreshed.third
-            if (state.currentHp <= before) return false
+        isRecoveryActive = true
+        try {
+            var state = charState
+            var inventory = invState
+            var skills = skillState
+            val target = hpRecoveryTarget(amount, state, preferences)
             if (state.currentHp >= target) return true
+
+            repeat(MAX_CHECKPOINT_ITERATIONS) {
+                val before = state.currentHp
+                if (!recoverHp(state, inventory, skills)) return false
+                val refreshed = refreshStates()
+                state = refreshed.first
+                inventory = refreshed.second
+                skills = refreshed.third
+                if (state.currentHp <= before) return false
+                if (state.currentHp >= target) return true
+            }
+            return state.currentHp >= target
+        } finally {
+            isRecoveryActive = false
         }
-        return state.currentHp >= target
     }
 
     suspend fun checkpointedRecoverMp(
@@ -188,23 +196,28 @@ class RecoveryManager(
         skillState: SkillState,
         refreshStates: suspend () -> Triple<CharacterState, InventoryState, SkillState>,
     ): Boolean {
-        var state = charState
-        var inventory = invState
-        var skills = skillState
-        val target = mpRecoveryTarget(amount, state, preferences)
-        if (state.currentMp >= target) return true
-
-        repeat(MAX_CHECKPOINT_ITERATIONS) {
-            val before = state.currentMp
-            if (!recoverMp(state, inventory, skills)) return false
-            val refreshed = refreshStates()
-            state = refreshed.first
-            inventory = refreshed.second
-            skills = refreshed.third
-            if (state.currentMp <= before) return false
+        isRecoveryActive = true
+        try {
+            var state = charState
+            var inventory = invState
+            var skills = skillState
+            val target = mpRecoveryTarget(amount, state, preferences)
             if (state.currentMp >= target) return true
+
+            repeat(MAX_CHECKPOINT_ITERATIONS) {
+                val before = state.currentMp
+                if (!recoverMp(state, inventory, skills)) return false
+                val refreshed = refreshStates()
+                state = refreshed.first
+                inventory = refreshed.second
+                skills = refreshed.third
+                if (state.currentMp <= before) return false
+                if (state.currentMp >= target) return true
+            }
+            return state.currentMp >= target
+        } finally {
+            isRecoveryActive = false
         }
-        return state.currentMp >= target
     }
 
     private suspend fun recoverHp(

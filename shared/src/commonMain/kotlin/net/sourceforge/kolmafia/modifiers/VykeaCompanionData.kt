@@ -222,6 +222,17 @@ object VykeaCompanionData {
         append(typeToString(companion.type))
     }
 
+    fun concoctionResultName(companion: Companion): String = buildString {
+        append("level ")
+        append(companion.level)
+        if (companion.rune != VykeaRune.NONE) {
+            append(' ')
+            append(runeToString(companion.rune))
+        }
+        append(' ')
+        append(typeToString(companion.type))
+    }
+
     fun typeToString(type: VykeaType): String = when (type) {
         VykeaType.BOOKSHELF -> "bookshelf"
         VykeaType.CEILING_FAN -> "ceiling fan"

@@ -20,8 +20,10 @@ import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.combat.RandomModifierStats
+import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.campground.GardenSync
 import net.sourceforge.kolmafia.campground.MushroomPlotSync
+import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.concoction.StillSync
 import net.sourceforge.kolmafia.inventory.ClosetMeatSync
 import net.sourceforge.kolmafia.inventory.SessionMeatSync
@@ -198,7 +200,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase160"
+        const val REVISION = "phase174"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1597,6 +1599,7 @@ class GameRuntimeLibrary(
         }
         if (url != null && url.contains("campground.php", ignoreCase = true)) {
             character?.let { GardenSync.apply(it, html, preferences) }
+            CampgroundItemSync.apply(preferences, html, url)
         }
         if (url != null && url.contains("closet.php", ignoreCase = true)) {
             character?.let { ClosetMeatSync.apply(it, html, url) }
@@ -1610,6 +1613,7 @@ class GameRuntimeLibrary(
         if (url != null && url.contains("knoll_mushrooms.php", ignoreCase = true)) {
             character?.let { MushroomPlotSync.apply(preferences, it, html, url) }
         }
+        ClanLoungeSync.apply(preferences, html, url)
         character?.let { SessionMeatSync.apply(it, html) }
     }
 
@@ -2405,6 +2409,32 @@ class GameRuntimeLibrary(
         registerAshP116Batch(scope)
         registerAshP117Batch(scope)
         registerAshP118Batch(scope)
+        registerAshP119Batch(scope)
+        registerAshP120Batch(scope)
+        registerAshP121Batch(scope)
+        registerAshP122Batch(scope)
+        registerAshP123Batch(scope)
+        registerAshP124Batch(scope)
+        registerAshP125Batch(scope)
+        registerAshP126Batch(scope)
+        registerAshP127Batch(scope)
+        registerAshP128Batch(scope)
+        registerAshP129Batch(scope)
+        registerAshP130Batch(scope)
+        registerAshP131Batch(scope)
+        registerAshP132Batch(scope)
+        registerAshP133Batch(scope)
+        registerAshP134Batch(scope)
+        registerAshP135Batch(scope)
+        registerAshP136Batch(scope)
+        registerAshP137Batch(scope)
+        registerAshP138Batch(scope)
+        registerAshP139Batch(scope)
+        registerAshP140Batch(scope)
+        registerAshP141Batch(scope)
+        registerAshP142Batch(scope)
+        registerAshP143Batch(scope)
+        registerAshP144Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

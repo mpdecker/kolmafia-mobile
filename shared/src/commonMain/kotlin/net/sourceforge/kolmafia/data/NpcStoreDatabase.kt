@@ -1,6 +1,9 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shared.generated.resources.Res
+import net.sourceforge.kolmafia.shop.NpcPurchaseAccessibility
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
 @OptIn(ExperimentalResourceApi::class)
@@ -9,6 +12,7 @@ object NpcStoreDatabase {
     private val _byName  = mutableMapOf<String, NpcStoreData>()
     private val _itemPrices = mutableMapOf<String, Int>()
     private val _byItemName = mutableMapOf<String, NpcStoreData>()
+    private val _byItemId = mutableMapOf<Int, Pair<NpcStoreData, NpcStoreItem>>()
     private var loaded = false
 
     val byKey:  Map<String, NpcStoreData> get() = _byKey
@@ -25,6 +29,7 @@ object NpcStoreDatabase {
         _byName.clear()
         _itemPrices.clear()
         _byItemName.clear()
+        _byItemId.clear()
 
         val storeItems = mutableMapOf<String, MutableList<NpcStoreItem>>()
 
@@ -66,6 +71,10 @@ object NpcStoreDatabase {
         _byKey.values.forEach { store ->
             store.items.forEach { item ->
                 _byItemName.putIfAbsent(item.itemName.lowercase(), store)
+                val itemId = ItemDatabase.getByName(item.itemName)?.id ?: return@forEach
+                if (itemId >= 0) {
+                    _byItemId.putIfAbsent(itemId, store to item)
+                }
             }
         }
 
@@ -75,6 +84,35 @@ object NpcStoreDatabase {
     fun npcPrice(itemName: String): Int = _itemPrices[itemName.lowercase()] ?: 0
 
     fun storeForItem(itemName: String): NpcStoreData? = _byItemName[itemName.lowercase()]
+
+    fun itemEntry(itemId: Int): Pair<NpcStoreData, NpcStoreItem>? = _byItemId[itemId]
+
+    /** Desktop NPCStoreDatabase.contains(itemId, validate). */
+    fun containsItem(
+        itemId: Int,
+        validate: Boolean = false,
+        state: CharacterState = CharacterState(),
+        prefs: Preferences? = null,
+        accessibleCount: (Int) -> Int = { 0 },
+        hasActiveEffect: (Int) -> Boolean = { false },
+        familiarUsable: (Int) -> Boolean = { false },
+    ): Boolean {
+        val entry = itemEntry(itemId) ?: run {
+            val name = ItemDatabase.getById(itemId)?.name ?: return false
+            if (validate) return false
+            return storeForItem(name) != null
+        }
+        if (!validate) return true
+        return NpcPurchaseAccessibility.canPurchaseIgnoringMeat(
+            itemId,
+            entry.first,
+            state,
+            prefs,
+            accessibleCount,
+            hasActiveEffect,
+            familiarUsable,
+        )
+    }
 
     fun getByKey(key: String): NpcStoreData? = _byKey[key.lowercase()]
     fun getByName(name: String): NpcStoreData? = _byName[name.lowercase()]
@@ -87,6 +125,7 @@ object NpcStoreDatabase {
         _byName.clear()
         _itemPrices.clear()
         _byItemName.clear()
+        _byItemId.clear()
         loaded = false
     }
 }

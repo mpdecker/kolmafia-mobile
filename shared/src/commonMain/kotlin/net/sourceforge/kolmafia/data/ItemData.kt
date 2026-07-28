@@ -12,6 +12,7 @@ data class ItemData(
     val plural: String?
 ) {
     val isTradeable get() = 't' in access
+    val isGiftable get() = 't' in access && 'g' in access
     val isDiscardable get() = 'd' in access
     val isQuestItem get() = 'q' in access
     val isEquipment get() = primaryUse.isEquipment

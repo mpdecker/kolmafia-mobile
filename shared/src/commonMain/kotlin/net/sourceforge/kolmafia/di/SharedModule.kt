@@ -445,6 +445,7 @@ val sharedModule = module {
             hermitRequest    = get(),
             familiarRequest  = get(),
             character        = get(),
+            preferences      = get(),
             standardRequest  = get(),
             thriftyRequest   = get(),
             trendyRequest    = get(),

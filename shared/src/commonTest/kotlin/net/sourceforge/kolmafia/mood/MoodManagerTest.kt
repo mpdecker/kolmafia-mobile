@@ -380,6 +380,59 @@ class MoodManagerTest {
         assertTrue(manager.moodLibrary.isEmpty())
     }
 
+    // ── checkpointedExecute ───────────────────────────────────────────────────
+
+    @Test fun checkpointedExecute_missingEffect_castsSkill() {
+        val cast = mutableListOf<Int>()
+        val manager = MoodManager(fakeCastSkillManager(cast), prefs())
+        manager.activeMood = Mood("test", listOf(trigger(effectId = 10, skillId = 200)))
+        val skills = SkillState(skills = listOf(skillData(id = 200, mpCost = 10)))
+        runBlocking {
+            manager.checkpointedExecute(
+                effectState(), skills, CharacterState(currentMp = 50, maxMp = 100),
+            )
+        }
+        assertEquals(listOf(200), cast)
+        assertFalse(manager.isExecuting())
+    }
+
+    @Test fun checkpointedExecute_limitModeRecoveryBlocked_doesNotCast() {
+        val cast = mutableListOf<Int>()
+        val manager = MoodManager(fakeCastSkillManager(cast), prefs())
+        manager.activeMood = Mood("test", listOf(trigger(effectId = 10, skillId = 200)))
+        val skills = SkillState(skills = listOf(skillData(id = 200, mpCost = 10)))
+        runBlocking {
+            manager.checkpointedExecute(
+                effectState(),
+                skills,
+                CharacterState(currentMp = 50, maxMp = 100, limitMode = "spelunky"),
+            )
+        }
+        assertTrue(cast.isEmpty())
+    }
+
+    @Test fun checkpointedExecute_nestedCallWhileExecuting_isNoOp() {
+        val cast = mutableListOf<Int>()
+        val manager = object : MoodManager(fakeCastSkillManager(cast), prefs()) {
+            override suspend fun executeActiveMood(
+                effectState: EffectState,
+                skillState: SkillState,
+                charState: CharacterState,
+            ) {
+                checkpointedExecute(effectState, skillState, charState)
+                super.executeActiveMood(effectState, skillState, charState)
+            }
+        }
+        manager.activeMood = Mood("test", listOf(trigger(effectId = 10, skillId = 200)))
+        val skills = SkillState(skills = listOf(skillData(id = 200, mpCost = 10)))
+        runBlocking {
+            manager.checkpointedExecute(
+                effectState(), skills, CharacterState(currentMp = 50, maxMp = 100),
+            )
+        }
+        assertEquals(listOf(200), cast)
+    }
+
     /** Returns a fake SkillManager that records which skill IDs were cast. */
     private fun fakeCastSkillManager(cast: MutableList<Int>): SkillManager {
         val fakeClient = io.ktor.client.HttpClient(MockEngine { _ ->
