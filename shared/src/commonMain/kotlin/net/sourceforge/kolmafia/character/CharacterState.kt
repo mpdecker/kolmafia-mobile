@@ -66,6 +66,7 @@ data class CharacterState(
     val roninLeft: Int = 0,
     val isHardcore: Boolean = false,
     val kingLiberated: Boolean = false,    // freed King Ralph
+    val skillsRecalled: Boolean = false,   // api.php recalledskills / account menu
     val limitMode: String = "",            // "avatar", "spelunk", etc.
 
     // ── Class-specific combat resources ─────────────────────────────────────

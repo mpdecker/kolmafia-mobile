@@ -21,6 +21,7 @@ import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.combat.EncounterModifierPipeline
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.shop.CoinmasterDatabase
+import net.sourceforge.kolmafia.shop.DripArmoryPrefs
 import net.sourceforge.kolmafia.concoction.StillsAvailability
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
@@ -2132,6 +2133,495 @@ class AshCompatibilityCorpusTest {
             skillManager = corpusSkillManager(12),
         )
         assertEquals("true", outputLib(libWithTorso, """print(is_coinmaster_item(1133, true));""").trim())
+    }
+
+    @Test
+    fun corpus_wsmithCraftGate_live() {
+        registerCorpusItem(9917, "corpus wsmith crossbow")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "corpus wsmith crossbow",
+                resultQuantity = 1,
+                methods = setOf("WSMITH"),
+                ingredients = emptyList(),
+            ),
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            skillManager = corpusSkillManager(1006),
+        )
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9917));""").trim())
+        val libWithHammer = GameRuntimeLibrary(
+            preferences = prefs,
+            skillManager = corpusSkillManager(1006),
+            inventoryManager = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+                io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine {
+                    respond("ok", io.ktor.http.HttpStatusCode.OK)
+                }),
+                net.sourceforge.kolmafia.event.GameEventBus(),
+            ) {
+                private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                    net.sourceforge.kolmafia.inventory.InventoryState(
+                        items = mapOf(
+                            338 to net.sourceforge.kolmafia.inventory.InventoryItem(
+                                itemId = 338,
+                                name = "tenderizing hammer",
+                                quantity = 1,
+                                type = net.sourceforge.kolmafia.inventory.ItemType.OTHER,
+                            ),
+                        ),
+                    ),
+                )
+                override val state = flow.asStateFlow()
+            },
+        )
+        assertEquals("true", outputLib(libWithHammer, """print(is_craft_permitted(9917));""").trim())
+    }
+
+    @Test
+    fun corpus_tinkerCraftGate_live() {
+        registerCorpusItem(9918, "corpus clockwork widget")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "corpus clockwork widget",
+                resultQuantity = 1,
+                methods = setOf("TINKER"),
+                ingredients = emptyList(),
+            ),
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        val char = KoLCharacter().apply {
+            updateFromApiResponse(
+                CharacterApiResponse(
+                    sign = "Wombat",
+                    ascensions = "1",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(preferences = prefs, character = char)
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9918));""").trim())
+        prefs.setInt("lastDesertUnlock", 1)
+        assertEquals("true", outputLib(lib, """print(is_craft_permitted(9918));""").trim())
+    }
+
+    @Test
+    fun corpus_baconCoinmasterValidate_live() {
+        registerCorpusItem(9017, "viral video")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "bacon\tInternet Meme Shop\n",
+            coinText = "Internet Meme Shop\tROW9017\tviral video\tBACON (20)\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        prefs.setBoolean("_internetViralVideoBought", true)
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(9017, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_fixodentCoinmasterValidate_live() {
+        registerCorpusItem(11977, "dentadent")
+        registerCorpusItem(11975, "Monodent of the Sea")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "fixodent\tCraft with Teeth\n",
+            coinText = "Craft with Teeth\tROW11977\tdentadent\tfixodent\tloose teeth\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(11977, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_wildfireNpcValidate_live() {
+        registerCorpusItem(10790, "B. L. A. R. T.")
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.loadFromText(
+            "FDKOL Auxiliary\twildfire\tB. L. A. R. T.\t10000\tROW1258\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("itemBoughtPerAscension10790", true)
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(
+                    path = net.sourceforge.kolmafia.character.AscensionPath.WILDFIRE.apiName,
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(preferences = prefs, character = char)
+        assertEquals("false", outputLib(lib, """print(is_npc_item(10790, true));""").trim())
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_mysticPsychosisPixelValidate_live() {
+        registerCorpusItem(5906, "pixel pill")
+        registerCorpusItem(461, "red pixel")
+        registerCorpusItem(459, "white pixel")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "mystic\tThe Crackpot Mystic's Shed\n",
+            coinText = "The Crackpot Mystic's Shed\tROW39\tpixel pill\tred pixel (20)\twhite pixel (20)\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(level = "6"))
+            },
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(5906, true));""").trim())
+        prefs.setBoolean(net.sourceforge.kolmafia.shop.CoinmasterShopSync.MYSTIC_PSYCHOSIS_ITEMS_UNLOCKED, true)
+        val libWithPixels = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(level = "6"))
+            },
+            inventoryManager = object : InventoryManager(
+                io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine {
+                    respond("ok", io.ktor.http.HttpStatusCode.OK)
+                }),
+                net.sourceforge.kolmafia.event.GameEventBus(),
+            ) {
+                private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                    InventoryState(
+                        items = mapOf(
+                            461 to InventoryItem(461, "red pixel", 20, ItemType.OTHER),
+                            459 to InventoryItem(459, "white pixel", 20, ItemType.OTHER),
+                        ),
+                    ),
+                )
+                override val state = flow.asStateFlow()
+            },
+        )
+        assertEquals("true", outputLib(libWithPixels, """print(is_coinmaster_item(5906, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_hippyPeachNpcValidate_live() {
+        registerCorpusItem(673, "peach")
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.loadFromText(
+            "Hippy Store (Hippy)\thippy\tpeach\t300\tROW673\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithNPCs", true)
+        prefs.setString(net.sourceforge.kolmafia.quest.Quest.ISLAND_WAR.prefKey, "step2")
+        net.sourceforge.kolmafia.shop.NpcShopSync.syncFromStoreHtml(
+            storeKey = "hippy",
+            html = "peach pear plum",
+            prefs = prefs,
+            ascensionNumber = 1,
+        )
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(ascensions = "1"))
+            },
+        )
+        assertEquals("true", outputLib(lib, """print(is_npc_item(673, true));""").trim())
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_shoreToasterCoinmasterValidate_live() {
+        registerCorpusItem(637, "cheap toaster")
+        registerCorpusItem(338, "Shore Inc. Ship Trip Scrip")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "shore\tThe Shore, Inc. Gift Shop\n",
+            coinText = "The Shore, Inc. Gift Shop\tROW637\tcheap toaster\tShore Inc. Ship Trip Scrip (20)\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        prefs.setInt("lastDesertUnlock", 1)
+        prefs.setBoolean("itemBoughtPerAscension637", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(level = "6", ascensions = "1"))
+            },
+            inventoryManager = object : InventoryManager(
+                io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine {
+                    respond("ok", io.ktor.http.HttpStatusCode.OK)
+                }),
+                net.sourceforge.kolmafia.event.GameEventBus(),
+            ) {
+                private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                    InventoryState(
+                        items = mapOf(
+                            338 to InventoryItem(338, "Shore Inc. Ship Trip Scrip", 20, ItemType.OTHER),
+                        ),
+                    ),
+                )
+                override val state = flow.asStateFlow()
+            },
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(637, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterShopSync.apply(
+            html = """<b>cheap toaster</b>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=shore",
+            prefs = prefs,
+        )
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(637, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_fwshopHatNpcValidate_live() {
+        registerCorpusItem(10762, "fedora-mounted fountain")
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.loadFromText(
+            "Clan Underground Fireworks Shop\tfwshop\tfedora-mounted fountain\t500\tROW1247\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithNPCs", true)
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("false", outputLib(lib, """print(is_npc_item(10762, true));""").trim())
+        net.sourceforge.kolmafia.shop.NpcShopSync.syncFromStoreHtml(
+            storeKey = "fwshop",
+            html = """<b>Combat Explosives</b><b>Dangerous Hats</b>""",
+            prefs = prefs,
+            ascensionNumber = 1,
+        )
+        assertEquals("true", outputLib(lib, """print(is_npc_item(10762, true));""").trim())
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_hiddenTavernNpcValidate_live() {
+        registerCorpusItem(175, "Fog Murderer")
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.loadFromText(
+            "The Hidden Tavern\thiddentavern\tFog Murderer\t500\tROW175\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithNPCs", true)
+        val char = KoLCharacter().apply {
+            updateFromApiResponse(CharacterApiResponse(ascensions = "2"))
+        }
+        val lib = GameRuntimeLibrary(preferences = prefs, character = char)
+        assertEquals("false", outputLib(lib, """print(is_npc_item(175, true));""").trim())
+        net.sourceforge.kolmafia.shop.NpcShopSync.syncFromStoreHtml(
+            storeKey = "hiddentavern",
+            html = "<html>Hidden Tavern</html>",
+            prefs = prefs,
+            ascensionNumber = 2,
+        )
+        assertEquals("true", outputLib(lib, """print(is_npc_item(175, true));""").trim())
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_swaggerCoinmasterValidate_live() {
+        registerCorpusItem(7732, "Black Bart's Booty")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "swagger\tThe Swagger Shop\n",
+            coinText = "The Swagger Shop\tbuy\t1000\tBlack Bart's Booty\tROW7732\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(meat = "100000"))
+            },
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(7732, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterShopSync.applySwaggerVisit(
+            html = """
+                You've earned 1200 swagger during a pirate season.
+                <tr><td><b>Black Bart's Booty</b></td>
+                <td><form><input type="hidden" name="whichitem" value="7732" />
+                <input type="submit" value="Buy (1000 swagger)" /></form></td></tr>
+            """.trimIndent(),
+            url = "https://www.kingdomofloathing.com/peevpee.php?place=shop",
+            prefs = prefs,
+        )
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(7732, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_jarlCosmicSixPackCoinmasterValidate_live() {
+        registerCorpusItem(6237, "cosmic six-pack")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "jarl\tJarlsberg's Cosmic Kitchen\n",
+            coinText = "Jarlsberg's Cosmic Kitchen\tbuy\t1\tcosmic six-pack\tROW6237\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val char = KoLCharacter().apply {
+            updateFromApiResponse(
+                CharacterApiResponse(
+                    path = net.sourceforge.kolmafia.character.AscensionPath.AVATAR_OF_JARLSBERG.apiName,
+                    meat = "100",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(preferences = prefs, character = char)
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(6237, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterShopSync.applyPurchasedItem(
+            master = net.sourceforge.kolmafia.shop.CoinmasterData(
+                masterName = "Jarlsberg's Cosmic Kitchen",
+                nickname = "jarl",
+                token = null,
+                shopId = "jarl",
+                buyItems = emptyList(),
+                sellItems = emptyList(),
+            ),
+            itemId = 6237,
+            prefs = prefs,
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(6237, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_replicaMrStoreCoinmasterValidate_live() {
+        registerCorpusItem(11190, "replica Dark Jill-O-Lantern")
+        registerCorpusItem(11325, "august scepter")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "mrreplica\tReplica Mr. Store\n",
+            coinText = """
+                Replica Mr. Store	buy	1	replica Dark Jill-O-Lantern	ROW11190
+                Replica Mr. Store	buy	1	august scepter	ROW11325
+            """.trimIndent(),
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(
+                    CharacterApiResponse(
+                        path = net.sourceforge.kolmafia.character.AscensionPath.LEGACY_OF_LOATHING.apiName,
+                        meat = "100000",
+                    ),
+                )
+            },
+        )
+        net.sourceforge.kolmafia.shop.CoinmasterShopSync.apply(
+            html = """<td colspan=14 align=center>&mdash; <b>2023</b> &mdash;</td>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=mrreplica",
+            prefs = prefs,
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(11190, true));""").trim())
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(11325, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_blackMarketCoinmasterValidate_live() {
+        registerCorpusItem(7185, "Red Zeppelin ticket")
+        registerCorpusItem(7221, "priceless diamond")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "blackmarket\tThe Black Market\n",
+            coinText = "The Black Market\tROW290\tRed Zeppelin ticket\tpriceless diamond (1)\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(ascensions = "3", meat = "100000"))
+            },
+            inventoryManager = object : InventoryManager(
+                io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine {
+                    respond("ok", io.ktor.http.HttpStatusCode.OK)
+                }),
+                net.sourceforge.kolmafia.event.GameEventBus(),
+            ) {
+                private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                    InventoryState(
+                        items = mapOf(
+                            7221 to InventoryItem(7221, "priceless diamond", 5, ItemType.OTHER),
+                        ),
+                    ),
+                )
+                override val state = flow.asStateFlow()
+            },
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(7185, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterShopSync.apply(
+            html = "<html>The Black Market</html>",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=blackmarket",
+            prefs = prefs,
+            state = net.sourceforge.kolmafia.character.CharacterState(ascensionNumber = 3),
+        )
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(7185, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_pirateRealmFunALogValidate_live() {
+        registerCorpusItem(10199, "crabsicle")
+        registerCorpusItem(10225, "PirateRealm fun-a-log")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "piraterealm\tPirateRealm Fun-a-Log\n",
+            coinText = "PirateRealm Fun-a-Log\tbuy\t100\tcrabsicle\tROW1053\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(meat = "100000"))
+            },
+            inventoryManager = object : InventoryManager(
+                io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine {
+                    respond("ok", io.ktor.http.HttpStatusCode.OK)
+                }),
+                net.sourceforge.kolmafia.event.GameEventBus(),
+            ) {
+                private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                    InventoryState(
+                        items = mapOf(
+                            10225 to InventoryItem(10225, "PirateRealm fun-a-log", 1, ItemType.OTHER),
+                        ),
+                    ),
+                )
+                override val state = flow.asStateFlow()
+            },
+        )
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(10199, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterShopSync.apply(
+            html = """<tr rel="10199"><td>crabsicle</td></tr>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=piraterealm",
+            prefs = prefs,
+        )
+        assertEquals("true", outputLib(lib, """print(is_coinmaster_item(10199, true));""").trim())
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_dripArmoryShieldValidate_live() {
+        registerCorpusItem(DripArmoryPrefs.DRIPPY_SHIELD, "drippy shield")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "driparmory\tDrip Institute Armory\n",
+            coinText = "Drip Institute Armory\tbuy\t50\tdrippy shield\tROW1132\n",
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(CharacterApiResponse(meat = "100000"))
+            },
+        )
+        assertEquals(
+            "false",
+            outputLib(lib, """print(is_coinmaster_item(${DripArmoryPrefs.DRIPPY_SHIELD}, true));""").trim(),
+        )
+        net.sourceforge.kolmafia.shop.CoinmasterShopSync.apply(
+            html = """<b>drippy shield</b>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=driparmory",
+            prefs = prefs,
+        )
+        assertEquals(
+            "true",
+            outputLib(lib, """print(is_coinmaster_item(${DripArmoryPrefs.DRIPPY_SHIELD}, true));""").trim(),
+        )
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
     }
 
     private fun registerCorpusItem(id: Int, name: String) {

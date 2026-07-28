@@ -8,6 +8,7 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.preferences.Preferences
 
 open class CoinmasterManager(
     private val coinmasterRequest: CoinmasterRequest,
@@ -15,6 +16,7 @@ open class CoinmasterManager(
     private val gameDatabase: GameDatabase?,
     private val client: HttpClient,
     private val character: KoLCharacter? = null,
+    private val preferences: Preferences? = null,
 ) {
     open fun resolveMaster(value: String): CoinmasterData? =
         CoinmasterRegistry.findByNickname(value)
@@ -28,9 +30,13 @@ open class CoinmasterManager(
     open suspend fun visit(master: CoinmasterData): Boolean {
         val shopId = master.shopId ?: return false
         return try {
-            client.get("$KOL_BASE_URL/shop.php") {
+            val html = client.get("$KOL_BASE_URL/shop.php") {
                 parameter("whichshop", shopId)
             }.bodyAsText()
+            val url = "$KOL_BASE_URL/shop.php?whichshop=$shopId"
+            CoinmasterShopSync.apply(html, url, preferences, character?.state?.value)
+            val ascension = character?.state?.value?.ascensionNumber ?: 0
+            NpcShopSync.applyShopVisit(html, url, preferences, ascension)
             true
         } catch (_: Exception) {
             false
@@ -45,7 +51,11 @@ open class CoinmasterManager(
         if (coinmasterRequest.buy(master, rowOrItemId, quantity).isFailure) return 0
         inventoryManager?.fetchInventory()
         val after = inventoryCount(itemId)
-        return (after - before).coerceAtLeast(0)
+        val bought = (after - before).coerceAtLeast(0)
+        if (bought > 0) {
+            CoinmasterShopSync.applyPurchasedItem(master, itemId, preferences)
+        }
+        return bought
     }
 
     open suspend fun sell(master: CoinmasterData, itemId: Int, quantity: Int): Int {

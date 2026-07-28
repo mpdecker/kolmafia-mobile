@@ -68,6 +68,8 @@ import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
+import net.sourceforge.kolmafia.shop.CoinmasterShopSync
+import net.sourceforge.kolmafia.shop.NpcShopSync
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
@@ -200,7 +202,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase174"
+        const val REVISION = "phase181"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1609,6 +1611,23 @@ class GameRuntimeLibrary(
         }
         if (url != null && url.contains("shop.php", ignoreCase = true)) {
             character?.let { StillSync.apply(it, html, url) }
+            preferences?.let { prefs ->
+                val state = character?.state?.value
+                val ascension = state?.ascensionNumber ?: 0
+                CoinmasterShopSync.apply(html, url, prefs, state)
+                NpcShopSync.applyShopVisit(html, url, prefs, ascension)
+            }
+        }
+        if (url != null && url.contains("store.php", ignoreCase = true)) {
+            preferences?.let { prefs ->
+                val ascension = character?.state?.value?.ascensionNumber ?: 0
+                NpcShopSync.applyShopVisit(html, url, prefs, ascension)
+            }
+        }
+        if (url != null && url.contains("peevpee.php", ignoreCase = true) &&
+            url.contains("place=shop", ignoreCase = true)
+        ) {
+            preferences?.let { CoinmasterShopSync.applySwaggerVisit(html, url, it) }
         }
         if (url != null && url.contains("knoll_mushrooms.php", ignoreCase = true)) {
             character?.let { MushroomPlotSync.apply(preferences, it, html, url) }
@@ -2435,6 +2454,20 @@ class GameRuntimeLibrary(
         registerAshP142Batch(scope)
         registerAshP143Batch(scope)
         registerAshP144Batch(scope)
+        registerAshP145Batch(scope)
+        registerAshP146Batch(scope)
+        registerAshP147Batch(scope)
+        registerAshP148Batch(scope)
+        registerAshP149Batch(scope)
+        registerAshP150Batch(scope)
+        registerAshP151Batch(scope)
+        registerAshP152Batch(scope)
+        registerAshP153Batch(scope)
+        registerAshP154Batch(scope)
+        registerAshP155Batch(scope)
+        registerAshP156Batch(scope)
+        registerAshP157Batch(scope)
+        registerAshP158Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

@@ -88,6 +88,13 @@ object CoinmasterAccessibility {
                 null
             }
         }
+        "piraterealm", "piraterealmfunalog" -> { _ ->
+            if (accessibleCount(FunALogUnlockPrefs.PIRATE_REALM_FUN_LOG) <= 0) {
+                "Need PirateRealm fun-a-log"
+            } else {
+                null
+            }
+        }
         else -> null
     }
 }

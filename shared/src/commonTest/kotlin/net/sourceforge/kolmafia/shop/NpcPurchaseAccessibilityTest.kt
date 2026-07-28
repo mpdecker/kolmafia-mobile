@@ -58,4 +58,121 @@ class NpcPurchaseAccessibilityTest {
             ),
         )
     }
+
+    @Test
+    fun bugbear_blockedWithoutCostume() {
+        assertFalse(
+            NpcPurchaseAccessibility.canPurchaseIgnoringMeat(
+                itemId = 683,
+                store = store("bugbear", "Bugbear Bakery"),
+                state = CharacterState(),
+                prefs = prefs(),
+                accessibleCount = { 0 },
+            ),
+        )
+    }
+
+    @Test
+    fun bugbear_allowedWithCostumePieces() {
+        assertTrue(
+            NpcPurchaseAccessibility.canPurchaseIgnoringMeat(
+                itemId = 683,
+                store = store("bugbear", "Bugbear Bakery"),
+                state = CharacterState(),
+                prefs = prefs(),
+                accessibleCount = { if (it == 169 || it == 79) 1 else 0 },
+            ),
+        )
+    }
+
+    @Test
+    fun wildfire_blartBlockedAfterAscensionPurchase() {
+        val p = prefs()
+        p.setBoolean("itemBoughtPerAscension10790", true)
+        assertFalse(
+            NpcPurchaseAccessibility.canPurchaseIgnoringMeat(
+                itemId = 10790,
+                store = store("wildfire", "FDKOL Auxiliary"),
+                state = CharacterState(challengePath = net.sourceforge.kolmafia.character.AscensionPath.WILDFIRE.apiName),
+                prefs = p,
+            ),
+        )
+    }
+
+    @Test
+    fun hippy_peachAllowedAfterSync() {
+        val p = prefs()
+        p.setString(Quest.ISLAND_WAR.prefKey, "step2")
+        NpcShopSync.syncFromStoreHtml(
+            storeKey = "hippy",
+            html = "peach pear plum",
+            prefs = p,
+            ascensionNumber = 5,
+        )
+        assertTrue(
+            NpcPurchaseAccessibility.canPurchaseIgnoringMeat(
+                itemId = 673,
+                store = store("hippy", "Hippy Store (Hippy)"),
+                state = CharacterState(ascensionNumber = 5),
+                prefs = p,
+                accessibleCount = { id ->
+                    when (id) {
+                        2337, 2032, 2033 -> 1
+                        else -> 0
+                    }
+                },
+            ),
+        )
+    }
+
+    @Test
+    fun fwshop_hatBlockedAfterSyncMarksBought() {
+        val p = prefs()
+        NpcShopSync.syncFromStoreHtml(
+            storeKey = "fwshop",
+            html = "<b>Combat Explosives</b>",
+            prefs = p,
+            ascensionNumber = 1,
+        )
+        assertFalse(
+            NpcPurchaseAccessibility.canPurchaseIgnoringMeat(
+                itemId = 10762,
+                store = store("fwshop", "Clan Underground Fireworks Shop"),
+                state = CharacterState(),
+                prefs = p,
+            ),
+        )
+    }
+
+    @Test
+    fun hiddentavern_blockedBeforeSync() {
+        val p = prefs()
+        assertFalse(
+            NpcPurchaseAccessibility.canPurchaseIgnoringMeat(
+                itemId = 175,
+                store = store("hiddentavern", "The Hidden Tavern"),
+                state = CharacterState(ascensionNumber = 5),
+                prefs = p,
+            ),
+        )
+    }
+
+    @Test
+    fun hiddentavern_allowedAfterStoreSync() {
+        val p = prefs()
+        NpcShopSync.syncFromStoreHtml(
+            storeKey = "hiddentavern",
+            html = "<html>Hidden Tavern</html>",
+            prefs = p,
+            ascensionNumber = 5,
+        )
+        assertTrue(
+            NpcPurchaseAccessibility.canPurchaseIgnoringMeat(
+                itemId = 175,
+                store = store("hiddentavern", "The Hidden Tavern"),
+                state = CharacterState(ascensionNumber = 5),
+                prefs = p,
+            ),
+        )
+    }
 }

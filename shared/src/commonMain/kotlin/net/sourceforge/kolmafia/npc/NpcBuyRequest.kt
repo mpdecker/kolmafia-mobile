@@ -25,7 +25,8 @@ open class NpcBuyRequest(private val client: HttpClient) {
                 parameter("whichstore", storeKey)
             }
             val body = response.bodyAsText()
-            NpcShopSync.syncFromStoreHtml(storeKey, body, prefs, ascensionNumber)
+            val url = "$KOL_BASE_URL/store.php?whichstore=$storeKey"
+            NpcShopSync.syncFromStoreHtml(storeKey, body, prefs, ascensionNumber, url)
             Result.success(body)
         } catch (e: CancellationException) {
             throw e
@@ -34,7 +35,12 @@ open class NpcBuyRequest(private val client: HttpClient) {
         }
     }
 
-    open suspend fun buy(storeKey: String, itemId: Int, quantity: Int): Result<Int> = try {
+    open suspend fun buy(
+        storeKey: String,
+        itemId: Int,
+        quantity: Int,
+        prefs: Preferences? = null,
+    ): Result<Int> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/store.php",
             formParameters = parameters {
@@ -49,6 +55,14 @@ open class NpcBuyRequest(private val client: HttpClient) {
         if (body.contains("You can't afford") || body.contains("That store doesn't")) {
             Result.success(0)
         } else {
+            if (quantity > 0 && prefs != null) {
+                NpcShopSync.applyWildfirePurchase(
+                    body,
+                    "$KOL_BASE_URL/store.php?whichstore=$storeKey",
+                    itemId,
+                    prefs,
+                )
+            }
             Result.success(quantity)
         }
     } catch (e: CancellationException) {

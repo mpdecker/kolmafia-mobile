@@ -7,7 +7,7 @@ object FiveDPrinterAccessibility {
 
     const val FIVE_D_PRINTER = 7750
 
-    private val UNKNOWN_RECIPE_ITEMS = intArrayOf(
+    val UNKNOWN_RECIPE_ITEMS = intArrayOf(
         7752, // XIBLAXIAN_XENO_GOGGLES
         7753, // XIBLAXIAN_STEALTH_COWL
         7754, // XIBLAXIAN_STEALTH_TROUSERS

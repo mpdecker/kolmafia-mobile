@@ -427,6 +427,7 @@ val sharedModule = module {
             gameDatabase = get(),
             client = get(),
             character = get(),
+            preferences = get(),
         )
     }
     single {

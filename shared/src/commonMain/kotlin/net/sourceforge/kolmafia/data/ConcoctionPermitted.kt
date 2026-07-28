@@ -61,9 +61,12 @@ object ConcoctionPermitted {
         familiarUsable: (Int) -> Boolean = { false },
         limitMode: String = "none",
     ): Boolean {
+        val methods = ConcoctionMethodAliases.normalize(concoction.methods)
+        if (methods.any { it in ConcoctionMethodAliases.LEGACY_BLOCKED }) return false
+        if ("MANUAL" in methods) return false
+
         val method = ConcoctionCreationCost.primaryMethod(concoction.methods) ?: return false
         if (method !in PERMIT_METHODS) return false
-        if ("MANUAL" in concoction.methods) return false
 
         if (method == "COINMASTER") {
             if (prefs?.getBoolean("autoSatisfyWithCoinmasters", false) != true) return false
@@ -81,21 +84,21 @@ object ConcoctionPermitted {
             return false
         }
 
-        if ("NOBEE" in concoction.methods && state.inBeecore) return false
+        if ("NOBEE" in methods && state.inBeecore) return false
 
-        if ("MALE" in concoction.methods && state.gender != Gender.MALE) return false
-        if ("FEMALE" in concoction.methods && state.gender != Gender.FEMALE) return false
+        if ("MALE" in methods && state.gender != Gender.MALE) return false
+        if ("FEMALE" in methods && state.gender != Gender.FEMALE) return false
 
-        if (method == "SMITH" || method == "SSMITH" || "HAMMER" in concoction.methods) {
+        if (method == "SMITH" || method == "SSMITH" || "HAMMER" in methods) {
             if (!SmithingGates.isSmithPermitted(state, prefs, accessibleCount, limitMode)) {
                 return false
             }
         }
-        if ("GRIMACITE" in concoction.methods && accessibleCount(GRIMACITE_HAMMER) <= 0) {
+        if ("GRIMACITE" in methods && accessibleCount(GRIMACITE_HAMMER) <= 0) {
             return false
         }
 
-        if ("SSPD" in concoction.methods &&
+        if ("SSPD" in methods &&
             !kolHoliday.contains("St. Sneaky Pete's Day") &&
             !kolHoliday.contains("Drunksgiving")
         ) {
@@ -103,14 +106,14 @@ object ConcoctionPermitted {
         }
 
         for ((token, skillId) in SKILL_REQUIREMENTS) {
-            if (token !in concoction.methods) continue
+            if (token !in methods) continue
             when (token) {
                 "TORSO" -> if (!TorsoAwareness.hasTorsoAwareness(skills)) return false
                 else -> if (!hasSkill(skills, skillId)) return false
             }
         }
 
-        for (token in concoction.methods) {
+        for (token in methods) {
             if (token in REQUIREMENT_TOKENS && token !in SKILL_REQUIREMENTS.keys &&
                 token !in setOf("MALE", "FEMALE", "NOBEE", "HAMMER", "GRIMACITE", "SSPD", "TIKI")
             ) {
@@ -151,7 +154,9 @@ object ConcoctionPermitted {
                 skills,
                 limitMode,
             )
-        else -> true
+        "COMBINE", "ACOMBINE" -> true
+        "STAR", "SUGAR", "PIXEL", "TINKER" -> false
+        else -> false
     }
 
     private fun canUseMalus(state: CharacterState, skills: List<SkillData>, prefs: Preferences?): Boolean {

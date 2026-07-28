@@ -9,6 +9,7 @@ import net.sourceforge.kolmafia.item.FreeCraftingTurns
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.modifiers.VykeaCompanionData
+import net.sourceforge.kolmafia.shop.DesertBeachAccessibility
 import net.sourceforge.kolmafia.skill.SkillData
 
 /** Desktop ConcoctionDatabase.recalculatePermittedMethods v1/v2 for selected craft methods. */
@@ -47,7 +48,7 @@ object ConcoctionMethodGates {
     ): Boolean = when (method) {
         "FLOUNDRY" -> isFloundryPermitted(state, prefs, accessibleCount)
         "BARREL" -> isBarrelPermitted(state, prefs)
-        "GNOME_TINKER" -> isGnomeTinkerPermitted(state)
+        "GNOME_TINKER" -> isGnomeTinkerPermitted(state, prefs)
         "GNOME_PART" -> isGnomePartPermitted(prefs, familiarUsable)
         "BURNING_LEAVES" -> isBurningLeavesPermitted(prefs, accessibleCount)
         "VYKEA" -> isVykeaPermitted(prefs, accessibleCount)
@@ -103,9 +104,9 @@ object ConcoctionMethodGates {
         )
     }
 
-    private fun isGnomeTinkerPermitted(state: CharacterState): Boolean {
+    private fun isGnomeTinkerPermitted(state: CharacterState, prefs: Preferences?): Boolean {
         if (state.inZombiecore) return false
-        return gnomadsAvailable(state)
+        return gnomadsAvailable(state, prefs)
     }
 
     private fun isVykeaPermitted(prefs: Preferences?, accessibleCount: (Int) -> Int): Boolean {
@@ -204,7 +205,7 @@ object ConcoctionMethodGates {
         limitMode: String,
     ): Boolean {
         if (!skills.any { it.id == CLIP_ART }) return false
-        if (inBadMoon(state)) return false
+        if (inBadMoon(state) && !skillsRecalled(state, prefs)) return false
         val canInteract = !state.isHardcore && !state.isInRonin
         val summonsUsed = if (canInteract) {
             prefs?.getInt("_clipartSummons", 0) ?: 0
@@ -222,11 +223,22 @@ object ConcoctionMethodGates {
         return FLOUNDRY_ITEM_IDS.any { accessibleCount(it) > 0 }
     }
 
-    private fun gnomadsAvailable(state: CharacterState): Boolean {
+    private fun gnomadsAvailable(state: CharacterState, prefs: Preferences?): Boolean {
         val sign = ZodiacSign.find(state.zodiacSign) ?: return false
-        return sign == ZodiacSign.WOMBAT ||
-            sign == ZodiacSign.BLENDER ||
-            sign == ZodiacSign.PACKRAT
+        if (sign != ZodiacSign.WOMBAT &&
+            sign != ZodiacSign.BLENDER &&
+            sign != ZodiacSign.PACKRAT
+        ) {
+            return false
+        }
+        if (!DesertBeachAccessibility.isAvailable(state, prefs)) return false
+        if (state.isKingdomOfExploathing) return false
+        return true
+    }
+
+    private fun skillsRecalled(state: CharacterState, prefs: Preferences?): Boolean {
+        if (state.skillsRecalled) return true
+        return prefs?.getBoolean("skillsRecalled", false) == true
     }
 
     private fun inBadMoon(state: CharacterState): Boolean =
