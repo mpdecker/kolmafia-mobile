@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.shop
 
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -79,6 +81,18 @@ object CoinmasterDatabase {
             return master to row
         }
         return null
+    }
+
+    /** Desktop CoinmastersDatabase.contains(itemId, validate). */
+    fun containsBuyItem(
+        itemId: Int,
+        validate: Boolean = false,
+        state: CharacterState = CharacterState(),
+        prefs: Preferences? = null,
+        accessibleCount: (Int) -> Int = { 0 },
+    ): Boolean {
+        if (!validate) return findBuyRowForItem(itemId) != null
+        return CoinmasterPurchaseProbe.canPurchaseIgnoringMeat(itemId, state, prefs, accessibleCount)
     }
 
     internal fun resetForTest() {

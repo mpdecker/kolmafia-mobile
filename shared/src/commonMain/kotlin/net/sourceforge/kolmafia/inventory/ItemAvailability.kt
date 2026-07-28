@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.inventory
 
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.NpcStoreDatabase
@@ -17,12 +18,14 @@ object ItemAvailability {
         context: DynamicItemModifierSync.CheckContext,
         prefs: Preferences,
         db: GameDatabase,
+        state: CharacterState? = null,
+        accessibleCount: ((Int) -> Int)? = null,
     ): Boolean {
         if (context.inventoryItemIds.contains(itemId)) return true
         if (canUseStorage(itemId, context, prefs)) return true
         if (canUseMall(itemId, itemName, db, context, prefs)) return true
-        if (canUseNPCStores(itemName, context, prefs)) return true
-        if (canUseCoinmasters(itemId, context, prefs)) return true
+        if (canUseNPCStores(itemId, itemName, context, prefs, state, accessibleCount)) return true
+        if (canUseCoinmasters(itemId, context, prefs, state, accessibleCount)) return true
         if (canUseClanStash(itemId, context, prefs)) return true
         if (canUseCloset(itemId, context, prefs)) return true
         return false
@@ -44,12 +47,25 @@ object ItemAvailability {
     }
 
     fun canUseNPCStores(
+        itemId: Int,
         itemName: String,
         context: DynamicItemModifierSync.CheckContext,
         prefs: Preferences,
+        state: CharacterState? = null,
+        accessibleCount: ((Int) -> Int)? = null,
     ): Boolean {
         if (!prefs.getBoolean("autoSatisfyWithNPCs", false)) return false
         if (LimitModeGates.limitNPCStores(context.limitMode)) return false
+        val countFn = accessibleCount ?: contextAccessibleCount(context)
+        if (state != null) {
+            return NpcStoreDatabase.containsItem(
+                itemId,
+                validate = true,
+                state = state,
+                prefs = prefs,
+                accessibleCount = countFn,
+            )
+        }
         return NpcStoreDatabase.storeForItem(itemName) != null
     }
 
@@ -57,12 +73,34 @@ object ItemAvailability {
         itemId: Int,
         context: DynamicItemModifierSync.CheckContext,
         prefs: Preferences,
+        state: CharacterState? = null,
+        accessibleCount: ((Int) -> Int)? = null,
     ): Boolean {
         if (!prefs.getBoolean("autoSatisfyWithCoinmasters", false)) return false
         if (LimitModeGates.limitCoinmasters(context.limitMode)) return false
         if (itemId == HermitRequest.ELEVEN_LEAF_CLOVER_ID && context.hermitCloverCount < 1) return false
+        val countFn = accessibleCount ?: contextAccessibleCount(context)
+        if (state != null) {
+            return CoinmasterDatabase.containsBuyItem(
+                itemId,
+                validate = true,
+                state = state,
+                prefs = prefs,
+                accessibleCount = countFn,
+            )
+        }
         return CoinmasterDatabase.findBuyRowForItem(itemId) != null
     }
+
+    internal fun contextAccessibleCount(context: DynamicItemModifierSync.CheckContext): (Int) -> Int =
+        { itemId ->
+            var count = 0
+            if (itemId in context.inventoryItemIds) count++
+            if (itemId in context.storageItemIds) count++
+            if (itemId in context.closetItemIds) count++
+            if (itemId in context.stashItemIds) count++
+            count
+        }
 
     fun canUseStorage(
         itemId: Int,

@@ -31,6 +31,27 @@ object ItemDatabase {
     }
     fun all(): Collection<ItemData> = byId.values
 
+    fun isTradeable(itemId: Int): Boolean = getById(itemId)?.isTradeable ?: false
+
+    fun isGiftable(itemId: Int): Boolean = getById(itemId)?.isGiftable ?: false
+
+    fun isDiscardable(itemId: Int): Boolean = getById(itemId)?.isDiscardable ?: false
+
+    fun isQuestItem(itemId: Int): Boolean = getById(itemId)?.isQuestItem ?: false
+
+    fun isDisplayable(itemId: Int): Boolean =
+        itemId > 0 && !isQuestItem(itemId) && !isVirtualItem(itemId)
+
+    /** Virtual items exist in KoL data but cannot live in inventory (desktop ItemDatabase.isVirtualItem). */
+    fun isVirtualItem(itemId: Int): Boolean = itemId in VIRTUAL_ITEM_IDS
+
+    fun getPluralName(itemId: Int): String {
+        if (itemId <= 0) return ""
+        val item = getById(itemId) ?: return ""
+        val plural = item.plural?.takeIf { it.isNotBlank() }
+        return plural ?: "${item.name}s"
+    }
+
     /** Test hook — register an item without loading items.txt. */
     internal fun registerForTest(item: ItemData) {
         byId[item.id] = item
@@ -77,4 +98,23 @@ object ItemDatabase {
             plural?.let { byPlural[it.lowercase()] = item }
         }
     }
+
+    private val VIRTUAL_ITEM_IDS = setOf(
+        3649, // madness reef map
+        3683, // marinara trench map
+        3701, // anemone mine map
+        3774, // dive bar map
+        4222, // skate park map
+        7589, // glass of milk
+        7590, // cup of tea
+        7591, // thermos of whiskey
+        7592, // lucky lindy
+        7593, // bee's knees
+        7594, // sockdolloger
+        7595, // ish kabibble
+        7596, // hot socks
+        7597, // phonus balonus
+        7598, // flivver
+        7599, // sloppy jalopy
+    )
 }
