@@ -18,7 +18,7 @@ class GameRuntimeLibraryAshP165Test {
 
     @Test
     fun revision_phase185() {
-        assertEquals("phase190", GameRuntimeLibrary.REVISION)
+        assertEquals("phase200", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -82,11 +82,14 @@ class GameRuntimeLibraryAshP165Test {
     }
 
     @Test
-    fun timeTowerToggleClearsCachedFreepulls() {
+    fun timeTowerClose_migratesToolbeltToStorageCache() {
+        val toolbeltId = StoragePullRules.TIME_TWITCHING_TOOLBELT
         val p = Preferences(MapSettings())
-        p.setString(Preferences.CACHED_FREEPULLS, "7566:2")
-        p.setBoolean(TimeTowerSync.PREF, false)
-        TimeTowerSync.syncFromChronerShopHtml("Welcome to the merch table.", p)
+        p.setString(Preferences.CACHED_FREEPULLS, "$toolbeltId:2")
+        p.setBoolean(TimeTowerSync.PREF, true)
+        TimeTowerSync.syncFromChronerShopHtml("That store isn't there anymore.", p)
+        assertEquals(false, p.getBoolean(TimeTowerSync.PREF, true))
+        assertEquals("$toolbeltId:2", p.getString(Preferences.CACHED_STORAGE, "unset"))
         assertEquals("", p.getString(Preferences.CACHED_FREEPULLS, "unset"))
     }
 }

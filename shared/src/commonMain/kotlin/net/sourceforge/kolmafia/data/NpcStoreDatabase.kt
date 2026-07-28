@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import net.sourceforge.kolmafia.shop.NpcPurchaseAccessibility
+import net.sourceforge.kolmafia.shop.NpcStoreVisitOverlay
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
 @OptIn(ExperimentalResourceApi::class)
@@ -83,9 +84,11 @@ object NpcStoreDatabase {
 
     fun npcPrice(itemName: String): Int = _itemPrices[itemName.lowercase()] ?: 0
 
-    fun storeForItem(itemName: String): NpcStoreData? = _byItemName[itemName.lowercase()]
+    fun storeForItem(itemName: String): NpcStoreData? =
+        _byItemName[itemName.lowercase()] ?: NpcStoreVisitOverlay.storeForItem(itemName)
 
-    fun itemEntry(itemId: Int): Pair<NpcStoreData, NpcStoreItem>? = _byItemId[itemId]
+    fun itemEntry(itemId: Int): Pair<NpcStoreData, NpcStoreItem>? =
+        _byItemId[itemId] ?: NpcStoreVisitOverlay.itemEntry(itemId)
 
     /** Desktop NPCStoreDatabase.contains(itemId, validate). */
     fun containsItem(

@@ -14,14 +14,17 @@ import kotlinx.coroutines.launch
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.shop.StandardRewardCurrencySync
 
 open class InventoryManager(
     private val client: HttpClient,
     private val eventBus: GameEventBus,
     private val characterRequest: CharacterRequest? = null,
     private val character: KoLCharacter? = null,
+    private val preferences: Preferences? = null,
 ) {
     protected val _state = MutableStateFlow(InventoryState())
     open val state: StateFlow<InventoryState> = _state.asStateFlow()
@@ -41,6 +44,7 @@ open class InventoryManager(
     }
 
     open suspend fun fetchInventory() {
+        val before = _state.value.items.mapValues { it.value.quantity }
         try {
             val invResponse = client.get("$KOL_BASE_URL/api.php") {
                 parameter("what", "inventory")
@@ -58,6 +62,7 @@ open class InventoryManager(
                     ?: return@associate idStr.hashCode() to InventoryItem(idStr.hashCode(), idStr, qty, ItemType.OTHER)
                 id to InventoryItem(id, "Item #$id", qty, ItemType.OTHER)
             }
+            StandardRewardCurrencySync.onInventoryDelta(before, items.mapValues { it.value.quantity }, preferences)
             _state.value = _state.value.copy(items = items, isStale = false)
         } catch (e: Exception) {
             _state.value = _state.value.copy(isStale = true)

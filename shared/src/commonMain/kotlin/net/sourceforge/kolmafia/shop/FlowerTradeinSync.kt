@@ -8,10 +8,7 @@ object FlowerTradeinSync {
     const val SHOP_ID = CoinmasterVisitInventory.FLOWER_TRADEIN
     const val CHRONER = 7567
 
-    private val ITEM_PATTERN = Regex(
-        """<tr rel="(\d+)">.*?onClick='javascript:descitem\((\d+)\)'>.*?<b>(.*?)</b>.*?title="(.*?)".*?<b>([\d,]+)</b>.*?whichrow=(\d+)""",
-        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-    )
+    private val PAREN_COUNT_PATTERN = Regex("""^(.+?)\s*\(([\d,]+)\)$""")
 
     private val FLOWER_NAME_TO_ID = mapOf(
         "rose" to FlowerTradeinAccessibility.ROSE,
@@ -21,30 +18,39 @@ object FlowerTradeinSync {
     )
 
     fun syncFromShopHtml(html: String, prefs: Preferences) {
-        val rows = mutableListOf<ShopRow>()
-        for (match in ITEM_PATTERN.findAll(html)) {
-            val itemName = match.groupValues[3].trim()
-            val currencyName = match.groupValues[4].trim()
-            val price = match.groupValues[5].replace(",", "").toIntOrNull() ?: continue
-            val rowId = match.groupValues[6].toIntOrNull() ?: continue
-
-            val boughtItemId = when {
-                itemName.equals("Chroner", ignoreCase = true) -> CHRONER
-                else -> match.groupValues[1].toIntOrNull() ?: continue
-            }
-            val flowerId = FLOWER_NAME_TO_ID.entries.firstOrNull { (name, _) ->
-                currencyName.equals(name, ignoreCase = true)
-            }?.value ?: continue
-
-            rows.add(
-                ShopRow(
-                    rowId = rowId,
-                    item = ItemStack(itemId = boughtItemId, count = 1),
-                    costs = listOf(ItemStack(itemId = flowerId, count = price)),
-                ),
-            )
+        val rows = ShopRowParser.parseSingleCostRows(html).mapNotNull { parsed ->
+            mapRow(parsed)
         }
-
         CoinmasterVisitInventory.replaceBuyRows(SHOP_ID, rows)
+    }
+
+    internal fun mapRow(parsed: ShopRowParser.ParsedSingleCostRow): ShopRow? {
+        val item = parseChronerItem(parsed.itemId, parsed.itemName) ?: return null
+        val flowerId = flowerId(parsed.currencyName) ?: return null
+        return ShopRow(
+            rowId = parsed.rowId,
+            item = item,
+            costs = listOf(ItemStack(itemId = flowerId, count = parsed.price)),
+        )
+    }
+
+    private fun parseChronerItem(itemId: Int, itemName: String): ItemStack? {
+        if (!itemName.startsWith("Chroner", ignoreCase = true)) {
+            return ItemStack(itemId, 1)
+        }
+        val count = parseParenCount(itemName)?.second ?: 1
+        return ItemStack(CHRONER, count)
+    }
+
+    private fun flowerId(currencyName: String): Int? =
+        FLOWER_NAME_TO_ID.entries.firstOrNull { (name, _) ->
+            currencyName.equals(name, ignoreCase = true)
+        }?.value
+
+    private fun parseParenCount(name: String): Pair<String, Int>? {
+        val match = PAREN_COUNT_PATTERN.find(name.trim()) ?: return null
+        val base = match.groupValues[1].trim()
+        val count = match.groupValues[2].replace(",", "").toIntOrNull() ?: return null
+        return base to count
     }
 }

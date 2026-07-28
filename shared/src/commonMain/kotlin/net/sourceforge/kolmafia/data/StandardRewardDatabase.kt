@@ -47,12 +47,22 @@ object StandardRewardDatabase {
     }
 
     fun findPulverization(reward: StandardReward): Int =
-        findPulverization(reward.year + 1, reward.hardcore)
+        findPulverization(reward.year, reward.hardcore)
 
     fun findPulverization(year: Int, hardcore: Boolean): Int =
         pulverizedByYearAndType[year]?.get(hardcore)?.itemId ?: -1
 
     fun isPulverizedStandardReward(itemId: Int): Boolean = pulverizedByItemId.containsKey(itemId)
+
+    /** Desktop [StandardRewardDatabase.derivePulverization] — map rewards to pulverized currency IDs. */
+    fun derivePulverization() {
+        for ((itemId, reward) in rewardByItemId) {
+            val currencyId = findPulverization(reward)
+            if (currencyId > 0) {
+                EquipmentDatabase.addPulverization(itemId, currencyId)
+            }
+        }
+    }
 
     suspend fun load() {
         if (loaded) return
@@ -133,6 +143,44 @@ object StandardRewardDatabase {
         "DB" -> CharacterClass.DISCO_BANDIT
         "AT" -> CharacterClass.ACCORDION_THIEF
         else -> null
+    }
+
+    /** Desktop [StandardRewardDatabase.toData] for standard-rewards.txt rows. */
+    fun toData(reward: StandardReward): String =
+        buildString {
+            append(reward.itemId)
+            append('\t')
+            append(reward.year)
+            append('\t')
+            append(if (reward.hardcore) "hard" else "norm")
+            append('\t')
+            append(classCode(reward.characterClass))
+            append('\t')
+            append(reward.row)
+            append('\t')
+            append(reward.itemName)
+        }
+
+    /** Desktop [StandardRewardDatabase.toData] for standard-pulverized.txt rows. */
+    fun toData(pulverized: StandardPulverized): String =
+        buildString {
+            append(pulverized.itemId)
+            append('\t')
+            append(pulverized.year)
+            append('\t')
+            append(if (pulverized.hardcore) "hard" else "norm")
+            append('\t')
+            append(pulverized.itemName)
+        }
+
+    private fun classCode(characterClass: CharacterClass): String = when (characterClass) {
+        CharacterClass.SEAL_CLUBBER -> "SC"
+        CharacterClass.TURTLE_TAMER -> "TT"
+        CharacterClass.PASTAMANCER -> "PA"
+        CharacterClass.SAUCEROR -> "SA"
+        CharacterClass.DISCO_BANDIT -> "DB"
+        CharacterClass.ACCORDION_THIEF -> "AT"
+        else -> "NONE"
     }
 
     fun parseRowNumber(row: String): Int? {

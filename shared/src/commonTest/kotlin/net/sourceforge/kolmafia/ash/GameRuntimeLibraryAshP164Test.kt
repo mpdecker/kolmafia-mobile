@@ -12,6 +12,7 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.shop.ItemStack
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.StoragePullRules
 import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterPurchaseProbe
 import net.sourceforge.kolmafia.shop.CoinmasterVisitInventory
@@ -155,14 +156,15 @@ class GameRuntimeLibraryAshP164Test {
     }
 
     @Test
-    fun timeTowerToggleClearsCachedStorage() {
+    fun timeTowerOpen_migratesToolbeltToFreepullCache() {
+        val toolbeltId = StoragePullRules.TIME_TWITCHING_TOOLBELT
         val p = Preferences(MapSettings())
-        p.setString(Preferences.CACHED_STORAGE, "7566:1")
+        p.setString(Preferences.CACHED_STORAGE, "$toolbeltId:1")
         p.setBoolean(TimeTowerSync.PREF, false)
         TimeTowerSync.syncFromChronerShopHtml("Welcome to the merch table.", p)
         assertTrue(p.getBoolean(TimeTowerSync.PREF, false))
         assertEquals("", p.getString(Preferences.CACHED_STORAGE, "unset"))
-        assertEquals("", p.getString(Preferences.CACHED_FREEPULLS, "unset"))
+        assertEquals("$toolbeltId:1", p.getString(Preferences.CACHED_FREEPULLS, "unset"))
     }
 
     private fun registerItem(id: Int, name: String) {

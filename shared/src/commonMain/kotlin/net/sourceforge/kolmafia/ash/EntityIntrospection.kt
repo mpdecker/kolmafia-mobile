@@ -50,9 +50,33 @@ internal fun GameRuntimeLibrary.entityName(type: AshType, ref: String): String {
 internal fun GameRuntimeLibrary.entityDesc(type: AshType, ref: String): String {
     val db = gameDatabase ?: return ""
     return when (type) {
-        AshType.ITEM -> db.item(ref)?.id?.let { DescriptionCache.itemDescription(it) }.orEmpty()
-        AshType.EFFECT -> db.effect(ref)?.id?.let { DescriptionCache.effectDescription(it) }.orEmpty()
-        AshType.SKILL -> db.skill(ref)?.id?.let { DescriptionCache.skillDescription(it) }.orEmpty()
+        AshType.ITEM -> {
+            val item = db.item(ref) ?: return ""
+            val cached = DescriptionCache.itemDescription(item.id)
+            if (cached.isNotEmpty()) return cached
+            if (item.descId.isNotBlank() && httpClient != null) {
+                fetchDescription("desc_item.php?whichitem=${item.descId}")
+            }
+            DescriptionCache.itemDescription(item.id)
+        }
+        AshType.EFFECT -> {
+            val effect = db.effect(ref) ?: return ""
+            val cached = DescriptionCache.effectDescription(effect.id)
+            if (cached.isNotEmpty()) return cached
+            if (effect.descId.isNotBlank() && httpClient != null) {
+                fetchDescription("desc_effect.php?whicheffect=${effect.descId}")
+            }
+            DescriptionCache.effectDescription(effect.id)
+        }
+        AshType.SKILL -> {
+            val skill = db.skill(ref) ?: return ""
+            val cached = DescriptionCache.skillDescription(skill.id)
+            if (cached.isNotEmpty()) return cached
+            if (httpClient != null) {
+                fetchDescription("desc_skill.php?whichskill=${skill.id}&self=true")
+            }
+            DescriptionCache.skillDescription(skill.id)
+        }
         else -> ""
     }
 }

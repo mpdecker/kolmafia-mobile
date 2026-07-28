@@ -219,6 +219,7 @@ val sharedModule = module {
             eventBus = get(),
             characterRequest = get(),
             character = get(),
+            preferences = get(),
         )
     }
     singleOf(::FamiliarManager)

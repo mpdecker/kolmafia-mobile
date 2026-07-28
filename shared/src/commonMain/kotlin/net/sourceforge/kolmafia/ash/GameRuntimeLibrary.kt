@@ -70,6 +70,7 @@ import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.shop.CoinmasterShopSync
 import net.sourceforge.kolmafia.shop.NpcShopSync
+import net.sourceforge.kolmafia.shop.ShopInventorySync
 import net.sourceforge.kolmafia.shop.SeptEmberSync
 import net.sourceforge.kolmafia.shop.SleazeAirportSync
 import net.sourceforge.kolmafia.shop.TimeTowerSync
@@ -206,7 +207,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase190"
+        const val REVISION = "phase200"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1623,10 +1624,11 @@ class GameRuntimeLibrary(
         }
         if (url != null && url.contains("shop.php", ignoreCase = true)) {
             character?.let { StillSync.apply(it, html, url) }
+            ShopInventorySync.parseAndLearn(html, url, sessionLogger)
             preferences?.let { prefs ->
                 val state = character?.state?.value
                 val ascension = state?.ascensionNumber ?: 0
-                CoinmasterShopSync.apply(html, url, prefs, state)
+                CoinmasterShopSync.apply(html, url, prefs, state, sessionLogger)
                 NpcShopSync.applyShopVisit(html, url, prefs, ascension)
             }
         }
@@ -2216,7 +2218,11 @@ class GameRuntimeLibrary(
         )
     }
 
-    private fun visitKolPage(path: String, applyQuestHooks: Boolean = false) {
+    internal fun fetchDescription(path: String) {
+        visitKolPage(path)
+    }
+
+    internal fun visitKolPage(path: String, applyQuestHooks: Boolean = false) {
         val client = httpClient ?: return
         val db = questDatabase
         kotlinx.coroutines.runBlocking {
@@ -2530,6 +2536,26 @@ class GameRuntimeLibrary(
         registerAshP174Batch(scope)
         registerAshP175Batch(scope)
         registerAshP176Batch(scope)
+        registerAshP177Batch(scope)
+        registerAshP178Batch(scope)
+        registerAshP179Batch(scope)
+        registerAshP180Batch(scope)
+        registerAshP181Batch(scope)
+        registerAshP182Batch(scope)
+        registerAshP183Batch(scope)
+        registerAshP184Batch(scope)
+        registerAshP185Batch(scope)
+        registerAshP186Batch(scope)
+        registerAshP187Batch(scope)
+        registerAshP188Batch(scope)
+        registerAshP189Batch(scope)
+        registerAshP190Batch(scope)
+        registerAshP191Batch(scope)
+        registerAshP192Batch(scope)
+        registerAshP193Batch(scope)
+        registerAshP194Batch(scope)
+        registerAshP195Batch(scope)
+        registerAshP196Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

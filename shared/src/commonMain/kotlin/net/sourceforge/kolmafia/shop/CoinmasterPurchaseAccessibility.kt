@@ -168,6 +168,7 @@ object CoinmasterPurchaseAccessibility {
         hasSkill: (Int) -> Boolean = { false },
     ): Boolean {
         if (!standardRewardItemAvailable(itemId)) return false
+        if (!visitInventoryItemAvailable(master, itemId)) return false
         val nickname = master.nickname.lowercase()
         return when {
             nickname == "blackmarket" ||
@@ -239,8 +240,30 @@ object CoinmasterPurchaseAccessibility {
             nickname == "wereprofessor_tinker" ||
                 master.masterName.equals("Tinkering Bench", ignoreCase = true) ->
                 tinkeringBenchItemAvailable(itemId, accessibleCount)
+            nickname == "fdkol" ||
+                master.masterName.equals("FDKOL Requisitions Tent", ignoreCase = true) ->
+                fdkolItemAvailable(itemId, prefs)
             else -> true
         }
+    }
+
+    /** AshP192/AshP194 — visit-learned inventory gates for coinmasters with runtime overlay rows. */
+    internal fun visitInventoryItemAvailable(master: CoinmasterData, itemId: Int): Boolean {
+        val shopId = master.shopId?.lowercase() ?: return true
+        if (!CoinmasterVisitInventory.hasVisited(shopId)) return true
+        if (CoinmasterVisitInventory.isDynamicShop(shopId) ||
+            CoinmasterVisitInventory.hasVisitOverlay(shopId)
+        ) {
+            return CoinmasterVisitInventory.containsItem(shopId, itemId)
+        }
+        return true
+    }
+
+    private fun fdkolItemAvailable(itemId: Int, prefs: Preferences?): Boolean {
+        if (CoinmasterVisitInventory.hasVisited("fdkol")) {
+            return CoinmasterVisitInventory.containsItem("fdkol", itemId)
+        }
+        return true
     }
 
     fun standardRewardItemAvailable(itemId: Int): Boolean {

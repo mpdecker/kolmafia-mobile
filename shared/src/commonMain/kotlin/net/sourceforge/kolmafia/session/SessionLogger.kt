@@ -40,6 +40,24 @@ class SessionLogger(
             .takeLast(cutoff * MAX_LINES)
     }
 
+    /** Desktop [RequestLogger.updateSessionLog] raw line append for spading output. */
+    fun appendRawLine(line: String) {
+        if (line.isBlank()) return
+        val existing = preferences.getString(SESSION_LOG_KEY, "")
+            .lines()
+            .filter { it.isNotBlank() }
+            .toMutableList()
+        existing.add(line)
+        while (existing.size > MAX_LINES) existing.removeAt(0)
+        preferences.setString(SESSION_LOG_KEY, existing.joinToString("\n"))
+    }
+
+    fun appendRawLines(lines: Collection<String>) {
+        for (line in lines) {
+            appendRawLine(line)
+        }
+    }
+
     private fun formatTimestamp(): String =
         net.sourceforge.kolmafia.ash.currentDateTimeString()
 
