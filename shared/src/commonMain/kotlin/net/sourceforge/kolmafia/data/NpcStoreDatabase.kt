@@ -94,6 +94,8 @@ object NpcStoreDatabase {
         state: CharacterState = CharacterState(),
         prefs: Preferences? = null,
         accessibleCount: (Int) -> Int = { 0 },
+        hasActiveEffect: (Int) -> Boolean = { false },
+        familiarUsable: (Int) -> Boolean = { false },
     ): Boolean {
         val entry = itemEntry(itemId) ?: run {
             val name = ItemDatabase.getById(itemId)?.name ?: return false
@@ -107,6 +109,8 @@ object NpcStoreDatabase {
             state,
             prefs,
             accessibleCount,
+            hasActiveEffect,
+            familiarUsable,
         )
     }
 

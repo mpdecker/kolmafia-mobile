@@ -58,4 +58,16 @@ class NpcBuyRequestTest {
         val result = NpcBuyRequest(HttpClient(engine)).buy("guildstore1", 456, 1)
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun visitStore_syncsBartlebysEphemera() = runTest {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        val engine = MockEngine {
+            respond("<html>pirate tract</html>", HttpStatusCode.OK)
+        }
+        NpcBuyRequest(HttpClient(engine)).visitStore("bartlebys", preferences, 4)
+        assertEquals(4, preferences.getInt("lastPirateEphemeraReset", -1))
+        assertEquals("pirate tract", preferences.getString("lastPirateEphemera", ""))
+    }
 }

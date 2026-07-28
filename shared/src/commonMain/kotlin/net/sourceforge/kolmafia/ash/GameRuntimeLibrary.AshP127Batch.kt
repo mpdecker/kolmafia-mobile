@@ -23,6 +23,8 @@ internal fun GameRuntimeLibrary.npcItemAccessible(itemId: Int): Boolean =
         state = craftCharacterState(),
         prefs = preferences,
         accessibleCount = { id -> craftAccessibleCount(id) },
+        hasActiveEffect = { effectId -> hasActiveEffect(effectId) },
+        familiarUsable = { familiarId -> npcFamiliarUsable(familiarId) },
     )
 
 internal fun GameRuntimeLibrary.coinmasterItemAccessible(itemId: Int): Boolean =

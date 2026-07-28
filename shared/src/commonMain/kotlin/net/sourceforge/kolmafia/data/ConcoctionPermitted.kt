@@ -21,16 +21,20 @@ object ConcoctionPermitted {
         "STAR", "SUGAR", "PIXEL", "ROLL", "TINKER", "STAFF", "SUSHI",
         "JEWEL", "MALUS", "GNOME_TINKER", "JEWELRY", "MULTI_USE", "SINGLE_USE",
         "ROLLING_PIN", "CLIPART", "SAUSAGE_O_MATIC", "COINMASTER",
+        "FLOUNDRY", "BARREL", "VYKEA",
+        "GNOME_PART", "BURNING_LEAVES", "WAX", "NEWSPAPER", "METEOROID", "WOOL",
+        "TERMINAL", "SPACEGATE", "FANTASY_REALM", "STILLSUIT", "MAYAM", "PHOTO_BOOTH", "TAKERSPACE",
     )
 
     private val REQUIREMENT_TOKENS = setOf(
         "MALE", "FEMALE", "SSPD", "HAMMER", "GRIMACITE", "TORSO", "WEAPON",
         "ARMOR", "ELDRITCH", "EXPENSIVE", "REAGENT", "WAY", "DEEP", "PASTAMASTERY",
-        "TRANSNOODLE", "TEMPURAMANCY", "PATENT", "AC", "SHC", "SALACIOUS", "NOBEE",
+        "TRANSNOODLE", "TEMPURAMANCY", "PATENT", "AC", "SHC", "SALACIOUS", "NOBEE", "TIKI",
     )
 
     private val SKILL_REQUIREMENTS = mapOf(
         "TORSO" to 12,
+        "TIKI" to 186,
         "ELDRITCH" to 161,
         "EXPENSIVE" to 20,
         "REAGENT" to 4006,
@@ -54,6 +58,8 @@ object ConcoctionPermitted {
         kolHoliday: String = KolGameHolidayCalendar.getHoliday(),
         accessibleCount: (Int) -> Int = { 0 },
         prefs: Preferences? = null,
+        familiarUsable: (Int) -> Boolean = { false },
+        limitMode: String = "none",
     ): Boolean {
         val method = ConcoctionCreationCost.primaryMethod(concoction.methods) ?: return false
         if (method !in PERMIT_METHODS) return false
@@ -71,7 +77,9 @@ object ConcoctionPermitted {
             )
         }
 
-        if (!isMethodPermitted(method, state, skills, prefs, accessibleCount)) return false
+        if (!isMethodPermitted(method, state, skills, prefs, accessibleCount, familiarUsable, limitMode)) {
+            return false
+        }
 
         if ("NOBEE" in concoction.methods && state.inBeecore) return false
 
@@ -79,7 +87,9 @@ object ConcoctionPermitted {
         if ("FEMALE" in concoction.methods && state.gender != Gender.FEMALE) return false
 
         if (method == "SMITH" || method == "SSMITH" || "HAMMER" in concoction.methods) {
-            if (accessibleCount(TENDERIZING_HAMMER) <= 0) return false
+            if (!SmithingGates.isSmithPermitted(state, prefs, accessibleCount, limitMode)) {
+                return false
+            }
         }
         if ("GRIMACITE" in concoction.methods && accessibleCount(GRIMACITE_HAMMER) <= 0) {
             return false
@@ -93,12 +103,16 @@ object ConcoctionPermitted {
         }
 
         for ((token, skillId) in SKILL_REQUIREMENTS) {
-            if (token in concoction.methods && !hasSkill(skills, skillId)) return false
+            if (token !in concoction.methods) continue
+            when (token) {
+                "TORSO" -> if (!TorsoAwareness.hasTorsoAwareness(skills)) return false
+                else -> if (!hasSkill(skills, skillId)) return false
+            }
         }
 
         for (token in concoction.methods) {
             if (token in REQUIREMENT_TOKENS && token !in SKILL_REQUIREMENTS.keys &&
-                token !in setOf("MALE", "FEMALE", "NOBEE", "HAMMER", "GRIMACITE", "SSPD")
+                token !in setOf("MALE", "FEMALE", "NOBEE", "HAMMER", "GRIMACITE", "SSPD", "TIKI")
             ) {
                 return false
             }
@@ -113,11 +127,30 @@ object ConcoctionPermitted {
         skills: List<SkillData>,
         prefs: Preferences?,
         accessibleCount: (Int) -> Int,
+        familiarUsable: (Int) -> Boolean,
+        limitMode: String,
     ): Boolean = when (method) {
         "STILL" -> state.stillsAvailable > 0
         "SUSHI" -> prefs?.getBoolean("hasSushiMat", false) == true
         "MALUS" -> canUseMalus(state, skills, prefs)
         "SAUSAGE_O_MATIC" -> hasSausageOMatic(state, accessibleCount)
+        "STAFF", "PHINEAS",
+        "COOK", "MIX", "COOK_FANCY", "MIX_FANCY",
+        "SMITH", "SSMITH", "CLIPART", "JEWEL", "JEWELRY",
+        "ROLL", "ROLLING_PIN", "SEWER", "MUSE", "SUSE", "MULTI_USE", "SINGLE_USE",
+        "FLOUNDRY", "BARREL", "GNOME_TINKER", "VYKEA",
+        "GNOME_PART", "BURNING_LEAVES", "WAX", "NEWSPAPER", "METEOROID", "WOOL",
+        "TERMINAL", "SPACEGATE", "FANTASY_REALM", "STILLSUIT", "MAYAM", "PHOTO_BOOTH", "TAKERSPACE",
+        ->
+            ConcoctionMethodGates.isPermitted(
+                method,
+                state,
+                prefs,
+                accessibleCount,
+                familiarUsable,
+                skills,
+                limitMode,
+            )
         else -> true
     }
 

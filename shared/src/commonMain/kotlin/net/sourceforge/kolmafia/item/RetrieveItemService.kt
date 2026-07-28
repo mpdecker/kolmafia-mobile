@@ -12,6 +12,8 @@ import net.sourceforge.kolmafia.inventory.ItemRestriction
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.shop.NpcShopSync
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.CraftRequest
@@ -40,6 +42,7 @@ open class RetrieveItemService(
     private val hermitRequest: HermitRequest? = null,
     private val familiarRequest: FamiliarRequest? = null,
     private val character: KoLCharacter? = null,
+    private val preferences: Preferences? = null,
     private val standardRequest: StandardRequest? = null,
     private val thriftyRequest: ThriftyRequest? = null,
     private val trendyRequest: TrendyRequest? = null,
@@ -96,6 +99,13 @@ open class RetrieveItemService(
         if (remaining > 0 && npcBuyRequest != null) {
             val npcStore = gameDatabase?.npcStoreFor(itemName)
             if (npcStore != null) {
+                if (NpcShopSync.needsSync(npcStore.storeKey) && preferences != null && charState != null) {
+                    npcBuyRequest.visitStore(
+                        npcStore.storeKey,
+                        preferences,
+                        charState.ascensionNumber,
+                    )
+                }
                 val before = inventoryCount(itemId)
                 val bought = npcBuyRequest.buy(npcStore.storeKey, itemId, remaining).getOrDefault(0)
                 inventoryManager?.fetchInventory()

@@ -20,6 +20,8 @@ import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
+import net.sourceforge.kolmafia.preferences.Preferences
+import com.russhwolf.settings.MapSettings
 
 class GameRuntimeLibraryAshP122Test {
 
@@ -85,7 +87,9 @@ class GameRuntimeLibraryAshP122Test {
                 5103 to InventoryItem(5103, "chicken wing", 4, ItemType.OTHER),
             ),
         )
-        val lib = GameRuntimeLibrary(inventoryManager = inventory)
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean("hasOven", true)
+        val lib = GameRuntimeLibrary(inventoryManager = inventory, preferences = prefs)
         assertEquals("2", outputLib(lib, """print(creatable_amount(to_item("hot wing")));""").trim())
     }
 

@@ -38,7 +38,9 @@ object CoinmasterDatabase {
         val builders = mutableMapOf<String, Builder>()
 
         fun builderFor(masterName: String): Builder =
-            builders.getOrPut(masterName) { Builder(masterName, shopNameToKey[masterName]) }
+            builders.getOrPut(masterName) {
+                Builder(masterName, shopNameToKey[masterName.lowercase()])
+            }
 
         for (raw in coinText.lines()) {
             val line = raw.trim()
@@ -89,10 +91,17 @@ object CoinmasterDatabase {
         validate: Boolean = false,
         state: CharacterState = CharacterState(),
         prefs: Preferences? = null,
+        hasSkill: (Int) -> Boolean = { false },
         accessibleCount: (Int) -> Int = { 0 },
     ): Boolean {
         if (!validate) return findBuyRowForItem(itemId) != null
-        return CoinmasterPurchaseProbe.canPurchaseIgnoringMeat(itemId, state, prefs, accessibleCount)
+        return CoinmasterPurchaseProbe.canPurchaseIgnoringMeat(
+            itemId,
+            state,
+            prefs,
+            hasSkill,
+            accessibleCount,
+        )
     }
 
     internal fun resetForTest() {

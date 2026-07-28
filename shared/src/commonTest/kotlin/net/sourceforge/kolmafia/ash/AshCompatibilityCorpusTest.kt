@@ -1847,6 +1847,293 @@ class AshCompatibilityCorpusTest {
         assertEquals("true", outputLib(lib, """print(can_expand_liver());""").trim())
     }
 
+    @Test
+    fun corpus_vykeaConcoctionPrice_live() {
+        registerCorpusItem(8729, "VYKEA hex key")
+        registerCorpusItem(8730, "VYKEA instructions")
+        registerCorpusItem(8725, "VYKEA plank")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "level 1 couch",
+                resultQuantity = 1,
+                methods = setOf("VYKEA"),
+                ingredients = listOf(
+                    ConcoctionIngredient("VYKEA instructions", 1),
+                    ConcoctionIngredient("VYKEA plank", 10),
+                ),
+            ),
+        )
+        val mall = object : net.sourceforge.kolmafia.mall.MallManager(
+            net.sourceforge.kolmafia.mall.MallSearchRequest(
+                HttpClient(MockEngine { respond("[]") }),
+            ),
+            net.sourceforge.kolmafia.mall.MallPurchaseRequest(
+                HttpClient(MockEngine { respond("") }),
+            ),
+            null,
+        ) {
+            override suspend fun cheapestPrice(itemName: String): Long = when {
+                itemName.equals("VYKEA instructions", ignoreCase = true) -> 111L
+                itemName.equals("VYKEA plank", ignoreCase = true) -> 5L
+                else -> -1L
+            }
+        }
+        val lib = GameRuntimeLibrary(mallManager = mall)
+        assertEquals(
+            "161",
+            outputLib(lib, """print(concoction_price(to_vykea("level 1 couch")));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_floundryCraftGate_live() {
+        registerCorpusItem(9901, "floundry fish")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "floundry fish",
+                resultQuantity = 1,
+                methods = setOf("FLOUNDRY"),
+                ingredients = emptyList(),
+            ),
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9901));""").trim())
+        prefs.setBoolean(net.sourceforge.kolmafia.clan.ClanLoungeSync.CLAN_HAS_FLOUNDRY_PREF, true)
+        assertEquals("true", outputLib(lib, """print(is_craft_permitted(9901));""").trim())
+    }
+
+    @Test
+    fun corpus_terminalCraftGate_live() {
+        registerCorpusItem(9033, "Source terminal")
+        registerCorpusItem(9902, "browser cookie")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "browser cookie",
+                resultQuantity = 1,
+                methods = setOf("TERMINAL"),
+                ingredients = emptyList(),
+            ),
+        )
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9902));""").trim())
+        prefs.setInt("_sourceTerminalExtrudes", 0)
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9902));""").trim())
+    }
+
+    @Test
+    fun corpus_generalStoreValidate_live() {
+        registerCorpusItem(3128, "marshmallow")
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.loadFromText(
+            "General Store\tgeneralstore\tmarshmallow\t10\n",
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("false", outputLib(lib, """print(is_npc_item(3128, true));""").trim())
+    }
+
+    @Test
+    fun corpus_gnomePartCraftGate_live() {
+        registerCorpusItem(9903, "gnomish athlete's foot")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "gnomish athlete's foot",
+                resultQuantity = 1,
+                methods = setOf("GNOME_PART"),
+                ingredients = emptyList(),
+            ),
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9903));""").trim())
+    }
+
+    @Test
+    fun corpus_giftShopValidate_live() {
+        registerCorpusItem(1180, "potted fern")
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.loadFromText(
+            "Gift Shop\ttown_giftshop.php\tpotted fern\t200\n",
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("false", outputLib(lib, """print(is_npc_item(1180, true));""").trim())
+    }
+
+    @Test
+    fun corpus_cookWithoutOvenGate_live() {
+        registerCorpusItem(9904, "corpus hot dish")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "corpus hot dish",
+                resultQuantity = 1,
+                methods = setOf("COOK"),
+                ingredients = emptyList(),
+            ),
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9904));""").trim())
+    }
+
+    @Test
+    fun corpus_bartenderValidate_live() {
+        registerCorpusItem(9405, "plain old beer")
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.loadFromText(
+            "The Typical Tavern\tbartender\tplain old beer\t50\n",
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("false", outputLib(lib, """print(is_npc_item(9405, true));""").trim())
+    }
+
+    @Test
+    fun corpus_staffGate_live() {
+        registerCorpusItem(9905, "corpus chefstaff")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "corpus chefstaff",
+                resultQuantity = 1,
+                methods = setOf("STAFF"),
+                ingredients = emptyList(),
+            ),
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9905));""").trim())
+    }
+
+    @Test
+    fun corpus_isCoinmasterItemValidate_live() {
+        val lib = GameRuntimeLibrary()
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(7185, true));""").trim())
+    }
+
+    @Test
+    fun corpus_cookFancyWillBuyTool_live() {
+        val prefs = prefs()
+        prefs.setBoolean("autoSatisfyWithNPCs", true)
+        val char = net.sourceforge.kolmafia.character.KoLCharacter().also {
+            it.updateMeat(2000)
+            it.updateAdventuresLeft(3)
+        }
+        registerCorpusItem(9912, "corpus auto fancy")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "corpus auto fancy",
+                resultQuantity = 1,
+                methods = setOf("COOK_FANCY"),
+                ingredients = emptyList(),
+            ),
+        )
+        val lib = GameRuntimeLibrary(preferences = prefs, character = char)
+        assertEquals("true", outputLib(lib, """print(is_craft_permitted(9912));""").trim())
+    }
+
+    @Test
+    fun corpus_isNpcItemOneArg_live() {
+        registerCorpusItem(9913, "corpus one arg npc")
+        net.sourceforge.kolmafia.data.NpcStoreDatabase.loadFromText(
+            "General Store\tgeneralstore\tcorpus one arg npc\t50\n",
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("true", outputLib(lib, """print(is_npc_item(9913));""").trim())
+    }
+
+    @Test
+    fun corpus_smithKnollGate_live() {
+        registerCorpusItem(9914, "corpus smith knoll gate")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "corpus smith knoll gate",
+                resultQuantity = 1,
+                methods = setOf("SMITH"),
+                ingredients = emptyList(),
+            ),
+        )
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(
+                    name = "test",
+                    level = "5",
+                    classId = "1",
+                    sign = "Vole",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("true", outputLib(lib, """print(is_craft_permitted(9914));""").trim())
+    }
+
+    @Test
+    fun corpus_replicaStoreYearGate_live() {
+        val p = prefs()
+        p.setInt("currentReplicaStoreYear", 2023)
+        p.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(preferences = p)
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(11190, true));""").trim())
+    }
+
+    @Test
+    fun corpus_tikiCraftGate_live() {
+        registerCorpusItem(9915, "corpus tiki mix")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "corpus tiki mix",
+                resultQuantity = 1,
+                methods = setOf("ROLLING_PIN", "TIKI"),
+                ingredients = emptyList(),
+            ),
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9915));""").trim())
+        val libWithSkill = GameRuntimeLibrary(
+            skillManager = corpusSkillManager(186),
+        )
+        assertEquals("true", outputLib(libWithSkill, """print(is_craft_permitted(9915));""").trim())
+    }
+
+    @Test
+    fun corpus_rollingPinAlwaysPermitted_live() {
+        registerCorpusItem(9916, "corpus rolling pin item")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "corpus rolling pin item",
+                resultQuantity = 1,
+                methods = setOf("ROLLING_PIN"),
+                ingredients = emptyList(),
+            ),
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("true", outputLib(lib, """print(is_craft_permitted(9916));""").trim())
+    }
+
+    @Test
+    fun corpus_starchartTorsoGate_live() {
+        ItemDatabase.resetForTest()
+        CoinmasterDatabase.resetForTest()
+        val p = prefs()
+        p.setBoolean("autoSatisfyWithCoinmasters", true)
+        registerCorpusItem(1133, "star shirt")
+        CoinmasterDatabase.loadFromText(
+            shopsText = "starchart\tA Star Chart\n",
+            coinText = "A Star Chart\tbuy\t1\tstar shirt\tROW1133\n",
+        )
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(
+                    name = "test",
+                    level = "10",
+                    classId = "1",
+                    sign = "Vole",
+                    meat = "100",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(preferences = p, character = char)
+        assertEquals("false", outputLib(lib, """print(is_coinmaster_item(1133, true));""").trim())
+        val libWithTorso = GameRuntimeLibrary(
+            preferences = p,
+            character = char,
+            skillManager = corpusSkillManager(12),
+        )
+        assertEquals("true", outputLib(libWithTorso, """print(is_coinmaster_item(1133, true));""").trim())
+    }
+
     private fun registerCorpusItem(id: Int, name: String) {
         ItemDatabase.registerForTest(
             ItemData(

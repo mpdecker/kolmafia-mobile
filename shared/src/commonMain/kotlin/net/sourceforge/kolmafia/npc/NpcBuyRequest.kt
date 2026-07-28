@@ -1,13 +1,38 @@
 package net.sourceforge.kolmafia.npc
 
 import io.ktor.client.*
+import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.shop.NpcShopSync
 
 open class NpcBuyRequest(private val client: HttpClient) {
+
+    open suspend fun visitStore(
+        storeKey: String,
+        prefs: Preferences?,
+        ascensionNumber: Int,
+    ): Result<String> {
+        if (prefs == null || !NpcShopSync.needsSync(storeKey)) {
+            return Result.success("")
+        }
+        return try {
+            val response = client.get("$KOL_BASE_URL/store.php") {
+                parameter("whichstore", storeKey)
+            }
+            val body = response.bodyAsText()
+            NpcShopSync.syncFromStoreHtml(storeKey, body, prefs, ascensionNumber)
+            Result.success(body)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     open suspend fun buy(storeKey: String, itemId: Int, quantity: Int): Result<Int> = try {
         val response = client.submitForm(

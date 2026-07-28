@@ -74,4 +74,7 @@ object LimitModeGates {
             "spelunky", "spelunk", "batman", "edunder", "ed" -> true
             else -> false
         }
+
+    /** Desktop LimitMode.limitZone — mobile limit modes do not zone-lock knoll/beach yet. */
+    fun limitZone(zone: String, limitMode: String): Boolean = false
 }

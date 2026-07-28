@@ -27,6 +27,7 @@ internal fun GameRuntimeLibrary.registerAshP122Batch(scope: AshScope) {
                 kotlinx.coroutines.runBlocking { physicalAccessibleCount(ingId, name) }
             },
             prefs = preferences,
+            familiarUsable = { familiarId -> craftFamiliarUsable(familiarId) },
         )
     }
 

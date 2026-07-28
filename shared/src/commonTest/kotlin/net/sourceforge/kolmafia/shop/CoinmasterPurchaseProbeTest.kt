@@ -48,7 +48,8 @@ class CoinmasterPurchaseProbeTest {
         )
         val prefs = Preferences(MapSettings())
         prefs.setBoolean("autoSatisfyWithCoinmasters", true)
-        val state = CharacterState(level = 10, kingLiberated = true)
+        prefs.setInt("lastDesertUnlock", 1)
+        val state = CharacterState(level = 10, kingLiberated = true, ascensionNumber = 1)
         assertTrue(
             CoinmasterPurchaseProbe.canPurchaseIgnoringMeat(
                 9503,

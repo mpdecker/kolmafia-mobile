@@ -26,6 +26,23 @@ object ConcoctionCreationCost {
         "SUSHI" to 0L,
         "JEWEL" to 0L,
         "MALUS" to 0L,
+        "VYKEA" to 0L,
+        "FLOUNDRY" to 0L,
+        "BARREL" to 0L,
+        "GNOME_TINKER" to 0L,
+        "GNOME_PART" to 0L,
+        "BURNING_LEAVES" to 0L,
+        "WAX" to 0L,
+        "NEWSPAPER" to 0L,
+        "METEOROID" to 0L,
+        "WOOL" to 0L,
+        "TERMINAL" to 0L,
+        "SPACEGATE" to 0L,
+        "FANTASY_REALM" to 0L,
+        "STILLSUIT" to 0L,
+        "MAYAM" to 0L,
+        "PHOTO_BOOTH" to 0L,
+        "TAKERSPACE" to 0L,
     )
 
     private val ADVENTURE_USAGE = mapOf(
@@ -45,7 +62,10 @@ object ConcoctionCreationCost {
         "COMBINE", "ACOMBINE", "COOK", "COOK_FANCY", "MIX", "MIX_FANCY",
         "SMITH", "SSMITH", "STILL", "SUSE", "MUSE", "PHINEAS", "SEWER",
         "STAR", "SUGAR", "PIXEL", "ROLL", "TINKER", "STAFF", "SUSHI",
-        "JEWEL", "MALUS", "COINMASTER",
+        "JEWEL", "MALUS", "COINMASTER", "VYKEA", "FLOUNDRY", "BARREL", "GNOME_TINKER",
+        "GNOME_PART", "BURNING_LEAVES", "WAX", "NEWSPAPER", "METEOROID", "WOOL",
+        "TERMINAL", "SPACEGATE", "FANTASY_REALM", "STILLSUIT", "MAYAM", "PHOTO_BOOTH", "TAKERSPACE",
+        "CLIPART", "JEWELRY", "ROLLING_PIN", "SAUSAGE_O_MATIC", "MULTI_USE", "SINGLE_USE",
     )
 
     fun primaryMethod(methods: Set<String>): String? =
