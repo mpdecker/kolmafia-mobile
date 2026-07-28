@@ -11,8 +11,8 @@ import net.sourceforge.kolmafia.session.YegDemonNameSync
 class GameRuntimeLibraryAshP81Test {
 
     @Test
-    fun revision_phase136() {
-        assertEquals("phase136", GameRuntimeLibrary.REVISION)
+    fun revision_phase141() {
+        assertEquals("phase160", GameRuntimeLibrary.REVISION)
     }
 
     @Test

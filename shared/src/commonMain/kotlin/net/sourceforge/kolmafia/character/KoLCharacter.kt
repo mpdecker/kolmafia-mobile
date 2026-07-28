@@ -3,12 +3,14 @@ package net.sourceforge.kolmafia.character
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.sourceforge.kolmafia.data.ItemDatabase
 
 class KoLCharacter {
     private val _state = MutableStateFlow(CharacterState())
     val state: StateFlow<CharacterState> = _state.asStateFlow()
 
     fun updateFromApiResponse(response: CharacterApiResponse) {
+        val prev = _state.value
         _state.value = CharacterState(
             // Identity
             name = response.name,
@@ -48,6 +50,8 @@ class KoLCharacter {
             // Currency
             meat = response.meat.toIntOrNull() ?: 0,
             storageMeat = response.storagemeat.toLongOrNull() ?: 0L,
+            closetMeat = prev.closetMeat,
+            sessionMeat = prev.sessionMeat,
 
             // Turns / days
             adventuresLeft = response.adventures.toIntOrNull() ?: 0,
@@ -86,6 +90,8 @@ class KoLCharacter {
             youRobotScraps = response.robonscraps.toIntOrNull() ?: 0,
             wildfireWater = response.wildfirewater.toIntOrNull() ?: 0,
             minstrelLevel = response.minstrel.toIntOrNull() ?: 0,
+            currentMask = prev.currentMask,
+            paradoxicity = prev.paradoxicity,
 
             // Social / access
             hasStore = response.hasstore == "1",
@@ -94,6 +100,8 @@ class KoLCharacter {
 
             // Campground
             telescopeUpgrades = response.telescopelevel.toIntOrNull() ?: 0,
+            telescopeLookedHigh = prev.telescopeLookedHigh,
+            gardenType = prev.gardenType,
 
             // Misc
             mindControlLevel = response.mcd.toIntOrNull() ?: 0,
@@ -118,6 +126,7 @@ class KoLCharacter {
 
             // Equipment
             equipment = buildEquipmentMap(response),
+            hatTrickHatIds = response.hats.mapNotNull { it.toIntOrNull() },
 
             isLoggedIn = true
         )
@@ -140,6 +149,18 @@ class KoLCharacter {
         _state.value = _state.value.copy(sessionMeat = _state.value.sessionMeat + delta)
     }
 
+    fun setClosetMeat(meat: Long) {
+        _state.value = _state.value.copy(closetMeat = meat)
+    }
+
+    fun setStorageMeat(meat: Long) {
+        _state.value = _state.value.copy(storageMeat = meat)
+    }
+
+    fun setStillsAvailable(count: Int) {
+        _state.value = _state.value.copy(stillsAvailable = count)
+    }
+
     fun updateAdventuresLeft(adventures: Int) {
         _state.value = _state.value.copy(adventuresLeft = adventures)
     }
@@ -157,6 +178,20 @@ class KoLCharacter {
         )
     }
 
+    fun updateEnthroned(id: Int, name: String) {
+        _state.value = _state.value.copy(
+            enthronedFamiliarId = id,
+            enthronedFamiliarName = name,
+        )
+    }
+
+    fun updateBjorned(id: Int, name: String) {
+        _state.value = _state.value.copy(
+            bjornedFamiliarId = id,
+            bjornedFamiliarName = name,
+        )
+    }
+
     fun updateEquipment(slot: EquipmentSlot, itemName: String) {
         val updated = _state.value.equipment.toMutableMap()
         if (itemName.isBlank()) updated.remove(slot) else updated[slot] = itemName
@@ -167,15 +202,23 @@ class KoLCharacter {
         _state.value = _state.value.copy(intrinsics = names)
     }
 
-    fun updateClassResource(fury: Int? = null, soulsauce: Int? = null,
-                            discoMomentum: Int? = null, audience: Int? = null,
-                            absorbs: Int? = null) {
+    fun updateClassResource(
+        fury: Int? = null,
+        soulsauce: Int? = null,
+        discoMomentum: Int? = null,
+        audience: Int? = null,
+        absorbs: Int? = null,
+        currentMask: String? = null,
+        paradoxicity: Int? = null,
+    ) {
         _state.value = _state.value.copy(
             fury = fury ?: _state.value.fury,
             soulsauce = soulsauce ?: _state.value.soulsauce,
             discoMomentum = discoMomentum ?: _state.value.discoMomentum,
             audience = audience ?: _state.value.audience,
-            absorbs = absorbs ?: _state.value.absorbs
+            absorbs = absorbs ?: _state.value.absorbs,
+            currentMask = currentMask ?: _state.value.currentMask,
+            paradoxicity = paradoxicity ?: _state.value.paradoxicity,
         )
     }
 
@@ -188,11 +231,17 @@ class KoLCharacter {
         )
     }
 
-    fun setCampground(telescopeUpgrades: Int = _state.value.telescopeUpgrades,
-                      hasBookshelf: Boolean = _state.value.hasBookshelf) {
+    fun setCampground(
+        telescopeUpgrades: Int? = null,
+        hasBookshelf: Boolean? = null,
+        telescopeLookedHigh: Boolean? = null,
+        gardenType: String? = null,
+    ) {
         _state.value = _state.value.copy(
-            telescopeUpgrades = telescopeUpgrades,
-            hasBookshelf = hasBookshelf
+            telescopeUpgrades = telescopeUpgrades ?: _state.value.telescopeUpgrades,
+            hasBookshelf = hasBookshelf ?: _state.value.hasBookshelf,
+            telescopeLookedHigh = telescopeLookedHigh ?: _state.value.telescopeLookedHigh,
+            gardenType = gardenType ?: _state.value.gardenType,
         )
     }
 
@@ -220,6 +269,12 @@ class KoLCharacter {
         if (r.acc3.isNotBlank())          map[EquipmentSlot.ACC3]      = r.acc3
         if (r.familiarequip.isNotBlank()) map[EquipmentSlot.FAMILIAR]  = r.familiarequip
         if (r.container.isNotBlank())     map[EquipmentSlot.CONTAINER] = r.container
+        EquipmentSlot.CODPIECE_SLOTS.forEachIndexed { index, slot ->
+            val id = r.eternitycod.getOrNull(index) ?: 0
+            if (id <= 0) return@forEachIndexed
+            val name = ItemDatabase.getById(id)?.name ?: return@forEachIndexed
+            map[slot] = name
+        }
         return map
     }
 }

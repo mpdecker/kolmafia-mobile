@@ -74,7 +74,9 @@ data class CharacterState(
     val soulsauce: Int = 0,                // Sauceror
     val discoMomentum: Int = 0,            // Disco Bandit
     val audience: Int = 0,                 // Accordion Thief (±30 or ±50)
-    val absorbs: Int = 0,                  // Grey Goo path (0 to level+2)
+    val absorbs: Int = 0,                  // Gelatinous Noob path (0 to level+2)
+    val currentMask: String = "",          // Disguises Delimit (charpane HTML)
+    val paradoxicity: Int = 0,             // charpane HTML
     // Plumber path
     val thunder: Int = 0,                  // 0–100
     val rain: Int = 0,                     // 0–100
@@ -91,6 +93,8 @@ data class CharacterState(
 
     // ── Campground ────────────────────────────────────────────────────────────
     val telescopeUpgrades: Int = 0,        // 0–7; unlocks monster info per upgrade
+    val telescopeLookedHigh: Boolean = false,
+    val gardenType: String = "",           // lowercase CropType name from campground HTML
     val hasBookshelf: Boolean = false,
 
     // ── Social / access flags ─────────────────────────────────────────────────
@@ -124,6 +128,7 @@ data class CharacterState(
 
     // ── Equipment ────────────────────────────────────────────────────────────
     val equipment: Map<EquipmentSlot, String> = emptyMap(),
+    val hatTrickHatIds: List<Int> = emptyList(),
 
     // ── Session ──────────────────────────────────────────────────────────────
     val isLoggedIn: Boolean = false
@@ -149,14 +154,36 @@ data class CharacterState(
         get() = ascensionPath == AscensionPath.KINGDOM_OF_EXPLOATHING
     val inDisguise: Boolean
         get() = ascensionPath == AscensionPath.DISGUISES_DELIMIT
+    val isSneakyPete: Boolean
+        get() = ascensionPath == AscensionPath.AVATAR_OF_SNEAKY_PETE
+    val inNoobcore: Boolean
+        get() = ascensionPath == AscensionPath.GELATINOUS_NOOB
     val inDinocore: Boolean
         get() = ascensionPath == AscensionPath.DINOSAURS
     val inHatTrick: Boolean
         get() = ascensionPath == AscensionPath.HAT_TRICK
+    val inLegacyOfLoathing: Boolean
+        get() = ascensionPath == AscensionPath.LEGACY_OF_LOATHING
+    val inSeaPath: Boolean
+        get() = ascensionPath == AscensionPath.UNDER_THE_SEA
+    val isThrifty: Boolean
+        get() = ascensionPath == AscensionPath.THRIFTY
+    val isTrendy: Boolean
+        get() = !kingLiberated && ascensionPath == AscensionPath.TRENDY
+    val inQuantum: Boolean
+        get() = ascensionPath == AscensionPath.QUANTUM_TERRARIUM
     val inNuclearAutumn: Boolean
         get() = ascensionPath == AscensionPath.NUCLEAR_AUTUMN || ascensionPath == AscensionPath.NUCLEAR
     val inBeecore: Boolean
         get() = !kingLiberated && ascensionPath == AscensionPath.BEES_HATE_YOU
+    val inZombiecore: Boolean
+        get() = ascensionPath == AscensionPath.ZOMBIE_SLAYER
+    val inZootomist: Boolean
+        get() = ascensionPath == AscensionPath.Z_IS_FOR_ZOOTOMIST
+    val inPokefam: Boolean
+        get() = ascensionPath == AscensionPath.POKEFAM
+    val inGLover: Boolean
+        get() = ascensionPath == AscensionPath.GLOVER
 
     // ── Computed: main buffed stat ────────────────────────────────────────────
     val buffedMainStat: Int get() = when (mainStat) {

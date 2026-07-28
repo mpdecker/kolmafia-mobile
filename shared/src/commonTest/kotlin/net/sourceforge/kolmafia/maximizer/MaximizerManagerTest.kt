@@ -292,6 +292,96 @@ class MaximizerManagerTest {
         assertEquals("He-Boulder", switched)
     }
 
+    @Test fun maximize_switchFamiliar_skipsUnusableBeeRaceOnBeecore() = runBlocking {
+        val character = KoLCharacter()
+        character.updateFromApiResponse(
+            CharacterApiResponse(path = "Bees Hate You", kingliberated = "0"),
+        )
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    1 to InventoryItem(1, "myst hat", 1, ItemType.HAT),
+                ))
+            )
+        }
+        var switched: String? = null
+        val familiar = object : FamiliarManager(
+            HttpClient(MockEngine { respond("ok") }),
+            GameEventBus(),
+        ) {
+            override suspend fun setFamiliar(name: String): Result<Unit> {
+                switched = name
+                return Result.success(Unit)
+            }
+        }.also {
+            it.testSetState(
+                FamiliarState(
+                    ownedFamiliars = listOf(
+                        FamiliarData(8, "Barn", "Barrrnacle", 5, 0, 0),
+                        FamiliarData(1, "Donkey", "Miniature Donkey", 5, 0, 0),
+                    ),
+                ),
+            )
+        }
+        val equip = EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        )
+        val mgr = MaximizerManager(StubDb(), inv, equip, character, familiarManager = familiar)
+        val result = mgr.maximize("mysticality, switch Barrrnacle, switch Miniature Donkey")
+        assertTrue(result.success)
+        assertEquals("Miniature Donkey", result.familiarSwitched)
+        assertEquals("Miniature Donkey", switched)
+    }
+
+    @Test fun maximize_enthroneSkipsUnusableBeeRaceOnBeecore() = runBlocking {
+        val character = KoLCharacter()
+        character.updateFromApiResponse(
+            CharacterApiResponse(path = "Bees Hate You", kingliberated = "0"),
+        )
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    4614 to InventoryItem(4614, "Crown of Thrones", 1, ItemType.HAT),
+                ))
+            )
+        }
+        var enthroned: String? = null
+        val familiar = object : FamiliarManager(
+            HttpClient(MockEngine { respond("ok") }),
+            GameEventBus(),
+        ) {
+            override suspend fun setEnthroned(name: String): Result<Unit> {
+                enthroned = name
+                return Result.success(Unit)
+            }
+        }.also {
+            it.testSetState(
+                FamiliarState(
+                    ownedFamiliars = listOf(
+                        FamiliarData(8, "Barn", "Barrrnacle", 5, 0, 0),
+                        FamiliarData(1, "Donkey", "Miniature Donkey", 5, 0, 0),
+                    ),
+                ),
+            )
+        }
+        val equip = EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        )
+        val mgr = MaximizerManager(StubDb(), inv, equip, character, familiarManager = familiar)
+        val result = mgr.maximize("mysticality, enthrone Barrrnacle, enthrone Miniature Donkey")
+        assertTrue(result.success)
+        assertEquals("Miniature Donkey", result.enthronedSwitched)
+        assertEquals("Miniature Donkey", enthroned)
+    }
+
     @Test fun maximize_enthroneCarriesCrownOfThrones() = runBlocking {
         val character = KoLCharacter()
         val inv = object : InventoryManager(

@@ -15,12 +15,22 @@ import net.sourceforge.kolmafia.adventure.runTowerDoor
 import net.sourceforge.kolmafia.adventure.TowerDoorConfig
 import net.sourceforge.kolmafia.adventure.TowerDoorStatus
 import net.sourceforge.kolmafia.data.AdventureDatabase
+import net.sourceforge.kolmafia.data.DescriptionCache
+import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.combat.RandomModifierStats
+import net.sourceforge.kolmafia.campground.GardenSync
+import net.sourceforge.kolmafia.campground.MushroomPlotSync
+import net.sourceforge.kolmafia.concoction.StillSync
+import net.sourceforge.kolmafia.inventory.ClosetMeatSync
+import net.sourceforge.kolmafia.inventory.SessionMeatSync
+import net.sourceforge.kolmafia.inventory.StorageMeatSync
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.ClassResourceCharpaneSync
+import net.sourceforge.kolmafia.character.ClassResourceCombatSync
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
@@ -31,6 +41,8 @@ import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
+import net.sourceforge.kolmafia.inventory.AccessCountContext
+import net.sourceforge.kolmafia.inventory.AccessibleItemCount
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
@@ -61,6 +73,9 @@ import net.sourceforge.kolmafia.mall.MallPriceManager
 import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
+import net.sourceforge.kolmafia.request.StandardRequest
+import net.sourceforge.kolmafia.request.ThriftyRequest
+import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.PirateRealmSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
@@ -80,14 +95,18 @@ import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
 import net.sourceforge.kolmafia.session.CargoCultManager
 import net.sourceforge.kolmafia.session.CargoPocketSync
+import net.sourceforge.kolmafia.session.SkillLearnFromResponse
 import net.sourceforge.kolmafia.quest.DynamicItemModifierSync
 import net.sourceforge.kolmafia.quest.BirdOfTheDaySync
+import net.sourceforge.kolmafia.skill.SkillLearner
 import net.sourceforge.kolmafia.quest.DescriptionConsequenceSync
 import net.sourceforge.kolmafia.quest.CombatSkillConsequenceSync
 import net.sourceforge.kolmafia.quest.EffectDescriptionConsequenceSync
 import net.sourceforge.kolmafia.quest.SkillGrantingEquipmentSync
 import net.sourceforge.kolmafia.quest.SkillDescriptionConsequenceSync
 import net.sourceforge.kolmafia.quest.ItemDescriptionConsequenceSync
+import net.sourceforge.kolmafia.quest.CrownBjornDescSync
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.session.SummoningChamberManager
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.YegDemonNameSync
@@ -127,6 +146,9 @@ class GameRuntimeLibrary(
     internal val banishManager: BanishManager? = null,
     internal val httpClient: HttpClient? = null,
     internal val hermitRequest: HermitRequest? = null,
+    internal val thriftyRequest: ThriftyRequest? = null,
+    internal val standardRequest: StandardRequest? = null,
+    internal val trendyRequest: TrendyRequest? = null,
     internal val displayCaseRequest: DisplayCaseRequest? = null,
     internal val clanStashRequest: ClanStashRequest? = null,
     internal val mallManager: MallManager? = null,
@@ -176,7 +198,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase136"
+        const val REVISION = "phase160"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -299,19 +321,43 @@ class GameRuntimeLibrary(
         // "familiar name" — switch to a familiar by species name
         Regex("^familiar\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val name = m.groupValues[1].trim()
-            kotlinx.coroutines.runBlocking { familiarManager?.setFamiliar(name) }
+            if (name.equals("none", ignoreCase = true) ||
+                name.equals("unequip", ignoreCase = true)
+            ) {
+                kotlinx.coroutines.runBlocking { familiarManager?.setFamiliar(name) }
+            } else {
+                kotlinx.coroutines.runBlocking {
+                    resolveUsableFamiliarRace(name)?.let { familiarManager?.setFamiliar(it.race) }
+                }
+            }
         },
 
         // "enthrone name" / "enthrone none" — Crown of Thrones
         Regex("^enthrone\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val name = m.groupValues[1].trim()
-            kotlinx.coroutines.runBlocking { familiarManager?.setEnthroned(name) }
+            if (name.isEmpty() || name.equals("none", ignoreCase = true) ||
+                name.equals("unequip", ignoreCase = true)
+            ) {
+                kotlinx.coroutines.runBlocking { familiarManager?.setEnthroned(name) }
+            } else {
+                kotlinx.coroutines.runBlocking {
+                    resolveUsableFamiliarRace(name)?.let { familiarManager?.setEnthroned(it.race) }
+                }
+            }
         },
 
         // "bjornify name" / "bjornify none" — Buddy Bjorn
         Regex("^bjornify\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val name = m.groupValues[1].trim()
-            kotlinx.coroutines.runBlocking { familiarManager?.setBjornified(name) }
+            if (name.isEmpty() || name.equals("none", ignoreCase = true) ||
+                name.equals("unequip", ignoreCase = true)
+            ) {
+                kotlinx.coroutines.runBlocking { familiarManager?.setBjornified(name) }
+            } else {
+                kotlinx.coroutines.runBlocking {
+                    resolveUsableFamiliarRace(name)?.let { familiarManager?.setBjornified(it.race) }
+                }
+            }
         },
 
         // "servant type" — Ed entombed servant switch
@@ -1475,31 +1521,96 @@ class GameRuntimeLibrary(
         if (url != null && url.contains("desc_item.php")) {
             extractDescItemId(url)?.let { descId ->
                 preferences?.let { ItemDescriptionConsequenceSync.applyItemDescription(descId, html, it) }
+                val itemId = ItemDatabase.getByDescId(descId)?.id
+                    ?: DescriptionCache.parseItemIdFromHtml(html)
+                if (itemId != null && itemId > 0) {
+                    DescriptionCache.cacheItem(itemId, html)
+                }
+                val item = ItemDatabase.getByDescId(descId)
+                val char = character
+                val state = char?.state?.value
+                if (item != null && char != null && state != null && state.ascensionPath.canUseFamiliars()) {
+                    val owned = familiarManager?.state?.value?.ownedFamiliars ?: emptyList()
+                    when (item.id) {
+                        CrownBjornDescSync.CROWN_ITEM_ID -> {
+                            val occupant = CrownBjornDescSync.parseOccupant(html, owned)
+                            char.updateEnthroned(occupant.id, occupant.race)
+                        }
+                        CrownBjornDescSync.BJORN_ITEM_ID -> {
+                            val occupant = CrownBjornDescSync.parseOccupant(html, owned)
+                            char.updateBjorned(occupant.id, occupant.race)
+                        }
+                    }
+                }
             }
         }
         if (url != null && url.contains("desc_effect.php")) {
             extractDescEffectId(url)?.let { descId ->
                 preferences?.let { EffectDescriptionConsequenceSync.applyEffectDescription(descId, html, it) }
+                EffectDatabase.getByDescId(descId)?.id?.let { effectId ->
+                    DescriptionCache.cacheEffect(effectId, html)
+                }
             }
         }
         if (url != null && url.contains("desc_skill.php") && url.contains("self=true")) {
             extractDescSkillId(url)?.let { skillId ->
+                DescriptionCache.cacheSkill(skillId, html)
                 preferences?.let { prefs ->
                     SkillDescriptionConsequenceSync.applySkillDescription(skillId, html, prefs)
                     if (skillId == BirdOfTheDaySync.SEEK_OUT_A_BIRD_SKILL_ID) {
-                        BirdOfTheDaySync.applySeekBirdSkillDescription(html, prefs)
+                        val newlyUnlocked = BirdOfTheDaySync.applySeekBirdSkillDescription(html, prefs)
+                        if (newlyUnlocked) {
+                            SkillLearner.learnSkill(
+                                BirdOfTheDaySync.SEEK_OUT_A_BIRD_SKILL_ID,
+                                prefs,
+                                skillManager,
+                                mpCostOverride = BirdOfTheDaySync.parseSkillMpCost(html).toInt(),
+                                firstLearnOnly = true,
+                            )
+                            kotlinx.coroutines.runBlocking { skillManager?.fetchSkills() }
+                        }
                     }
                 }
             }
         }
         if (url != null && (url.contains("fight.php") || html.contains("You're fighting"))) {
+            character?.let { ClassResourceCombatSync.apply(it, html) }
             preferences?.let { prefs ->
                 val exprCtx = character?.state?.value?.let { state ->
                     ExpressionContext.from(state, emptyList())
                 } ?: ExpressionContext.EMPTY
                 CombatSkillConsequenceSync.applyFromFightHtml(html, prefs, exprCtx)
+                SkillLearnFromResponse.learnSkillFromResponse(
+                    html,
+                    prefs,
+                    skillManager,
+                    inventoryManager,
+                )
             }
         }
+        if (url != null && (
+                url.contains("charpane.php", ignoreCase = true) ||
+                url.endsWith("/charpane.php", ignoreCase = true)
+            )
+        ) {
+            character?.let { ClassResourceCharpaneSync.apply(it, html) }
+        }
+        if (url != null && url.contains("campground.php", ignoreCase = true)) {
+            character?.let { GardenSync.apply(it, html, preferences) }
+        }
+        if (url != null && url.contains("closet.php", ignoreCase = true)) {
+            character?.let { ClosetMeatSync.apply(it, html, url) }
+        }
+        if (url != null && url.contains("storage.php", ignoreCase = true)) {
+            character?.let { StorageMeatSync.apply(it, html, url) }
+        }
+        if (url != null && url.contains("shop.php", ignoreCase = true)) {
+            character?.let { StillSync.apply(it, html, url) }
+        }
+        if (url != null && url.contains("knoll_mushrooms.php", ignoreCase = true)) {
+            character?.let { MushroomPlotSync.apply(preferences, it, html, url) }
+        }
+        character?.let { SessionMeatSync.apply(it, html) }
     }
 
     private fun extractDescItemId(url: String): String? =
@@ -1520,7 +1631,7 @@ class GameRuntimeLibrary(
                 url,
                 html,
                 prefs,
-                character?.state?.value,
+                character,
             )
         }
         if (TowerSync.containsTowerMarker(html) ||
@@ -1563,17 +1674,17 @@ class GameRuntimeLibrary(
     internal fun buildCurrentModifiers(): CurrentModifiers {
         val state = character?.state?.value ?: CharacterState()
         val effects = effectManager?.state?.value?.effects ?: emptyList()
+        return CurrentModifiers(state, effects, resolvedSkillNames())
+    }
+
+    internal fun resolvedSkillNames(): Set<String> {
         val apiSkills = skillManager?.state?.value?.skills
             ?.map { it.name }
             ?.toSet()
             ?: emptySet()
-        val db = gameDatabase
-        val equipmentSkills = if (db != null) {
-            SkillGrantingEquipmentSync.grantedSkillNames(buildCheckContext(), db)
-        } else {
-            emptySet()
-        }
-        return CurrentModifiers(state, effects, apiSkills + equipmentSkills)
+        val db = gameDatabase ?: return apiSkills
+        val equipmentSkills = SkillGrantingEquipmentSync.grantedSkillNames(buildCheckContext(), db)
+        return apiSkills + equipmentSkills
     }
 
     /**
@@ -1894,7 +2005,15 @@ class GameRuntimeLibrary(
                 val item = inventoryManager?.state?.value?.items?.values
                     ?.find { it.name.equals(afterFirst, ignoreCase = true) }
                 if (item != null) {
-                    kotlinx.coroutines.runBlocking { inventoryManager?.equipItem(item, knownSlot.apiKey) }
+                    if (knownSlot in EquipmentSlot.CODPIECE_SLOTS) {
+                        kotlinx.coroutines.runBlocking {
+                            equipmentRequest?.equipItem(item.itemId, knownSlot)
+                        }
+                    } else {
+                        kotlinx.coroutines.runBlocking {
+                            inventoryManager?.equipItem(item, knownSlot.apiKey)
+                        }
+                    }
                     return
                 }
             }
@@ -1935,6 +2054,32 @@ class GameRuntimeLibrary(
         }
     }
 
+    internal suspend fun physicalAccessibleCount(itemId: Int, itemName: String): Int =
+        AccessibleItemCount.physicalCount(
+            itemId = itemId,
+            itemName = itemName,
+            inventoryManager = inventoryManager,
+            closetRequest = closetRequest,
+            storageRequest = storageRequest,
+            displayCaseRequest = displayCaseRequest,
+            clanStashRequest = clanStashRequest,
+            equipment = character?.state?.value?.equipment ?: emptyMap(),
+            context = AccessCountContext(
+                characterState = character?.state?.value,
+                gameDatabase = gameDatabase,
+                familiarManager = familiarManager,
+            ),
+        )
+
+    internal suspend fun ensureRestrictionListsInitialized(state: CharacterState?) {
+        net.sourceforge.kolmafia.request.RestrictionListRefresh.ensureInitialized(
+            state = state,
+            standardRequest = standardRequest,
+            thriftyRequest = thriftyRequest,
+            trendyRequest = trendyRequest,
+        )
+    }
+
     internal fun buildCheckContext(): DynamicItemModifierSync.CheckContext {
         val inventoryIds = inventoryManager?.state?.value?.items
             ?.filterValues { it.quantity > 0 }
@@ -1953,13 +2098,54 @@ class GameRuntimeLibrary(
         val closetIds = kotlinx.coroutines.runBlocking {
             closetRequest?.fetchContents()?.keys?.toSet() ?: emptySet()
         }
-        val ascensionPath = character?.state?.value?.ascensionPath ?: AscensionPath.NONE
+        val storageIds = kotlinx.coroutines.runBlocking {
+            val charState = character?.state?.value
+            if (charState?.isRestricted == true) {
+                standardRequest?.ensureInitialized()
+            }
+            if (charState?.isThrifty == true) {
+                thriftyRequest?.ensureInitialized()
+            }
+            if (charState?.isTrendy == true) {
+                trendyRequest?.ensureInitialized()
+            }
+            storageRequest?.fetchContents(charState)
+                ?.filterValues { it > 0 }
+                ?.keys
+                ?.toSet()
+                ?: emptySet()
+        }
+        val stashIds = kotlinx.coroutines.runBlocking {
+            clanStashRequest?.fetchContents()
+                ?.filterValues { it > 0 }
+                ?.keys
+                ?.toSet()
+                ?: emptySet()
+        }
+        val charState = character?.state?.value
+        val ascensionPath = charState?.ascensionPath ?: AscensionPath.NONE
+        val codpieceGemNames = charState?.equipment
+            ?.filterKeys { it in EquipmentSlot.CODPIECE_SLOTS }
+            ?.values
+            ?.filter { it.isNotBlank() }
+            ?.toSet()
+            ?: emptySet()
+        val hermitCloverCount = kotlinx.coroutines.runBlocking {
+            hermitRequest?.fetchCloverCount(ascensionPath, preferences) ?: 0
+        }
         return DynamicItemModifierSync.CheckContext(
             inventoryItemIds = inventoryIds,
             equippedItemNames = equippedNames,
             activeEffectNames = activeEffects,
             closetItemIds = closetIds,
+            storageItemIds = storageIds,
+            stashItemIds = stashIds,
+            limitMode = charState?.limitMode.orEmpty(),
+            canInteract = charState?.let { !it.isHardcore && !it.isInRonin } ?: true,
+            hasClan = charState?.hasClan ?: false,
             ascensionPath = ascensionPath,
+            codpieceGemNames = codpieceGemNames,
+            hermitCloverCount = hermitCloverCount,
         )
     }
 
@@ -1978,6 +2164,7 @@ class GameRuntimeLibrary(
                     edServantManager?.syncFromCharpane(html)
                     vykeaCompanionManager?.syncFromCharpane(html)
                     pastaThrallManager?.syncFromCharpane(html)
+                    character?.let { ClassResourceCharpaneSync.apply(it, html) }
                 }
                 if (path.contains("edbase", ignoreCase = true) && html.contains("whichchoice=1053")) {
                     edServantManager?.syncFromChoice1053(html)
@@ -2214,6 +2401,10 @@ class GameRuntimeLibrary(
         registerAshP81Batch(scope)
         registerAshP82Batch(scope)
         registerAshP83Batch(scope)
+        registerAshP115Batch(scope)
+        registerAshP116Batch(scope)
+        registerAshP117Batch(scope)
+        registerAshP118Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }
@@ -2596,11 +2787,8 @@ class GameRuntimeLibrary(
                 ?: inventoryManager?.state?.value?.items?.values
                     ?.find { it.name.equals(name, ignoreCase = true) }?.itemId
             if (itemId == null) return@register AshValue.of(0L)
-            val count = outfitManager?.let { om ->
-                kotlinx.coroutines.runBlocking { om.accessibleCount(itemId, name) }
-            } ?: run {
-                inventoryManager?.state?.value?.items?.values
-                    ?.find { it.itemId == itemId }?.quantity ?: 0
+            val count = kotlinx.coroutines.runBlocking {
+                physicalAccessibleCount(itemId, name)
             }
             AshValue.of(count.toLong())
         }
@@ -2628,8 +2816,7 @@ class GameRuntimeLibrary(
     private fun registerSkillQueries(scope: AshScope) {
         register(scope, "have_skill", AshType.BOOLEAN, listOf("sk" to AshType.SKILL)) { _, args ->
             val name = args[0].toString()
-            val has = skillManager?.state?.value?.skills
-                ?.any { it.name.equals(name, ignoreCase = true) } ?: false
+            val has = resolvedSkillNames().any { it.equals(name, ignoreCase = true) }
             AshValue.of(has)
         }
         register(scope, "mp_cost", AshType.INT, listOf("sk" to AshType.SKILL)) { _, args ->

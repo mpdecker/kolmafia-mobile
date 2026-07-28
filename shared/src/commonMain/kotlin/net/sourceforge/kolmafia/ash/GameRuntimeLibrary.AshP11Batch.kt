@@ -7,10 +7,10 @@ import net.sourceforge.kolmafia.modifiers.DoubleModifier
  */
 internal fun GameRuntimeLibrary.registerAshP11Batch(scope: AshScope) {
     regFn(scope, "my_robot_energy", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("robotEnergy", 0) ?: 0).toLong())
+        AshValue.of((character?.state?.value?.youRobotEnergy ?: 0).toLong())
     }
     regFn(scope, "my_robot_scraps", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("robotScraps", 0) ?: 0).toLong())
+        AshValue.of((character?.state?.value?.youRobotScraps ?: 0).toLong())
     }
     regFn(scope, "contestants_left", AshType.INT, listOf("contest" to AshType.INT)) { _, args ->
         val contest = args[0].toLong().toInt()

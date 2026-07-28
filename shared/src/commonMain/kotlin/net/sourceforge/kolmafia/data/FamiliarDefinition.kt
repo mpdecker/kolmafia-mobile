@@ -19,4 +19,6 @@ data class FamiliarDefinition(
     val isStatGainer get() = "stat0" in types || "stat1" in types
     val isItemDropper get() = "item0" in types || "item1" in types || "item2" in types
     val canBreathUnderwater get() = "underwater" in attributes
+    val isUndead get() = "undead" in attributes
+    val isPokefamType get() = "pokefam" in types
 }

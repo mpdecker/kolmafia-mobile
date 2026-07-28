@@ -4,7 +4,14 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.item.RetrieveItemService
-import net.sourceforge.kolmafia.equipment.OutfitManager
+import net.sourceforge.kolmafia.inventory.InventoryItem
+import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.inventory.ItemType
+import net.sourceforge.kolmafia.request.StorageRequest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
@@ -38,6 +45,19 @@ private fun retrieveAlwaysSucceeds(): RetrieveItemService =
     object : RetrieveItemService(null, null, null, null, null, null, null, null, null, null, null) {
         override suspend fun retrieve(itemId: Int, qty: Int) = qty
     }
+
+private class TestInventoryManager(
+    items: Map<Int, InventoryItem>,
+) : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+    private val flow = MutableStateFlow(InventoryState(items = items))
+    override val state = flow.asStateFlow()
+}
+
+private class FakeStorageRequest(
+    private val contents: Map<Int, Int>,
+) : StorageRequest(HttpClient(MockEngine { respond("") })) {
+    override suspend fun fetchRawContents(): Map<Int, Int> = contents
+}
 
 class GameRuntimeLibraryMallTest {
 
@@ -89,28 +109,13 @@ class GameRuntimeLibraryMallTest {
 
     @Test
     fun retrieveItem_withRetrieveFlag_checkOnlyUsesAccessibleCount() {
-        val manager = object : OutfitManager(
-            retrieveItemService = null,
-            equipmentRequest = net.sourceforge.kolmafia.request.EquipmentRequest(
-                HttpClient(MockEngine { respond("") })
-            ),
-            customOutfitRequest = net.sourceforge.kolmafia.request.CustomOutfitRequest(
-                HttpClient(MockEngine { respond("") })
-            ),
-            character = net.sourceforge.kolmafia.character.KoLCharacter(),
-            gameDatabase = stubDb(),
-            closetRequest = null,
-            storageRequest = null,
-            displayCaseRequest = null,
-            clanStashRequest = null,
-            inventoryManager = null,
-        ) {
-            override suspend fun accessibleCount(itemId: Int, itemName: String) = 5
-        }
+        val inv = TestInventoryManager(
+            mapOf(TEST_ITEM_ID to InventoryItem(TEST_ITEM_ID, TEST_ITEM, 5, ItemType.OTHER)),
+        )
         val lib = GameRuntimeLibrary(
             gameDatabase = stubDb(),
             retrieveItemService = retrieveAlwaysSucceeds(),
-            outfitManager = manager,
+            inventoryManager = inv,
         )
         assertEquals("true", outputLib(lib, """print(to_string(retrieve_item(1, to_item("$TEST_ITEM"), false)));"""))
         assertEquals("false", outputLib(lib, """print(to_string(retrieve_item(10, to_item("$TEST_ITEM"), false)));"""))
@@ -138,26 +143,15 @@ class GameRuntimeLibraryMallTest {
     }
 
     @Test
-    fun availableAmount_usesOutfitManagerAccessibleCount() {
-        val manager = object : OutfitManager(
-            retrieveItemService = null,
-            equipmentRequest = net.sourceforge.kolmafia.request.EquipmentRequest(
-                HttpClient(MockEngine { respond("") })
-            ),
-            customOutfitRequest = net.sourceforge.kolmafia.request.CustomOutfitRequest(
-                HttpClient(MockEngine { respond("") })
-            ),
-            character = net.sourceforge.kolmafia.character.KoLCharacter(),
+    fun availableAmount_usesPhysicalAccessibleCount() {
+        val inv = TestInventoryManager(
+            mapOf(TEST_ITEM_ID to InventoryItem(TEST_ITEM_ID, TEST_ITEM, 2, ItemType.OTHER)),
+        )
+        val lib = GameRuntimeLibrary(
             gameDatabase = stubDb(),
-            closetRequest = null,
-            storageRequest = null,
-            displayCaseRequest = null,
-            clanStashRequest = null,
-            inventoryManager = null,
-        ) {
-            override suspend fun accessibleCount(itemId: Int, itemName: String) = 7
-        }
-        val lib = GameRuntimeLibrary(gameDatabase = stubDb(), outfitManager = manager)
+            inventoryManager = inv,
+            storageRequest = FakeStorageRequest(mapOf(TEST_ITEM_ID to 5)),
+        )
         assertEquals("7", outputLib(lib, """print(to_string(available_amount(to_item("$TEST_ITEM"))));"""))
     }
 }

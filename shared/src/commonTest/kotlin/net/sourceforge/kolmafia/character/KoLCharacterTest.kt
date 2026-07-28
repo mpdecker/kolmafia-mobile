@@ -4,6 +4,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.data.ItemData
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
 
 class KoLCharacterTest {
 
@@ -70,6 +74,19 @@ class KoLCharacterTest {
     }
 
     @Test
+    fun updateFromApiResponse_preservesRuntimeMeatCounters() {
+        val character = KoLCharacter()
+        character.addSessionMeat(500L)
+        character.setClosetMeat(42_000L)
+        character.setCampground(gardenType = "mushroom")
+        character.updateFromApiResponse(CharacterApiResponse(name = "Player", meat = "1000"))
+        val state = character.state.value
+        assertEquals(500L, state.sessionMeat)
+        assertEquals(42_000L, state.closetMeat)
+        assertEquals("mushroom", state.gardenType)
+    }
+
+    @Test
     fun updateFromApiResponse_populatesStatFields() {
         val character = KoLCharacter()
         character.updateFromApiResponse(
@@ -98,5 +115,48 @@ class KoLCharacterTest {
         assertEquals("Standard", state.challengePath)
         assertEquals(17, state.roninLeft)
         assertTrue(state.isHardcore)
+    }
+
+    @Test
+    fun updateFromApiResponse_mapsEternityCodSlots() {
+        val gem1 = ItemData(
+            id = 10963,
+            name = "18-picohertz resonator crystal",
+            descId = "desc10963",
+            image = "gem.gif",
+            primaryUse = ItemPrimaryUse.ACCESSORY,
+            secondaryUses = emptySet(),
+            access = emptySet(),
+            autosellPrice = 0,
+            plural = null,
+        )
+        val gem2 = ItemData(
+            id = 11274,
+            name = "alien gemstone",
+            descId = "desc11274",
+            image = "gem2.gif",
+            primaryUse = ItemPrimaryUse.ACCESSORY,
+            secondaryUses = emptySet(),
+            access = emptySet(),
+            autosellPrice = 0,
+            plural = null,
+        )
+        ItemDatabase.registerForTest(gem1)
+        ItemDatabase.registerForTest(gem2)
+        try {
+            val character = KoLCharacter()
+            character.updateFromApiResponse(
+                CharacterApiResponse(
+                    name = "CodPlayer",
+                    eternitycod = listOf(10963, 11274, 0, 0, 0),
+                ),
+            )
+            val equipment = character.state.value.equipment
+            assertEquals(gem1.name, equipment[EquipmentSlot.CODPIECE1])
+            assertEquals(gem2.name, equipment[EquipmentSlot.CODPIECE2])
+            assertFalse(equipment.containsKey(EquipmentSlot.CODPIECE3))
+        } finally {
+            ItemDatabase.resetForTest()
+        }
     }
 }

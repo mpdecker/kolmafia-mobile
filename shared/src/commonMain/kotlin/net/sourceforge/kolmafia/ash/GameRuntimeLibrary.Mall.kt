@@ -108,7 +108,7 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         val doRetrieve = args[2].toBoolean()
         if (!doRetrieve) {
             val accessible = kotlinx.coroutines.runBlocking {
-                outfitManager?.accessibleCount(itemId, itemName) ?: 0
+                physicalAccessibleCount(itemId, itemName)
             }
             return@regFn AshValue.of(accessible >= count)
         }

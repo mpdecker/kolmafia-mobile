@@ -35,6 +35,10 @@ import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.data.SkillDefinition
+import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
+import net.sourceforge.kolmafia.skill.BattleLearnSkillIds
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -52,6 +56,8 @@ class AdventureManagerTest {
         adventureSpentTracker: AdventureSpentTracker? = null,
         dreadKissesTracker: DreadKissesTracker? = null,
         character: KoLCharacter? = null,
+        skills: SkillManager? = null,
+        inventory: InventoryManager? = null,
     ): Triple<AdventureManager, GameEventBus, MutableList<GameEvent>> {
         val engine = MockEngine { request ->
             when {
@@ -93,6 +99,8 @@ class AdventureManagerTest {
             bus,
             adventureSpentTracker = tracker,
             dreadKissesTracker = kissTracker,
+            skills = skills,
+            inventory = inventory,
         )
         return Triple(manager, bus, received)
     }
@@ -794,6 +802,47 @@ class AdventureManagerTest {
         // Should have emitted exactly maxSteps ChoiceResolved events (steps 0..19)
         val choiceEvents = received.filterIsInstance<GameEvent.ChoiceResolved>()
         assertEquals(20, choiceEvents.size, "Expected exactly 20 ChoiceResolved events before cap")
+    }
+
+    @AfterTest
+    fun resetSkillDatabase() {
+        SkillDefinitionDatabase.resetForTest()
+    }
+
+    @Test
+    fun resolveCombat_learnsSkillFromFightHtml() = runTest {
+        SkillDefinitionDatabase.registerForTest(
+            SkillDefinition(
+                id = BattleLearnSkillIds.SNARL_OF_THE_TIMBERWOLF,
+                name = "Snarl of the Timberwolf",
+                image = "wolfmask.gif",
+                tags = setOf("nc", "effect", "self"),
+                mpCost = 10,
+                duration = 10,
+                isPassive = false,
+                isCombat = false,
+                isNonCombat = true,
+                isSong = false,
+            ),
+        )
+        val client = HttpClient(MockEngine { respond("", HttpStatusCode.OK) })
+        val skills = SkillManager(client, SkillCastRequest(client), GameEventBus())
+        val fightHtml = """
+            <html><body><span id='monname'>wolf</span>
+            You acquire a skill:&nbsp;&nbsp;whichskill=${BattleLearnSkillIds.SNARL_OF_THE_TIMBERWOLF}
+            <p>You win the fight!</p></body></html>
+        """.trimIndent()
+        val (manager, _, _) = makeManager(
+            adventureHtml = COMBAT_HTML,
+            fightHtml = fightHtml,
+            skills = skills,
+        )
+        manager.runAdventures(testLocation, 1, this).join()
+        assertTrue(
+            skills.state.value.skills.any {
+                it.id == BattleLearnSkillIds.SNARL_OF_THE_TIMBERWOLF
+            },
+        )
     }
 
     companion object {

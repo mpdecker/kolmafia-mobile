@@ -175,6 +175,27 @@ object ModifierDatabase {
     private fun modifierTags(modifiers: String): Set<String> =
         modifierTokens(modifiers).map { modifierTag(it) }.toSet()
 
+    fun modifierTagsForEntry(entry: ModifierEntry?): Set<String> =
+        entry?.modifiers?.let { modifierTags(it) }.orEmpty()
+
+    fun hasBooleanModifier(itemName: String, modifier: BooleanModifier): Boolean {
+        val entry = getItem(itemName)
+            ?: _byTypeAndName["Item"]?.entries
+                ?.firstOrNull { it.key.equals(itemName, ignoreCase = true) }
+                ?.value
+            ?: return false
+        return modifier.tag in modifierTagsForEntry(entry)
+    }
+
+    fun getStringModifier(itemName: String, modifier: StringModifier): String {
+        val entry = getItem(itemName)
+            ?: _byTypeAndName["Item"]?.entries
+                ?.firstOrNull { it.key.equals(itemName, ignoreCase = true) }
+                ?.value
+            ?: return ""
+        return ModifierParser.parse(entry.modifiers).strings[modifier]?.firstOrNull().orEmpty()
+    }
+
     fun getItem(name: String): ModifierEntry?     = get("Item",    name)
     fun getEffect(name: String): ModifierEntry?   = get("Effect",  name)
     fun getSkill(name: String): ModifierEntry?    = get("Skill",   name)
@@ -185,9 +206,20 @@ object ModifierDatabase {
         val map = _byTypeAndName["Thrall"] ?: return null
         return map[name] ?: map.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value
     }
+    fun getThrone(race: String): ModifierEntry? {
+        val map = _byTypeAndName["Throne"] ?: return null
+        return map[race] ?: map.entries.firstOrNull { it.key.equals(race, ignoreCase = true) }?.value
+    }
+    fun getBjorn(race: String): ModifierEntry? = getThrone(race)
     fun getOutfit(name: String): ModifierEntry?   = get("Outfit",  name)
     fun getZone(name: String): ModifierEntry?     = get("Zone",    name)
     fun getLocation(name: String): ModifierEntry? = get("Loc",     name)
+    fun getEternityCodpiece(name: String): ModifierEntry? = get("EternityCodpiece", name)
+
+    fun isCodpieceGem(itemId: Int): Boolean {
+        val name = ItemDatabase.getById(itemId)?.name ?: return false
+        return getEternityCodpiece(name) != null
+    }
 
     fun get(type: String, name: String): ModifierEntry? = _byTypeAndName[type]?.get(name)
 

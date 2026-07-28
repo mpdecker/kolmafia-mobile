@@ -189,17 +189,59 @@ class GameRuntimeLibraryCliTest {
     @Test
     fun cliExecute_familiar_callsFamiliarManager() {
         val switchCalls = mutableListOf<String>()
-        val fakeFamiliarMgr = fakeFamiliarManager(switchCalls)
+        val fakeFamiliarMgr = fakeFamiliarManager(switchCalls).also {
+            it.testSetState(
+                net.sourceforge.kolmafia.familiar.FamiliarState(
+                    ownedFamiliars = listOf(
+                        net.sourceforge.kolmafia.familiar.FamiliarData(
+                            1, "Mosquito", "Mosquito", 5, 0, 0,
+                        ),
+                    ),
+                ),
+            )
+        }
         val lib = GameRuntimeLibrary(familiarManager = fakeFamiliarMgr)
         runLib(lib, """cli_execute("familiar Mosquito");""")
         assertEquals(listOf("Mosquito"), switchCalls)
     }
 
     @Test
+    fun cliExecute_familiar_skipsWhenAvatarPathBlocksFamiliars() {
+        val switchCalls = mutableListOf<String>()
+        val fakeFamiliarMgr = fakeFamiliarManager(switchCalls).also {
+            it.testSetState(
+                net.sourceforge.kolmafia.familiar.FamiliarState(
+                    ownedFamiliars = listOf(
+                        net.sourceforge.kolmafia.familiar.FamiliarData(
+                            1, "Mosquito", "Mosquito", 5, 0, 0,
+                        ),
+                    ),
+                ),
+            )
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Avatar of Boris"))
+        }
+        val lib = GameRuntimeLibrary(character = char, familiarManager = fakeFamiliarMgr)
+        runLib(lib, """cli_execute("familiar Mosquito");""")
+        assertEquals(emptyList(), switchCalls)
+    }
+
+    @Test
     fun cliExecute_enthrone_callsSetEnthroned() {
         val enthroneCalls = mutableListOf<String>()
         val lib = GameRuntimeLibrary(
-            familiarManager = fakeFamiliarManager(mutableListOf(), enthroneCalls)
+            familiarManager = fakeFamiliarManager(mutableListOf(), enthroneCalls).also {
+                it.testSetState(
+                    net.sourceforge.kolmafia.familiar.FamiliarState(
+                        ownedFamiliars = listOf(
+                            net.sourceforge.kolmafia.familiar.FamiliarData(
+                                1, "Mosquito", "Mosquito", 5, 0, 0,
+                            ),
+                        ),
+                    ),
+                )
+            },
         )
         runLib(lib, """cli_execute("enthrone Mosquito");""")
         assertEquals(listOf("Mosquito"), enthroneCalls)

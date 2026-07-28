@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.ash
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.familiar.FamiliarData
@@ -31,8 +32,7 @@ class GameRuntimeLibraryFamiliarTest {
         return fm
     }
 
-    private fun libWithGoat(): GameRuntimeLibrary {
-        val char = KoLCharacter()
+    private fun libWithGoat(char: KoLCharacter = KoLCharacter()): GameRuntimeLibrary {
         char.updateFamiliar(id = 7, name = "Biscuit", weight = 12, exp = 0)
         val fm = makeFamiliarManager(FamiliarState(ownedFamiliars = listOf(goat)))
         return GameRuntimeLibrary(character = char, familiarManager = fm)
@@ -40,8 +40,9 @@ class GameRuntimeLibraryFamiliarTest {
 
     @Test
     fun haveFamiliar_trueWhenOwned() {
+        val char = KoLCharacter()
         assertEquals("true",
-            outputLib(libWithGoat(),
+            outputLib(libWithGoat(char),
                 """print(to_string(have_familiar(to_familiar("Angry Goat"))));"""))
     }
 
@@ -111,6 +112,92 @@ class GameRuntimeLibraryFamiliarTest {
     fun myFamiliar_returnsNoneWhenNoFamiliarManager() {
         val lib = GameRuntimeLibrary.forTesting()
         assertEquals("none", outputLib(lib, "print(my_familiar());"))
+    }
+
+    @Test
+    fun inTerrarium_trueWhenOwned() {
+        assertEquals("true",
+            outputLib(libWithGoat(),
+                """print(to_string(in_terrarium(to_familiar("Angry Goat"))));"""))
+    }
+
+    @Test
+    fun inTerrarium_falseWhenNotOwned() {
+        val lib = GameRuntimeLibrary(familiarManager = makeFamiliarManager())
+        assertEquals("false",
+            outputLib(lib,
+                """print(to_string(in_terrarium(to_familiar("Purse Rat"))));"""))
+    }
+
+    @Test
+    fun inTerrarium_trueWhileHaveFamiliarFalseOnBeecoreBeeRace() {
+        val barrrnacle = FamiliarData(
+            id = 8, name = "Barn", race = "Barrrnacle",
+            weight = 10, experience = 0, kills = 0,
+        )
+        val fm = makeFamiliarManager(FamiliarState(ownedFamiliars = listOf(barrrnacle)))
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Bees Hate You"))
+        }
+        val lib = GameRuntimeLibrary(character = char, familiarManager = fm)
+        assertEquals("false",
+            outputLib(lib,
+                """print(to_string(have_familiar(to_familiar("Barrrnacle"))));"""))
+        assertEquals("true",
+            outputLib(lib,
+                """print(to_string(in_terrarium(to_familiar("Barrrnacle"))));"""))
+    }
+
+    @Test
+    fun haveFamiliar_falseOnAvatarPathWhenOwned() {
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Avatar of Boris"))
+        }
+        val fm = makeFamiliarManager(FamiliarState(ownedFamiliars = listOf(goat)))
+        val lib = GameRuntimeLibrary(character = char, familiarManager = fm)
+        assertEquals("false",
+            outputLib(lib,
+                """print(to_string(have_familiar(to_familiar("Angry Goat"))));"""))
+    }
+
+    @Test
+    fun useFamiliar_falseOnAvatarPathWhenOwned() {
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Avatar of Boris"))
+        }
+        val fm = makeFamiliarManager(FamiliarState(ownedFamiliars = listOf(goat)))
+        val lib = GameRuntimeLibrary(character = char, familiarManager = fm)
+        assertEquals("false",
+            outputLib(lib,
+                """print(to_string(use_familiar(to_familiar("Angry Goat"))));"""))
+    }
+
+    @Test
+    fun haveFamiliar_quantumOnlyActiveFamiliarUsable() {
+        val goat = FamiliarData(
+            id = 7, name = "Biscuit", race = "Angry Goat",
+            weight = 12, experience = 0, kills = 0,
+        )
+        val mosquito = FamiliarData(
+            id = 1, name = "Mosquito", race = "Mosquito",
+            weight = 5, experience = 0, kills = 0,
+        )
+        val fm = makeFamiliarManager(
+            FamiliarState(
+                activeFamiliar = goat,
+                ownedFamiliars = listOf(goat, mosquito),
+            ),
+        )
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Quantum Terrarium"))
+        }
+        val lib = GameRuntimeLibrary(character = char, familiarManager = fm)
+        assertEquals("true",
+            outputLib(lib,
+                """print(to_string(have_familiar(to_familiar("Angry Goat"))));"""))
+        assertEquals("false",
+            outputLib(lib,
+                """print(to_string(have_familiar(to_familiar("Mosquito"))));"""))
     }
 
     @Test

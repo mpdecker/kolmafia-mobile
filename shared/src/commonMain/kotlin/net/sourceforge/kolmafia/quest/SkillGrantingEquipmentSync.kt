@@ -9,6 +9,9 @@ import net.sourceforge.kolmafia.modifiers.StringModifier
 /** Desktop [InventoryManager.checkSkillGrantingEquipment]. */
 object SkillGrantingEquipmentSync {
 
+    const val ETERNITY_CODPIECE_ITEM = "The Eternity Codpiece"
+    const val ETERNITY_CODPIECE_ID = 12067
+
     fun grantedSkillNames(
         context: DynamicItemModifierSync.CheckContext,
         gameDatabase: GameDatabase,
@@ -27,7 +30,41 @@ object SkillGrantingEquipmentSync {
                 granted += equippedConditionalSkills(stringsFromEntry(entry, StringModifier.CONDITIONAL_SKILL_EQUIPPED))
             }
         }
-        // Eternity codpiece gem slots deferred to Phase 137 (no codpiece slots in CharacterState yet).
+        granted += codpieceGemSkills(context, gameDatabase, filterItemId)
+        return granted
+    }
+
+    private fun codpieceGemSkills(
+        context: DynamicItemModifierSync.CheckContext,
+        gameDatabase: GameDatabase,
+        filterItemId: Int?,
+    ): Set<String> {
+        val codpiece = gameDatabase.item(ETERNITY_CODPIECE_ITEM) ?: return emptySet()
+        if (filterItemId != null &&
+            filterItemId != codpiece.id &&
+            context.codpieceGemNames.none { gemName ->
+                gameDatabase.item(gemName)?.id == filterItemId
+            }
+        ) {
+            return emptySet()
+        }
+        if (!DynamicItemModifierSync.isEquippedOrInInventory(codpiece.id, codpiece.name, context)) {
+            return emptySet()
+        }
+        val granted = linkedSetOf<String>()
+        for (gemName in context.codpieceGemNames) {
+            if (filterItemId != null) {
+                val gemItem = gameDatabase.item(gemName)
+                if (gemItem?.id != filterItemId && filterItemId != codpiece.id) continue
+            }
+            val entry = ModifierDatabase.getEternityCodpiece(gemName) ?: continue
+            granted += inventoryConditionalSkills(
+                stringsFromEntry(entry, StringModifier.CONDITIONAL_SKILL_INVENTORY),
+            )
+            granted += equippedConditionalSkills(
+                stringsFromEntry(entry, StringModifier.CONDITIONAL_SKILL_EQUIPPED),
+            )
+        }
         return granted
     }
 

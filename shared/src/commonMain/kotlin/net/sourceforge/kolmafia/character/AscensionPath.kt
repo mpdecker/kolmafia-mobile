@@ -204,6 +204,18 @@ enum class AscensionPath(
         pointsPreference = "zootomistPoints",
         avatarPath = true,
     ),
+    POKEFAM(
+        "Pocket Familiars",
+        pathId = 32,
+        pathImage = "spiritorb.gif",
+        pointsPreference = "pokefamPoints",
+    ),
+    GLOVER(
+        "G-Lover",
+        pathId = 33,
+        pathImage = "g-loveheart.gif",
+        pointsPreference = "gloverPoints",
+    ),
     DISGUISES_DELIMIT(
         "Disguises Delimit",
         pathId = 34,
@@ -225,6 +237,7 @@ enum class AscensionPath(
         avatarPath = true,
     ),
     THRIFTY("Thrifty", pathId = 57, pathImage = "0dollars.gif"),
+    TRENDY("Trendy", pathId = 7, pathImage = "trendyicon.gif"),
     LOW_KEY("Low Key", pathId = 39, pathImage = "littlelock.gif"),
     KINGDOM_OF_EXPLOATHING("Kingdom of Exploathing", pathId = 37, pathImage = "puff.gif"),
     SURPRISING_FIST("Way of the Surprising Fist", pathId = 6, pathImage = "wosp_fist.gif"),

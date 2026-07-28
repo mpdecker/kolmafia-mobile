@@ -11,6 +11,7 @@ import net.sourceforge.kolmafia.quest.DynamicItemModifierSync.DescVisit
 object BirdOfTheDaySync {
 
     const val SEEK_OUT_A_BIRD_SKILL_ID = 7323
+    const val SEEK_OUT_A_BIRD_BASE_NAME = "Seek out a Bird"
     private const val CALENDAR_ITEM_NAME = "Bird-a-Day calendar"
     private val BIRD_PATTERN = Regex("Seek out an? (.*)")
     private val NAME_PATTERN = Regex("<b>(.*?)</b>")
@@ -31,12 +32,13 @@ object BirdOfTheDaySync {
         return match.groupValues[1].toLongOrNull() ?: 0
     }
 
-    fun applySeekBirdSkillDescription(html: String, preferences: Preferences) {
+    fun applySeekBirdSkillDescription(html: String, preferences: Preferences): Boolean {
         val skillName = parseSkillName(html)
-        val birdMatcher = BIRD_PATTERN.find(skillName) ?: return
+        val birdMatcher = BIRD_PATTERN.find(skillName) ?: return false
         val bird = birdMatcher.groupValues[1]
         preferences.setString("_birdOfTheDay", bird)
-        if (!preferences.getBoolean("_canSeekBirds", false)) {
+        val newlyUnlocked = !preferences.getBoolean("_canSeekBirds", false)
+        if (newlyUnlocked) {
             preferences.setBoolean("_canSeekBirds", true)
         }
         val mp = parseSkillMpCost(html)
@@ -44,6 +46,7 @@ object BirdOfTheDaySync {
             val casts = (ln(mp / 5.0) / ln(2.0)).toInt()
             preferences.setInt("_birdsSoughtToday", casts)
         }
+        return newlyUnlocked
     }
 
     fun checkBirdOfTheDay(

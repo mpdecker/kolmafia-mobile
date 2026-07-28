@@ -94,6 +94,9 @@ import net.sourceforge.kolmafia.request.SendGiftRequest
 import net.sourceforge.kolmafia.request.SendMailRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.HermitRequest
+import net.sourceforge.kolmafia.request.StandardRequest
+import net.sourceforge.kolmafia.request.TrendyRequest
+import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
@@ -155,6 +158,9 @@ val sharedModule = module {
     }
     singleOf(::UseItemRequest)
     singleOf(::HermitRequest)
+    singleOf(::ThriftyRequest)
+    singleOf(::StandardRequest)
+    singleOf(::TrendyRequest)
     singleOf(::EatFoodRequest)
     singleOf(::DrinkBoozeRequest)
     singleOf(::ChewRequest)
@@ -184,6 +190,9 @@ val sharedModule = module {
             clanStashRequest = get(),
             familiarManager = get(),
             preferences = get(),
+            standardRequest = get(),
+            thriftyRequest = get(),
+            trendyRequest = get(),
             skillManager = get(),
             retrieveItemService = get(),
             mallPriceManager = get(),
@@ -336,6 +345,9 @@ val sharedModule = module {
             banishManager    = get(),
             httpClient       = get(),
             hermitRequest    = get(),
+            thriftyRequest   = get(),
+            standardRequest  = get(),
+            trendyRequest    = get(),
             displayCaseRequest = get(),
             clanStashRequest    = get(),
             mallManager         = get(),
@@ -432,6 +444,10 @@ val sharedModule = module {
             gameDatabase     = get(),
             hermitRequest    = get(),
             familiarRequest  = get(),
+            character        = get(),
+            standardRequest  = get(),
+            thriftyRequest   = get(),
+            trendyRequest    = get(),
         )
     }
     single {

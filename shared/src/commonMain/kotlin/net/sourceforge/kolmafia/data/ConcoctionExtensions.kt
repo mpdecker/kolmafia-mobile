@@ -18,3 +18,5 @@ fun ConcoctionData.isSuseCraftable(): Boolean =
 
 fun ConcoctionData.isStationCraftable(): Boolean =
     !methods.contains("MANUAL") && craftMode() != null && ingredients.size >= 2
+
+fun ConcoctionData.craftTypeDescription(): String = CraftTypeDescription.describe(methods)

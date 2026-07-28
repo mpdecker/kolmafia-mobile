@@ -470,13 +470,58 @@ class DynamicItemModifierSyncTest {
     fun checkExtendedMods_visitsRingFromCloset() {
         val ring = testItem(10252, "ring", "ring-desc")
         val db = stubDb(ring)
-        val p = prefs()
+        val p = prefs().also { it.setBoolean("autoSatisfyWithCloset", true) }
         val context = DynamicItemModifierSync.CheckContext(
             inventoryItemIds = emptySet(),
             equippedItemNames = emptySet(),
             activeEffectNames = emptySet(),
             closetItemIds = setOf(10252),
         )
+        val visits = DynamicItemModifierSync.checkExtendedMods(p, context, db)
+        assertEquals(
+            listOf(DynamicItemModifierSync.DescVisit.Item("ring-desc")),
+            visits.filterIsInstance<DynamicItemModifierSync.DescVisit.Item>()
+                .filter { it.descId == "ring-desc" },
+        )
+    }
+
+    @Test
+    fun checkExtendedMods_visitsRingFromStorage() {
+        val ring = testItem(10252, "ring", "ring-desc")
+        val db = stubDb(ring)
+        val p = prefs().also { it.setBoolean("autoSatisfyWithStorage", true) }
+        val context = DynamicItemModifierSync.CheckContext(
+            inventoryItemIds = emptySet(),
+            equippedItemNames = emptySet(),
+            activeEffectNames = emptySet(),
+            storageItemIds = setOf(10252),
+            canInteract = true,
+        )
+        val visits = DynamicItemModifierSync.checkExtendedMods(p, context, db)
+        assertEquals(
+            listOf(DynamicItemModifierSync.DescVisit.Item("ring-desc")),
+            visits.filterIsInstance<DynamicItemModifierSync.DescVisit.Item>()
+                .filter { it.descId == "ring-desc" },
+        )
+    }
+
+    @Test
+    fun checkExtendedMods_visitsRingWhenMallAvailable() {
+        val ring = ItemData(
+            id = 10252,
+            name = "ring",
+            descId = "ring-desc",
+            image = "dcring.gif",
+            primaryUse = ItemPrimaryUse.ACCESSORY,
+            secondaryUses = emptySet(),
+            access = setOf('t'),
+            autosellPrice = 0,
+            plural = null,
+        )
+        ItemDatabase.registerForTest(ring)
+        val db = stubDb(ring)
+        val p = prefs().also { it.setBoolean("autoSatisfyWithMall", true) }
+        val context = emptyContext()
         val visits = DynamicItemModifierSync.checkExtendedMods(p, context, db)
         assertEquals(
             listOf(DynamicItemModifierSync.DescVisit.Item("ring-desc")),

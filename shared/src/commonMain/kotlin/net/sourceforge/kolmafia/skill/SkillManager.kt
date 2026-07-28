@@ -75,4 +75,10 @@ open class SkillManager(
         }
         return result.map { Unit }
     }
+
+    /** Merge a locally learned skill into cached state (desktop addAvailableSkill). */
+    open fun learnLocalSkill(skill: SkillData) {
+        val skills = _state.value.skills.filterNot { it.id == skill.id } + skill
+        _state.value = _state.value.copy(skills = skills.sortedBy { it.name }, isStale = false)
+    }
 }
