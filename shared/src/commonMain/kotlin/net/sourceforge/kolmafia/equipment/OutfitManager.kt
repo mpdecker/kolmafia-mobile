@@ -6,6 +6,8 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.OutfitData
 import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.inventory.AccessCountContext
+import net.sourceforge.kolmafia.inventory.AccessibleItemCount
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.CustomOutfitRequest
@@ -150,15 +152,21 @@ open class OutfitManager(
         return result
     }
 
-    open suspend fun accessibleCount(itemId: Int, itemName: String): Int {
-        var total = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
-        total += closetRequest?.fetchContents()?.get(itemId) ?: 0
-        total += storageRequest?.fetchContents()?.get(itemId) ?: 0
-        total += displayCaseRequest?.fetchContents()?.get(itemId) ?: 0
-        total += clanStashRequest?.fetchContents()?.get(itemId) ?: 0
-        total += equippedCount(itemName, character.state.value.equipment)
-        return total
-    }
+    open suspend fun accessibleCount(itemId: Int, itemName: String): Int =
+        AccessibleItemCount.physicalCount(
+            itemId = itemId,
+            itemName = itemName,
+            inventoryManager = inventoryManager,
+            closetRequest = closetRequest,
+            storageRequest = storageRequest,
+            displayCaseRequest = displayCaseRequest,
+            clanStashRequest = clanStashRequest,
+            equipment = character.state.value.equipment,
+            context = AccessCountContext(
+                characterState = character.state.value,
+                gameDatabase = gameDatabase,
+            ),
+        )
 
     companion object {
         fun pieceCounts(pieces: List<String>): Map<String, Int> =

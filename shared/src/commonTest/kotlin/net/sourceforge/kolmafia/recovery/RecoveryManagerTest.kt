@@ -1,8 +1,12 @@
 package net.sourceforge.kolmafia.recovery
 
 import com.russhwolf.settings.MapSettings
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.skill.SkillState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -272,5 +276,111 @@ class RecoveryManagerTest {
     @Test fun mpAboveStop_zeroMaxMp_returnsTrue() {
         val p = prefs(Preferences.AUTO_RECOVER_MP to true, Preferences.MP_RECOVERY_STOP_PCT to 80)
         assertTrue(RecoveryManager.mpAboveStopThreshold(state(0, 0, 0, 0), p))
+    }
+
+    // ── Checkpointed recovery targets ────────────────────────────────────────
+
+    @Test fun hpRecoveryTarget_positiveAmount_capsAtMaxHp() {
+        val p = prefs()
+        assertEquals(50, RecoveryManager.hpRecoveryTarget(50, state(10, 100), p))
+        assertEquals(100, RecoveryManager.hpRecoveryTarget(200, state(10, 100), p))
+    }
+
+    @Test fun hpRecoveryTarget_zeroAmount_usesStopPct() {
+        val p = prefs(Preferences.HP_RECOVERY_STOP_PCT to 90)
+        assertEquals(90, RecoveryManager.hpRecoveryTarget(0, state(10, 100), p))
+    }
+
+    @Test fun mpRecoveryTarget_zeroAmount_usesStopPct() {
+        val p = prefs(Preferences.MP_RECOVERY_STOP_PCT to 80)
+        assertEquals(40, RecoveryManager.mpRecoveryTarget(0, state(0, 0, 10, 50), p))
+    }
+
+    @Test fun checkpointedRecoverHp_alreadyAtTarget_returnsTrue() = kotlinx.coroutines.test.runTest {
+        val rm = recoveryManagerWithInventory(emptyMap())
+        val result = rm.checkpointedRecoverHp(
+            amount = 50,
+            charState = state(60, 100),
+            invState = InventoryState(),
+            skillState = SkillState(),
+            refreshStates = { Triple(state(60, 100), InventoryState(), SkillState()) },
+        )
+        assertTrue(result)
+    }
+
+    @Test fun checkpointedRecoverHp_noRestores_returnsFalse() = kotlinx.coroutines.test.runTest {
+        val rm = recoveryManagerWithInventory(emptyMap())
+        val result = rm.checkpointedRecoverHp(
+            amount = 50,
+            charState = state(30, 100),
+            invState = InventoryState(),
+            skillState = SkillState(),
+            refreshStates = { Triple(state(30, 100), InventoryState(), SkillState()) },
+        )
+        assertFalse(result)
+    }
+
+    @Test fun checkpointedRecoverHp_loopsUntilTarget() = kotlinx.coroutines.test.runTest {
+        net.sourceforge.kolmafia.data.RestoreDatabase.load()
+        net.sourceforge.kolmafia.data.ItemDatabase.registerForTest(aspirinItem())
+        val aspirin = invItem(id = 1381, count = 5)
+        val rm = recoveryManagerWithInventory(mapOf(1381 to aspirin))
+        var hp = 30
+        val result = rm.checkpointedRecoverHp(
+            amount = 50,
+            charState = state(hp, 100),
+            invState = InventoryState(items = mapOf(1381 to aspirin)),
+            skillState = SkillState(),
+            refreshStates = {
+                hp = minOf(hp + 101, 100)
+                Triple(state(hp, 100), InventoryState(items = mapOf(1381 to aspirin)), SkillState())
+            },
+        )
+        assertTrue(result)
+        assertTrue(hp >= 50)
+    }
+
+    @Test fun checkpointedRecoverMp_noRestores_returnsFalse() = kotlinx.coroutines.test.runTest {
+        val rm = recoveryManagerWithInventory(emptyMap())
+        val result = rm.checkpointedRecoverMp(
+            amount = 30,
+            charState = state(0, 0, 10, 50),
+            invState = InventoryState(),
+            skillState = SkillState(),
+            refreshStates = { Triple(state(0, 0, 10, 50), InventoryState(), SkillState()) },
+        )
+        assertFalse(result)
+    }
+
+    private fun aspirinItem() = net.sourceforge.kolmafia.data.ItemData(
+        id = 1381,
+        name = "aspirin",
+        descId = "775883133",
+        image = "aspirin.gif",
+        primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.USABLE,
+        secondaryUses = emptySet(),
+        access = setOf('t'),
+        autosellPrice = 0,
+        plural = null,
+    )
+
+    private fun recoveryManagerWithInventory(
+        items: Map<Int, net.sourceforge.kolmafia.inventory.InventoryItem>,
+    ): RecoveryManager {
+        val client = io.ktor.client.HttpClient(
+            io.ktor.client.engine.mock.MockEngine { respond("", io.ktor.http.HttpStatusCode.OK) },
+        )
+        val bus = net.sourceforge.kolmafia.event.GameEventBus()
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(client, bus) {
+            init {
+                _state.value = net.sourceforge.kolmafia.inventory.InventoryState(items = items)
+            }
+        }
+        val skillManager = net.sourceforge.kolmafia.skill.SkillManager(
+            client,
+            net.sourceforge.kolmafia.skill.SkillCastRequest(client),
+            bus,
+        )
+        return RecoveryManager(inv, skillManager, prefs())
     }
 }

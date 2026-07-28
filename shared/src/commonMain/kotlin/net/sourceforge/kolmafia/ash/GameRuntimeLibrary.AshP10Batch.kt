@@ -10,44 +10,54 @@ internal fun GameRuntimeLibrary.registerAshP10Batch(scope: AshScope) {
         AshValue.of((character?.state?.value?.playerId ?: 0).toString())
     }
     regFn(scope, "my_path_id", AshType.INT, emptyList()) { _, _ ->
-        val path = character?.state?.value?.ascensionPath?.apiName ?: "None"
-        AshValue.of(path.hashCode().toLong().let { if (it < 0) -it else it })
+        AshValue.of((character?.state?.value?.ascensionPath?.pathId ?: 0).toLong())
     }
     regFn(scope, "my_garden_type", AshType.STRING, emptyList()) { _, _ ->
-        AshValue.of(preferences?.getString("myGardenType", "") ?: "")
+        val type = character?.state?.value?.gardenType?.takeIf { it.isNotBlank() }
+            ?: preferences?.getString("myGardenType", "")?.takeIf { it.isNotBlank() }
+            ?: "none"
+        AshValue.of(type)
     }
     regFn(scope, "my_pp", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("currentPp", 0) ?: 0).toLong())
+        AshValue.of((character?.state?.value?.currentPP ?: 0).toLong())
     }
     regFn(scope, "my_maxpp", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("maxPp", 0) ?: 0).toLong())
+        AshValue.of((character?.state?.value?.maximumPP ?: 0).toLong())
     }
     regFn(scope, "my_fury", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("furyLevel", 0) ?: 0).toLong())
+        AshValue.of((character?.state?.value?.fury ?: 0).toLong())
     }
     regFn(scope, "my_soulsauce", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("soulSauce", 0) ?: 0).toLong())
+        AshValue.of((character?.state?.value?.soulsauce ?: 0).toLong())
     }
     regFn(scope, "my_discomomentum", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("discoMomentum", 0) ?: 0).toLong())
+        val cs = character?.state?.value
+        AshValue.of((cs?.discoMomentum ?: preferences?.getInt("discoMomentum", 0) ?: 0).toLong())
     }
     regFn(scope, "my_audience", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("audience", 0) ?: 0).toLong())
+        val cs = character?.state?.value
+        AshValue.of((cs?.audience ?: preferences?.getInt("audience", 0) ?: 0).toLong())
     }
     regFn(scope, "my_thunder", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("thunder", 0) ?: 0).toLong())
+        AshValue.of((character?.state?.value?.thunder ?: 0).toLong())
     }
     regFn(scope, "my_rain", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("rain", 0) ?: 0).toLong())
+        AshValue.of((character?.state?.value?.rain ?: 0).toLong())
     }
     regFn(scope, "my_lightning", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("lightning", 0) ?: 0).toLong())
+        AshValue.of((character?.state?.value?.lightning ?: 0).toLong())
     }
     regFn(scope, "my_mask", AshType.STRING, emptyList()) { _, _ ->
-        AshValue.of(preferences?.getString("currentMask", "") ?: "")
+        val cs = character?.state?.value
+        AshValue.of(
+            cs?.currentMask?.takeIf { it.isNotBlank() }
+                ?: preferences?.getString("currentMask", "")
+                ?: "",
+        )
     }
     regFn(scope, "my_paradoxicity", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("paradoxicity", 0) ?: 0).toLong())
+        val cs = character?.state?.value
+        AshValue.of((cs?.paradoxicity ?: preferences?.getInt("paradoxicity", 0) ?: 0).toLong())
     }
     regFn(scope, "my_servant", AshType.SERVANT, emptyList()) { _, _ ->
         val active = edServantManager?.activeServantType()?.takeIf { it.isNotBlank() }

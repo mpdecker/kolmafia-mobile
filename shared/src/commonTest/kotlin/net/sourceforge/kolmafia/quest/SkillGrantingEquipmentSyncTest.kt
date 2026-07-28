@@ -171,4 +171,69 @@ class SkillGrantingEquipmentSyncTest {
         val expr = ExpressionContext.from(CharacterState(), emptyList(), granted)
         assertTrue(expr.hasSkill("Sweat Out Some Booze"))
     }
+
+    @Test
+    fun codpieceGem_inventoryConditionalSkill_includedWhenCodpieceAccessible() {
+        testSkill(7419, "Drench Yourself in Sweat", isNonCombat = true)
+        val codpiece = testItem(
+            SkillGrantingEquipmentSync.ETERNITY_CODPIECE_ID,
+            SkillGrantingEquipmentSync.ETERNITY_CODPIECE_ITEM,
+        )
+        val gem = testItem(90001, "test codpiece gem")
+        ModifierDatabase.injectForTest(
+            "EternityCodpiece",
+            gem.name,
+            """Conditional Skill (Inventory): "Drench Yourself in Sweat"""",
+        )
+        val context = DynamicItemModifierSync.CheckContext(
+            inventoryItemIds = setOf(codpiece.id),
+            equippedItemNames = emptySet(),
+            activeEffectNames = emptySet(),
+            codpieceGemNames = setOf(gem.name),
+        )
+        val granted = SkillGrantingEquipmentSync.grantedSkillNames(context, stubDb(codpiece, gem))
+        assertEquals(setOf("Drench Yourself in Sweat"), granted)
+    }
+
+    @Test
+    fun codpieceGem_equippedCombatSkill_excluded() {
+        testSkill(9002, "Combat Gem Skill", isNonCombat = false)
+        val codpiece = testItem(
+            SkillGrantingEquipmentSync.ETERNITY_CODPIECE_ID,
+            SkillGrantingEquipmentSync.ETERNITY_CODPIECE_ITEM,
+        )
+        val gem = testItem(90002, "combat gem")
+        ModifierDatabase.injectForTest(
+            "EternityCodpiece",
+            gem.name,
+            """Conditional Skill (Equipped): "Combat Gem Skill"""",
+        )
+        val context = DynamicItemModifierSync.CheckContext(
+            inventoryItemIds = setOf(codpiece.id),
+            equippedItemNames = emptySet(),
+            activeEffectNames = emptySet(),
+            codpieceGemNames = setOf(gem.name),
+        )
+        assertTrue(
+            SkillGrantingEquipmentSync.grantedSkillNames(context, stubDb(codpiece, gem)).isEmpty(),
+        )
+    }
+
+    @Test
+    fun codpieceGem_skippedWhenCodpieceNotAccessible() {
+        testSkill(7419, "Drench Yourself in Sweat", isNonCombat = true)
+        val gem = testItem(90003, "orphan gem")
+        ModifierDatabase.injectForTest(
+            "EternityCodpiece",
+            gem.name,
+            """Conditional Skill (Inventory): "Drench Yourself in Sweat"""",
+        )
+        val context = DynamicItemModifierSync.CheckContext(
+            inventoryItemIds = emptySet(),
+            equippedItemNames = emptySet(),
+            activeEffectNames = emptySet(),
+            codpieceGemNames = setOf(gem.name),
+        )
+        assertTrue(SkillGrantingEquipmentSync.grantedSkillNames(context, stubDb(gem)).isEmpty())
+    }
 }

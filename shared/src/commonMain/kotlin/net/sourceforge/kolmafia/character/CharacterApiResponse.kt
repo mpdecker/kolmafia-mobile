@@ -121,5 +121,9 @@ data class CharacterApiResponse(
     val acc2: String = "",
     val acc3: String = "",
     val familiarequip: String = "",
-    val container: String = ""
+    val container: String = "",
+    /** Eternity codpiece gem item ids; 0 = empty slot. */
+    val eternitycod: List<Int> = emptyList(),
+    /** Hat Trick path — extra hat item ids from status API. */
+    val hats: List<String> = emptyList(),
 )

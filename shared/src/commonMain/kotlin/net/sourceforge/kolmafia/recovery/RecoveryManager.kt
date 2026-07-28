@@ -47,6 +47,28 @@ class RecoveryManager(
             return state.currentMp * 100 / state.maxMp >= stopPct
         }
 
+        internal fun hpRecoveryTarget(amount: Int, state: CharacterState, prefs: Preferences): Int {
+            if (state.maxHp <= 0) return 0
+            return if (amount > 0) {
+                minOf(state.maxHp, amount)
+            } else {
+                val stopPct = prefs.getInt(Preferences.HP_RECOVERY_STOP_PCT, 90)
+                (state.maxHp * stopPct + 99) / 100
+            }
+        }
+
+        internal fun mpRecoveryTarget(amount: Int, state: CharacterState, prefs: Preferences): Int {
+            if (state.maxMp <= 0) return 0
+            return if (amount > 0) {
+                minOf(state.maxMp, amount)
+            } else {
+                val stopPct = prefs.getInt(Preferences.MP_RECOVERY_STOP_PCT, 90)
+                (state.maxMp * stopPct + 99) / 100
+            }
+        }
+
+        private const val MAX_CHECKPOINT_ITERATIONS = 25
+
         internal fun isFullRestore(restoreData: RestoreData): Boolean =
             restoreData.hpMaxExpr.contains("[") || restoreData.mpMaxExpr.contains("[")
 
@@ -131,6 +153,58 @@ class RecoveryManager(
     ): Boolean {
         if (charState.currentHp >= targetHp) return false
         return recoverHp(charState, invState, skillState)
+    }
+
+    suspend fun checkpointedRecoverHp(
+        amount: Int,
+        charState: CharacterState,
+        invState: InventoryState,
+        skillState: SkillState,
+        refreshStates: suspend () -> Triple<CharacterState, InventoryState, SkillState>,
+    ): Boolean {
+        var state = charState
+        var inventory = invState
+        var skills = skillState
+        val target = hpRecoveryTarget(amount, state, preferences)
+        if (state.currentHp >= target) return true
+
+        repeat(MAX_CHECKPOINT_ITERATIONS) {
+            val before = state.currentHp
+            if (!recoverHp(state, inventory, skills)) return false
+            val refreshed = refreshStates()
+            state = refreshed.first
+            inventory = refreshed.second
+            skills = refreshed.third
+            if (state.currentHp <= before) return false
+            if (state.currentHp >= target) return true
+        }
+        return state.currentHp >= target
+    }
+
+    suspend fun checkpointedRecoverMp(
+        amount: Int,
+        charState: CharacterState,
+        invState: InventoryState,
+        skillState: SkillState,
+        refreshStates: suspend () -> Triple<CharacterState, InventoryState, SkillState>,
+    ): Boolean {
+        var state = charState
+        var inventory = invState
+        var skills = skillState
+        val target = mpRecoveryTarget(amount, state, preferences)
+        if (state.currentMp >= target) return true
+
+        repeat(MAX_CHECKPOINT_ITERATIONS) {
+            val before = state.currentMp
+            if (!recoverMp(state, inventory, skills)) return false
+            val refreshed = refreshStates()
+            state = refreshed.first
+            inventory = refreshed.second
+            skills = refreshed.third
+            if (state.currentMp <= before) return false
+            if (state.currentMp >= target) return true
+        }
+        return state.currentMp >= target
     }
 
     private suspend fun recoverHp(

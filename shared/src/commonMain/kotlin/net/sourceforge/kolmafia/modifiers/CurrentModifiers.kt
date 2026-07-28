@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.modifiers
 
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.MainStat
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.modifiers.ClassModifiers
@@ -226,6 +227,25 @@ class CurrentModifiers(
             total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 
+        // 1b. Eternity codpiece gems (when codpiece is accessible)
+        if (codpieceGemsActive(state)) {
+            for (slot in EquipmentSlot.CODPIECE_SLOTS) {
+                val gemName = state.equipment[slot]?.takeIf { it.isNotBlank() } ?: continue
+                val raw = ModifierDatabase.getEternityCodpiece(gemName)?.modifiers ?: continue
+                total = total + ModifierParser.parse(raw, ctxWithAccumulated())
+            }
+        }
+
+        // 1c. Crown of Thrones — enthroned familiar modifiers when crown is worn
+        if (state.equippedItem(EquipmentSlot.HAT)?.equals(CROWN_OF_THRONES, ignoreCase = true) == true) {
+            addThroneModifiers(state.enthronedFamiliarName, total, ctxWithAccumulated())?.let { total = it }
+        }
+
+        // 1d. Buddy Bjorn — bjorned familiar modifiers when bjorn is worn
+        if (state.equippedItem(EquipmentSlot.CONTAINER)?.equals(BUDDY_BJORN, ignoreCase = true) == true) {
+            addThroneModifiers(state.bjornedFamiliarName, total, ctxWithAccumulated())?.let { total = it }
+        }
+
         // 2. Active effects
         for (effect in activeEffects) {
             val raw = ModifierDatabase.getEffect(effect.name)?.modifiers ?: continue
@@ -283,6 +303,31 @@ class CurrentModifiers(
     }
 
     companion object {
+        private const val ETERNITY_CODPIECE_ITEM = "The Eternity Codpiece"
+        private const val CROWN_OF_THRONES = "Crown of Thrones"
+        private const val BUDDY_BJORN = "Buddy Bjorn"
+
+        private fun addThroneModifiers(
+            race: String,
+            total: ModifierValues,
+            ctx: ExpressionContext,
+        ): ModifierValues? {
+            if (race.isBlank()) return null
+            val raw = ModifierDatabase.getThrone(race)?.modifiers ?: return null
+            if (raw.isBlank() || raw.equals("none", ignoreCase = true)) return null
+            return total + ModifierParser.parse(raw, ctx)
+        }
+
+        /** Gems apply when codpiece is worn or gem slots are populated from api.php. */
+        internal fun codpieceGemsActive(state: CharacterState): Boolean {
+            if (state.equipment.values.any { it.equals(ETERNITY_CODPIECE_ITEM, ignoreCase = true) }) {
+                return true
+            }
+            return EquipmentSlot.CODPIECE_SLOTS.any { slot ->
+                state.equipment[slot]?.isNotBlank() == true
+            }
+        }
+
         /** Combat rate diminishing returns: uncapped at ±25; beyond that, 1% per 5%. */
         fun cappedCombatRate(rate: Double): Double = when {
             rate > 75.0  -> 35.0

@@ -9,6 +9,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -18,11 +19,29 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.combat.EncounterModifierPipeline
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
+import net.sourceforge.kolmafia.concoction.StillsAvailability
 import net.sourceforge.kolmafia.data.AdventureDatabase
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.DescriptionCache
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ItemData
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.data.RestoreDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
+import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.inventory.InventoryItem
+import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.recovery.RecoveryManager
+import net.sourceforge.kolmafia.request.CharacterRequest
+import net.sourceforge.kolmafia.skill.SkillCastRequest
+import net.sourceforge.kolmafia.skill.SkillData
+import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.skill.SkillType
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.WildfireCampManager
@@ -81,7 +100,7 @@ class AshCompatibilityCorpusTest {
         assertFalse(outputLib(lib, """cli_execute("pvp attack rival");""").contains("[cli]"))
         assertEquals("false", outputLib(lib, """cli_execute("is_adventuring");""").trim())
         assertEquals("false", outputLib(lib, """cli_execute("has_queued_commands");""").trim())
-        assertTrue(outputLib(lib, """print(to_string(my_path_id()));""").trim().toLongOrNull() != null)
+        assertEquals("0", outputLib(lib, """print(to_string(my_path_id()));""").trim())
         assertEquals("Muscle", outputLib(lib, """print(modifier_name("Muscle"));""").trim())
     }
 
@@ -1022,5 +1041,555 @@ class AshCompatibilityCorpusTest {
         effectMgr.fetchEffects()
         val lib = GameRuntimeLibrary(effectManager = effectMgr)
         assertTrue(outputLib(lib, """print(to_string(numerics_modifier("Effect Duration")));""").contains("10"))
+    }
+
+    @Test
+    fun corpus_availableAmount_lolStorageGate() = runBlocking {
+        val itemId = 9101
+        val item = net.sourceforge.kolmafia.data.ItemData(
+            id = itemId,
+            name = "corpus lol weapon",
+            descId = "desc9101",
+            image = "w.gif",
+            primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.WEAPON,
+            secondaryUses = emptySet(),
+            access = emptySet(),
+            autosellPrice = 0,
+            plural = null,
+        )
+        val db = object : GameDatabase() {
+            override fun item(name: String): net.sourceforge.kolmafia.data.ItemData? =
+                if (name.equals("corpus lol weapon", ignoreCase = true)) item else null
+            override fun item(id: Int): net.sourceforge.kolmafia.data.ItemData? = if (id == itemId) item else null
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Legacy of Loathing"))
+        }
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ) {
+            private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                net.sourceforge.kolmafia.inventory.InventoryState(
+                    items = mapOf(
+                        itemId to net.sourceforge.kolmafia.inventory.InventoryItem(
+                            itemId, "corpus lol weapon", 2, net.sourceforge.kolmafia.inventory.ItemType.OTHER,
+                        ),
+                    ),
+                ),
+            )
+            override val state = flow.asStateFlow()
+        }
+        val storage = object : net.sourceforge.kolmafia.request.StorageRequest(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun fetchRawContents(): Map<Int, Int> = mapOf(itemId to 7)
+        }
+        val lib = GameRuntimeLibrary(
+            character = char,
+            inventoryManager = inv,
+            storageRequest = storage,
+            gameDatabase = db,
+        )
+        assertEquals(
+            "2",
+            outputLib(lib, """print(to_string(available_amount(to_item("corpus lol weapon"))));"""),
+        )
+    }
+
+    @Test
+    fun corpus_availableAmount_trendyGate() = runBlocking {
+        net.sourceforge.kolmafia.request.TrendyRequest.parseResponse(
+            """
+            <tr class="expired">
+            <td>2004-12</td><td>Items</td><td>corpus trendy snack</td></tr>
+            """.trimIndent(),
+        )
+        val itemId = 9102
+        val item = net.sourceforge.kolmafia.data.ItemData(
+            id = itemId,
+            name = "corpus trendy snack",
+            descId = "desc9102",
+            image = "s.gif",
+            primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.USABLE,
+            secondaryUses = emptySet(),
+            access = emptySet(),
+            autosellPrice = 0,
+            plural = null,
+        )
+        val db = object : GameDatabase() {
+            override fun item(name: String): net.sourceforge.kolmafia.data.ItemData? =
+                if (name.equals("corpus trendy snack", ignoreCase = true)) item else null
+            override fun item(id: Int): net.sourceforge.kolmafia.data.ItemData? = if (id == itemId) item else null
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Trendy"))
+        }
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ) {
+            private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                net.sourceforge.kolmafia.inventory.InventoryState(
+                    items = mapOf(
+                        itemId to net.sourceforge.kolmafia.inventory.InventoryItem(
+                            itemId, "corpus trendy snack", 5, net.sourceforge.kolmafia.inventory.ItemType.OTHER,
+                        ),
+                    ),
+                ),
+            )
+            override val state = flow.asStateFlow()
+        }
+        val lib = GameRuntimeLibrary(
+            character = char,
+            inventoryManager = inv,
+            gameDatabase = db,
+        )
+        assertEquals(
+            "0",
+            outputLib(lib, """print(to_string(available_amount(to_item("corpus trendy snack"))));"""),
+        )
+    }
+
+    @Test
+    fun corpus_haveFamiliar_beecoreBlocksBeeRace() = runBlocking {
+        net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase.load()
+        val barrrnacle = net.sourceforge.kolmafia.familiar.FamiliarData(
+            id = 8, name = "Barn", race = "Barrrnacle",
+            weight = 10, experience = 0, kills = 0,
+        )
+        val fm = net.sourceforge.kolmafia.familiar.FamiliarManager(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ).also {
+            it.testSetState(
+                net.sourceforge.kolmafia.familiar.FamiliarState(ownedFamiliars = listOf(barrrnacle)),
+            )
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Bees Hate You"))
+        }
+        val lib = GameRuntimeLibrary(character = char, familiarManager = fm)
+        assertEquals(
+            "false",
+            outputLib(lib, """print(to_string(have_familiar(to_familiar("Barrrnacle"))));"""),
+        )
+    }
+
+    @Test
+    fun corpus_inTerrarium_ownedVsUsable() = runBlocking {
+        net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase.load()
+        val barrrnacle = net.sourceforge.kolmafia.familiar.FamiliarData(
+            id = 8, name = "Barn", race = "Barrrnacle",
+            weight = 10, experience = 0, kills = 0,
+        )
+        val fm = net.sourceforge.kolmafia.familiar.FamiliarManager(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ).also {
+            it.testSetState(
+                net.sourceforge.kolmafia.familiar.FamiliarState(ownedFamiliars = listOf(barrrnacle)),
+            )
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Bees Hate You"))
+        }
+        val lib = GameRuntimeLibrary(character = char, familiarManager = fm)
+        assertEquals(
+            "true",
+            outputLib(lib, """print(to_string(in_terrarium(to_familiar("Barrrnacle"))));"""),
+        )
+        assertEquals(
+            "false",
+            outputLib(lib, """print(to_string(have_familiar(to_familiar("Barrrnacle"))));"""),
+        )
+    }
+
+    @Test
+    fun corpus_retrieveItem_restrictedEarlyExit() = runBlocking {
+        val itemId = 9001
+        val itemName = "corpus restricted snack"
+        val db = object : GameDatabase() {
+            override fun item(id: Int) = if (id == itemId) {
+                net.sourceforge.kolmafia.data.ItemData(
+                    itemId, itemName, "", "", net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                    emptySet(), setOf('t'), 0, null,
+                )
+            } else null
+            override fun item(name: String) = if (name == itemName) item(itemId) else null
+        }
+        var storageWithdrawn = false
+        val storage = object : net.sourceforge.kolmafia.request.StorageRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun withdraw(itemId: Int, quantity: Int): Result<String> {
+                storageWithdrawn = true
+                return Result.success("ok")
+            }
+        }
+        val standard = object : net.sourceforge.kolmafia.request.StandardRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun ensureInitialized() {
+                parseResponse(
+                    """
+                    <b>Items</b><p><span class="i">$itemName</span><p>
+                    """.trimIndent(),
+                )
+            }
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(hardcore = "1"))
+        }
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+            HttpClient(MockEngine { respond("") }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ) {
+            override val state = kotlinx.coroutines.flow.MutableStateFlow(
+                net.sourceforge.kolmafia.inventory.InventoryState(),
+            )
+        }
+        val retrieve = net.sourceforge.kolmafia.item.RetrieveItemService(
+            inventoryManager = inv,
+            closetRequest = null,
+            storageRequest = storage,
+            npcBuyRequest = null,
+            mallManager = null,
+            gameDatabase = db,
+            character = char,
+            standardRequest = standard,
+        )
+        val lib = GameRuntimeLibrary(
+            character = char,
+            gameDatabase = db,
+            retrieveItemService = retrieve,
+        )
+        try {
+            assertEquals(
+                "false",
+                outputLib(
+                    lib,
+                    """print(to_string(retrieve_item(1, to_item("$itemName"))));""",
+                ),
+            )
+            assertFalse(storageWithdrawn)
+        } finally {
+            net.sourceforge.kolmafia.request.StandardRequest.resetForTest()
+        }
+    }
+
+    @Test
+    fun corpus_useFamiliar_avatarPathBlocked() = runBlocking {
+        val goat = net.sourceforge.kolmafia.familiar.FamiliarData(
+            id = 7, name = "Biscuit", race = "Angry Goat",
+            weight = 12, experience = 0, kills = 0,
+        )
+        val fm = net.sourceforge.kolmafia.familiar.FamiliarManager(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ).also {
+            it.testSetState(
+                net.sourceforge.kolmafia.familiar.FamiliarState(ownedFamiliars = listOf(goat)),
+            )
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Avatar of Boris"))
+        }
+        val lib = GameRuntimeLibrary(character = char, familiarManager = fm)
+        assertEquals(
+            "false",
+            outputLib(lib, """print(to_string(use_familiar(to_familiar("Angry Goat"))));"""),
+        )
+    }
+
+    @Test
+    fun corpus_characterResources_live() {
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(
+                    path = "standard",
+                    fury = "3",
+                    pp = "8",
+                    robonenergy = "42",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("3", outputLib(lib, """print(to_string(my_fury()));""").trim())
+        assertEquals("8", outputLib(lib, """print(to_string(my_pp()));""").trim())
+        assertEquals("42", outputLib(lib, """print(to_string(my_robot_energy()));""").trim())
+        assertEquals(
+            AscensionPath.STANDARD.pathId.toString(),
+            outputLib(lib, """print(to_string(my_path_id()));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_entityNameAndToInt_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("seal tooth", outputLib(lib, """print(name(to_item("seal tooth")));""").trim())
+        assertEquals("1", outputLib(lib, """print(to_string(to_int(to_class("Seal Clubber"))));""").trim())
+    }
+
+    @Test
+    fun corpus_charpaneClassResources_live() {
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(path = AscensionPath.DISGUISES_DELIMIT.apiName),
+            )
+            it.updateClassResource(currentMask = "skull mask", paradoxicity = 11, audience = -5)
+        }
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("skull mask", outputLib(lib, """print(my_mask());""").trim())
+        assertEquals("11", outputLib(lib, """print(to_string(my_paradoxicity()));""").trim())
+        assertEquals("-5", outputLib(lib, """print(to_string(my_audience()));""").trim())
+    }
+
+    @Test
+    fun corpus_telescopeUpgrades_fromState() {
+        val char = KoLCharacter().also { it.setCampground(telescopeUpgrades = 6, telescopeLookedHigh = true) }
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("6", outputLib(lib, """print(to_string(telescope_upgrades()));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(telescope_looked_high()));""").trim())
+    }
+
+    @Test
+    fun corpus_myGardenType_fromState() {
+        val char = KoLCharacter().also { it.setCampground(gardenType = "mushroom") }
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("mushroom", outputLib(lib, """print(my_garden_type());""").trim())
+    }
+
+    @Test
+    fun corpus_myClosetMeat_fromState() {
+        val char = KoLCharacter().also { it.setClosetMeat(170_000_000L) }
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("170000000", outputLib(lib, """print(my_closet_meat());""").trim())
+    }
+
+    @Test
+    fun corpus_mySessionMeat_fromState() {
+        val char = KoLCharacter().also { it.addSessionMeat(12_345L) }
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("12345", outputLib(lib, """print(my_session_meat());""").trim())
+    }
+
+    @Test
+    fun corpus_descItem_fromCache() = runBlocking {
+        DescriptionCache.clear()
+        val db = GameDatabase()
+        db.load()
+        DescriptionCache.cacheItem(
+            2,
+            """<div id="description"><p>A sharp tooth from a seal.</p><script>""",
+        )
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "<p>A sharp tooth from a seal.</p>",
+            outputLib(lib, """print(desc(to_item("seal tooth")));""").trim(),
+        )
+        DescriptionCache.clear()
+    }
+
+    @Test
+    fun corpus_pullsRemaining_fromStorageHook() {
+        ConcoctionDatabase.resetForTest()
+        val char = KoLCharacter()
+        val lib = GameRuntimeLibrary(character = char)
+        lib.processVisitResponseHooks(
+            """<span class="pullsleft">15</span>""",
+            "https://www.kingdomofloathing.com/storage.php?which=5",
+        )
+        assertEquals("15", outputLib(lib, """print(pulls_remaining());""").trim())
+        ConcoctionDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_stillsAvailable_fromStillHook() {
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(
+                    ascensions = "2",
+                    classId = "5",
+                    stills = "0",
+                    path = "Avatar of Sneaky Pete",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            character = char,
+            skillManager = corpusSkillManager(StillsAvailability.SUPER_COCKTAIL),
+        )
+        lib.processVisitResponseHooks(
+            """You stand before a still with 3 bright copper stills.""",
+            "https://www.kingdomofloathing.com/shop.php?whichshop=still",
+        )
+        assertEquals("3", outputLib(lib, """print(stills_available());""").trim())
+    }
+
+    @Test
+    fun corpus_haveMushroomPlot_fromKnollHook() {
+        val p = prefs()
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(ascensions = "4"))
+        }
+        val lib = GameRuntimeLibrary(character = char, preferences = p)
+        lib.processVisitResponseHooks(
+            """<b>Your Mushroom Plot:</b><p><table><tr><td></td></tr></table>""",
+            "https://www.kingdomofloathing.com/knoll_mushrooms.php",
+        )
+        assertEquals("true", outputLib(lib, """print(have_mushroom_plot());""").trim())
+    }
+
+    @Test
+    fun corpus_craftType_fromConcoctionDatabase() {
+        ConcoctionDatabase.resetForTest()
+        ConcoctionDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConcoctionData(
+                result = "meat paste",
+                resultQuantity = 1,
+                methods = setOf("COMBINE"),
+                ingredients = listOf(
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("meat", 1),
+                ),
+            ),
+        )
+        ConcoctionDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConcoctionData(
+                result = "bottle of Definit",
+                resultQuantity = 1,
+                methods = setOf("STILL", "ROW270"),
+                ingredients = listOf(
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("bottle of vodka", 1),
+                ),
+            ),
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals("Meatpasting", outputLib(lib, """print(craft_type(to_item("meat paste")));""").trim())
+        assertEquals(
+            "Nash Crosby's Still",
+            outputLib(lib, """print(craft_type(to_item("bottle of Definit")));""").trim(),
+        )
+        ConcoctionDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_refreshStatus_updatesCharacterHp() {
+        val statusJson = kotlinx.serialization.json.Json.encodeToString(
+            CharacterApiResponse.serializer(),
+            CharacterApiResponse(hp = "88", hpmax = "100"),
+        )
+        val client = HttpClient(
+            MockEngine {
+                respond(
+                    statusJson,
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            },
+        ) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(hp = "40", hpmax = "100"))
+        }
+        val lib = GameRuntimeLibrary(
+            character = char,
+            characterRequest = CharacterRequest(client),
+        )
+        assertEquals("true", outputLib(lib, """print(refresh_status());""").trim())
+        assertEquals(88, char.state.value.currentHp)
+    }
+
+    @Test
+    fun corpus_restoreHp_toAmount() = runBlocking {
+        RestoreDatabase.load()
+        ItemDatabase.registerForTest(
+            ItemData(
+                id = 1381,
+                name = "aspirin",
+                descId = "775883133",
+                image = "aspirin.gif",
+                primaryUse = ItemPrimaryUse.USABLE,
+                secondaryUses = emptySet(),
+                access = setOf('t'),
+                autosellPrice = 0,
+                plural = null,
+            ),
+        )
+        var apiHp = 25
+        val statusJson = {
+            kotlinx.serialization.json.Json.encodeToString(
+                CharacterApiResponse.serializer(),
+                CharacterApiResponse(hp = apiHp.toString(), hpmax = "100"),
+            )
+        }
+        val client = HttpClient(
+            MockEngine { request ->
+                when {
+                    request.url.encodedPath.contains("api.php") ->
+                        respond(
+                            statusJson(),
+                            HttpStatusCode.OK,
+                            headersOf(HttpHeaders.ContentType, "application/json"),
+                        )
+                    request.url.encodedPath.contains("inv_use.php") -> {
+                        apiHp = minOf(apiHp + 101, 100)
+                        respond("ok", HttpStatusCode.OK)
+                    }
+                    else -> respond("", HttpStatusCode.OK)
+                }
+            },
+        ) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val bus = GameEventBus()
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(hp = "25", hpmax = "100"))
+        }
+        val aspirin = InventoryItem(1381, "aspirin", 2, ItemType.OTHER)
+        val inv = object : InventoryManager(client, bus) {
+            init {
+                _state.value = InventoryState(items = mapOf(1381 to aspirin))
+            }
+        }
+        val rm = RecoveryManager(
+            inv,
+            SkillManager(client, SkillCastRequest(client), bus),
+            prefs(),
+        )
+        val lib = GameRuntimeLibrary(
+            character = char,
+            characterRequest = CharacterRequest(client),
+            inventoryManager = inv,
+            skillManager = SkillManager(client, SkillCastRequest(client), bus),
+            recoveryManager = rm,
+        )
+        assertEquals("true", outputLib(lib, """print(restore_hp(50));""").trim())
+        assertTrue(char.state.value.currentHp >= 50)
+    }
+
+    private fun corpusSkillManager(vararg skillIds: Int): SkillManager {
+        val skills = skillIds.map { id ->
+            SkillData(id, "Skill $id", SkillType.PASSIVE, mpCost = 0, dailyLimit = 0, timesCast = 0)
+        }
+        val json = "{" + skills.joinToString(",") { s ->
+            """"${s.id}":{"name":"${s.name}","type":5,"dailylimit":0,"timescast":0,"mpcost":0}"""
+        } + "}"
+        val engine = MockEngine {
+            respond(
+                content = json,
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val client = HttpClient(engine) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        return SkillManager(client, SkillCastRequest(client), GameEventBus()).also { mgr ->
+            runBlocking { mgr.fetchSkills() }
+        }
     }
 }

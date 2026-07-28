@@ -22,6 +22,7 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ZoneLookup
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.inventory.SessionMeatSync
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -44,6 +45,7 @@ import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.SkillLearnFromResponse
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
@@ -332,7 +334,10 @@ class AdventureManager(
                 if (_fightFollowsChoice && _inMultiFight) resolveCombat(location) ?: choiceResult
                 else choiceResult
             }
-            is AdventureResult.NonCombat -> parsed.also { emitItemEvents(it.itemsGained) }
+            is AdventureResult.NonCombat -> parsed.also {
+                SessionMeatSync.apply(character, it.text)
+                emitItemEvents(it.itemsGained)
+            }
         }
     }
 
@@ -350,6 +355,13 @@ class AdventureManager(
         lastFightHtml = fightHtml
         _inMultiFight = AdventureParser.isInMultiFight(fightHtml)
         val result = AdventureParser.parseFightResult(fightHtml)
+        SessionMeatSync.apply(character, fightHtml)
+        SkillLearnFromResponse.learnSkillFromResponse(
+            fightHtml,
+            preferences,
+            skills,
+            inventory,
+        )
         if (!_inMultiFight) _fightFollowsChoice = false
         dreadKissesTracker?.updateFromFight(location.name, fightHtml)
         intergnatDemonNameSync?.updateFromFight(
@@ -476,6 +488,7 @@ class AdventureManager(
             syncCargoPocketPick(currentChoiceId, option, extraFormFields, html)
             syncCargoPocketVisit(currentChoiceId, html)
             syncAlliedRadioResponse(currentChoiceId, html)
+            SessionMeatSync.apply(character, html)
             questDatabase?.let {
                 QuestChoiceRules.apply(
                     currentChoiceId, html, it, option, preferences, inventory, optionLabel,

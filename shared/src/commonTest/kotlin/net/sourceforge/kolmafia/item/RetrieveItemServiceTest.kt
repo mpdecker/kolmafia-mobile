@@ -538,4 +538,160 @@ class RetrieveItemServiceTest {
             ConcoctionDatabase.resetForTest()
         }
     }
+
+    @Test
+    fun retrieve_blockedWhenRestrictedAndNotCraftable() = runTest {
+        net.sourceforge.kolmafia.request.StandardRequest.parseResponse(
+            """
+            <b>Items</b><p><span class="i">test widget</span><p>
+            """.trimIndent(),
+        )
+        var storageWithdrawn = false
+        val storage = object : StorageRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun withdraw(itemId: Int, quantity: Int): Result<String> {
+                storageWithdrawn = true
+                return Result.success("ok")
+            }
+        }
+        val char = net.sourceforge.kolmafia.character.KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(hardcore = "1"),
+            )
+        }
+        val service = RetrieveItemService(
+            inventoryManager = fakeInventory(qty = 0),
+            closetRequest = null,
+            storageRequest = storage,
+            npcBuyRequest = null,
+            mallManager = null,
+            gameDatabase = dbNoNpc(),
+            character = char,
+        )
+        try {
+            assertEquals(0, service.retrieve(ITEM_ID, 1))
+            assertFalse(storageWithdrawn)
+        } finally {
+            net.sourceforge.kolmafia.request.StandardRequest.resetForTest()
+        }
+    }
+
+    @Test
+    fun retrieve_blockedWhenRestrictedAfterStandardRequestInit() = runTest {
+        var initCalled = false
+        val standard = object : net.sourceforge.kolmafia.request.StandardRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun ensureInitialized() {
+                initCalled = true
+                parseResponse(
+                    """
+                    <b>Items</b><p><span class="i">test widget</span><p>
+                    """.trimIndent(),
+                )
+            }
+        }
+        var storageWithdrawn = false
+        val storage = object : StorageRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun withdraw(itemId: Int, quantity: Int): Result<String> {
+                storageWithdrawn = true
+                return Result.success("ok")
+            }
+        }
+        val char = net.sourceforge.kolmafia.character.KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(hardcore = "1"),
+            )
+        }
+        val service = RetrieveItemService(
+            inventoryManager = fakeInventory(qty = 0),
+            closetRequest = null,
+            storageRequest = storage,
+            npcBuyRequest = null,
+            mallManager = null,
+            gameDatabase = dbNoNpc(),
+            character = char,
+            standardRequest = standard,
+        )
+        try {
+            assertEquals(0, service.retrieve(ITEM_ID, 1))
+            assertTrue(initCalled)
+            assertFalse(storageWithdrawn)
+        } finally {
+            net.sourceforge.kolmafia.request.StandardRequest.resetForTest()
+        }
+    }
+
+    @Test
+    fun retrieve_continuesWhenRestrictedButCraftable() = runTest {
+        net.sourceforge.kolmafia.request.StandardRequest.parseResponse(
+            """
+            <b>Items</b><p><span class="i">test widget</span><p>
+            """.trimIndent(),
+        )
+        ConcoctionDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConcoctionData(
+                result = ITEM_NAME,
+                resultQuantity = 1,
+                methods = setOf("SUSE"),
+                ingredients = listOf(
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("source item", 1),
+                ),
+            ),
+        )
+        val sourceId = 99
+        val char = net.sourceforge.kolmafia.character.KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(hardcore = "1"),
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int) = when (id) {
+                ITEM_ID -> testItemData()
+                sourceId -> ItemData(
+                    sourceId, "source item", "", "", ItemPrimaryUse.USABLE,
+                    emptySet(), setOf('u'), 0, null,
+                )
+                else -> null
+            }
+            override fun item(name: String) = when (name) {
+                ITEM_NAME -> testItemData()
+                "source item" -> item(sourceId)
+                else -> null
+            }
+        }
+        val inv = object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+            private val _s = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    sourceId to InventoryItem(sourceId, "source item", 1, ItemType.OTHER),
+                )),
+            )
+            override val state: StateFlow<InventoryState> = _s
+            override suspend fun fetchInventory() {
+                _s.value = InventoryState(
+                    items = mapOf(
+                        ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, 1, ItemType.OTHER),
+                    ),
+                )
+            }
+        }
+        val use = object : net.sourceforge.kolmafia.request.UseItemRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> = Result.success("ok")
+        }
+        val service = RetrieveItemService(
+            inventoryManager = inv,
+            closetRequest = null,
+            storageRequest = null,
+            npcBuyRequest = null,
+            mallManager = null,
+            useItemRequest = use,
+            gameDatabase = db,
+            character = char,
+        )
+        try {
+            assertEquals(1, service.retrieve(ITEM_ID, 1))
+        } finally {
+            ConcoctionDatabase.resetForTest()
+            net.sourceforge.kolmafia.request.StandardRequest.resetForTest()
+        }
+    }
 }

@@ -1,6 +1,6 @@
 package net.sourceforge.kolmafia.quest
 
-import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
@@ -68,7 +68,7 @@ object TelescopeSync {
         url: String,
         html: String,
         preferences: Preferences?,
-        character: CharacterState? = null,
+        character: KoLCharacter? = null,
         inBeecore: Boolean = false,
         inBugcore: Boolean = false,
     ) {
@@ -77,11 +77,12 @@ object TelescopeSync {
 
         if (url.contains("action=telescopehigh", ignoreCase = true)) {
             preferences.setBoolean("telescopeLookedHigh", true)
+            character?.setCampground(telescopeLookedHigh = true)
             return
         }
         if (!url.contains("action=telescopelow", ignoreCase = true)) return
 
-        preferences.setInt("lastTelescopeReset", character?.ascensionNumber ?: 0)
+        preferences.setInt("lastTelescopeReset", character?.state?.value?.ascensionNumber ?: 0)
         for (index in 1..7) preferences.setString("telescope$index", "")
         for (index in 1..5) preferences.setString("nsChallenge$index", "none")
 
@@ -103,6 +104,7 @@ object TelescopeSync {
         val previousUpgrades = preferences.getInt("telescopeUpgrades", 0)
         val resolvedUpgrades = if (upgrades == 5 && previousUpgrades > upgrades) previousUpgrades else upgrades
         preferences.setInt("telescopeUpgrades", resolvedUpgrades)
+        character?.setCampground(telescopeUpgrades = resolvedUpgrades)
     }
 
     private fun challengeData(challenge: Int): List<Triple<String, String, String>>? = when (challenge) {

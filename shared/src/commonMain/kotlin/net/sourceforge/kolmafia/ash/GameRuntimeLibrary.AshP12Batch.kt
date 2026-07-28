@@ -59,10 +59,10 @@ internal fun GameRuntimeLibrary.registerAshP12Batch(scope: AshScope) {
             else -> "value"
         }
         regFn(scope, "name", AshType.STRING, listOf(param to captured)) { _, args ->
-            AshValue.of(args[0].toString())
+            AshValue.of(entityName(captured, args[0].toString()))
         }
         regFn(scope, "desc", AshType.STRING, listOf(param to captured)) { _, args ->
-            AshValue.of("")
+            AshValue.of(entityDesc(captured, args[0].toString()))
         }
         regFn(scope, "same", AshType.BOOLEAN, listOf("a" to captured, "b" to captured)) { _, args ->
             AshValue.of(args[0].toString() == args[1].toString())

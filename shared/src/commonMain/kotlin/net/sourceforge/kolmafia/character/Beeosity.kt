@@ -9,6 +9,10 @@ object Beeosity {
     fun hasBeeosity(name: String?): Boolean =
         name?.any { it == 'b' || it == 'B' } == true
 
+    /** Desktop [KoLCharacter.hasGs] — G-Lover path requires g/G in familiar race name. */
+    fun hasGs(name: String?): Boolean =
+        name?.any { it == 'g' || it == 'G' } == true
+
     fun equipmentBeeosity(equipment: Map<EquipmentSlot, String>): Int =
         equipment.values.sumOf { itemBeeosity(it) }
 }

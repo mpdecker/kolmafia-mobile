@@ -4,6 +4,7 @@ import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.data.EffectData
 import net.sourceforge.kolmafia.data.EffectDatabase
@@ -33,10 +34,18 @@ class BirdOfTheDaySyncTest {
     fun applySeekBirdSkillDescription_setsBirdPrefsAndCastCount() {
         val prefs = Preferences(MapSettings())
         val html = """<b>Seek out a Turkey</b><br><b>MP Cost:</b> 20"""
-        BirdOfTheDaySync.applySeekBirdSkillDescription(html, prefs)
+        assertTrue(BirdOfTheDaySync.applySeekBirdSkillDescription(html, prefs))
         assertEquals("Turkey", prefs.getString("_birdOfTheDay", ""))
         assertTrue(prefs.getBoolean("_canSeekBirds", false))
         assertEquals(2, prefs.getInt("_birdsSoughtToday", 0))
+    }
+
+    @Test
+    fun applySeekBirdSkillDescription_repeatUnlock_returnsFalse() {
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean("_canSeekBirds", true)
+        val html = """<b>Seek out a Turkey</b><br><b>MP Cost:</b> 20"""
+        assertFalse(BirdOfTheDaySync.applySeekBirdSkillDescription(html, prefs))
     }
 
     @Test
@@ -44,7 +53,7 @@ class BirdOfTheDaySyncTest {
         val prefs = Preferences(MapSettings())
         prefs.setString("_birdOfTheDay", "Yesterday's Bird")
         val html = """<b>Seek out Birds</b><br><b>MP Cost:</b> 5"""
-        BirdOfTheDaySync.applySeekBirdSkillDescription(html, prefs)
+        assertFalse(BirdOfTheDaySync.applySeekBirdSkillDescription(html, prefs))
         assertEquals("Yesterday's Bird", prefs.getString("_birdOfTheDay", ""))
     }
 

@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.item
 
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.craftMode
@@ -7,6 +8,7 @@ import net.sourceforge.kolmafia.data.isAutoCraftable
 import net.sourceforge.kolmafia.data.isStationCraftable
 import net.sourceforge.kolmafia.data.isSuseCraftable
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.ItemRestriction
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
@@ -15,7 +17,11 @@ import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.HermitRequest
+import net.sourceforge.kolmafia.request.RestrictionListRefresh
+import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.request.StorageRequest
+import net.sourceforge.kolmafia.request.ThriftyRequest
+import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
 
@@ -33,11 +39,31 @@ open class RetrieveItemService(
     private val gameDatabase: GameDatabase?,
     private val hermitRequest: HermitRequest? = null,
     private val familiarRequest: FamiliarRequest? = null,
+    private val character: KoLCharacter? = null,
+    private val standardRequest: StandardRequest? = null,
+    private val thriftyRequest: ThriftyRequest? = null,
+    private val trendyRequest: TrendyRequest? = null,
 ) {
     open suspend fun retrieve(itemId: Int, qty: Int): Int {
         val itemName = gameDatabase?.item(itemId)?.name ?: return 0
         var remaining = qty - inventoryCount(itemId)
         if (remaining <= 0) return qty
+
+        val charState = character?.state?.value
+        if (charState != null) {
+            RestrictionListRefresh.ensureInitialized(
+                charState,
+                standardRequest,
+                thriftyRequest,
+                trendyRequest,
+            )
+        }
+        if (charState != null &&
+            !ItemRestriction.isAllowed(itemId, itemName, charState, gameDatabase) &&
+            !canCreateItem(itemId, itemName)
+        ) {
+            return qty - remaining
+        }
 
         if (remaining > 0 && closetRequest != null) {
             remaining -= withdrawFromSource(itemId, remaining) { qty ->
@@ -196,4 +222,14 @@ open class RetrieveItemService(
 
     private fun inventoryCount(itemId: Int): Int =
         inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+
+    /** Desktop [InventoryManager.doRetrieveItem] restricted-item early exit helper. */
+    private fun canCreateItem(itemId: Int, itemName: String): Boolean {
+        val concoction = ConcoctionDatabase.getByResult(itemName)
+        if (concoction?.isAutoCraftable() == true) return true
+        if (coinmasterManager != null && coinmasterManager.findMasterForBuyItem(itemId) != null) {
+            return true
+        }
+        return false
+    }
 }

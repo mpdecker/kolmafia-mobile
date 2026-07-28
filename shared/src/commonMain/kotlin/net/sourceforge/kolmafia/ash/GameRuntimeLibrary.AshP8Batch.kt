@@ -45,7 +45,7 @@ internal fun GameRuntimeLibrary.registerAshP8Batch(scope: AshScope) {
     for (entityType in toIntEntityTypes) {
         val captured = entityType
         regFn(scope, "to_int", AshType.INT, listOf("value" to captured)) { _, args ->
-            AshValue.of(args[0].toString().hashCode().toLong().let { if (it < 0) -it else it })
+            AshValue.of(entityToInt(captured, args[0].toString()))
         }
     }
 
@@ -158,9 +158,9 @@ internal fun GameRuntimeLibrary.registerAshP8Batch(scope: AshScope) {
     regFn(scope, "available_amount", AshType.INT, listOf("id" to AshType.INT)) { _, args ->
         val id = args[0].toLong().toInt()
         val name = gameDatabase?.item(id)?.name ?: id.toString()
-        val count = outfitManager?.let { om ->
-            kotlinx.coroutines.runBlocking { om.accessibleCount(id, name) }
-        } ?: (inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0)
+        val count = kotlinx.coroutines.runBlocking {
+            physicalAccessibleCount(id, name)
+        }
         AshValue.of(count.toLong())
     }
 

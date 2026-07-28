@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.inventory.ItemAvailability
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /** Desktop [InventoryManager.checkItem] / effect mod prefs → [ModifierDatabase.overrideModifier]. */
@@ -62,7 +63,14 @@ object DynamicItemModifierSync {
         val equippedItemNames: Set<String>,
         val activeEffectNames: Set<String>,
         val closetItemIds: Set<Int> = emptySet(),
+        val storageItemIds: Set<Int> = emptySet(),
+        val stashItemIds: Set<Int> = emptySet(),
+        val limitMode: String = "",
+        val canInteract: Boolean = true,
+        val hasClan: Boolean = false,
         val ascensionPath: AscensionPath = AscensionPath.NONE,
+        val codpieceGemNames: Set<String> = emptySet(),
+        val hermitCloverCount: Int = 0,
     )
 
     sealed class DescVisit(val path: String) {
@@ -160,7 +168,7 @@ object DynamicItemModifierSync {
         visits.addAll(checkUmbrella(context, gameDatabase))
         visits.addAll(checkVampireVintnerWine(context, gameDatabase))
         visits.addAll(checkCrimboTrainingManual(preferences, context, gameDatabase))
-        visits.addAll(checkRing(context, gameDatabase))
+        visits.addAll(checkRing(preferences, context, gameDatabase))
         visits.addAll(checkExperimentalEffectG9(preferences))
         visits.addAll(checkZootomistMods(preferences, context))
         visits.addAll(checkHeartstoneAttunement(preferences, context))
@@ -283,11 +291,14 @@ object DynamicItemModifierSync {
     }
 
     private fun checkRing(
+        preferences: Preferences,
         context: CheckContext,
         gameDatabase: GameDatabase,
     ): List<DescVisit> {
         val ring = gameDatabase.item("ring") ?: return emptyList()
-        if (!isAccessible(ring.id, ring.name, context)) return emptyList()
+        if (!ItemAvailability.itemAvailable(ring.id, ring.name, context, preferences, gameDatabase)) {
+            return emptyList()
+        }
         return if (ring.descId.isNotEmpty()) {
             listOf(DescVisit.Item(ring.descId))
         } else {

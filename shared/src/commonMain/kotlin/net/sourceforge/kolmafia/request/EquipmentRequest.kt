@@ -9,6 +9,8 @@ import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
 open class EquipmentRequest(
@@ -69,35 +71,129 @@ open class EquipmentRequest(
         Result.failure(e)
     }
 
-    open suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> = try {
-        client.submitForm(
-            url = "$KOL_BASE_URL/inv_equip.php",
-            formParameters = Parameters.build {
-                append("which", "2")
-                append("action", "equip")
-                append("whichitem", itemId.toString())
-                append("slot", slot.apiKey)
-                append("ajax", "1")
-            }
-        )
-        syncCharacterEquipment()
-        Result.success(Unit)
+    open suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+        if (slot in EquipmentSlot.CODPIECE_SLOTS) {
+            return equipCodpieceGem(itemId, slot)
+        }
+        return try {
+            client.submitForm(
+                url = "$KOL_BASE_URL/inv_equip.php",
+                formParameters = Parameters.build {
+                    append("which", "2")
+                    append("action", "equip")
+                    append("whichitem", itemId.toString())
+                    append("slot", slot.apiKey)
+                    append("ajax", "1")
+                }
+            )
+            syncCharacterEquipment()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    open suspend fun unequipSlot(slot: EquipmentSlot): Result<Unit> {
+        if (slot in EquipmentSlot.CODPIECE_SLOTS) {
+            return unequipCodpieceSlot(slot)
+        }
+        return try {
+            client.submitForm(
+                url = "$KOL_BASE_URL/inv_equip.php",
+                formParameters = Parameters.build {
+                    append("action", "unequip")
+                    append("type", slot.apiKey)
+                }
+            )
+            syncCharacterEquipment()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Desktop `inventory.php?action=docodpiece` — opens codpiece gem editor (choice 1588). */
+    open suspend fun openCodpieceEditor(): Result<Unit> = try {
+        val response = client.get("$KOL_BASE_URL/inventory.php") {
+            parameter("action", "docodpiece")
+        }
+        if (response.status.isSuccess()) {
+            Result.success(Unit)
+        } else {
+            Result.failure(Exception("Codpiece editor open failed"))
+        }
     } catch (e: Exception) {
         Result.failure(e)
     }
 
-    open suspend fun unequipSlot(slot: EquipmentSlot): Result<Unit> = try {
-        client.submitForm(
-            url = "$KOL_BASE_URL/inv_equip.php",
-            formParameters = Parameters.build {
-                append("action", "unequip")
-                append("type", slot.apiKey)
+    open suspend fun equipCodpieceGem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+        if (slot !in EquipmentSlot.CODPIECE_SLOTS) {
+            return Result.failure(Exception("Not a codpiece slot"))
+        }
+        if (!ModifierDatabase.isCodpieceGem(itemId)) {
+            return Result.failure(Exception("Not a codpiece gem"))
+        }
+        val gemName = ItemDatabase.getById(itemId)?.name
+        val alreadyEquipped = character?.state?.value?.equipment?.get(slot)
+        if (gemName != null && gemName.equals(alreadyEquipped, ignoreCase = true)) {
+            return Result.success(Unit)
+        }
+        return try {
+            openCodpieceEditor().getOrThrow()
+            val response = client.submitForm(
+                url = "$KOL_BASE_URL/choice.php",
+                formParameters = Parameters.build {
+                    append("whichchoice", "1588")
+                    append("option", "1")
+                    append("which", codpieceSlotNumber(slot).toString())
+                    append("iid", itemId.toString())
+                }
+            )
+            if (!response.status.isSuccess()) {
+                return Result.failure(Exception("Codpiece equip failed"))
             }
-        )
-        syncCharacterEquipment()
-        Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(e)
+            syncCharacterEquipment()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    open suspend fun unequipCodpieceSlot(slot: EquipmentSlot): Result<Unit> {
+        if (slot !in EquipmentSlot.CODPIECE_SLOTS) {
+            return Result.failure(Exception("Not a codpiece slot"))
+        }
+        val alreadyEmpty = character?.state?.value?.equipment?.get(slot).isNullOrBlank()
+        if (alreadyEmpty) {
+            return Result.success(Unit)
+        }
+        return try {
+            openCodpieceEditor().getOrThrow()
+            val response = client.submitForm(
+                url = "$KOL_BASE_URL/choice.php",
+                formParameters = Parameters.build {
+                    append("whichchoice", "1588")
+                    append("option", "2")
+                    append("which", codpieceSlotNumber(slot).toString())
+                }
+            )
+            if (!response.status.isSuccess()) {
+                return Result.failure(Exception("Codpiece unequip failed"))
+            }
+            syncCharacterEquipment()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun codpieceSlotNumber(slot: EquipmentSlot): Int = when (slot) {
+        EquipmentSlot.CODPIECE1 -> 1
+        EquipmentSlot.CODPIECE2 -> 2
+        EquipmentSlot.CODPIECE3 -> 3
+        EquipmentSlot.CODPIECE4 -> 4
+        EquipmentSlot.CODPIECE5 -> 5
+        else -> throw IllegalArgumentException("Not a codpiece slot: $slot")
     }
 
     /** Parse outfit dropdown from equipment page HTML. */

@@ -11,6 +11,7 @@ import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.familiar.FamiliarUsability
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
@@ -24,7 +25,11 @@ import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
+import net.sourceforge.kolmafia.request.RestrictionListRefresh
+import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.request.StorageRequest
+import net.sourceforge.kolmafia.request.ThriftyRequest
+import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPriceManager
@@ -40,6 +45,9 @@ open class MaximizerManager(
     private val clanStashRequest: ClanStashRequest? = null,
     private val familiarManager: FamiliarManager? = null,
     private val preferences: Preferences? = null,
+    private val standardRequest: StandardRequest? = null,
+    private val thriftyRequest: ThriftyRequest? = null,
+    private val trendyRequest: TrendyRequest? = null,
     private val skillManager: SkillManager? = null,
     private val retrieveItemService: RetrieveItemService? = null,
     private val mallPriceManager: MallPriceManager? = null,
@@ -103,18 +111,20 @@ open class MaximizerManager(
         var thrallSwitched: String? = null
         val (targetThrall, _) = resolveTargetThrall(effectiveSpec)
         val familiarRace = resolveFamiliarSwitch(effectiveSpec)
+        val enthronedRace = resolveEnthronedFamiliar(effectiveSpec)
+        val bjornifiedRace = resolveBjornifiedFamiliar(effectiveSpec)
 
         if (familiarRace != null) {
             familiarManager?.setFamiliar(familiarRace)?.onSuccess {
                 familiarSwitched = familiarRace
             }?.onFailure { anyFailure = true }
         }
-        effectiveSpec.enthronedFamiliars.firstOrNull()?.let { race ->
+        enthronedRace?.let { race ->
             familiarManager?.setEnthroned(race)?.onSuccess {
                 enthronedSwitched = race
             }?.onFailure { anyFailure = true }
         }
-        effectiveSpec.bjornifiedFamiliars.firstOrNull()?.let { race ->
+        bjornifiedRace?.let { race ->
             familiarManager?.setBjornified(race)?.onSuccess {
                 bjornifiedSwitched = race
             }?.onFailure { anyFailure = true }
@@ -226,6 +236,8 @@ open class MaximizerManager(
         )
         val (targetThrall, thrallBonus) = resolveTargetThrall(effectiveSpec)
         val familiarRace = resolveFamiliarSwitch(effectiveSpec)
+        val enthronedRace = resolveEnthronedFamiliar(effectiveSpec)
+        val bjornifiedRace = resolveBjornifiedFamiliar(effectiveSpec)
         val familiarBonus = familiarRace?.let { scoreFamiliarList(listOf(it), effectiveSpec.primary) } ?: 0.0
         val candidateIds = buildCandidateIds(
             invState, closetContents, storageContents, displayContents, stashContents, effectiveSpec,
@@ -267,8 +279,8 @@ open class MaximizerManager(
             bestPerSlot = speculated
         }
         bestPerSlot = applyEquipRequired(effectiveSpec, bestPerSlot, charState.equipment)
-        val enthronedBonus = scoreFamiliarList(effectiveSpec.enthronedFamiliars, effectiveSpec.primary)
-        val bjornBonus = scoreFamiliarList(effectiveSpec.bjornifiedFamiliars, effectiveSpec.primary)
+        val enthronedBonus = enthronedRace?.let { scoreFamiliarList(listOf(it), effectiveSpec.primary) } ?: 0.0
+        val bjornBonus = bjornifiedRace?.let { scoreFamiliarList(listOf(it), effectiveSpec.primary) } ?: 0.0
         val scoreAfter = MaximizerSpeculation.scoreLoadout(
             charState, bestPerSlot, effectiveSpec.primary,
             enthronedBonus + bjornBonus + familiarBonus, thrallBonus,
@@ -392,14 +404,27 @@ open class MaximizerManager(
         return updated
     }
 
-    private fun resolveFamiliarSwitch(spec: MaximizeSpec): String? {
+    private suspend fun resolveFamiliarSwitch(spec: MaximizeSpec): String? {
         if (spec.switchFamiliars.isEmpty()) return null
-        val owned = familiarManager?.state?.value?.ownedFamiliars.orEmpty()
+        val familiarState = familiarManager?.state?.value ?: return null
+        val charState = character.state.value
+        RestrictionListRefresh.ensureInitialized(
+            charState,
+            standardRequest,
+            thriftyRequest,
+            trendyRequest,
+        )
         var bestRace: String? = null
         var bestScore = Double.NEGATIVE_INFINITY
         var bestTie = Double.NEGATIVE_INFINITY
         for (race in spec.switchFamiliars) {
-            if (!owned.any { it.race.equals(race, ignoreCase = true) }) continue
+            if (FamiliarUsability.usableByRace(
+                    familiarState,
+                    race,
+                    charState,
+                    preferences,
+                ) == null
+            ) continue
             val score = scoreFamiliarList(listOf(race), spec.primary)
             val tie = familiarSecondaryScore(race)
             if (isBetterCandidate(score, tie, bestScore, bestTie)) {
@@ -409,6 +434,42 @@ open class MaximizerManager(
             }
         }
         return bestRace
+    }
+
+    private suspend fun resolveEnthronedFamiliar(spec: MaximizeSpec): String? {
+        if (spec.enthronedFamiliars.isEmpty()) return null
+        val familiarState = familiarManager?.state?.value ?: return null
+        val charState = character.state.value
+        RestrictionListRefresh.ensureInitialized(
+            charState,
+            standardRequest,
+            thriftyRequest,
+            trendyRequest,
+        )
+        return FamiliarUsability.firstUsableFromGoals(
+            familiarState,
+            spec.enthronedFamiliars,
+            charState,
+            preferences,
+        )
+    }
+
+    private suspend fun resolveBjornifiedFamiliar(spec: MaximizeSpec): String? {
+        if (spec.bjornifiedFamiliars.isEmpty()) return null
+        val familiarState = familiarManager?.state?.value ?: return null
+        val charState = character.state.value
+        RestrictionListRefresh.ensureInitialized(
+            charState,
+            standardRequest,
+            thriftyRequest,
+            trendyRequest,
+        )
+        return FamiliarUsability.firstUsableFromGoals(
+            familiarState,
+            spec.bjornifiedFamiliars,
+            charState,
+            preferences,
+        )
     }
 
     private fun isBetterCandidate(
@@ -822,6 +883,9 @@ open class MaximizerManager(
             item.primaryUse == ItemPrimaryUse.ACCESSORY
         EquipmentSlot.FAMILIAR -> item.primaryUse == ItemPrimaryUse.FAMILIAR
         EquipmentSlot.CONTAINER -> item.primaryUse == ItemPrimaryUse.CONTAINER
+        EquipmentSlot.CODPIECE1, EquipmentSlot.CODPIECE2, EquipmentSlot.CODPIECE3,
+        EquipmentSlot.CODPIECE4, EquipmentSlot.CODPIECE5 ->
+            ModifierDatabase.isCodpieceGem(item.id)
     }
 
     private fun scoreFamiliarBonuses(

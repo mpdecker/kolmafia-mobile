@@ -26,7 +26,9 @@ private data class FamiliarApiEntry(
     val weight: Int = 1,
     val exp: Int = 0,
     val kills: Int = 0,
-    @SerialName("active") val isActive: Boolean = false
+    @SerialName("active") val isActive: Boolean = false,
+    /** Equipped familiar item id; 0 when none. */
+    val item: Int = 0,
 )
 
 open class FamiliarManager(
@@ -63,7 +65,10 @@ open class FamiliarManager(
                     race = e.race,
                     weight = e.weight,
                     experience = e.exp,
-                    kills = e.kills
+                    kills = e.kills,
+                    equipment = e.item.takeIf { it > 0 }?.let { itemId ->
+                        InventoryItem(itemId, "Familiar item", 1, ItemType.FAMILIAR_ITEM)
+                    },
                 )
             }
             val active = familiars.firstOrNull { f ->
@@ -85,9 +90,22 @@ open class FamiliarManager(
     suspend fun equipItem(familiar: FamiliarData, itemId: Int): Result<Unit> {
         val item = InventoryItem(itemId, "Familiar item", 1, ItemType.FAMILIAR_ITEM)
         equipRequest.equip(itemId).onFailure { return Result.failure(it) }
+        updateFamiliarEquipment(familiar.id, item)
         fetchFamiliars()
         eventBus.emit(GameEvent.FamiliarEquipped(familiar, item))
         return Result.success(Unit)
+    }
+
+    private fun updateFamiliarEquipment(familiarId: Int, item: InventoryItem?) {
+        val state = _state.value
+        _state.value = state.copy(
+            ownedFamiliars = state.ownedFamiliars.map { familiar ->
+                if (familiar.id == familiarId) familiar.copy(equipment = item) else familiar
+            },
+            activeFamiliar = state.activeFamiliar?.let { active ->
+                if (active.id == familiarId) active.copy(equipment = item) else active
+            },
+        )
     }
 
     suspend fun hatch(eggItemId: Int): Result<Unit> {

@@ -1,15 +1,32 @@
 package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.familiar.FamiliarUsability
 
 internal fun GameRuntimeLibrary.registerFamiliarQueries(scope: AshScope) {
 
     regFn(scope, "have_familiar", AshType.BOOLEAN,
         listOf("fam" to AshType.FAMILIAR)) { _, args ->
-        val name = args[0].toString()
-        val has = familiarManager?.state?.value?.ownedFamiliars
-            ?.any { it.race.equals(name, ignoreCase = true) } ?: false
-        AshValue.of(has)
+        val race = args[0].toString()
+        val fm = familiarManager ?: return@regFn AshValue.of(false)
+        val charState = character?.state?.value
+        runBlocking { ensureRestrictionListsInitialized(charState) }
+        val usable = FamiliarUsability.usableByRace(
+            familiarState = fm.state.value,
+            race = race,
+            characterState = charState,
+            preferences = preferences,
+        )
+        AshValue.of(usable != null)
+    }
+
+    regFn(scope, "in_terrarium", AshType.BOOLEAN,
+        listOf("fam" to AshType.FAMILIAR)) { _, args ->
+        val race = args[0].toString()
+        if (race.equals("none", ignoreCase = true)) return@regFn AshValue.of(false)
+        val owned = familiarManager?.state?.value?.ownedFamiliars
+            ?.any { it.race.equals(race, ignoreCase = true) } ?: false
+        AshValue.of(owned)
     }
 
     regFn(scope, "my_familiar_weight", AshType.INT, emptyList()) { _, _ ->
@@ -36,23 +53,33 @@ internal fun GameRuntimeLibrary.registerFamiliarQueries(scope: AshScope) {
     regFn(scope, "use_familiar", AshType.BOOLEAN,
         listOf("fam" to AshType.FAMILIAR)) { _, args ->
         val fm = familiarManager ?: return@regFn AshValue.of(false)
+        val race = args[0].toString()
         val success = runBlocking {
-            fm.setFamiliar(args[0].toString())
-        }.isSuccess
+            val usable = resolveUsableFamiliarRace(race) ?: return@runBlocking false
+            fm.setFamiliar(usable.race).isSuccess
+        }
         AshValue.of(success)
     }
 
     regFn(scope, "enthrone_familiar", AshType.BOOLEAN,
         listOf("fam" to AshType.FAMILIAR)) { _, args ->
         val fm = familiarManager ?: return@regFn AshValue.of(false)
-        val success = runBlocking { fm.setEnthroned(args[0].toString()) }.isSuccess
+        val race = args[0].toString()
+        val success = runBlocking {
+            val usable = resolveUsableFamiliarRace(race) ?: return@runBlocking false
+            fm.setEnthroned(usable.race).isSuccess
+        }
         AshValue.of(success)
     }
 
     regFn(scope, "bjornify_familiar", AshType.BOOLEAN,
         listOf("fam" to AshType.FAMILIAR)) { _, args ->
         val fm = familiarManager ?: return@regFn AshValue.of(false)
-        val success = runBlocking { fm.setBjornified(args[0].toString()) }.isSuccess
+        val race = args[0].toString()
+        val success = runBlocking {
+            val usable = resolveUsableFamiliarRace(race) ?: return@runBlocking false
+            fm.setBjornified(usable.race).isSuccess
+        }
         AshValue.of(success)
     }
 
@@ -77,4 +104,16 @@ internal fun GameRuntimeLibrary.registerFamiliarQueries(scope: AshScope) {
         }
         AshValue.of(gained)
     }
+}
+
+internal suspend fun GameRuntimeLibrary.resolveUsableFamiliarRace(race: String): net.sourceforge.kolmafia.familiar.FamiliarData? {
+    val fm = familiarManager ?: return null
+    val charState = character?.state?.value
+    ensureRestrictionListsInitialized(charState)
+    return FamiliarUsability.usableByRace(
+        familiarState = fm.state.value,
+        race = race,
+        characterState = charState,
+        preferences = preferences,
+    )
 }

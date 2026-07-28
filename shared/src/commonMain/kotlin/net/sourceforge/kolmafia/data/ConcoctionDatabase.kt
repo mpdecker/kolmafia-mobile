@@ -14,9 +14,16 @@ object ConcoctionDatabase {
     private val _byResult = mutableMapOf<String, ConcoctionData>()
     private val _byIngredient = mutableMapOf<String, MutableList<ConcoctionData>>()
     private var loaded = false
+    private var pullsRemaining: Int = -1
 
     val byResult: Map<String, ConcoctionData> get() = _byResult
     val byIngredient: Map<String, List<ConcoctionData>> get() = _byIngredient
+
+    fun getPullsRemaining(): Int = pullsRemaining
+
+    fun setPullsRemaining(pulls: Int) {
+        pullsRemaining = pulls
+    }
 
     suspend fun load() {
         if (loaded) return
@@ -46,6 +53,7 @@ object ConcoctionDatabase {
         _byResult.clear()
         _byIngredient.clear()
         loaded = false
+        pullsRemaining = -1
     }
     fun cooking(): List<ConcoctionData> = _byResult.values.filter { it.isCooking }
     fun mixing(): List<ConcoctionData> = _byResult.values.filter { it.isMixing }
