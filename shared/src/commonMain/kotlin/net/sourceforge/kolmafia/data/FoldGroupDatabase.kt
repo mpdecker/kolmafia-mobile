@@ -37,4 +37,17 @@ object FoldGroupDatabase {
     }
 
     fun allGroups(): List<FoldGroup> = groups
+
+    internal fun registerGroupForTest(group: FoldGroup) {
+        groups += group
+        for (item in group.items) {
+            itemToGroup[item.lowercase()] = group
+        }
+    }
+
+    internal fun resetForTest() {
+        groups.clear()
+        itemToGroup.clear()
+        loaded = false
+    }
 }

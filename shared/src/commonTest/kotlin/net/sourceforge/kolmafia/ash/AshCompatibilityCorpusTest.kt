@@ -28,6 +28,7 @@ import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionData
 import net.sourceforge.kolmafia.data.ConcoctionIngredient
 import net.sourceforge.kolmafia.data.DescriptionCache
+import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemData
@@ -44,6 +45,8 @@ import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.CharacterRequest
+import net.sourceforge.kolmafia.request.ZapRequest
+import net.sourceforge.kolmafia.session.WandDiscovery
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -2503,7 +2506,7 @@ class AshCompatibilityCorpusTest {
         }
         val lib = GameRuntimeLibrary(preferences = prefs, character = char)
         assertEquals("true", outputLib(lib, """print(is_coinmaster_item(6237, true));""").trim())
-        net.sourceforge.kolmafia.shop.CoinmasterShopSync.applyPurchasedItem(
+        net.sourceforge.kolmafia.shop.CoinmasterPurchasePrefs.applyPurchasedItem(
             master = net.sourceforge.kolmafia.shop.CoinmasterData(
                 masterName = "Jarlsberg's Cosmic Kitchen",
                 nickname = "jarl",
@@ -3943,6 +3946,309 @@ class AshCompatibilityCorpusTest {
         net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
     }
 
+    @Test
+    fun corpus_trapperYakSkinValidate_live() {
+        registerCorpusItem(394, "yak skin")
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "trapper\tThe Trapper\n",
+            coinText = "The Trapper\tbuy\t1\tyak skin\tROW14\n",
+        )
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean("autoSatisfyWithCoinmasters", true)
+        val lib = GameRuntimeLibrary(
+            preferences = prefs,
+            character = KoLCharacter().apply {
+                updateFromApiResponse(
+                    CharacterApiResponse(
+                        meat = "100000",
+                        level = "10",
+                        ascensions = "4",
+                    ),
+                )
+            },
+        )
+        assertEquals(
+            "false",
+            outputLib(lib, """print(is_coinmaster_item(394, true));""").trim(),
+        )
+        lib.processVisitResponseHooks(
+            html = """trade your yeti furs for goods""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=trapper",
+        )
+        assertEquals(4, prefs.getInt("lastTr4pz0rQuest", -1))
+        assertEquals(
+            "true",
+            outputLib(lib, """print(is_coinmaster_item(394, true));""").trim(),
+        )
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_latheVisitPref_live() {
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "lathe\tYour SpinMaster lathe\n",
+            coinText = "Your SpinMaster lathe\tbuy\t1\tlathe item\tROW1\n",
+        )
+        val prefs = Preferences(MapSettings())
+        assertFalse(prefs.getBoolean(net.sourceforge.kolmafia.shop.SpinMasterLatheSync.VISITED_PREF, false))
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        lib.processVisitResponseHooks(
+            html = """<b>SpinMaster lathe</b>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=lathe",
+        )
+        assertTrue(prefs.getBoolean(net.sourceforge.kolmafia.shop.SpinMasterLatheSync.VISITED_PREF, false))
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_junkmagazineHippyQuest_live() {
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.loadFromText(
+            shopsText = "junkmagazine\tWorse Homes and Gardens\n",
+            coinText = "Worse Homes and Gardens\tbuy\t1\tjunk item\tROW1\n",
+        )
+        val prefs = Preferences(MapSettings())
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        lib.processVisitResponseHooks(
+            html = """<b>Worse Homes and Gardens</b>""",
+            url = "https://www.kingdomofloathing.com/shop.php?whichshop=junkmagazine",
+        )
+        assertEquals(
+            "step2",
+            prefs.getString(net.sourceforge.kolmafia.quest.Quest.HIPPY.prefKey, "unstarted"),
+        )
+        net.sourceforge.kolmafia.shop.CoinmasterDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_getRelatedPulverize_live() {
+        registerCorpusWeapon(BEJEWELED_CUFFLINKS, "bejeweled cufflinks")
+        registerCorpusItem(HOT_NUGGETS, "hot nuggets")
+        EquipmentDatabase.loadPulverizeFromText(
+            """
+                bejeweled cufflinks	258112
+            """.trimIndent(),
+        )
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(
+            lib,
+            """
+                item i = to_item("bejeweled cufflinks");
+                print(contains_key(get_related(i, "pulverize"), to_item("hot nuggets")));
+            """.trimIndent(),
+        )
+        assertEquals("true", out.trim())
+        ItemDatabase.resetForTest()
+        EquipmentDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_pulverizeCli_live() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val pulverize = object : net.sourceforge.kolmafia.request.PulverizeRequest(
+            HttpClient(MockEngine { respond("Smash!", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun pulverize(itemId: Int, quantity: Int): Result<Int> {
+                calls += itemId to quantity
+                return Result.success(quantity)
+            }
+        }
+        registerCorpusWeapon(PULVERIZE_ITEM, "corpus sword")
+        val inventory = object : InventoryManager(
+            HttpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
+            GameEventBus(),
+        ) {
+            private val flow = MutableStateFlow(
+                InventoryState(items = mapOf(PULVERIZE_ITEM to InventoryItem(PULVERIZE_ITEM, "corpus sword", 2, ItemType.WEAPON))),
+            )
+            override val state = flow.asStateFlow()
+        }
+        val db = object : GameDatabase() {
+            override fun item(name: String) = ItemDatabase.getByName(name)
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            pulverizeRequest = pulverize,
+            inventoryManager = inventory,
+        )
+        runLib(lib, """cli_execute("pulverize 1 corpus sword");""")
+        assertEquals(listOf(PULVERIZE_ITEM to 1), calls)
+        ItemDatabase.resetForTest()
+        EquipmentDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_getRelatedFold_live() {
+        registerCorpusItem(FOLD_A, "corpus fold a")
+        registerCorpusItem(FOLD_B, "corpus fold b")
+        net.sourceforge.kolmafia.data.FoldGroupDatabase.registerGroupForTest(
+            net.sourceforge.kolmafia.data.FoldGroup(
+                hpDamagePct = 0,
+                items = listOf("corpus fold a", "corpus fold b"),
+            ),
+        )
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(
+            lib,
+            """
+                item i = to_item("corpus fold a");
+                print(get_related(i, "fold")[to_item("corpus fold b")]);
+            """.trimIndent(),
+        )
+        assertEquals("2", out.trim())
+        ItemDatabase.resetForTest()
+        net.sourceforge.kolmafia.data.FoldGroupDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_getRelatedZap_live() {
+        registerCorpusItem(ZAP_A, "corpus zap a")
+        registerCorpusItem(ZAP_B, "corpus zap b")
+        net.sourceforge.kolmafia.data.ZapGroupDatabase.registerGroupForTest(
+            listOf("corpus zap a", "corpus zap b"),
+        )
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(
+            lib,
+            """
+                item i = to_item("corpus zap a");
+                print(contains_key(get_related(i, "zap"), to_item("corpus zap b")));
+                print(get_related(i, "zap")[to_item("corpus zap b")]);
+            """.trimIndent(),
+        )
+        assertEquals(
+            """
+                true
+                0
+            """.trimIndent(),
+            out.trim(),
+        )
+        ItemDatabase.resetForTest()
+        net.sourceforge.kolmafia.data.ZapGroupDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_getZapWand_live() {
+        registerCorpusItem(WandDiscovery.PINE_WAND, "corpus pine wand")
+        val inventory = object : InventoryManager(
+            io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine {
+                respond("ok", io.ktor.http.HttpStatusCode.OK)
+            }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ) {
+            private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                InventoryState(
+                    items = mapOf(
+                        WandDiscovery.PINE_WAND to InventoryItem(
+                            WandDiscovery.PINE_WAND,
+                            "corpus pine wand",
+                            1,
+                            ItemType.OTHER,
+                        ),
+                    ),
+                ),
+            )
+            override val state = flow.asStateFlow()
+        }
+        val lib = GameRuntimeLibrary(
+            inventoryManager = inventory,
+            preferences = prefs(),
+        )
+        val out = outputLib(lib, "print(to_string(get_zap_wand()));")
+        assertEquals("corpus pine wand", out.trim())
+        ItemDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_zap_live() {
+        registerCorpusItem(WandDiscovery.PINE_WAND, "corpus pine wand")
+        registerCorpusItem(CORPUS_ZAP_SOURCE, "corpus zap source")
+        registerCorpusItem(CORPUS_ZAP_TARGET, "corpus zap target")
+        val inventory = object : InventoryManager(
+            io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine {
+                respond("ok", io.ktor.http.HttpStatusCode.OK)
+            }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ) {
+            private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                InventoryState(
+                    items = mapOf(
+                        WandDiscovery.PINE_WAND to InventoryItem(
+                            WandDiscovery.PINE_WAND,
+                            "corpus pine wand",
+                            1,
+                            ItemType.OTHER,
+                        ),
+                        CORPUS_ZAP_SOURCE to InventoryItem(
+                            CORPUS_ZAP_SOURCE,
+                            "corpus zap source",
+                            1,
+                            ItemType.OTHER,
+                        ),
+                    ),
+                ),
+            )
+            override val state = flow.asStateFlow()
+            override fun consumeItemLocally(itemId: Int, quantity: Int) {
+                if (quantity <= 0) return
+                val current = flow.value
+                val item = current.items[itemId] ?: return
+                val remaining = item.quantity - quantity
+                val updated = current.items.toMutableMap()
+                if (remaining <= 0) {
+                    updated.remove(itemId)
+                } else {
+                    updated[itemId] = item.copy(quantity = remaining)
+                }
+                flow.value = current.copy(items = updated)
+            }
+        }
+        val engine = MockEngine {
+            respond(
+                "You acquire an item: <b>corpus zap target</b>",
+                HttpStatusCode.OK,
+            )
+        }
+        val zapRequest = ZapRequest(
+            client = HttpClient(engine),
+            inventoryManager = inventory,
+            preferences = prefs(),
+        )
+        val lib = GameRuntimeLibrary(
+            inventoryManager = inventory,
+            zapRequest = zapRequest,
+            preferences = prefs(),
+        )
+        val out = outputLib(
+            lib,
+            """
+                item result = zap(to_item("corpus zap source"));
+                print(to_string(result));
+            """.trimIndent(),
+        )
+        assertEquals("corpus zap target", out.trim())
+        ItemDatabase.resetForTest()
+    }
+
+    private fun registerCorpusWeapon(id: Int, name: String) {
+        ItemDatabase.registerForTest(
+            ItemData(
+                id = id,
+                name = name,
+                descId = "d$id",
+                image = "img",
+                primaryUse = ItemPrimaryUse.WEAPON,
+                secondaryUses = emptySet(),
+                access = setOf('t', 'd'),
+                autosellPrice = 1,
+                plural = null,
+            ),
+        )
+        EquipmentDatabase.registerForTest(
+            id,
+            net.sourceforge.kolmafia.data.EquipmentData(name, 120, null, 1, "sword"),
+        )
+    }
+
     private fun emptyInventoryManager(): InventoryManager =
         object : InventoryManager(
             io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine {
@@ -3990,5 +4296,17 @@ class AshCompatibilityCorpusTest {
         return SkillManager(client, SkillCastRequest(client), GameEventBus()).also { mgr ->
             runBlocking { mgr.fetchSkills() }
         }
+    }
+
+    companion object {
+        private const val BEJEWELED_CUFFLINKS = 3958
+        private const val HOT_NUGGETS = 1445
+        private const val PULVERIZE_ITEM = 9101
+        private const val FOLD_A = 9102
+        private const val FOLD_B = 9103
+        private const val ZAP_A = 9104
+        private const val ZAP_B = 9105
+        private const val CORPUS_ZAP_SOURCE = 9106
+        private const val CORPUS_ZAP_TARGET = 9107
     }
 }

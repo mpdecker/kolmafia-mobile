@@ -60,6 +60,9 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
+import net.sourceforge.kolmafia.request.PulverizeRequest
+import net.sourceforge.kolmafia.request.ZapRequest
+import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
@@ -84,6 +87,7 @@ import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.TrendyRequest
+import net.sourceforge.kolmafia.request.UntinkerRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.PirateRealmSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
@@ -97,6 +101,7 @@ import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.BastilleBattalionSync
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
@@ -150,6 +155,9 @@ class GameRuntimeLibrary(
     internal val drinkBoozeRequest: DrinkBoozeRequest? = null,
     internal val chewRequest: ChewRequest? = null,
     internal val autosellRequest: AutosellRequest? = null,
+    internal val pulverizeRequest: PulverizeRequest? = null,
+    internal val zapRequest: ZapRequest? = null,
+    internal val untinkerRequest: net.sourceforge.kolmafia.request.UntinkerRequest? = null,
     internal val closetRequest: ClosetRequest? = null,
     internal val storageRequest: StorageRequest? = null,
     internal val banishManager: BanishManager? = null,
@@ -196,6 +204,9 @@ class GameRuntimeLibrary(
     internal val yegDemonNameSync: YegDemonNameSync? = null,
     internal val demonInCombatNameSync: DemonInCombatNameSync? = null,
     internal val demonNamesManager: DemonNamesManager? = null,
+    internal val cleanupJunkRunner: net.sourceforge.kolmafia.session.CleanupJunkRunner? = null,
+    internal val autoMallRunner: net.sourceforge.kolmafia.session.AutoMallRunner? = null,
+    internal val quarkRunner: net.sourceforge.kolmafia.session.QuarkRunner? = null,
 ) : RuntimeLibrary() {
 
     init {
@@ -207,7 +218,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase210"
+        const val REVISION = "phase220"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1365,6 +1376,54 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { inventoryManager?.unequipSlot(slotName) }
         },
 
+        // pulverize|smash [N] item[, item]... — smash equipment into smithing materials
+        Regex("^(?:pulverize|smash)\\s+(?:(\\d+)\\s+)?(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val explicitQty = m.groupValues[1].toIntOrNull()
+            val itemNames = m.groupValues[2].split(',').map { it.trim() }.filter { it.isNotBlank() }
+            kotlinx.coroutines.runBlocking { runPulverizeCli(itemNames, explicitQty) }
+        },
+
+        // zap item[, item]... — transform items with wand
+        Regex("^zap\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemNames = m.groupValues[1].split(',').map { it.trim() }.filter { it.isNotBlank() }
+            kotlinx.coroutines.runBlocking { runZapCli(itemNames) }
+        },
+
+        // cleanup / junk — untinker, use boxes, pulverize, autosell junk list
+        Regex("^cleanup(?:\\s+junk)?$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { runCleanupJunkCli() }
+        },
+        Regex("^junk$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { runCleanupJunkCli() }
+        },
+
+        // untinker — complete screwdriver quest (no args)
+        Regex("^untinker$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { runUntinkerQuestCli() }
+        },
+
+        // untinker item[, item]... — break apart meat-paste items at the Untinker
+        Regex("^untinker\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemNames = m.groupValues[1].split(',').map { it.trim() }.filter { it.isNotBlank() }
+            kotlinx.coroutines.runBlocking { runUntinkerCli(itemNames) }
+        },
+
+        // automall — mall all profitable non-memento inventory items
+        Regex("^automall$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { runAutoMallCli() }
+        },
+
+        // quark [item[, item]...] — paste unstable quark with best junk-list item
+        Regex("^quark(?:\\s+(.+))?$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val params = m.groupValues[1].trim()
+            val itemNames = if (params.isEmpty()) {
+                emptyList()
+            } else {
+                params.split(',').map { it.trim() }.filter { it.isNotBlank() }
+            }
+            kotlinx.coroutines.runBlocking { runQuarkCli(itemNames) }
+        },
+
         // "sell N <item>" or "autosell N <item>" — autosell N copies
         Regex("^(?:sell|autosell)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
@@ -1688,9 +1747,9 @@ class GameRuntimeLibrary(
 
     internal fun processVisitQuestHooks(html: String, url: String? = null) {
         processVisitResponseHooks(html, url)
-        val db = questDatabase ?: return
         val prefs = preferences
         if (url != null && prefs != null) {
+            syncBastilleVisitFromUrl(html, url, prefs)
             TelescopeSync.parseResponse(
                 url,
                 html,
@@ -1698,6 +1757,7 @@ class GameRuntimeLibrary(
                 character,
             )
         }
+        val db = questDatabase ?: return
         if (TowerSync.containsTowerMarker(html) ||
             url?.contains("tower.php", ignoreCase = true) == true ||
             url?.contains("nstower", ignoreCase = true) == true
@@ -1960,13 +2020,35 @@ class GameRuntimeLibrary(
     internal fun cliChoice(choiceId: Int, option: Int) {
         val req = choiceRequest ?: return
         val db = questDatabase ?: return
+        val prefs = preferences
+        if (prefs != null && BastilleBattalionSync.isBastilleChoice(choiceId)) {
+            BastilleBattalionSync.syncPreChoice(choiceId, option, prefs)
+        }
         kotlinx.coroutines.runBlocking {
             req.choose(choiceId, option).onSuccess { html ->
                 QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext())
+                if (prefs != null && BastilleBattalionSync.isBastilleChoice(choiceId)) {
+                    val effectNames = effectManager?.state?.value?.effects?.map { it.name }?.toSet()
+                        ?: emptySet()
+                    BastilleBattalionSync.syncPostChoice(choiceId, option, html, prefs, effectNames)
+                }
                 QuestChoiceRules.apply(choiceId, html, db, option, preferences, inventoryManager)
             }
         }
     }
+
+    private fun syncBastilleVisitFromUrl(html: String, url: String, prefs: Preferences) {
+        if (url.contains("forceoption=0")) {
+            BastilleBattalionSync.syncVisit(BastilleBattalionSync.CHOICE_RIG, html, url, prefs)
+        }
+        val choiceId = WHICH_CHOICE_URL_PATTERN.find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            ?: net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities.extractChoiceId(html)
+        if (choiceId != null && BastilleBattalionSync.isBastilleChoice(choiceId)) {
+            BastilleBattalionSync.syncVisit(choiceId, html, url, prefs)
+        }
+    }
+
+    private val WHICH_CHOICE_URL_PATTERN = Regex("""whichchoice=(\d+)""", RegexOption.IGNORE_CASE)
 
     internal fun cliGuzzlrAbandon(rt: AshRuntimeContext) {
         val prefs = preferences ?: return
@@ -2096,6 +2178,10 @@ class GameRuntimeLibrary(
     fun checkDynamicModifiers() {
         val prefs = preferences ?: return
         val db = gameDatabase ?: return
+        if (!prefs.getBoolean("_pulverizationInitialized", false)) {
+            EquipmentDatabase.initializePulverization()
+            prefs.setBoolean("_pulverizationInitialized", true)
+        }
         val context = buildCheckContext()
         val currentClass = character?.state?.value?.className.orEmpty()
         val previousClass = prefs.getString("_lastKnownClass", "")
@@ -2129,6 +2215,69 @@ class GameRuntimeLibrary(
         )
         if (currentClass.isNotBlank()) {
             prefs.setString("_lastKnownClass", currentClass)
+        }
+    }
+
+    internal suspend fun runPulverizeCli(itemNames: List<String>, explicitQty: Int?) {
+        val request = pulverizeRequest ?: return
+        val db = gameDatabase ?: return
+        for (itemName in itemNames) {
+            val itemId = db.item(itemName)?.id ?: continue
+            val qty = explicitQty ?: inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+            if (qty <= 0) continue
+            request.pulverize(itemId, qty)
+        }
+    }
+
+    internal suspend fun runUntinkerQuestCli() {
+        untinkerRequest?.completeQuest()
+    }
+
+    internal suspend fun runUntinkerCli(itemNames: List<String>) {
+        val request = untinkerRequest ?: return
+        val db = gameDatabase ?: return
+        val llScrewdriverName = db.item(UntinkerRequest.LOATHING_LEGION_SCREWDRIVER)?.name
+            ?: "Loathing Legion universal screwdriver"
+        val useLegion = physicalAccessibleCount(
+            UntinkerRequest.LOATHING_LEGION_SCREWDRIVER,
+            llScrewdriverName,
+        ) > 0
+        for (itemName in itemNames) {
+            val itemId = db.item(itemName)?.id ?: continue
+            val qty = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+            if (qty <= 0) continue
+            if (useLegion) {
+                request.untinkerViaLegionScrewdriver(itemId, qty)
+            } else {
+                request.untinker(itemId, qty)
+            }
+        }
+    }
+
+    internal suspend fun runCleanupJunkCli() {
+        cleanupJunkRunner?.cleanup()
+    }
+
+    internal suspend fun runAutoMallCli() {
+        autoMallRunner?.automall()
+    }
+
+    internal suspend fun runQuarkCli(itemNames: List<String>) {
+        quarkRunner?.quark(itemNames) { message ->
+            lastCliOutput.appendLine(message)
+        }
+    }
+
+    internal suspend fun runZapCli(itemNames: List<String>) {
+        val request = zapRequest ?: return
+        val db = gameDatabase ?: return
+        for (itemName in itemNames) {
+            val itemId = db.item(itemName)?.id ?: continue
+            val qty = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+            if (qty <= 0) continue
+            repeat(qty) {
+                request.zap(itemId)
+            }
         }
     }
 
@@ -2586,6 +2735,26 @@ class GameRuntimeLibrary(
         registerAshP214Batch(scope)
         registerAshP215Batch(scope)
         registerAshP216Batch(scope)
+        registerAshP217Batch(scope)
+        registerAshP218Batch(scope)
+        registerAshP219Batch(scope)
+        registerAshP220Batch(scope)
+        registerAshP221Batch(scope)
+        registerAshP222Batch(scope)
+        registerAshP223Batch(scope)
+        registerAshP224Batch(scope)
+        registerAshP225Batch(scope)
+        registerAshP226Batch(scope)
+        registerAshP227Batch(scope)
+        registerAshP228Batch(scope)
+        registerAshP229Batch(scope)
+        registerAshP230Batch(scope)
+        registerAshP231Batch(scope)
+        registerAshP232Batch(scope)
+        registerAshP233Batch(scope)
+        registerAshP234Batch(scope)
+        registerAshP235Batch(scope)
+        registerAshP236Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

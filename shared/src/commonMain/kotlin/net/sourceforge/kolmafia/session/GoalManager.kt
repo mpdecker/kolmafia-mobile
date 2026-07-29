@@ -1,5 +1,11 @@
 package net.sourceforge.kolmafia.session
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.joinAll
+import net.sourceforge.kolmafia.adventure.AdventureLocation
+import net.sourceforge.kolmafia.adventure.AdventureManager
+
 /**
  * Tracks acquisition goals for the current automation session.
  * Supports item goals by ID, item goals by name (case-insensitive), meat goals, and level goals.
@@ -102,5 +108,62 @@ class GoalManager {
         meatGoal = null
         levelGoal = null
         factoidGoal = null
+    }
+
+    data class GoalSnapshot(
+        val itemGoalIds: Set<Int>,
+        val itemGoalNames: Set<String>,
+        val meatGoal: Int?,
+        val levelGoal: Int?,
+        val factoidGoal: String?,
+        val choiceGoalId: Int?,
+        val substatsGoal: Boolean,
+    )
+
+    fun captureSnapshot(): GoalSnapshot = GoalSnapshot(
+        itemGoalIds = _itemGoalIds.toSet(),
+        itemGoalNames = _itemGoalNames.toSet(),
+        meatGoal = meatGoal,
+        levelGoal = levelGoal,
+        factoidGoal = factoidGoal,
+        choiceGoalId = choiceGoalId,
+        substatsGoal = substatsGoal,
+    )
+
+    fun restoreSnapshot(snapshot: GoalSnapshot) {
+        clearGoals()
+        snapshot.itemGoalIds.forEach { addItemGoal(it) }
+        snapshot.itemGoalNames.forEach { addItemGoalByName(it) }
+        snapshot.meatGoal?.let { setMeatGoal(it) }
+        snapshot.levelGoal?.let { setLevelGoal(it) }
+        snapshot.factoidGoal?.let { setFactoidGoal(it) }
+        snapshot.choiceGoalId?.let { setChoiceGoal(it) }
+        if (snapshot.substatsGoal) setSubstatsGoal(true)
+    }
+
+    /**
+     * Desktop [GoalManager.makeSideTrip] — temporarily pursue [itemId] at [location], then restore goals.
+     * [itemCount] supplies the current inventory count for [itemId] after the loop (goal may still be set).
+     */
+    suspend fun runSideTripForItem(
+        adventureManager: AdventureManager,
+        location: AdventureLocation,
+        itemId: Int,
+        maxTurns: Int,
+        scope: CoroutineScope,
+        itemCount: () -> Int,
+    ): Boolean {
+        if (maxTurns <= 0) return false
+
+        val snapshot = captureSnapshot()
+        clearGoals()
+        addItemGoal(itemId)
+
+        val job: Job = adventureManager.runAdventures(location, maxTurns, scope)
+        joinAll(job)
+
+        val obtained = itemCount() > 0
+        restoreSnapshot(snapshot)
+        return obtained
     }
 }

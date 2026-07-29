@@ -33,4 +33,23 @@ object ZapGroupDatabase {
     }
 
     fun allGroups(): List<List<String>> = groups
+
+    fun groupForItemId(itemId: Int): List<String>? {
+        val name = ItemDatabase.getById(itemId)?.name ?: return null
+        return groupFor(name)
+    }
+
+    internal fun registerGroupForTest(items: List<String>) {
+        if (items.size <= 1) return
+        groups += items
+        for (item in items) {
+            itemToGroup[item.lowercase()] = items
+        }
+    }
+
+    internal fun resetForTest() {
+        groups.clear()
+        itemToGroup.clear()
+        loaded = false
+    }
 }
