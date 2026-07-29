@@ -12,8 +12,8 @@ import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterPurchaseProbe
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
 import net.sourceforge.kolmafia.shop.DripArmoryPrefs
+import net.sourceforge.kolmafia.shop.ShopInventorySync
 
 class GameRuntimeLibraryAshP158Test {
 
@@ -57,7 +57,7 @@ class GameRuntimeLibraryAshP158Test {
                 accessibleCount = { 0 },
             ),
         )
-        CoinmasterShopSync.apply(
+        ShopInventorySync.parseAndLearn(
             html = """<b>drippy shield</b>""",
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=driparmory",
             prefs = p,

@@ -68,9 +68,9 @@ import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
 import net.sourceforge.kolmafia.shop.NpcShopSync
 import net.sourceforge.kolmafia.shop.ShopInventorySync
+import net.sourceforge.kolmafia.shop.SwaggerShopSync
 import net.sourceforge.kolmafia.shop.SeptEmberSync
 import net.sourceforge.kolmafia.shop.SleazeAirportSync
 import net.sourceforge.kolmafia.shop.TimeTowerSync
@@ -207,7 +207,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase200"
+        const val REVISION = "phase210"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1624,11 +1624,19 @@ class GameRuntimeLibrary(
         }
         if (url != null && url.contains("shop.php", ignoreCase = true)) {
             character?.let { StillSync.apply(it, html, url) }
-            ShopInventorySync.parseAndLearn(html, url, sessionLogger)
+            val visitState = character?.state?.value
+            ShopInventorySync.parseAndLearn(
+                html = html,
+                url = url,
+                sessionLogger = sessionLogger,
+                prefs = preferences,
+                state = visitState,
+            ) { skillId ->
+                fetchDescription("desc_skill.php?whichskill=$skillId&self=true")
+            }
             preferences?.let { prefs ->
-                val state = character?.state?.value
+                val state = visitState
                 val ascension = state?.ascensionNumber ?: 0
-                CoinmasterShopSync.apply(html, url, prefs, state, sessionLogger)
                 NpcShopSync.applyShopVisit(html, url, prefs, ascension)
             }
         }
@@ -1641,7 +1649,9 @@ class GameRuntimeLibrary(
         if (url != null && url.contains("peevpee.php", ignoreCase = true) &&
             url.contains("place=shop", ignoreCase = true)
         ) {
-            preferences?.let { CoinmasterShopSync.applySwaggerVisit(html, url, it) }
+            preferences?.let {
+                SwaggerShopSync.applyVisitShop(html, url, it, sessionLogger, character?.state?.value)
+            }
         }
         if (url != null && url.contains("place.php", ignoreCase = true) &&
             url.contains("place=twitch", ignoreCase = true)
@@ -2556,6 +2566,26 @@ class GameRuntimeLibrary(
         registerAshP194Batch(scope)
         registerAshP195Batch(scope)
         registerAshP196Batch(scope)
+        registerAshP197Batch(scope)
+        registerAshP198Batch(scope)
+        registerAshP199Batch(scope)
+        registerAshP200Batch(scope)
+        registerAshP201Batch(scope)
+        registerAshP202Batch(scope)
+        registerAshP203Batch(scope)
+        registerAshP204Batch(scope)
+        registerAshP205Batch(scope)
+        registerAshP206Batch(scope)
+        registerAshP207Batch(scope)
+        registerAshP208Batch(scope)
+        registerAshP209Batch(scope)
+        registerAshP210Batch(scope)
+        registerAshP211Batch(scope)
+        registerAshP212Batch(scope)
+        registerAshP213Batch(scope)
+        registerAshP214Batch(scope)
+        registerAshP215Batch(scope)
+        registerAshP216Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

@@ -259,6 +259,26 @@ object CoinmasterPurchaseAccessibility {
         return true
     }
 
+    internal fun visitInventorySkillAvailable(master: CoinmasterData, skillId: Int): Boolean {
+        val shopId = master.shopId?.lowercase() ?: return true
+        if (!CoinmasterVisitInventory.hasVisited(shopId)) return true
+        if (CoinmasterVisitInventory.isDynamicShop(shopId) ||
+            CoinmasterVisitInventory.hasVisitOverlay(shopId)
+        ) {
+            return CoinmasterVisitInventory.containsSkill(shopId, skillId)
+        }
+        return true
+    }
+
+    internal fun visitInventorySellAvailable(master: CoinmasterData, soldItemId: Int): Boolean {
+        val shopId = master.shopId?.lowercase() ?: return true
+        if (!CoinmasterVisitInventory.hasVisited(shopId)) return true
+        if (CoinmasterVisitInventory.hasVisitSellOverlay(shopId)) {
+            return CoinmasterVisitInventory.containsSellItem(shopId, soldItemId)
+        }
+        return true
+    }
+
     private fun fdkolItemAvailable(itemId: Int, prefs: Preferences?): Boolean {
         if (CoinmasterVisitInventory.hasVisited("fdkol")) {
             return CoinmasterVisitInventory.containsItem("fdkol", itemId)
@@ -362,7 +382,7 @@ object CoinmasterPurchaseAccessibility {
     ): Boolean = when (itemId) {
         YELLOW_SUBMARINE -> !DesertBeachAccessibility.isAvailable(state, prefs)
         PIXEL_PILL, PIXEL_ENERGY_TANK, PIXEL_GRAPPLING_HOOK ->
-            prefs?.getBoolean(CoinmasterShopSync.MYSTIC_PSYCHOSIS_ITEMS_UNLOCKED, false) == true
+            prefs?.getBoolean(MysticShopSync.MYSTIC_PSYCHOSIS_ITEMS_UNLOCKED, false) == true
         else -> true
     }
 

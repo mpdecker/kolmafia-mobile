@@ -34,8 +34,8 @@ import net.sourceforge.kolmafia.shop.FlowerTradeinSync
 class GameRuntimeLibraryAshP196Test {
 
     @Test
-    fun revision_phase200() {
-        assertEquals("phase200", GameRuntimeLibrary.REVISION)
+    fun revision_phase202() {
+        assertEquals("phase210", GameRuntimeLibrary.REVISION)
     }
 
     @AfterTest

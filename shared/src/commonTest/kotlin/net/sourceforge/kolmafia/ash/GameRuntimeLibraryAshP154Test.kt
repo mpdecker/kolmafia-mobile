@@ -15,7 +15,7 @@ import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase.Companion.UNSTARTED
 import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterPurchaseProbe
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
+import net.sourceforge.kolmafia.shop.ShopInventorySync
 
 class GameRuntimeLibraryAshP154Test {
 
@@ -41,19 +41,29 @@ class GameRuntimeLibraryAshP154Test {
         )
     }
 
+    private fun visitShop(
+        html: String,
+        url: String,
+        prefs: Preferences,
+        shopsText: String,
+        coinText: String,
+        state: CharacterState? = null,
+    ) {
+        CoinmasterDatabase.loadFromText(shopsText = shopsText, coinText = coinText)
+        ShopInventorySync.parseAndLearn(html = html, url = url, prefs = prefs, state = state)
+    }
+
     @Test
     fun mrreplica_allowedAfterVisitYearSync() {
         registerItem(11325, "august scepter")
-        CoinmasterDatabase.loadFromText(
-            shopsText = "mrreplica\tReplica Mr. Store\n",
-            coinText = "Replica Mr. Store\tbuy\t1\taugust scepter\tROW11325\n",
-        )
         val p = Preferences(MapSettings())
         p.setBoolean("autoSatisfyWithCoinmasters", true)
-        CoinmasterShopSync.apply(
+        visitShop(
             html = """<td colspan=14 align=center>&mdash; <b>2023</b> &mdash;</td>""",
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=mrreplica",
             prefs = p,
+            shopsText = "mrreplica\tReplica Mr. Store\n",
+            coinText = "Replica Mr. Store\tbuy\t1\taugust scepter\tROW11325\n",
         )
         assertTrue(
             CoinmasterPurchaseProbe.canPurchaseIgnoringMeat(
@@ -71,16 +81,14 @@ class GameRuntimeLibraryAshP154Test {
     @Test
     fun mrreplica_wrongYearBlockedAfterVisitSync() {
         registerItem(11190, "replica Dark Jill-O-Lantern")
-        CoinmasterDatabase.loadFromText(
-            shopsText = "mrreplica\tReplica Mr. Store\n",
-            coinText = "Replica Mr. Store\tbuy\t1\treplica Dark Jill-O-Lantern\tROW11190\n",
-        )
         val p = Preferences(MapSettings())
         p.setBoolean("autoSatisfyWithCoinmasters", true)
-        CoinmasterShopSync.apply(
+        visitShop(
             html = """<td colspan=14 align=center>&mdash; <b>2023</b> &mdash;</td>""",
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=mrreplica",
             prefs = p,
+            shopsText = "mrreplica\tReplica Mr. Store\n",
+            coinText = "Replica Mr. Store\tbuy\t1\treplica Dark Jill-O-Lantern\tROW11190\n",
         )
         assertFalse(
             CoinmasterPurchaseProbe.canPurchaseIgnoringMeat(
@@ -99,17 +107,15 @@ class GameRuntimeLibraryAshP154Test {
     fun blackmarket_zeppelinAllowedAfterVisitUnlock() {
         registerItem(7185, "Red Zeppelin ticket")
         registerItem(7221, "priceless diamond")
-        CoinmasterDatabase.loadFromText(
-            shopsText = "blackmarket\tThe Black Market\n",
-            coinText = "The Black Market\tROW290\tRed Zeppelin ticket\tpriceless diamond (1)\n",
-        )
         val p = Preferences(MapSettings())
         p.setBoolean("autoSatisfyWithCoinmasters", true)
         p.setString(Quest.MACGUFFIN.prefKey, UNSTARTED)
-        CoinmasterShopSync.apply(
+        visitShop(
             html = "<html>The Black Market</html>",
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=blackmarket",
             prefs = p,
+            shopsText = "blackmarket\tThe Black Market\n",
+            coinText = "The Black Market\tROW290\tRed Zeppelin ticket\tpriceless diamond (1)\n",
             state = CharacterState(ascensionNumber = 3, meat = 100_000),
         )
         assertTrue(

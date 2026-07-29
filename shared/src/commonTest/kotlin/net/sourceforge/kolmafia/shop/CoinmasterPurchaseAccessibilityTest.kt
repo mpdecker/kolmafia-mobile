@@ -8,6 +8,7 @@ import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shop.CoinmasterShopSync
+import net.sourceforge.kolmafia.shop.MysticShopSync
 
 class CoinmasterPurchaseAccessibilityTest {
 
@@ -72,7 +73,11 @@ class CoinmasterPurchaseAccessibilityTest {
     fun shore_toasterBlockedAfterVisitSync() {
         val p = prefs()
         p.setBoolean("autoSatisfyWithCoinmasters", true)
-        CoinmasterShopSync.apply(
+        CoinmasterDatabase.loadFromText(
+            shopsText = "shore\tThe Shore, Inc. Gift Shop\n",
+            coinText = "The Shore, Inc. Gift Shop\tROW637\tcheap toaster\tShore Inc. Ship Trip Scrip (20)\n",
+        )
+        ShopInventorySync.parseAndLearn(
             html = "<html></html>",
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=shore",
             prefs = p,
@@ -243,7 +248,7 @@ class CoinmasterPurchaseAccessibilityTest {
             ),
         )
         val p = prefs()
-        p.setBoolean(CoinmasterShopSync.MYSTIC_PSYCHOSIS_ITEMS_UNLOCKED, true)
+        p.setBoolean(MysticShopSync.MYSTIC_PSYCHOSIS_ITEMS_UNLOCKED, true)
         assertTrue(
             CoinmasterPurchaseAccessibility.canPurchaseItem(
                 mysticMaster(),
@@ -329,7 +334,7 @@ class CoinmasterPurchaseAccessibilityTest {
                 accessibleCount = { 0 },
             ),
         )
-        CoinmasterShopSync.applySwaggerVisit(
+        SwaggerShopSync.applyVisitShop(
             html = """
                 <tr><td><b>Black Bart's Booty</b></td>
                 <td><form><input type="hidden" name="whichitem" value="7732" />
@@ -337,6 +342,8 @@ class CoinmasterPurchaseAccessibilityTest {
             """.trimIndent(),
             url = "https://www.kingdomofloathing.com/peevpee.php?place=shop",
             prefs = p,
+            sessionLogger = null,
+            state = null,
         )
         assertTrue(
             CoinmasterPurchaseAccessibility.canPurchaseItem(
@@ -367,7 +374,11 @@ class CoinmasterPurchaseAccessibilityTest {
     @Test
     fun replica_wrongYearBlockedAfterVisitSync() {
         val p = prefs()
-        CoinmasterShopSync.apply(
+        CoinmasterDatabase.loadFromText(
+            shopsText = "mrreplica\tReplica Mr. Store\n",
+            coinText = "Replica Mr. Store\tbuy\t1\treplica Dark Jill-O-Lantern\tROW11190\n",
+        )
+        ShopInventorySync.parseAndLearn(
             html = """<td colspan=14 align=center>&mdash; <b>2023</b> &mdash;</td>""",
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=mrreplica",
             prefs = p,

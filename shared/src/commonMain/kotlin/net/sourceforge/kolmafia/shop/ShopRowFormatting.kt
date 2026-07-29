@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.shop
 
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 
 /** Desktop AdventureResult / ShopRow toData string formatting for session-log spading output. */
 internal object ShopRowFormatting {
@@ -8,6 +9,10 @@ internal object ShopRowFormatting {
     fun formatStack(stack: ItemStack): String {
         if (stack.isMeat) {
             return "${formatCount(stack.count)} Meat"
+        }
+        if (stack.isSkill) {
+            val name = SkillDefinitionDatabase.getById(stack.itemId)?.name ?: "skill ${stack.itemId}"
+            return name
         }
         val name = ItemDatabase.getById(stack.itemId)?.name ?: "item ${stack.itemId}"
         return if (stack.count == 1) name else "$name (${stack.count})"
@@ -41,6 +46,36 @@ internal object ShopRowFormatting {
                 append(formatStack(cost))
             }
         }
+
+    /** Desktop coinmasters.txt legacy buy line: ShopName\\tbuy\\tprice\\titem\\tROWn */
+    fun toLegacyBuyData(shopName: String, row: ShopRow): String {
+        val cost = row.costs.firstOrNull()
+            ?: return toCoinmasterData(shopName, row)
+        return buildString {
+            append(shopName)
+            append("\tbuy\t")
+            append(cost.count)
+            append('\t')
+            append(formatStack(row.item))
+            append("\tROW")
+            append(row.rowId)
+        }
+    }
+
+    /** Desktop coinmasters.txt legacy sell line: ShopName\\tsell\\titemCount\\tprice\\tROWn */
+    fun toLegacySellData(shopName: String, row: ShopRow): String {
+        val cost = row.costs.firstOrNull()
+            ?: return toCoinmasterData(shopName, row)
+        return buildString {
+            append(shopName)
+            append("\tsell\t")
+            append(row.item.count)
+            append('\t')
+            append(formatStack(cost))
+            append("\tROW")
+            append(row.rowId)
+        }
+    }
 
     /** Desktop [ShopRowData.dataString] shoprows.txt format: row\\tshopId\\titem\\tcost… */
     fun toShopRowData(rowId: Int, shopId: String, row: ShopRow): String =

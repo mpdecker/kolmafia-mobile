@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.shop
 
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.SessionLogger
 
 /** Desktop [FlowerTradeinRequest.visitShopRows] dynamic row refresh for flowertradein. */
 object FlowerTradeinSync {
@@ -17,11 +19,24 @@ object FlowerTradeinSync {
         "blue tulip" to FlowerTradeinAccessibility.BLUE_TULIP,
     )
 
+    fun applyVisitShopRows(
+        shopRows: List<ShopRow>,
+        force: Boolean,
+        sessionLogger: SessionLogger?,
+    ) {
+        val rows = shopRows.mapNotNull { mapShopRow(it) }
+        if (rows.isNotEmpty()) {
+            CoinmasterVisitInventory.replaceBuyRows(SHOP_ID, rows)
+        }
+    }
+
     fun syncFromShopHtml(html: String, prefs: Preferences) {
         val rows = ShopRowParser.parseSingleCostRows(html).mapNotNull { parsed ->
             mapRow(parsed)
         }
-        CoinmasterVisitInventory.replaceBuyRows(SHOP_ID, rows)
+        if (rows.isNotEmpty()) {
+            CoinmasterVisitInventory.replaceBuyRows(SHOP_ID, rows)
+        }
     }
 
     internal fun mapRow(parsed: ShopRowParser.ParsedSingleCostRow): ShopRow? {
@@ -31,6 +46,20 @@ object FlowerTradeinSync {
             rowId = parsed.rowId,
             item = item,
             costs = listOf(ItemStack(itemId = flowerId, count = parsed.price)),
+        )
+    }
+
+    internal fun mapShopRow(row: ShopRow): ShopRow? {
+        if (row.costs.size != 1) return null
+        val cost = row.costs[0]
+        val itemName = ItemDatabase.getById(row.item.itemId)?.name ?: return null
+        val item = parseChronerItem(row.item.itemId, itemName) ?: return null
+        val currencyName = ItemDatabase.getById(cost.itemId)?.name ?: return null
+        val flowerId = flowerId(currencyName) ?: return null
+        return ShopRow(
+            rowId = row.rowId,
+            item = item,
+            costs = listOf(ItemStack(itemId = flowerId, count = cost.count)),
         )
     }
 

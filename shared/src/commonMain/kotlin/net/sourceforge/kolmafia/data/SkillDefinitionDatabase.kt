@@ -78,6 +78,30 @@ object SkillDefinitionDatabase {
 
     fun all(): Collection<SkillDefinition> = _byId.values
 
+    /**
+     * Desktop [SkillDatabase.registerSkill] from shop HTML when skill id is unknown.
+     * Returns true when a new minimal definition was inserted.
+     */
+    fun registerFromShopVisit(skillId: Int, name: String, image: String): Boolean {
+        if (getById(skillId) != null) return false
+        val trimmedName = name.trim().ifEmpty { "skill $skillId" }
+        val skill = SkillDefinition(
+            id = skillId,
+            name = trimmedName,
+            image = image.ifBlank { "skillbook" },
+            tags = emptySet(),
+            mpCost = 0,
+            duration = 0,
+            isPassive = true,
+            isCombat = false,
+            isNonCombat = false,
+            isSong = false,
+        )
+        _byId[skillId] = skill
+        _byName[trimmedName.lowercase()] = skill
+        return true
+    }
+
     /** Test hook — register a skill without loading classskills.txt. */
     internal fun registerForTest(skill: SkillDefinition) {
         _byId[skill.id] = skill

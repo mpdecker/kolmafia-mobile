@@ -138,8 +138,36 @@ object CoinmasterDatabase {
                     continue
                 }
             }
+            if (master.isDisabled) continue
             val row = master.buyRowFor(itemId) ?: continue
             return master to row
+        }
+        return null
+    }
+
+    fun findBuyRowForSkill(skillId: Int): Pair<CoinmasterData, ShopRow>? {
+        for (master in masters) {
+            val shopId = master.shopId?.lowercase() ?: continue
+            if (!CoinmasterVisitInventory.hasVisited(shopId)) continue
+            CoinmasterVisitInventory.findBuyRowBySkill(shopId, skillId)?.let { return master to it }
+            if (CoinmasterVisitInventory.isDynamicShop(shopId)) continue
+        }
+        for (master in masters) {
+            val shopId = master.shopId?.lowercase() ?: continue
+            if (CoinmasterVisitInventory.isDynamicShop(shopId) &&
+                !CoinmasterVisitInventory.hasVisited(shopId)
+            ) {
+                continue
+            }
+            if (CoinmasterVisitInventory.hasVisited(shopId) &&
+                CoinmasterVisitInventory.isDynamicShop(shopId)
+            ) {
+                continue
+            }
+            if (master.isDisabled) continue
+            master.buyItems.firstOrNull { row ->
+                row.item.isSkill && row.item.itemId == skillId
+            }?.let { return master to it }
         }
         return null
     }
@@ -147,6 +175,28 @@ object CoinmasterDatabase {
     private val SWAGGER_SEASON_ITEM_IDS = setOf(
         7732, 4810, 4812, 8182, 8277, 8488, 8800, 9123, 9921, 10207, 10325, 10640, 11867, 4804,
     )
+
+    /** Desktop CoinmasterData.availableSkillInternal probe (no public ASH). */
+    fun containsBuySkill(
+        skillId: Int,
+        validate: Boolean = false,
+        state: CharacterState = CharacterState(),
+        prefs: Preferences? = null,
+        hasSkill: (Int) -> Boolean = { false },
+        hasEffect: (Int) -> Boolean = { false },
+        accessibleCount: (Int) -> Int = { 0 },
+    ): Boolean {
+        if (!validate) return findBuyRowForSkill(skillId) != null
+        if (hasSkill(skillId)) return false
+        val (master, row) = findBuyRowForSkill(skillId) ?: return false
+        if (!CoinmasterAccessibility.isAccessible(master, state, prefs, accessibleCount, hasEffect)) {
+            return false
+        }
+        if (!CoinmasterPurchaseAccessibility.visitInventorySkillAvailable(master, skillId)) {
+            return false
+        }
+        return CoinmasterPurchaseProbe.affordableCount(row, state, accessibleCount) > 0
+    }
 
     /** Desktop CoinmastersDatabase.contains(itemId, validate). */
     fun containsBuyItem(
@@ -169,6 +219,32 @@ object CoinmasterDatabase {
         )
     }
 
+    fun findSellRowForItem(itemId: Int): Pair<CoinmasterData, ShopRow>? {
+        for (master in masters) {
+            val shopId = master.shopId?.lowercase() ?: continue
+            if (CoinmasterVisitInventory.hasVisitSellOverlay(shopId)) {
+                CoinmasterVisitInventory.findSellRow(shopId, itemId)?.let { return master to it }
+                continue
+            }
+            master.sellRowFor(itemId)?.let { return master to it }
+        }
+        return null
+    }
+
+    /** Desktop [CoinmasterData.canSellItem] with optional visit-overlay + inventory validate. */
+    fun containsSellItem(
+        itemId: Int,
+        validate: Boolean = false,
+        accessibleCount: (Int) -> Int = { 0 },
+    ): Boolean {
+        if (!validate) return findSellRowForItem(itemId) != null
+        val (master, row) = findSellRowForItem(itemId) ?: return false
+        if (!CoinmasterPurchaseAccessibility.visitInventorySellAvailable(master, itemId)) {
+            return false
+        }
+        return accessibleCount(itemId) >= 1
+    }
+
     internal fun resetForTest() {
         masters.clear()
         byNickname.clear()
@@ -180,11 +256,56 @@ object CoinmasterDatabase {
         ShopRowDatabase.resetForTest()
     }
 
+    internal fun registerForTest(data: CoinmasterData) = register(data)
+
     private fun register(data: CoinmasterData) {
-        masters.add(data)
-        byNickname[data.masterName.lowercase()] = data
-        data.allNicknames.forEach { byNickname[it.lowercase()] = data }
-        data.shopId?.let { byShopId[it.lowercase()] = data }
+        val enriched = enrichWithVisitHooks(data)
+        masters.add(enriched)
+        byNickname[enriched.masterName.lowercase()] = enriched
+        enriched.allNicknames.forEach { byNickname[it.lowercase()] = enriched }
+        enriched.shopId?.let { shopId ->
+            byShopId[shopId.lowercase()] = enriched
+            if (shopId.isNotBlank() &&
+                (enriched.buyUrl.isNullOrBlank() || enriched.buyUrl.startsWith("shop.php", ignoreCase = true))
+            ) {
+                ShopRowDatabase.setLogVisits(shopId)
+            }
+        }
+    }
+
+    private fun enrichWithVisitHooks(data: CoinmasterData): CoinmasterData {
+        val shopId = data.shopId?.lowercase() ?: return data
+        return when (shopId) {
+            ArmoryAndLeggerySync.SHOP_ID -> data.copy(visitShopRows = ArmoryAndLeggerySync::applyVisitShopRows)
+            FlowerTradeinSync.SHOP_ID -> data.copy(visitShopRows = FlowerTradeinSync::applyVisitShopRows)
+            Crimbo25SammySync.SHOP_ID -> data.copy(visitShopRows = Crimbo25SammySync::applyVisitShopRows)
+            MerchTableSync.SHOP_ID -> data.copy(
+                visitShopRows = MerchTableSync::applyVisitShopRows,
+                visitShop = MerchTableSync::applyVisitShop,
+            )
+            TrapperSync.SHOP_ID -> data.copy(visitShop = TrapperSync::applyVisitShop)
+            DripArmoryPrefs.SHOP_ID -> data.copy(visitShop = DripArmoryPrefs::applyVisitShop)
+            SeptEmberSync.SHOP_ID -> data.copy(visitShop = SeptEmberSync::applyVisitShop)
+            SpinMasterLatheSync.SHOP_ID -> data.copy(visitShop = SpinMasterLatheSync::applyVisitShop)
+            JunkMagazineSync.SHOP_ID -> data.copy(visitShop = JunkMagazineSync::applyVisitShop)
+            BaconShopSync.SHOP_ID -> data.copy(visitShop = BaconShopSync::applyVisitShop)
+            ArcadeShopSync.SHOP_ID -> data.copy(visitShop = ArcadeShopSync::applyVisitShop)
+            KiwiShopSync.SHOP_ID -> data.copy(visitShop = KiwiShopSync::applyVisitShop)
+            MysticShopSync.SHOP_ID -> data.copy(visitShop = MysticShopSync::applyVisitShop)
+            ShoreShopSync.SHOP_ID -> data.copy(visitShop = ShoreShopSync::applyVisitShop)
+            FiveDPrinterShopSync.SHOP_ID -> data.copy(visitShop = FiveDPrinterShopSync::applyVisitShop)
+            ReplicaMrStoreSync.SHOP_ID -> data.copy(visitShop = ReplicaMrStoreSync::applyVisitShop)
+            BlackMarketShopSync.SHOP_ID -> data.copy(visitShop = BlackMarketShopSync::applyVisitShop)
+            PirateRealmShopSync.SHOP_ID -> data.copy(visitShop = PirateRealmShopSync::applyVisitShop)
+            SwaggerShopSync.SHOP_ID -> data.copy(visitShop = SwaggerShopSync::applyVisitShop)
+            else -> when {
+                shopId in TimeTowerSync.CHRONER_SHOP_IDS && shopId != MerchTableSync.SHOP_ID ->
+                    data.copy(visitShop = ChronerShopSync::applyVisitShop)
+                shopId.startsWith("crimbo23_") ->
+                    data.copy(visitShop = Crimbo23ShopSync::applyVisitShop)
+                else -> data
+            }
+        }
     }
 
     private fun parseShops(text: String): Map<String, String> {

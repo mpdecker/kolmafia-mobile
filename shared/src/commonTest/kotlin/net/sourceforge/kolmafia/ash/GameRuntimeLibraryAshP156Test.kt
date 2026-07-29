@@ -12,8 +12,8 @@ import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterPurchaseProbe
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
 import net.sourceforge.kolmafia.shop.FunALogUnlockPrefs
+import net.sourceforge.kolmafia.shop.ShopInventorySync
 
 class GameRuntimeLibraryAshP156Test {
 
@@ -63,7 +63,7 @@ class GameRuntimeLibraryAshP156Test {
                 accessibleCount = accessibleCount,
             ),
         )
-        CoinmasterShopSync.apply(
+        ShopInventorySync.parseAndLearn(
             html = """<tr rel="10199"><td>crabsicle</td></tr>""",
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=piraterealm",
             prefs = p,

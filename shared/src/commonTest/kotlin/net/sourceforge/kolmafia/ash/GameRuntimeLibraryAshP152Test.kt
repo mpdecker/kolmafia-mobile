@@ -19,6 +19,7 @@ import net.sourceforge.kolmafia.shop.CoinmasterPurchaseProbe
 import net.sourceforge.kolmafia.shop.CoinmasterShopSync
 import net.sourceforge.kolmafia.shop.NpcPurchaseAccessibility
 import net.sourceforge.kolmafia.shop.NpcShopSync
+import net.sourceforge.kolmafia.shop.SwaggerShopSync
 
 class GameRuntimeLibraryAshP152Test {
 
@@ -95,7 +96,7 @@ class GameRuntimeLibraryAshP152Test {
         )
         val p = Preferences(MapSettings())
         p.setBoolean("autoSatisfyWithCoinmasters", true)
-        CoinmasterShopSync.applySwaggerVisit(
+        SwaggerShopSync.applyVisitShop(
             html = """
                 You've earned 1200 swagger during a pirate season.
                 <tr><td><b>Black Bart's Booty</b></td>
@@ -104,6 +105,8 @@ class GameRuntimeLibraryAshP152Test {
             """.trimIndent(),
             url = "https://www.kingdomofloathing.com/peevpee.php?place=shop",
             prefs = p,
+            sessionLogger = null,
+            state = null,
         )
         assertTrue(
             CoinmasterPurchaseProbe.canPurchaseIgnoringMeat(

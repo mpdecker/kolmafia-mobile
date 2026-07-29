@@ -12,7 +12,6 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shop.CoinmasterDatabase
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
 import net.sourceforge.kolmafia.shop.CoinmasterVisitInventory
 import net.sourceforge.kolmafia.shop.MerchTableSync
 import net.sourceforge.kolmafia.shop.SleazeAirportSync
@@ -28,7 +27,7 @@ class GameRuntimeLibraryAshP163Test {
 
     @Test
     fun revision_phase184() {
-        assertEquals("phase200", GameRuntimeLibrary.REVISION)
+        assertEquals("phase210", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -67,6 +66,13 @@ class GameRuntimeLibraryAshP163Test {
     @Test
     fun shopVisitHook_appliesConmerchSync() {
         registerItem(MerchTableSync.TWITCHING_TELEVISION_TATTOO, "Twitching Television Tattoo")
+        registerItem(7567, "Chroner")
+        CoinmasterDatabase.loadFromText(
+            shopsText = "conmerch\tKoL Con 13 Merch Table\n",
+            coinText = """
+                KoL Con 13 Merch Table	buy	1	Twitching Television Tattoo	ROW895
+            """.trimIndent(),
+        )
         val p = Preferences(MapSettings())
         val html = """
             <tr rel="9148"><td></td><td><img onClick='javascript:descitem(216403537)'></td>
@@ -74,10 +80,10 @@ class GameRuntimeLibraryAshP163Test {
             <td><img title="Chroner"></td><td><b>1,111</b></td>
             <td><input whichrow=895 value='Buy'></td></tr>
         """.trimIndent()
-        CoinmasterShopSync.apply(
+        val lib = GameRuntimeLibrary(preferences = p, character = KoLCharacter())
+        lib.processVisitResponseHooks(
             html = html,
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=conmerch",
-            prefs = p,
         )
         assertTrue(p.getBoolean(TimeTowerSync.PREF, false))
         assertTrue(CoinmasterVisitInventory.hasVisited(CoinmasterVisitInventory.CONMERCH))
@@ -88,6 +94,7 @@ class GameRuntimeLibraryAshP163Test {
         assertEquals(895, row?.rowId)
         assertEquals(7567, row?.costs?.single()?.itemId)
         assertEquals(1111, row?.costs?.single()?.count)
+        CoinmasterVisitInventory.resetForTest()
     }
 
     @Test

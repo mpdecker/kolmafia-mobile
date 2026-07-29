@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
 import com.russhwolf.settings.MapSettings
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -10,16 +11,26 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase.Companion.UNSTARTED
+import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 
 class GameRuntimeLibraryAshP153Test {
 
+    @AfterTest
+    fun cleanup() {
+        CoinmasterDatabase.resetForTest()
+    }
+
     @Test
     fun revision_phase182() {
-        assertEquals("phase200", GameRuntimeLibrary.REVISION)
+        assertEquals("phase210", GameRuntimeLibrary.REVISION)
     }
 
     @Test
     fun shopVisitHook_appliesReplicaMrStoreYearSync() {
+        CoinmasterDatabase.loadFromText(
+            shopsText = "mrreplica\tReplica Mr. Store\n",
+            coinText = "Replica Mr. Store\tbuy\t1\taugust scepter\tROW11325\n",
+        )
         val p = Preferences(MapSettings())
         val lib = GameRuntimeLibrary(
             preferences = p,
@@ -40,6 +51,10 @@ class GameRuntimeLibraryAshP153Test {
 
     @Test
     fun shopVisitHook_appliesBlackMarketMacguffinUnlock() {
+        CoinmasterDatabase.loadFromText(
+            shopsText = "blackmarket\tThe Black Market\n",
+            coinText = "The Black Market\tROW290\tRed Zeppelin ticket\tpriceless diamond (1)\n",
+        )
         val p = Preferences(MapSettings())
         val lib = GameRuntimeLibrary(
             preferences = p,

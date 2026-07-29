@@ -54,9 +54,14 @@ open class CoinmasterManager(
                 body to visitUrl
             }
             if (master.nickname.equals("swagger", ignoreCase = true)) {
-                CoinmasterShopSync.applySwaggerVisit(html, url, preferences)
-            } else {
-                CoinmasterShopSync.apply(html, url, preferences, character?.state?.value)
+                SwaggerShopSync.applyVisitShop(html, url, preferences, null, character?.state?.value)
+            } else if (shopId != null) {
+                ShopInventorySync.parseAndLearn(
+                    html = html,
+                    url = url,
+                    prefs = preferences,
+                    state = character?.state?.value,
+                )
             }
             val ascension = character?.state?.value?.ascensionNumber ?: 0
             NpcShopSync.applyShopVisit(html, url, preferences, ascension)
@@ -112,8 +117,13 @@ open class CoinmasterManager(
         return row.price
     }
 
-    open fun sellsItem(master: CoinmasterData, itemId: Int): Boolean =
-        master.sellRowFor(itemId) != null
+    open fun sellsItem(master: CoinmasterData, itemId: Int): Boolean {
+        val shopId = master.shopId?.lowercase()
+        if (shopId != null && CoinmasterVisitInventory.hasVisitSellOverlay(shopId)) {
+            return CoinmasterVisitInventory.containsSellItem(shopId, itemId)
+        }
+        return master.sellRowFor(itemId) != null
+    }
 
     open fun isAccessible(master: CoinmasterData): Boolean {
         if (!master.isAccessible()) return false

@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.shop
 
+import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,13 +9,33 @@ import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.preferences.Preferences
 
 class ShopRowDatabaseTest {
 
     @AfterTest
     fun cleanup() {
         ShopRowDatabase.resetForTest()
+        CoinmasterVisitInventory.resetForTest()
         ItemDatabase.resetForTest()
+    }
+
+    @Test
+    fun promoteShopType_npcThenCoin_becomesNpcCoin() {
+        ShopRowDatabase.loadFromText(
+            shopRowsText = "",
+            shopsText = "combo\tCombo Shop\n",
+        )
+        ShopRowDatabase.promoteShopType("combo", ShopType.NPC)
+        ShopRowDatabase.promoteShopType("combo", ShopType.COIN)
+        assertEquals(ShopType.NPCCOIN, ShopRowDatabase.shopType("combo"))
+    }
+
+    @Test
+    fun registerShop_newShopStoresNameWithoutChangingType() {
+        assertTrue(ShopRowDatabase.registerShop("newshop", "Brand New Shop"))
+        assertEquals("Brand New Shop", ShopRowDatabase.shopName("newshop"))
+        assertEquals(ShopType.NONE, ShopRowDatabase.shopType("newshop"))
     }
 
     @Test
@@ -71,6 +92,52 @@ class ShopRowDatabaseTest {
         )
         ShopRowDatabase.registerVisitRow(999, "fdkol", visitRow)
         assertEquals(50, ShopRowDatabase.getShopRow(999)?.costs?.first()?.count)
+    }
+
+    @Test
+    fun persistLearnedRow_appendsOnceAndRestoreReloadsVisitLearned() {
+        registerItems()
+        ShopRowDatabase.loadFromText(
+            shopRowsText = "",
+            shopsText = "fdkol\tFDKOL Requisitions Tent\n",
+        )
+        val prefs = Preferences(MapSettings())
+        val visitRow = ShopRow(
+            rowId = 1500,
+            item = ItemStack(itemId = FDKOL_TATTOO, count = 1),
+            costs = listOf(ItemStack(itemId = FDKOL_COMMENDATION, count = 75)),
+        )
+        ShopRowDatabase.registerVisitRow(1500, "fdkol", visitRow)
+        ShopRowDatabase.persistLearnedRow(prefs, 1500, "fdkol", visitRow)
+        ShopRowDatabase.persistLearnedRow(prefs, 1500, "fdkol", visitRow)
+        val stored = prefs.getString(ShopRowDatabase.LEARNED_SHOPROWS_KEY, "")
+        assertEquals(1, stored.lines().filter { it.isNotBlank() }.size)
+        assertTrue(stored.contains("1500\tfdkol\tFDKOL tattoo\tFDKOL commendation (75)"))
+
+        ShopRowDatabase.resetForTest()
+        ItemDatabase.resetForTest()
+        registerItems()
+        ShopRowDatabase.loadFromText(
+            shopRowsText = "",
+            shopsText = "fdkol\tFDKOL Requisitions Tent\n",
+        )
+        ShopRowDatabase.restoreLearnedRows(prefs)
+        assertNotNull(ShopRowDatabase.getShopRow(1500))
+        assertEquals(75, ShopRowDatabase.getShopRow(1500)?.costs?.first()?.count)
+        assertTrue(CoinmasterVisitInventory.containsItem("fdkol", FDKOL_TATTOO))
+    }
+
+    @Test
+    fun persistLearnedRow_skipsBundledRows() {
+        registerItems()
+        ShopRowDatabase.loadFromText(
+            shopRowsText = "3\tfdkol\tFDKOL tattoo\tFDKOL commendation (100)\n",
+            shopsText = "fdkol\tFDKOL Requisitions Tent\n",
+        )
+        val prefs = Preferences(MapSettings())
+        val bundledRow = ShopRowDatabase.getShopRow(3)!!
+        ShopRowDatabase.persistLearnedRow(prefs, 3, "fdkol", bundledRow)
+        assertEquals("", prefs.getString(ShopRowDatabase.LEARNED_SHOPROWS_KEY, ""))
     }
 
     private fun registerItems() {

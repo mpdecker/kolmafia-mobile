@@ -1,21 +1,32 @@
 package net.sourceforge.kolmafia.ash
 
 import com.russhwolf.settings.MapSettings
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 
 class GameRuntimeLibraryAshP159Test {
 
+    @AfterTest
+    fun cleanup() {
+        CoinmasterDatabase.resetForTest()
+    }
+
     @Test
     fun revision_phase184() {
-        assertEquals("phase200", GameRuntimeLibrary.REVISION)
+        assertEquals("phase210", GameRuntimeLibrary.REVISION)
     }
 
     @Test
     fun shopVisitHook_appliesAlliedHqTimeTowerSync() {
+        CoinmasterDatabase.loadFromText(
+            shopsText = "twitch_alliedhq\tAllied HQ\n",
+            coinText = "Allied HQ\tROW1599\tflak shield\tChroner (20)\n",
+        )
         val p = Preferences(MapSettings())
         val lib = GameRuntimeLibrary(preferences = p, character = KoLCharacter())
         lib.processVisitResponseHooks(

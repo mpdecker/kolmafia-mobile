@@ -15,7 +15,7 @@ import net.sourceforge.kolmafia.shop.CoinmasterAccessibility
 import net.sourceforge.kolmafia.shop.CoinmasterData
 import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterPurchaseProbe
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
+import net.sourceforge.kolmafia.shop.ShopInventorySync
 
 class GameRuntimeLibraryAshP160Test {
 
@@ -65,7 +65,7 @@ class GameRuntimeLibraryAshP160Test {
                 accessibleCount = { if (it == CHRONER) 100 else 0 },
             ),
         )
-        CoinmasterShopSync.apply(
+        ShopInventorySync.parseAndLearn(
             html = """<b>flak shield</b> Chroner (20)""",
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=twitch_alliedhq",
             prefs = p,
