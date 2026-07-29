@@ -12,6 +12,7 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.JunkListManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.equipment.OutfitManager
@@ -47,6 +48,7 @@ class SessionManager(
     private val outfitManager: OutfitManager? = null,
     private val sessionLogger: SessionLogger? = null,
     private val gameRuntimeLibrary: GameRuntimeLibrary? = null,
+    private val junkListManager: JunkListManager? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -81,6 +83,7 @@ class SessionManager(
                         moodManager?.loadMoodLibrary()
                         moodManager?.loadActiveMood()
                         banishManager?.load()
+                        junkListManager?.load(preferences)
                         outfitManager?.refreshCustomOutfits()
 
                         inventoryManager.fetchInventory()

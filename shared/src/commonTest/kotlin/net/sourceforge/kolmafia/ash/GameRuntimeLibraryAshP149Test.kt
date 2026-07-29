@@ -5,13 +5,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.preferences.Preferences
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
+import net.sourceforge.kolmafia.shop.CoinmasterPurchasePrefs
 
 class GameRuntimeLibraryAshP149Test {
 
     @Test
     fun revision_phase179() {
-        assertEquals("phase210", GameRuntimeLibrary.REVISION)
+        assertEquals("phase220", GameRuntimeLibrary.REVISION)
     }
 
     @Test

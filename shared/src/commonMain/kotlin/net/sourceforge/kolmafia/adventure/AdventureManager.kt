@@ -45,6 +45,7 @@ import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.BastilleBattalionSync
 import net.sourceforge.kolmafia.session.SkillLearnFromResponse
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
@@ -456,6 +457,9 @@ class AdventureManager(
         val maxSteps            = 20
 
         while (stepCount < maxSteps) {
+            if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
+                BastilleBattalionSync.syncVisit(currentChoiceId, currentResponseText, url = null, preferences)
+            }
             val ctx = ChoiceContext(
                 choiceId       = currentChoiceId,
                 options        = ChoiceUtilities.parseChoices(currentResponseText),
@@ -480,6 +484,9 @@ class AdventureManager(
             if (option > 0 && skillUses > 0) skillUses--
             lastChosenOption = option
 
+            if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
+                BastilleBattalionSync.syncPreChoice(currentChoiceId, option, preferences)
+            }
             val extraFormFields = cargoPocketFormFields(currentChoiceId, option, ctx)
             val html = choiceRequest.choose(currentChoiceId, option, extraFormFields).getOrElse { e ->
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(e)))
@@ -489,6 +496,12 @@ class AdventureManager(
             syncCargoPocketVisit(currentChoiceId, html)
             syncAlliedRadioResponse(currentChoiceId, html)
             SessionMeatSync.apply(character, html)
+            if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
+                val effectNames = effects?.state?.value?.effects?.map { it.name }?.toSet() ?: emptySet()
+                BastilleBattalionSync.syncPostChoice(
+                    currentChoiceId, option, html, preferences, effectNames,
+                )
+            }
             questDatabase?.let {
                 QuestChoiceRules.apply(
                     currentChoiceId, html, it, option, preferences, inventory, optionLabel,

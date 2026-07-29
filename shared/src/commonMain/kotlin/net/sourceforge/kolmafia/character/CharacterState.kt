@@ -171,6 +171,10 @@ data class CharacterState(
         get() = ascensionPath == AscensionPath.THRIFTY
     val isTrendy: Boolean
         get() = !kingLiberated && ascensionPath == AscensionPath.TRENDY
+    val knollAvailable: Boolean
+        get() = zodiacSign.equals("Mongoose", ignoreCase = true) ||
+            zodiacSign.equals("Wallaby", ignoreCase = true) ||
+            zodiacSign.equals("Vole", ignoreCase = true)
     val inQuantum: Boolean
         get() = ascensionPath == AscensionPath.QUANTUM_TERRARIUM
     val inNuclearAutumn: Boolean

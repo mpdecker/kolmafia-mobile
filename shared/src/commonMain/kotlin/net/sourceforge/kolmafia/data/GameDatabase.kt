@@ -62,6 +62,7 @@ open class GameDatabase {
         DescriptionConsequenceRegistry.load()
         QuestCouncilDatabase.load()
         JourneymanDatabase.load()
+        BastilleDatabase.load()
         WitchessSolutionDatabase.load()
         VolcanoMazeDatabase.load()
         PocketDatabase.load()

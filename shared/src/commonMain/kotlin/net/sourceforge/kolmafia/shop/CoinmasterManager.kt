@@ -81,7 +81,7 @@ open class CoinmasterManager(
         val after = inventoryCount(itemId)
         val bought = (after - before).coerceAtLeast(0)
         if (bought > 0) {
-            CoinmasterShopSync.applyPurchasedItem(master, itemId, preferences, gameDatabase)
+            CoinmasterPurchasePrefs.applyPurchasedItem(master, itemId, preferences, gameDatabase)
         }
         return bought
     }

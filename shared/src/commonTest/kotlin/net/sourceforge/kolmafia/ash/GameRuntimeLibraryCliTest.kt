@@ -16,6 +16,10 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.VolcanoMazeDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.InventoryItem
+import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.inventory.ItemType
+import kotlinx.coroutines.flow.asStateFlow
 import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.event.GameEventBus
@@ -1939,5 +1943,93 @@ class GameRuntimeLibraryCliTest {
         val out = outputLib(lib, """cli_execute("summon 7");""")
         assertTrue(out.contains("Summoning Ak'gyxoth"))
         assertTrue(preferences.getBoolean(Preferences.DEMON_SUMMONED, false))
+    }
+
+    @Test
+    fun cliExecute_pulverize_callsPulverizeRequest() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val pulverize = object : net.sourceforge.kolmafia.request.PulverizeRequest(
+            HttpClient(MockEngine { respond("Smash!", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun pulverize(itemId: Int, quantity: Int): Result<Int> {
+                calls += itemId to quantity
+                return Result.success(quantity)
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 9001,
+                name = "test sword",
+                descId = "d9001",
+                image = "img",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.WEAPON,
+                secondaryUses = emptySet(),
+                access = setOf('t', 'd'),
+                autosellPrice = 1,
+                plural = null,
+            )
+        }
+        val inventory = object : InventoryManager(
+            HttpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ) {
+            private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                InventoryState(
+                    items = mapOf(
+                        9001 to InventoryItem(9001, "test sword", 5, ItemType.WEAPON),
+                    ),
+                ),
+            )
+            override val state = flow.asStateFlow()
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            pulverizeRequest = pulverize,
+            inventoryManager = inventory,
+        )
+        runLib(lib, """cli_execute("pulverize 2 test sword");""")
+        assertEquals(listOf(9001 to 2), calls)
+    }
+
+    @Test
+    fun cliExecute_smashAlias_callsPulverizeRequest() = runBlocking {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        val pulverize = object : net.sourceforge.kolmafia.request.PulverizeRequest(
+            HttpClient(MockEngine { respond("Smash!", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun pulverize(itemId: Int, quantity: Int): Result<Int> {
+                calls += itemId to quantity
+                return Result.success(quantity)
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 9002,
+                name = "other sword",
+                descId = "d9002",
+                image = "img",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.WEAPON,
+                secondaryUses = emptySet(),
+                access = setOf('t', 'd'),
+                autosellPrice = 1,
+                plural = null,
+            )
+        }
+        val inventory = object : InventoryManager(
+            HttpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        ) {
+            private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                InventoryState(items = mapOf(9002 to InventoryItem(9002, "other sword", 4, ItemType.WEAPON))),
+            )
+            override val state = flow.asStateFlow()
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            pulverizeRequest = pulverize,
+            inventoryManager = inventory,
+        )
+        runLib(lib, """cli_execute("smash other sword");""")
+        assertEquals(listOf(9002 to 4), calls)
     }
 }

@@ -1,10 +1,10 @@
 package net.sourceforge.kolmafia.shop
 
-import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.preferences.Preferences
 
 /** Desktop coinmaster purchasedItem pref sync (AshP147+). */
-object CoinmasterShopSync {
+object CoinmasterPurchasePrefs {
 
     private const val COSMIC_SIX_PACK = 6237
 

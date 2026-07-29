@@ -9,7 +9,7 @@ import net.sourceforge.kolmafia.data.NpcStoreData
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.shop.CoinmasterData
 import net.sourceforge.kolmafia.shop.CoinmasterPurchaseAccessibility
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
+import net.sourceforge.kolmafia.shop.CoinmasterPurchasePrefs
 import net.sourceforge.kolmafia.shop.NpcPurchaseAccessibility
 import net.sourceforge.kolmafia.shop.NpcShopSync
 
@@ -26,7 +26,7 @@ class GameRuntimeLibraryAshP150Test {
             buyItems = emptyList(),
             sellItems = emptyList(),
         )
-        CoinmasterShopSync.applyPurchasedItem(master, 6423, p)
+        CoinmasterPurchasePrefs.applyPurchasedItem(master, 6423, p)
         assertFalse(
             CoinmasterPurchaseAccessibility.canPurchaseItem(
                 master,

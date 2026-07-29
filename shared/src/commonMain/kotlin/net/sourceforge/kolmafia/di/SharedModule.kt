@@ -39,6 +39,9 @@ import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
 import net.sourceforge.kolmafia.session.YegDemonNameSync
 import net.sourceforge.kolmafia.request.CargoCultistShortsRequest
+import net.sourceforge.kolmafia.session.CleanupJunkRunner
+import net.sourceforge.kolmafia.session.AutoMallRunner
+import net.sourceforge.kolmafia.session.QuarkRunner
 import net.sourceforge.kolmafia.session.CargoCultManager
 import net.sourceforge.kolmafia.session.CargoPocketSync
 import net.sourceforge.kolmafia.session.AlliedRadioManager
@@ -62,6 +65,7 @@ import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.http.createKoLHttpClient
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.JunkListManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
@@ -82,6 +86,9 @@ import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
+import net.sourceforge.kolmafia.request.PulverizeRequest
+import net.sourceforge.kolmafia.request.UntinkerRequest
+import net.sourceforge.kolmafia.request.ZapRequest
 import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.equipment.OutfitManager
@@ -165,6 +172,63 @@ val sharedModule = module {
     singleOf(::DrinkBoozeRequest)
     singleOf(::ChewRequest)
     singleOf(::AutosellRequest)
+    single { PulverizeRequest(get(), get(), get(), get(), get()) }
+    single { JunkListManager(get()) }
+    single {
+        CleanupJunkRunner(
+            junkListManager = get(),
+            inventoryManager = get(),
+            untinkerRequest = get(),
+            pulverizeRequest = get(),
+            useItemRequest = get(),
+            autosellRequest = get(),
+            skillManager = get(),
+            character = get(),
+            gameDatabase = get(),
+            closetRequest = get(),
+        )
+    }
+    single {
+        AutoMallRunner(
+            junkListManager = get(),
+            inventoryManager = get(),
+            manageStoreRequest = get(),
+            character = get(),
+            gameDatabase = get(),
+        )
+    }
+    single {
+        QuarkRunner(
+            junkListManager = get(),
+            inventoryManager = get(),
+            craftRequest = get(),
+            retrieveItemService = get(),
+            character = get(),
+            gameDatabase = get(),
+        )
+    }
+    single {
+        UntinkerRequest(
+            client = get(),
+            inventoryManager = get(),
+            retrieveItemService = get(),
+            gameDatabase = get(),
+            character = get(),
+            adventureManager = get(),
+            goalManager = get(),
+            questDatabase = get(),
+        )
+    }
+    single {
+        ZapRequest(
+            client = get(),
+            inventoryManager = get(),
+            retrieveItemService = get(),
+            preferences = get(),
+            character = get(),
+            useItemRequest = get(),
+        )
+    }
     singleOf(::ClosetRequest)
     singleOf(::StorageRequest)
     singleOf(::DisplayCaseRequest)
@@ -357,6 +421,9 @@ val sharedModule = module {
             equipmentRequest    = get(),
             coinmasterManager   = get(),
             craftRequest        = get(),
+            pulverizeRequest    = get(),
+            zapRequest          = get(),
+            untinkerRequest     = get(),
             manageStoreRequest  = get(),
             mallPriceManager    = get(),
             characterRequest    = get(),
@@ -387,6 +454,9 @@ val sharedModule = module {
             yegDemonNameSync = get(),
             demonInCombatNameSync = get(),
             demonNamesManager = get(),
+            cleanupJunkRunner = get(),
+            autoMallRunner = get(),
+            quarkRunner = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -411,6 +481,7 @@ val sharedModule = module {
             outfitManager        = get(),
             sessionLogger        = get(),
             gameRuntimeLibrary   = get(),
+            junkListManager      = get(),
         )
     }
     singleOf(::ShopRequest)

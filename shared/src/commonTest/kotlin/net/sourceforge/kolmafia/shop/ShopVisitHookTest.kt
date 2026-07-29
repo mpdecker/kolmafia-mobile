@@ -12,7 +12,7 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.preferences.Preferences
 
-class CoinmasterShopSyncTest {
+class ShopVisitHookTest {
 
     @AfterTest
     fun cleanup() {
@@ -120,21 +120,6 @@ class CoinmasterShopSyncTest {
     }
 
     @Test
-    fun purchasedItem_setsBaconPref() {
-        val p = prefs()
-        val master = CoinmasterData(
-            masterName = "Internet Meme Shop",
-            nickname = "bacon",
-            token = "BACON",
-            shopId = "bacon",
-            buyItems = emptyList(),
-            sellItems = emptyList(),
-        )
-        CoinmasterShopSync.applyPurchasedItem(master, 9017, p)
-        assertTrue(p.getBoolean("_internetViralVideoBought", false))
-    }
-
-    @Test
     fun shore_visitMarksToasterBoughtWhenMissing() {
         val p = prefs()
         applyVisitShopHook(
@@ -158,36 +143,6 @@ class CoinmasterShopSyncTest {
             coinText = "The Shore, Inc. Gift Shop\tROW637\tcheap toaster\tShore Inc. Ship Trip Scrip (20)\n",
         )
         assertFalse(p.getBoolean("itemBoughtPerAscension637", false))
-    }
-
-    @Test
-    fun purchasedItem_setsShoreToasterPref() {
-        val p = prefs()
-        val master = CoinmasterData(
-            masterName = "The Shore, Inc. Gift Shop",
-            nickname = "shore",
-            token = "scrip",
-            shopId = "shore",
-            buyItems = emptyList(),
-            sellItems = emptyList(),
-        )
-        CoinmasterShopSync.applyPurchasedItem(master, 637, p)
-        assertTrue(p.getBoolean("itemBoughtPerAscension637", false))
-    }
-
-    @Test
-    fun purchasedItem_setsDvFlaskPref() {
-        val p = prefs()
-        val master = CoinmasterData(
-            masterName = "The Terrified Eagle Inn",
-            nickname = "dv",
-            token = "1000000",
-            shopId = "dv",
-            buyItems = emptyList(),
-            sellItems = emptyList(),
-        )
-        CoinmasterShopSync.applyPurchasedItem(master, 6423, p)
-        assertTrue(p.getBoolean("itemBoughtPerCharacter6423", false))
     }
 
     @Test
@@ -223,21 +178,6 @@ class CoinmasterShopSyncTest {
             state = null,
         )
         assertEquals("", p.getString("currentPVPSeason", ""))
-    }
-
-    @Test
-    fun purchasedItem_setsJarlCosmicSixPackPref() {
-        val p = prefs()
-        val master = CoinmasterData(
-            masterName = "Jarlsberg's Cosmic Kitchen",
-            nickname = "jarl",
-            token = null,
-            shopId = "jarl",
-            buyItems = emptyList(),
-            sellItems = emptyList(),
-        )
-        CoinmasterShopSync.applyPurchasedItem(master, 6237, p)
-        assertTrue(p.getBoolean("_cosmicSixPackConjured", false))
     }
 
     @Test

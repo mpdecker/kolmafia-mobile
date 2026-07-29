@@ -7,13 +7,13 @@ import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.preferences.Preferences
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
+import net.sourceforge.kolmafia.shop.CoinmasterPurchasePrefs
 
 class GameRuntimeLibraryAshP151Test {
 
     @Test
     fun revision_phase179() {
-        assertEquals("phase210", GameRuntimeLibrary.REVISION)
+        assertEquals("phase220", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -64,7 +64,7 @@ class GameRuntimeLibraryAshP151Test {
     @Test
     fun jarlPurchaseHook_setsCosmicSixPackPref() {
         val p = Preferences(MapSettings())
-        CoinmasterShopSync.applyPurchasedItem(
+        CoinmasterPurchasePrefs.applyPurchasedItem(
             master = net.sourceforge.kolmafia.shop.CoinmasterData(
                 masterName = "Jarlsberg's Cosmic Kitchen",
                 nickname = "jarl",

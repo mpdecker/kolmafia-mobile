@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.preferences.Preferences
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
+import net.sourceforge.kolmafia.shop.CoinmasterPurchasePrefs
 import net.sourceforge.kolmafia.shop.MysticShopSync
 
 class CoinmasterPurchaseAccessibilityTest {
@@ -359,7 +359,7 @@ class CoinmasterPurchaseAccessibilityTest {
     @Test
     fun jarl_cosmicSixPackBlockedAfterPurchaseSync() {
         val p = prefs()
-        CoinmasterShopSync.applyPurchasedItem(jarlMaster(), 6237, p)
+        CoinmasterPurchasePrefs.applyPurchasedItem(jarlMaster(), 6237, p)
         assertFalse(
             CoinmasterPurchaseAccessibility.canPurchaseItem(
                 jarlMaster(),
