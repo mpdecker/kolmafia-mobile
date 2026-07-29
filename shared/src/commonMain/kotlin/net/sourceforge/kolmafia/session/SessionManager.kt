@@ -19,6 +19,7 @@ import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.LoginResult
 import net.sourceforge.kolmafia.request.QuestLogRequest
+import net.sourceforge.kolmafia.shop.ShopRowDatabase
 import net.sourceforge.kolmafia.skill.SkillManager
 
 sealed class SessionState {
@@ -54,6 +55,7 @@ class SessionManager(
             is LoginResult.Success -> {
                 preferences.setString(Preferences.LAST_USERNAME, username)
                 gameDatabase.load()
+                ShopRowDatabase.restoreLearnedRows(preferences)
                 characterRequest.fetchCharacterState().fold(
                     onSuccess = { apiResponse ->
                         character.updateFromApiResponse(apiResponse)

@@ -11,7 +11,7 @@ import net.sourceforge.kolmafia.data.NpcStoreData
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shop.CoinmasterData
 import net.sourceforge.kolmafia.shop.CoinmasterPurchaseAccessibility
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
+import net.sourceforge.kolmafia.shop.MysticShopSync
 import net.sourceforge.kolmafia.shop.NpcPurchaseAccessibility
 
 class GameRuntimeLibraryAshP148Test {
@@ -41,7 +41,7 @@ class GameRuntimeLibraryAshP148Test {
 
     @Test
     fun revision_phase176() {
-        assertEquals("phase200", GameRuntimeLibrary.REVISION)
+        assertEquals("phase210", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -56,7 +56,7 @@ class GameRuntimeLibraryAshP148Test {
             ),
         )
         val p = prefs()
-        p.setBoolean(CoinmasterShopSync.MYSTIC_PSYCHOSIS_ITEMS_UNLOCKED, true)
+        p.setBoolean(MysticShopSync.MYSTIC_PSYCHOSIS_ITEMS_UNLOCKED, true)
         assertTrue(
             CoinmasterPurchaseAccessibility.canPurchaseItem(
                 mysticMaster(),

@@ -1,16 +1,31 @@
 package net.sourceforge.kolmafia.shop
 
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.SessionLogger
 
 /** Desktop [SeptEmberCenserRequest.visitShop] balance + pref sync. */
 object SeptEmberSync {
 
+    const val SHOP_ID = "september"
     const val BALANCE_CHECKED_PREF = "_septEmberBalanceChecked"
     const val AVAILABLE_EMBERS_PREF = "availableSeptEmbers"
     const val SEPTEMBER_CENSER = 11642
     const val SHOP_PATH = "shop.php?whichshop=september"
 
     private val TOKEN_PATTERN = Regex("""<b>You have ([\d,]+) Ember""")
+
+    fun applyVisitShop(
+        html: String,
+        url: String?,
+        prefs: Preferences?,
+        sessionLogger: SessionLogger?,
+        state: CharacterState?,
+    ) {
+        if (prefs == null) return
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        syncFromShopHtml(html, prefs)
+    }
 
     fun syncFromShopHtml(html: String, prefs: Preferences) {
         if (prefs.getBoolean(BALANCE_CHECKED_PREF, false)) return

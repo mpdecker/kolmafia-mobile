@@ -1,9 +1,26 @@
 package net.sourceforge.kolmafia.shop
 
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.SessionLogger
 
 /** Desktop Crimbo23*Request token balance sync from shop visit HTML. */
 object Crimbo23ShopSync {
+
+    private val SHOP_ID_PATTERN = Regex("""whichshop=([^&]+)""", RegexOption.IGNORE_CASE)
+
+    fun applyVisitShop(
+        html: String,
+        url: String?,
+        prefs: Preferences?,
+        sessionLogger: SessionLogger?,
+        state: CharacterState?,
+    ) {
+        if (prefs == null) return
+        if (url?.contains("action=buy", ignoreCase = true) == true) return
+        val shopId = url?.let { SHOP_ID_PATTERN.find(it)?.groupValues?.getOrNull(1) } ?: return
+        syncFromShopHtml(html, shopId, prefs)
+    }
 
     const val ELF_MPC = 11408
     const val PIECE_OF_12 = 11409

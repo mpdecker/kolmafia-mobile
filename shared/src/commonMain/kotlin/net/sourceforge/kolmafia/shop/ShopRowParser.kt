@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.shop
 
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 
 /** Desktop [ShopRow.parseShop] HTML inventory parsing for shop.php visits. */
 object ShopRowParser {
@@ -33,11 +34,21 @@ object ShopRowParser {
         RegexOption.IGNORE_CASE,
     )
 
+    private val TD2A_PATTERN = Regex(
+        """itemimages/(.*?)\..*?whichskill=(\d+)""",
+        RegexOption.IGNORE_CASE,
+    )
+
     private val TD3_PATTERN = Regex("""<b>\(?(.*?)\)?</b>""")
+    private val TD3A_PATTERN = Regex("""<b>(.*?)</b>""")
     private val IODD_PATTERN = Regex("""<b>([\d,]+)</b>""")
     private val IROW_PATTERN = Regex("""whichrow=(\d+)""")
 
-    fun parseShop(html: String, includeMeat: Boolean = true): List<ShopRow> {
+    fun parseShop(
+        html: String,
+        includeMeat: Boolean = true,
+        newlyRegisteredSkillIds: MutableList<Int>? = null,
+    ): List<ShopRow> {
         val byRowId = linkedMapOf<Int, ShopRow>()
 
         for (match in SINGLE_COST_PATTERN.findAll(html)) {
@@ -53,7 +64,8 @@ object ShopRowParser {
             val rowBlock = match.groupValues[2]
             val rowId = IROW_PATTERN.find(rowBlock)?.groupValues?.get(1)?.toIntOrNull() ?: continue
             if (byRowId.containsKey(rowId)) continue
-            parseMultiCostRow(relItemId, rowBlock, includeMeat)?.let { byRowId[rowId] = it }
+            parseMultiCostRow(relItemId, rowBlock, includeMeat, newlyRegisteredSkillIds)
+                ?.let { byRowId[rowId] = it }
         }
 
         return byRowId.values.toList()
@@ -94,15 +106,19 @@ object ShopRowParser {
         relItemId: Int,
         rowBlock: String,
         includeMeat: Boolean,
+        newlyRegisteredSkillIds: MutableList<Int>?,
     ): ShopRow? {
         var rowId = 0
         var itemId = relItemId
         var itemCount = 1
+        var itemStack: ItemStack? = null
         var descId: String? = null
+        var skillImage = ""
         val costs = mutableListOf<ItemStack>()
         var tds = 0
         var even = true
         var isMeat = false
+        var isSkill = false
         var skip = false
         var iDescId: String? = null
 
@@ -112,11 +128,31 @@ object ShopRowParser {
             when (++tds) {
                 1 -> continue
                 2 -> {
-                    val m2 = TD2_PATTERN.find(text) ?: return null
-                    descId = m2.groupValues[2].ifBlank { null }
+                    val m2 = TD2_PATTERN.find(text)
+                    if (m2 != null) {
+                        descId = m2.groupValues[2].ifBlank { null }
+                    } else {
+                        val m2a = TD2A_PATTERN.find(text)
+                        if (m2a != null) {
+                            skillImage = m2a.groupValues[1]
+                            descId = m2a.groupValues[2]
+                            isSkill = true
+                        } else {
+                            return null
+                        }
+                    }
                 }
                 3 -> {
                     if (descId == null) return null
+                    if (isSkill) {
+                        val skillId = descId.toIntOrNull() ?: return null
+                        val name = TD3A_PATTERN.find(text)?.groupValues?.get(1)?.trim().orEmpty()
+                        if (SkillDefinitionDatabase.registerFromShopVisit(skillId, name, skillImage)) {
+                            newlyRegisteredSkillIds?.add(skillId)
+                        }
+                        itemStack = ItemStack(itemId = skillId, count = 1, isSkill = true)
+                        continue
+                    }
                     val names = TD3_PATTERN.findAll(text).map { it.groupValues[1].trim() }.toList()
                     if (names.size >= 2) {
                         itemCount = names[1].toIntOrNull() ?: 1
@@ -162,7 +198,7 @@ object ShopRowParser {
         if (skip || costs.isEmpty() || rowId <= 0) return null
         return ShopRow(
             rowId = rowId,
-            item = ItemStack(itemId = itemId, count = itemCount),
+            item = itemStack ?: ItemStack(itemId = itemId, count = itemCount),
             costs = costs,
         )
     }

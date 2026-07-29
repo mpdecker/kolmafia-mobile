@@ -1,7 +1,6 @@
 package net.sourceforge.kolmafia.shop
 
 import net.sourceforge.kolmafia.data.ItemDatabase
-import net.sourceforge.kolmafia.data.NpcStoreDatabase
 import net.sourceforge.kolmafia.data.StandardRewardDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
@@ -13,13 +12,11 @@ object ArmoryAndLeggerySync {
     private const val STORE_NAME = ArmoryAndLeggeryShopRows.MASTER_NAME
     private const val LOG_DIVIDER = "--------------------"
 
-    fun syncFromShopHtml(
-        html: String,
-        prefs: Preferences,
-        force: Boolean = false,
-        sessionLogger: SessionLogger? = null,
+    fun applyVisitShopRows(
+        shopRows: List<ShopRow>,
+        force: Boolean,
+        sessionLogger: SessionLogger?,
     ) {
-        val shopRows = ShopRowParser.parseShop(html, includeMeat = true)
         if (shopRows.isEmpty()) return
 
         var mutated = false
@@ -86,6 +83,16 @@ object ArmoryAndLeggerySync {
         }
     }
 
+    /** @deprecated Row learn runs via [applyVisitShopRows] from [ShopInventorySync]. */
+    fun syncFromShopHtml(
+        html: String,
+        prefs: Preferences,
+        force: Boolean = false,
+        sessionLogger: SessionLogger? = null,
+    ) {
+        applyVisitShopRows(ShopRowParser.parseShop(html, includeMeat = true), force, sessionLogger)
+    }
+
     private fun logLearnedRows(
         sessionLogger: SessionLogger?,
         pulverizeLines: List<String>,
@@ -111,5 +118,4 @@ object ArmoryAndLeggerySync {
             sessionLogger.appendRawLine(LOG_DIVIDER)
         }
     }
-
 }

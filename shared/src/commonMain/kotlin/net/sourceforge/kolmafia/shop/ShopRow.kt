@@ -9,4 +9,7 @@ data class ShopRow(
 ) {
     val isMeatPurchase: Boolean
         get() = costs.size == 1 && costs[0].isMeat
+
+    val isSkillPurchase: Boolean
+        get() = item.isSkill
 }

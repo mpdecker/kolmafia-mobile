@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.shop
 
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.SessionLogger
 
 /** Desktop [Crimbo25SammyRequest.visitShopRows] dynamic wad-cost refresh for crimbo25_sammy. */
 object Crimbo25SammySync {
@@ -25,6 +27,17 @@ object Crimbo25SammySync {
         "crymbocurrency" to CRYMBOCURRENCY,
     )
 
+    fun applyVisitShopRows(
+        shopRows: List<ShopRow>,
+        force: Boolean,
+        sessionLogger: SessionLogger?,
+    ) {
+        val rows = shopRows.mapNotNull { mapShopRow(it) }
+        if (rows.isNotEmpty()) {
+            CoinmasterVisitInventory.replaceBuyRows(SHOP_ID, rows)
+        }
+    }
+
     fun syncFromShopHtml(html: String, prefs: Preferences) {
         val rows = ShopRowParser.parseSingleCostRows(html).mapNotNull { parsed ->
             val item = parseItemStack(parsed.itemId, parsed.itemName) ?: return@mapNotNull null
@@ -33,6 +46,16 @@ object Crimbo25SammySync {
         }
 
         CoinmasterVisitInventory.replaceBuyRows(SHOP_ID, rows)
+    }
+
+    internal fun mapShopRow(row: ShopRow): ShopRow? {
+        if (row.costs.size != 1) return null
+        val cost = row.costs[0]
+        val itemName = ItemDatabase.getById(row.item.itemId)?.name ?: return null
+        val item = parseItemStack(row.item.itemId, itemName) ?: return null
+        val currencyName = ItemDatabase.getById(cost.itemId)?.name ?: return null
+        val costStack = parseCurrencyStack(currencyName, cost.count) ?: return null
+        return ShopRow(rowId = row.rowId, item = item, costs = listOf(costStack))
     }
 
     private fun parseItemStack(itemId: Int, itemName: String): ItemStack? {

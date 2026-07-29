@@ -16,8 +16,8 @@ import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterPurchaseProbe
-import net.sourceforge.kolmafia.shop.CoinmasterShopSync
 import net.sourceforge.kolmafia.shop.SeptEmberSync
+import net.sourceforge.kolmafia.shop.ShopInventorySync
 import net.sourceforge.kolmafia.shop.SpinMasterLatheSync
 import net.sourceforge.kolmafia.shop.TrapperSync
 
@@ -31,11 +31,15 @@ class GameRuntimeLibraryAshP161Test {
 
     @Test
     fun revision_phase184() {
-        assertEquals("phase200", GameRuntimeLibrary.REVISION)
+        assertEquals("phase210", GameRuntimeLibrary.REVISION)
     }
 
     @Test
     fun shopVisitHook_appliesTrapperSync() {
+        CoinmasterDatabase.loadFromText(
+            shopsText = "trapper\tThe Trapper\n",
+            coinText = "The Trapper\tbuy\t1\tyak skin\tROW14\n",
+        )
         val p = Preferences(MapSettings())
         val lib = GameRuntimeLibrary(
             preferences = p,
@@ -55,6 +59,10 @@ class GameRuntimeLibraryAshP161Test {
 
     @Test
     fun shopVisitHook_appliesSeptemberSync() {
+        CoinmasterDatabase.loadFromText(
+            shopsText = "september\tSept-Ember Censer\n",
+            coinText = "Sept-Ember Censer\tbuy\t1\tember item\tROW1\n",
+        )
         val p = Preferences(MapSettings())
         val lib = GameRuntimeLibrary(preferences = p, character = KoLCharacter())
         lib.processVisitResponseHooks(
@@ -91,8 +99,12 @@ class GameRuntimeLibraryAshP161SyncUnitTest {
 
     @Test
     fun trapper_skipsBuyActionUrl() {
+        CoinmasterDatabase.loadFromText(
+            shopsText = "trapper\tThe Trapper\n",
+            coinText = "The Trapper\tbuy\t1\tyak skin\tROW14\n",
+        )
         val p = prefs()
-        CoinmasterShopSync.apply(
+        ShopInventorySync.parseAndLearn(
             html = "yeti furs",
             url = "https://www.kingdomofloathing.com/shop.php?whichshop=trapper&action=buy",
             prefs = p,
