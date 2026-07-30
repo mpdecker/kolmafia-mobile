@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-07-29 after Phase 247; OceanDatabase v1 wires `ocean.txt` destination map)*
+*Generated: 2026-06-03 (updated 2026-07-30 after Phase 249; WereProfessorDatabase v1 wereprofessor.txt loader)*
 
 ## Scale Comparison
 
@@ -10,7 +10,7 @@
 | Source files             | ~1,172 classes              | ~253 files (commonMain) | ~22%                    |
 | Lines of code            | ~57,000                     | ~15,000+ (commonMain)   | ~26%                    |
 | Test files               | 411                         | 135+                    | ~33%                    |
-| Tests                    | ~1,800+                     | 3,930+                  | ~99% (of covered scope) |
+| Tests                    | ~1,800+                     | 3,940+                  | ~99% (of covered scope) |
 | ASH overload signatures  | ~890                        | ≥890 registered         | **~100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~370–420 live + stubs   | **~50–55%** (behavioral) |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN) | **100%**                |
@@ -164,7 +164,7 @@ with desktop `RuntimeLibrary.java`). Many AshP8–P18 registrations are *behavio
 | **Clan dungeons**                                 | Scattered session managers                                                   | **Low**                                                                                                                                                                                                           |
 | **PvP**                                           | `request/` PvP handlers                                                      | **Low** — `pvp_attack` / `ranked_fam` ASH stubs return false                                                                                                                                                      |
 | **JavaScript runtime**                            | `textui/javascript/` (15 files, Rhino bridge)                                  | **Non-goal** — `js` / `ashq` CLI commands not ported; ASH-only on mobile                                                                                                                                          |
-| **Bundled data (unwired)**                        | 6 `.txt` files present in bundle but not loaded by `GameDatabase`             | **Low-Medium** — see [Bundled Data Gap](#bundled-data-gap)                                                                                                                                                        |
+| **Bundled data (unwired)**                        | 4 `.txt` files present in bundle but not loaded by `GameDatabase`             | **Low-Medium** — see [Bundled Data Gap](#bundled-data-gap)                                                                                                                                                        |
 | **TCRS class/sign data**                          | ~160 files under desktop `data/TCRS/`                                        | **Non-goal (for now)** — mobile bundles 2 astral summary files only; full TCRS lazy-load TBD                                                                                                                    |
 | **Desktop CLI one-offs**                          | ~190 of ~252 command handlers without mobile `cliDispatch` regex             | **Low** — port on demand from `cli_execute` call-site mining, not wholesale                                                                                                                                       |
 | **Relay server** *(explicit non-goal)*            | `webui/` 20+ decorators, 15 JS/CSS files                                     | **Skipped** — not applicable to mobile app model; `relay on/off` CLI is stub echo                                                                                                                                 |
@@ -336,19 +336,19 @@ Desktop ships 51 core `.txt` data files (64,700+ lines) plus ~160 TCRS class/sig
 runtime-generated `mallprices.txt`. Mobile bundles **50 `.txt` files** in
 `composeResources/files/data/`.
 
-**Loaded at runtime (~39 files)** via `GameDatabase.kt` and related loaders:
+**Loaded at runtime (~40 files)** via `GameDatabase.kt` and related loaders:
 
 `adventures.txt`, `bounty.txt`, `buffbots.txt`, `cafe_booze.txt`, `cafe_food.txt`, `classskills.txt`,
 `coinmasters.txt`, `combats.txt`, `concoctions.txt`, `dailylimits.txt`, `encounters.txt`,
 `equipment.txt`, `fambattle.txt`, `familiars.txt`, `faxbots.txt`, `foldgroups.txt`, `fullness.txt`, `inebriety.txt`, `items.txt`,
 `journeyman.txt`, `bastille.txt`, `modifiers.txt`, `monsterparts.txt`, `monsters.txt`, `bookoffacts.txt`, `nonfilling.txt`, `npcstores.txt`, `outfits.txt`, `packages.txt`, `pulverize.txt`, `questslog.txt`,
-`questscouncil.txt`, `restores.txt`, `shoprows.txt`, `shops.txt`, `spleenhit.txt`, `standard-pulverized.txt`, `standard-rewards.txt`, `statuseffects.txt`, `ocean.txt`, `volcanomaze.txt`, `witchess_solutions.txt`, `zapgroups.txt`, `zonelist.txt`, `consequences.txt`, `cultshorts.txt`
+`questscouncil.txt`, `restores.txt`, `shoprows.txt`, `shops.txt`, `spleenhit.txt`, `standard-pulverized.txt`, `standard-rewards.txt`, `statuseffects.txt`, `ocean.txt`, `wereprofessor.txt`, `volcanomaze.txt`, `witchess_solutions.txt`, `zapgroups.txt`, `zonelist.txt`, `consequences.txt`, `cultshorts.txt`
 
-**Bundled but NOT wired (5 files)** — present in assets, no loader yet:
+**Bundled but NOT wired (4 files)** — present in assets, no loader yet:
 
 `defaults.txt`,
 `TCRS.astral_consumables.txt`,
-`TCRS.astral_pets.txt`, `wereprofessor.txt`
+`TCRS.astral_pets.txt`
 
 **Desktop-only (not bundled on mobile):**
 
@@ -540,7 +540,7 @@ mobile wins on core automation paths and test isolation.
 
 ### Tier 3 — Data wiring
 
-7. **Wire bundled-but-unused data files** — ~~`journeyman.txt`~~ **wired** *(Phase 72)*; ~~`witchess_solutions.txt`~~ **wired** *(Phase 73)*; ~~`volcanomaze.txt`~~ **wired** *(Phase 74–75; loader + solve/step automation complete)*; ~~`monsterparts.txt`~~ **wired** *(Phase 80)*; ~~`bastille.txt`~~ **wired** *(Phase 220; `BastilleDatabase` + `BastilleBattalionSync` choice 1313–1319 pref sync)*; ~~`ocean.txt`~~ **wired** *(Phase 247; `OceanDatabase` destination map + keyword lists)*; etc.; ~~`questscouncil.txt`~~ **wired** *(Phase 58)*
+7. **Wire bundled-but-unused data files** — ~~`journeyman.txt`~~ **wired** *(Phase 72)*; ~~`witchess_solutions.txt`~~ **wired** *(Phase 73)*; ~~`volcanomaze.txt`~~ **wired** *(Phase 74–75; loader + solve/step automation complete)*; ~~`monsterparts.txt`~~ **wired** *(Phase 80)*; ~~`bastille.txt`~~ **wired** *(Phase 220; `BastilleDatabase` + `BastilleBattalionSync` choice 1313–1319 pref sync)*; ~~`ocean.txt`~~ **wired** *(Phase 247–248; `OceanDatabase` destination map + `OceanManager` HTTP sailing via `oceanDestination`/`oceanAction` prefs)*; ~~`wereprofessor.txt`~~ **wired** *(Phase 249; `WereProfessorDatabase` research skill tree + login `GameDatabase.load` hook)*; etc.; ~~`questscouncil.txt`~~ **wired** *(Phase 58)*
 8. **TCRS data strategy** — lazy-load class/sign files or document as explicit non-goal
 
 ### Tier 4 — Explicit non-goals (document, don't port)
@@ -799,6 +799,8 @@ Phase 244 → AshP267 chat command ASH (`slash_count` via `/count` clan probe + 
 Phase 245 → AshP268 chat who/player ASH (`who_clan`/`get_player_id`/`get_player_name` via `PlayerIdRegistry`/`ChatHtmlParser` + live chat poll id capture; deferred `chat_notify`); 3,900+ tests
 Phase 246 → AshP269 chat_notify ASH (`chat_notify` via `ChatManager.notify` → `#events` channel + `ChatColor`/`ChatScreen` color rendering; completes chat ASH block); 3,920+ tests
 Phase 247 → OceanDatabase v1 (`ocean.txt` loader: `OceanPoint`/`OceanDestination` enum + keyword destination lists + login `GameDatabase.load` hook; deferred `OceanManager` HTTP sailing); 3,930+ tests
+Phase 248 → OceanManager v1 (`OceanRequest` POST `ocean.php` + `OceanManager.getDestination`/`processOceanAdventure`/`registerRequest` from `oceanDestination`/`oceanAction` prefs + `AdventureManager` choice-loop ocean.php hook + `ChoiceRequest` finalUrl capture); 3,940+ tests
+Phase 249 → WereProfessorDatabase v1 (`wereprofessor.txt` loader: `Research` record + `allResearch`/`findResearch`/`terminalResearch` + `wereprof_` field alias + login `GameDatabase.load` hook; deferred `ResearchBenchRequest` HTTP + `wereprofessor` CLI); 3,933+ tests
 Audit → Full parity audit: dual ASH metrics (≥890 registered vs ~350–400 behavioral); Subsystem Scale table; Bundled Data Gap (29 loaded / 20 unwired); Tier 1–4 Top Priorities; JS runtime + explicit non-goals documented
 ```
 

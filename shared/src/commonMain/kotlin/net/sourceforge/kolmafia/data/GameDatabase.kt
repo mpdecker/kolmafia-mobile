@@ -68,6 +68,7 @@ open class GameDatabase {
         WitchessSolutionDatabase.load()
         VolcanoMazeDatabase.load()
         OceanDatabase.load()
+        WereProfessorDatabase.load()
         PocketDatabase.load()
         CultShortsDatabase.load()
 
