@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.character
 
 import kotlin.math.max
 import kotlin.math.sqrt
+import net.sourceforge.kolmafia.adventure.choice.EffectPool
 
 data class CharacterState(
 
@@ -193,6 +194,14 @@ data class CharacterState(
         get() = ascensionPath == AscensionPath.YOU_ROBOT
     val inTwoCrazyRandomSummer: Boolean
         get() = ascensionPath == AscensionPath.TWO_CRAZY_RANDOM_SUMMER
+    val inWereProfessor: Boolean
+        get() = ascensionPath == AscensionPath.WEREPROFESSOR
+
+    fun isMildManneredProfessor(activeEffectNames: Collection<String>): Boolean =
+        activeEffectNames.any { it.equals(EffectPool.MILD_MANNERED_PROFESSOR, ignoreCase = true) }
+
+    fun isSavageBeast(activeEffectNames: Collection<String>): Boolean =
+        activeEffectNames.any { it.equals(EffectPool.SAVAGE_BEAST, ignoreCase = true) }
 
     // ── Computed: main buffed stat ────────────────────────────────────────────
     val buffedMainStat: Int get() = when (mainStat) {

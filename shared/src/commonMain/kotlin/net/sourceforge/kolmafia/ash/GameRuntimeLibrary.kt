@@ -220,6 +220,7 @@ class GameRuntimeLibrary(
     internal val faxBotDatabase: FaxBotDatabase? = null,
     internal val chatProbe: ChatProbe? = null,
     internal val chatManager: net.sourceforge.kolmafia.chat.ChatManager? = null,
+    internal val researchBenchRequest: net.sourceforge.kolmafia.request.ResearchBenchRequest? = null,
 ) : RuntimeLibrary() {
 
     init {
@@ -231,7 +232,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase249"
+        const val REVISION = "phase253"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -671,6 +672,10 @@ class GameRuntimeLibrary(
 
         Regex("^summon(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliSummon(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^wereprofessor(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliWereProfessor(m.groupValues[1].trim(), rt::print)
         },
 
         Regex("^demons(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->

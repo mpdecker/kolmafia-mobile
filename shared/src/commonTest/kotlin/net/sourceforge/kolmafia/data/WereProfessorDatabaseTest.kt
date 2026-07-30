@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class WereProfessorDatabaseTest {
@@ -89,5 +90,41 @@ class WereProfessorDatabaseTest {
         assertTrue(WereProfessorDatabase.isLoaded)
         assertEquals(1, WereProfessorDatabase.loadedResearchCount)
         assertEquals(1, WereProfessorDatabase.terminalResearch().size)
+    }
+
+    @Test
+    fun deriveKnownResearch_marksParentsOfAvailableNode() {
+        val snapshot = WereProfessorDatabase.parseForTest(
+            """
+            1	mus1	10	none	Osteocalcin injection	Mus +20%
+            2	mus2	20	mus1	Somatostatin catalyst	Mus +30%
+            3	mus3	30	mus2	Endothelin suspension	Mus +50%
+            4	rend1	20	mus3	Ultraprogesterone potion	Rend (Phys)
+            5	rend2	30	rend1	Lactide blocker	Increase damage
+            6	rend3	40	rend2	Haemostatic membrane treatment	Restores HP
+            7	slaughter	100	rend3	Norepinephrine transfusion	Slaughter (Instant)
+            """.trimIndent(),
+        )
+        WereProfessorDatabase.injectForTest(snapshot)
+        val mus2 = WereProfessorDatabase.findResearch("mus2")!!
+        val known = WereProfessorDatabase.deriveKnownResearch(setOf(mus2))
+        assertTrue(known.any { it.field == "mus1" })
+        assertFalse(known.contains(mus2))
+    }
+
+    @Test
+    fun loadAndSaveResearch_roundTripsCommaSeparatedFields() {
+        val snapshot = WereProfessorDatabase.parseForTest(
+            """
+            1	mus1	10	none	Osteocalcin injection	Mus +20%
+            2	mus2	20	mus1	Somatostatin catalyst	Mus +30%
+            """.trimIndent(),
+        )
+        WereProfessorDatabase.injectForTest(snapshot)
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        val mus1 = WereProfessorDatabase.findResearch("mus1")!!
+        WereProfessorDatabase.saveResearch(preferences, WereProfessorDatabase.KNOWN_RESEARCH, setOf(mus1))
+        val loaded = WereProfessorDatabase.loadResearch(preferences, WereProfessorDatabase.KNOWN_RESEARCH)
+        assertEquals(setOf(mus1), loaded)
     }
 }
