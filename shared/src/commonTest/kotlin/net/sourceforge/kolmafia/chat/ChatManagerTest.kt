@@ -82,4 +82,33 @@ class ChatManagerTest {
         val messages = manager.pmFlow("Alice").first()
         assertTrue(messages.isEmpty())
     }
+
+    @Test
+    fun notify_appearsInEventsChannel() = runTest {
+        val manager = ChatManager()
+        manager.notify("script event", "red")
+
+        val messages = manager.channelFlow(ChatManager.EVENTS_CHANNEL).first()
+        assertEquals(1, messages.size)
+        assertEquals("script event", messages[0].content)
+        assertEquals("red", messages[0].color)
+        assertEquals("", messages[0].sender)
+    }
+
+    @Test
+    fun notify_stripsColorQuotes() = runTest {
+        val manager = ChatManager()
+        manager.notify("hello", "\"green\"")
+
+        val messages = manager.channelFlow(ChatManager.EVENTS_CHANNEL).first()
+        assertEquals("green", messages[0].color)
+    }
+
+    @Test
+    fun notify_addsEventsToKnownChannels() = runTest {
+        val manager = ChatManager()
+        manager.notify("hello", "blue")
+
+        assertTrue(ChatManager.EVENTS_CHANNEL in manager.knownChannels.value)
+    }
 }

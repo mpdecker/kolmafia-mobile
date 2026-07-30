@@ -1,5 +1,10 @@
 package net.sourceforge.kolmafia.buffbot
 
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import net.sourceforge.kolmafia.data.EffectDatabase
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -12,6 +17,10 @@ class BuffBotDatabase private constructor(
     private val botRegistry = mutableMapOf<String, BuffBotEntry>()
     private var registryLoaded = false
 
+    private val philanthropicOfferings = mutableMapOf<String, List<BuffBotOffering>>()
+    private val standardOfferings = mutableMapOf<String, List<BuffBotOffering>>()
+    private val offeringsFetched = mutableSetOf<String>()
+
     fun find(buffId: Int): BuffCost? = costMap[buffId]
 
     fun isKnownBot(name: String): Boolean = botRegistry.containsKey(name.lowercase())
@@ -22,11 +31,117 @@ class BuffBotDatabase private constructor(
 
     fun allBots(): Collection<BuffBotEntry> = botRegistry.values
 
+    fun philanthropicOfferings(botName: String): List<BuffBotOffering> =
+        philanthropicOfferings[botName.lowercase()].orEmpty()
+
+    fun standardOfferings(botName: String): List<BuffBotOffering> =
+        standardOfferings[botName.lowercase()].orEmpty()
+
     suspend fun loadRegistry() {
         if (registryLoaded) return
         val text = Res.readBytes("files/data/buffbots.txt").decodeToString()
         applyRegistryParse(text)
         registryLoaded = true
+    }
+
+    suspend fun configureOfferings(httpClient: HttpClient) {
+        if (!registryLoaded) {
+            loadRegistry()
+        }
+        for (entry in botRegistry.values) {
+            fetchOfferingsForBot(httpClient, entry)
+        }
+    }
+
+    internal suspend fun fetchOfferingsForBot(httpClient: HttpClient, entry: BuffBotEntry) {
+        val key = entry.name.lowercase()
+        if (key in offeringsFetched) return
+        offeringsFetched.add(key)
+
+        if (entry.xmlUrl == OPTOUT_URL) {
+            philanthropicOfferings[key] = emptyList()
+            standardOfferings[key] = emptyList()
+            return
+        }
+
+        try {
+            val xml = httpClient.get(entry.xmlUrl).bodyAsText()
+            val (free, normal) = BuffBotXmlParser.parse(xml, entry.name)
+            philanthropicOfferings[key] = free
+            standardOfferings[key] = normal
+        } catch (_: Exception) {
+            philanthropicOfferings[key] = emptyList()
+            standardOfferings[key] = emptyList()
+        }
+    }
+
+    fun getOffering(
+        recipient: String,
+        amount: Long,
+        activeEffectNames: Set<String>,
+        gameDatabase: GameDatabase?,
+    ): BuffOfferingResult {
+        val botKey = recipient.lowercase()
+        if (!botRegistry.containsKey(botKey)) {
+            return BuffOfferingResult(meatAmount = amount)
+        }
+
+        val entry = botRegistry.getValue(botKey)
+        if (entry.xmlUrl == OPTOUT_URL) {
+            return BuffOfferingResult(
+                meatAmount = 0,
+                abortMessage = "${entry.name} has requested to be excluded from scripted requests.",
+            )
+        }
+
+        val possibles = philanthropicOfferings(botKey)
+        if (possibles.isEmpty()) {
+            return BuffOfferingResult(meatAmount = amount)
+        }
+
+        val current = possibles.firstOrNull { it.price.toLong() == amount }
+            ?: return BuffOfferingResult(meatAmount = amount)
+
+        if (current.buffs.size != 1) {
+            return BuffOfferingResult(meatAmount = amount)
+        }
+
+        val alternatives = standardOfferings(botKey)
+        if (alternatives.isEmpty()) {
+            return BuffOfferingResult(meatAmount = amount)
+        }
+
+        val matchBuff = current.buffs[0]
+        val matchTurns = current.turns[0]
+
+        var bestMatch: BuffBotOffering? = null
+        var bestTurns = Int.MAX_VALUE
+
+        for (alternative in alternatives) {
+            if (alternative.buffs.size != 1) continue
+            val testBuff = alternative.buffs[0]
+            val testTurns = alternative.turns[0]
+            if (!testBuff.equals(matchBuff, ignoreCase = true)) continue
+            if (bestMatch == null || (testTurns >= matchTurns && testTurns < bestTurns)) {
+                bestMatch = alternative
+                bestTurns = testTurns
+            }
+        }
+
+        if (bestMatch == null) {
+            return BuffOfferingResult(meatAmount = amount)
+        }
+
+        if (isEffectActive(bestMatch.buffs[0], activeEffectNames, gameDatabase)) {
+            return BuffOfferingResult(meatAmount = 0)
+        }
+
+        return BuffOfferingResult(
+            meatAmount = bestMatch.price.toLong(),
+            conversionMessage =
+                "Converted to non-philanthropic request: ${bestMatch.turns[0]} turns of " +
+                    "${bestMatch.buffs[0]} for ${bestMatch.price} Meat.",
+        )
     }
 
     internal fun applyRegistryParse(text: String) {
@@ -52,8 +167,22 @@ class BuffBotDatabase private constructor(
         botRegistry[entry.name.lowercase()] = entry
     }
 
+    internal fun setOfferingsForTest(
+        botName: String,
+        philanthropic: List<BuffBotOffering>,
+        standard: List<BuffBotOffering>,
+    ) {
+        val key = botName.lowercase()
+        philanthropicOfferings[key] = philanthropic
+        standardOfferings[key] = standard
+        offeringsFetched.add(key)
+    }
+
     internal fun clearRegistryForTest() {
         botRegistry.clear()
+        philanthropicOfferings.clear()
+        standardOfferings.clear()
+        offeringsFetched.clear()
         registryLoaded = false
     }
 
@@ -87,4 +216,17 @@ class BuffBotDatabase private constructor(
             bots.forEach { db.registerBotForTest(it) }
         }
     }
+}
+
+private fun isEffectActive(
+    buffName: String,
+    activeEffectNames: Set<String>,
+    gameDatabase: GameDatabase?,
+): Boolean {
+    val canonical = buffName.lowercase()
+    if (activeEffectNames.any { it.equals(canonical, ignoreCase = true) }) {
+        return true
+    }
+    val effect = gameDatabase?.effect(buffName) ?: EffectDatabase.getByName(buffName)
+    return effect != null && activeEffectNames.any { it.equals(effect.name, ignoreCase = true) }
 }

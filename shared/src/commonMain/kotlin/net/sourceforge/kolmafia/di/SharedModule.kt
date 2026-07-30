@@ -76,8 +76,11 @@ import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.session.SessionManager
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.buffbot.BuffBotManager
+import net.sourceforge.kolmafia.faxbot.FaxBotDatabase
+import net.sourceforge.kolmafia.faxbot.FaxBotManager
 import net.sourceforge.kolmafia.chat.ChatManager
 import net.sourceforge.kolmafia.chat.ChatPoller
+import net.sourceforge.kolmafia.chat.ChatProbe
 import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
@@ -460,6 +463,10 @@ val sharedModule = module {
             quarkRunner = get(),
             buffBotManager = get(),
             buffBotDatabase = get(),
+            faxBotManager = get(),
+            faxBotDatabase = get(),
+            chatProbe = get(),
+            chatManager = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -485,6 +492,7 @@ val sharedModule = module {
             sessionLogger        = get(),
             gameRuntimeLibrary   = get(),
             junkListManager      = get(),
+            httpClient           = get(),
         )
     }
     singleOf(::ShopRequest)
@@ -543,7 +551,23 @@ val sharedModule = module {
     }
     singleOf(::ChatManager)
     singleOf(::ChatSender)
+    singleOf(::ChatProbe)
     singleOf(::ChatPoller)
     single { BuffBotDatabase.instance }
     singleOf(::BuffBotManager)
+    single { FaxBotDatabase.instance }
+    single {
+        FaxBotManager(
+            chatSender = get(),
+            chatPoller = get(),
+            chatManager = get(),
+            clanLoungeRequest = get(),
+            database = get(),
+            gameDatabase = get(),
+            preferences = get(),
+            inventoryManager = get(),
+            character = get(),
+            chatProbe = get(),
+        )
+    }
 }

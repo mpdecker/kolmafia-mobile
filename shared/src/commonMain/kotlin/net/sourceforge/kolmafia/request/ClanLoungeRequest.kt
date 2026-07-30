@@ -35,6 +35,45 @@ open class ClanLoungeRequest(private val client: HttpClient) {
         Result.failure(e)
     }
 
+    /** Visit the clan VIP lounge fax machine. */
+    open suspend fun visitFaxMachine(): Result<String> = postFaxForm(preaction = null)
+
+    /** Send a photocopied monster via the clan fax machine. */
+    open suspend fun sendFax(): Result<String> = postFaxForm(preaction = "sendfax")
+
+    /** Receive a fax from the clan fax machine. */
+    open suspend fun receiveFax(): Result<String> = postFaxForm(preaction = "receivefax")
+
+    fun findFaxOption(tag: String): Int {
+        val normalized = tag.trim().lowercase()
+        return when (normalized) {
+            "send", "put" -> SEND_FAX
+            "receive", "get" -> RECEIVE_FAX
+            else -> 0
+        }
+    }
+
+    private suspend fun postFaxForm(preaction: String?): Result<String> = try {
+        val response = client.submitForm(
+            url = "$KOL_BASE_URL/clan_viplounge.php",
+            formParameters = parameters {
+                if (preaction != null) {
+                    append("preaction", preaction)
+                } else {
+                    append("action", "faxmachine")
+                }
+                append("whichfloor", "2")
+            }
+        )
+        if (!response.status.isSuccess()) {
+            Result.failure(Exception("HTTP ${response.status.value}"))
+        } else {
+            Result.success(response.bodyAsText())
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
     private suspend fun postAction(action: String): Result<String> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/clan_viplounge.php",
@@ -46,5 +85,10 @@ open class ClanLoungeRequest(private val client: HttpClient) {
             Result.success(response.bodyAsText())
     } catch (e: Exception) {
         Result.failure(e)
+    }
+
+    companion object {
+        const val SEND_FAX = 1
+        const val RECEIVE_FAX = 2
     }
 }

@@ -1386,6 +1386,71 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_csend_buffbotPhilanthropic_convertsMeatAmount() {
+        val meatSent = mutableListOf<Long>()
+        val mail = object : net.sourceforge.kolmafia.request.SendMailRequest(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) })
+        ) {
+            override suspend fun send(
+                recipient: String,
+                message: String,
+                attachments: List<net.sourceforge.kolmafia.request.MailAttachment>,
+                meat: Long,
+            ): Result<Unit> {
+                meatSent.add(meat)
+                return Result.success(Unit)
+            }
+        }
+        val db = net.sourceforge.kolmafia.buffbot.BuffBotDatabase.forTest(
+            bots = listOf(
+                net.sourceforge.kolmafia.buffbot.BuffBotEntry("OakBot", "1", "http://example.com/oak.xml"),
+            ),
+        )
+        db.setOfferingsForTest(
+            botName = "OakBot",
+            philanthropic = listOf(
+                net.sourceforge.kolmafia.buffbot.BuffBotOffering(
+                    botName = "OakBot",
+                    price = 50,
+                    philanthropic = true,
+                    buffs = listOf("Empathy of the Newt"),
+                    turns = listOf(10),
+                ),
+            ),
+            standard = listOf(
+                net.sourceforge.kolmafia.buffbot.BuffBotOffering(
+                    botName = "OakBot",
+                    price = 100,
+                    philanthropic = false,
+                    buffs = listOf("Empathy of the Newt"),
+                    turns = listOf(10),
+                ),
+            ),
+        )
+        val out = outputLib(
+            GameRuntimeLibrary(sendMailRequest = mail, buffBotDatabase = db),
+            """cli_execute("csend 50 meat to OakBot");""",
+        )
+        assertEquals(listOf(100L), meatSent)
+        assertTrue(out.contains("Converted to non-philanthropic request"))
+    }
+
+    @Test
+    fun cliExecute_buffAlias_refreshesSkills() {
+        val skillRequests = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            skillRequests += request.url.parameters["what"] ?: ""
+            respond("[]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = HttpClient(engine) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val skillManager = SkillManager(client, SkillCastRequest(client), GameEventBus())
+        runLib(GameRuntimeLibrary(skillManager = skillManager), """cli_execute("buff");""")
+        assertTrue(skillRequests.contains("skills"))
+    }
+
+    @Test
     fun cliExecute_gift_callsSendGiftRequest() {
         val gifts = mutableListOf<Pair<String, Int>>()
         val gift = object : net.sourceforge.kolmafia.request.SendGiftRequest(
@@ -2080,5 +2145,28 @@ class GameRuntimeLibraryCliTest {
         )
         runLib(lib, """cli_execute("smash other sword");""")
         assertEquals(listOf(9002 to 4), calls)
+    }
+
+    @Test
+    fun cliExecute_faxbot_withoutManager_printsUnavailable() {
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(lib, """cli_execute("faxbot rockfish");""")
+        assertEquals("Faxbot support is not available.", out)
+    }
+
+    @Test
+    fun cliExecute_faxReceive_withoutPhotocopy_callsReceive() {
+        var receiveCalled = false
+        val lounge = object : net.sourceforge.kolmafia.request.ClanLoungeRequest(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun receiveFax(): Result<String> {
+                receiveCalled = true
+                return Result.success("ok")
+            }
+        }
+        val lib = GameRuntimeLibrary(clanLoungeRequest = lounge)
+        runLib(lib, """cli_execute("fax receive");""")
+        assertTrue(receiveCalled)
     }
 }

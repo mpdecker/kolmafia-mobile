@@ -29,6 +29,22 @@ class ChatPoller(private val httpClient: HttpClient) {
         fetchAndDispatch()
     }
 
+    /** Fetch chat messages without requiring a UI listener (for faxbot PM polling). */
+    suspend fun fetchMessages(): List<ChatMessage> {
+        return try {
+            val body = httpClient
+                .get("$KOL_BASE_URL/newchatmessages.php") { parameter("lasttime", lastTime) }
+                .bodyAsText()
+            val response = ChatParser.parse(body)
+            lastTime = response.lastTime
+            response.messages
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     fun start() {
         if (pollingJob?.isActive == true) return
         pollingJob = scope.launch {
