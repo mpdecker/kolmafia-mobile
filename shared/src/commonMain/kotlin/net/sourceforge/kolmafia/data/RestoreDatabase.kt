@@ -1,5 +1,10 @@
 package net.sourceforge.kolmafia.data
 
+import kotlin.math.ceil
+import kotlin.math.floor
+import net.sourceforge.kolmafia.character.AscensionPath
+import net.sourceforge.kolmafia.modifiers.ExpressionContext
+import net.sourceforge.kolmafia.modifiers.ModifierExpression
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -28,6 +33,111 @@ object RestoreDatabase {
     fun items(): List<RestoreData> = byName.values.filter { it.type == RestoreType.ITEM }
     fun skills(): List<RestoreData> = byName.values.filter { it.type == RestoreType.SKILL }
     fun locations(): List<RestoreData> = byName.values.filter { it.type == RestoreType.LOC }
+
+    fun getHpMinByName(name: String, ctx: ExpressionContext): Int {
+        val path = AscensionPath.fromApiString(ctx.challengePath)
+        if (!pathSafeHp(name, path)) return 0
+        val restore = getByName(name) ?: return 0
+        return floor(evalRestoreValue(restore.hpMinExpr, name, ctx)).toInt()
+    }
+
+    fun getHpMaxByName(name: String, ctx: ExpressionContext): Int {
+        val path = AscensionPath.fromApiString(ctx.challengePath)
+        if (!pathSafeHp(name, path)) return 0
+        val restore = getByName(name) ?: return 0
+        return ceil(evalRestoreValue(restore.hpMaxExpr, name, ctx)).toInt()
+    }
+
+    fun getMpMinByName(name: String, ctx: ExpressionContext): Int {
+        val path = AscensionPath.fromApiString(ctx.challengePath)
+        if (!pathSafeMp(name, path)) return 0
+        val restore = getByName(name) ?: return 0
+        return floor(evalRestoreValue(restore.mpMinExpr, name, ctx)).toInt()
+    }
+
+    fun getMpMaxByName(name: String, ctx: ExpressionContext): Int {
+        val path = AscensionPath.fromApiString(ctx.challengePath)
+        if (!pathSafeMp(name, path)) return 0
+        val restore = getByName(name) ?: return 0
+        return ceil(evalRestoreValue(restore.mpMaxExpr, name, ctx)).toInt()
+    }
+
+    fun isRestoreItem(itemId: Int): Boolean {
+        val name = ItemDatabase.getById(itemId)?.name ?: return false
+        return getByName(name)?.type == RestoreType.ITEM
+    }
+
+    fun getHpAverageByName(name: String, ctx: ExpressionContext): Double {
+        val min = getHpMinByName(name, ctx).toDouble()
+        val max = getHpMaxByName(name, ctx).toDouble()
+        if (min == 0.0 && max == 0.0) return 0.0
+        return (min + max) / 2.0
+    }
+
+    fun getMpAverageByName(name: String, ctx: ExpressionContext): Double {
+        val min = getMpMinByName(name, ctx).toDouble()
+        val max = getMpMaxByName(name, ctx).toDouble()
+        if (min == 0.0 && max == 0.0) return 0.0
+        return (min + max) / 2.0
+    }
+
+    fun restorationMaximum(
+        name: String,
+        currentHp: Int,
+        maxHp: Int,
+        currentMp: Int,
+        maxMp: Int,
+        ctx: ExpressionContext,
+    ): Long {
+        val hpAverage = getHpAverageByName(name, ctx)
+        val mpAverage = getMpAverageByName(name, ctx)
+        if (hpAverage == 0.0 && mpAverage == 0.0) return Long.MAX_VALUE
+
+        var maximumSuggested = 0L
+        if (hpAverage != 0.0) {
+            val belowMax = maxHp - currentHp
+            maximumSuggested = maxOf(maximumSuggested, ceil(belowMax / hpAverage).toLong())
+        }
+        if (mpAverage != 0.0) {
+            val belowMax = maxMp - currentMp
+            maximumSuggested = maxOf(maximumSuggested, ceil(belowMax / mpAverage).toLong())
+        }
+        return maximumSuggested
+    }
+
+    internal fun pathSafeHp(name: String, path: AscensionPath): Boolean {
+        if (path == AscensionPath.VAMPYRE) return false
+        if (path == AscensionPath.ED || path == AscensionPath.ACTUALLY_ED_THE_UNDYING) {
+            return name.equals("cotton bandages", ignoreCase = true) ||
+                name.equals("linen bandages", ignoreCase = true) ||
+                name.equals("silk bandages", ignoreCase = true)
+        }
+        if (path == AscensionPath.PLUMBER || path == AscensionPath.PATH_OF_THE_PLUMBER) {
+            return name.equals("mushroom", ignoreCase = true) ||
+                name.equals("deluxe mushroom", ignoreCase = true) ||
+                name.equals("super deluxe mushroom", ignoreCase = true)
+        }
+        return true
+    }
+
+    internal fun pathSafeMp(name: String, path: AscensionPath): Boolean =
+        path != AscensionPath.VAMPYRE
+
+    internal fun evalRestoreValue(expr: String, itemName: String, ctx: ExpressionContext): Double {
+        val trimmed = expr.trim()
+        if (trimmed.isEmpty()) return 0.0
+        val lb = trimmed.indexOf('[')
+        if (lb == -1) return trimmed.toDoubleOrNull() ?: 0.0
+        val rb = trimmed.indexOf(']', lb)
+        if (rb <= lb + 1) return 0.0
+        val inner = trimmed.substring(lb + 1, rb)
+        return ModifierExpression(inner).evaluate(ctx)
+    }
+
+    internal fun resetForTest() {
+        byName.clear()
+        loaded = false
+    }
 
     private fun parse(text: String) {
         for (raw in text.lines()) {

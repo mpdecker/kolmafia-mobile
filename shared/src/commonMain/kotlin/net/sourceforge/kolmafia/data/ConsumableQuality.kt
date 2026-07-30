@@ -1,6 +1,19 @@
 package net.sourceforge.kolmafia.data
 
-enum class ConsumableQuality { CRAPPY, DECENT, GOOD, AWESOME, EPIC, SUPER_EPIC, SUPER_MEGA_EPIC, UNKNOWN;
+enum class ConsumableQuality { NONE, CRAPPY, DECENT, GOOD, AWESOME, EPIC, SUPER_EPIC, SUPER_MEGA_EPIC, UNKNOWN;
+
+    fun displayName(): String = when (this) {
+        NONE -> ""
+        CRAPPY -> "crappy"
+        DECENT -> "decent"
+        GOOD -> "good"
+        AWESOME -> "awesome"
+        EPIC -> "epic"
+        SUPER_EPIC -> "super ultra epic"
+        SUPER_MEGA_EPIC -> "super ultra mega turbo epic"
+        UNKNOWN -> ""
+    }
+
     companion object {
         fun fromString(s: String): ConsumableQuality = when (s.trim().lowercase()) {
             "crappy" -> CRAPPY

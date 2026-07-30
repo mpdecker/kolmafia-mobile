@@ -9,6 +9,12 @@ import net.sourceforge.kolmafia.data.BastilleDatabase.Style
 import net.sourceforge.kolmafia.data.BastilleDatabase.Upgrade
 import net.sourceforge.kolmafia.preferences.Preferences
 
+/** Optional session-log and player context for Bastille sync hooks. */
+data class BastilleSyncContext(
+    val sessionLogger: SessionLogger? = null,
+    val playerId: Int = 0,
+)
+
 /**
  * Bastille Battalion (Battle Royale for Cheese) choice pref sync.
  * Mirrors desktop [BastilleBattalionManager] visit/pre/post choice hooks.
@@ -55,17 +61,43 @@ object BastilleBattalionSync {
     private var currentStyles = mutableMapOf<Upgrade, Style>()
     private var currentStats = Stats()
     private var currentCastle: Castle? = null
+    private var currentBattle: BastilleBattle? = null
 
     fun isBastilleChoice(choiceId: Int): Boolean = choiceId in BASTILLE_CHOICES
 
-    fun syncVisit(choiceId: Int, html: String, url: String?, prefs: Preferences) {
+    fun registerRequest(
+        choiceId: Int,
+        decision: Int,
+        prefs: Preferences,
+        context: BastilleSyncContext = BastilleSyncContext(),
+    ): Boolean {
+        if (choiceId == CHOICE_RIG && decision == 6) return true
+        if (choiceId == CHOICE_RIG && decision == 8) {
+            logLine("Walking away from the game", context)
+            logLine("", context)
+            return true
+        }
+        val message = buildRegisterMessage(choiceId, decision, prefs) ?: return false
+        logLine(message, context)
+        return true
+    }
+
+    fun syncVisit(
+        choiceId: Int,
+        html: String,
+        url: String?,
+        prefs: Preferences,
+        context: BastilleSyncContext = BastilleSyncContext(),
+    ) {
         if (url?.contains("forceoption=0") == true) {
+            logLine("Entering your Bastille Battalion control rig.", context)
             loadStats(prefs)
             parseStyles(html, prefs)
+            logStrength(context)
         }
 
         if (choiceId in CHOICE_MASTER_OF_NONE..CHOICE_CHEESE_SEEKING) {
-            parseChoiceEncounter(choiceId, html, prefs)
+            parseChoiceEncounter(choiceId, html, prefs, context)
         }
 
         when (choiceId) {
@@ -84,7 +116,12 @@ object BastilleBattalionSync {
         }
     }
 
-    fun syncPreChoice(choiceId: Int, decision: Int, prefs: Preferences) {
+    fun syncPreChoice(
+        choiceId: Int,
+        decision: Int,
+        prefs: Preferences,
+        @Suppress("UNUSED_PARAMETER") context: BastilleSyncContext = BastilleSyncContext(),
+    ) {
         when (choiceId) {
             CHOICE_CASTLE_VS_CASTLE -> {
                 if (decision != 0) {
@@ -105,6 +142,7 @@ object BastilleBattalionSync {
         html: String,
         prefs: Preferences,
         activeEffectNames: Set<String> = emptySet(),
+        context: BastilleSyncContext = BastilleSyncContext(),
     ) {
         loadStats(prefs)
         when (choiceId) {
@@ -112,7 +150,13 @@ object BastilleBattalionSync {
                 when {
                     decision in 1..4 -> {
                         parseStyles(html, prefs)
-                        checkPredictions(prefs)
+                        BastilleDatabase.upgradeForOption(decision)?.let { upgrade ->
+                            currentStyles[upgrade]?.let { style ->
+                                logLine(style.toString(), context)
+                            }
+                        }
+                        checkPredictions(prefs, context)
+                        logStrength(context)
                     }
                     decision == 5 -> {
                         startGame(prefs)
@@ -120,33 +164,82 @@ object BastilleBattalionSync {
                         parseTurn(html, prefs)
                         parseStyles(html, prefs)
                         logBoosts(prefs, activeEffectNames)
+                        logStrength(context)
                     }
                 }
             }
             CHOICE_MASTER_OF_NONE -> return
             CHOICE_CASTLE_VS_CASTLE -> {
-                endBattle(html, prefs)
+                endBattle(html, prefs, context)
                 when (ChoiceUtilities.extractChoiceId(html)) {
                     CHOICE_MASTER_OF_NONE -> {
                         parseCastle(html, prefs)
+                        logStrength(context)
                     }
                     CHOICE_GAME_OVER -> endGame(prefs)
                 }
             }
             CHOICE_GAME_OVER -> return
             CHOICE_HELLO_TO_ARMS, CHOICE_DEFENSIVE_POSTURING, CHOICE_CHEESE_SEEKING -> {
-                collectCheese(html, prefs)
+                collectCheese(html, prefs, context)
                 if (!parseTurn(html, prefs)) {
                     nextTurn(prefs)
                 }
                 parseNeedles(html, prefs)
+                logStrength(context)
             }
         }
     }
 
-    private fun parseChoiceEncounter(choiceId: Int, html: String, prefs: Preferences) {
+    private fun buildRegisterMessage(choiceId: Int, decision: Int, prefs: Preferences): String? {
+        return when (choiceId) {
+            CHOICE_RIG -> when (decision) {
+                1 -> "Decorating the Barbican"
+                2 -> "Changing the Drawbridge"
+                3 -> "Sizing the Murder Holes"
+                4 -> "Filling the Moat"
+                5 -> "Starting game #${prefs.getInt(PREF_GAMES) + 1}"
+                else -> null
+            }
+            CHOICE_MASTER_OF_NONE -> when (decision) {
+                1 -> logAction("Improving offense.", prefs)
+                2 -> logAction("Focusing on defense.", prefs)
+                3 -> logAction("Looking for cheese.", prefs)
+                else -> null
+            }
+            CHOICE_CASTLE_VS_CASTLE -> when (decision) {
+                1 -> logAction("Charge!", prefs)
+                2 -> logAction("Watch warily.", prefs)
+                3 -> logAction("Wait to be attacked.", prefs)
+                else -> null
+            }
+            CHOICE_GAME_OVER -> null
+            CHOICE_HELLO_TO_ARMS, CHOICE_DEFENSIVE_POSTURING, CHOICE_CHEESE_SEEKING -> {
+                if (decision in 1..3) {
+                    val encounter = prefs.getString("${PREF_CHOICE}$decision")
+                    prefs.setString(PREF_LAST_ENCOUNTER, encounter)
+                    encounter
+                } else {
+                    null
+                }
+            }
+            else -> null
+        }
+    }
+
+    private fun logAction(action: String, prefs: Preferences): String {
+        val turn = prefs.getInt(PREF_GAME_TURN)
+        return "Turn #$turn: $action"
+    }
+
+    private fun parseChoiceEncounter(
+        choiceId: Int,
+        html: String,
+        prefs: Preferences,
+        context: BastilleSyncContext,
+    ) {
         if (choiceId in CHOICE_MASTER_OF_NONE..CHOICE_CHEESE_SEEKING) {
-            gainCheese(html, prefs)
+            gainCheese(html, prefs, context)
         }
     }
 
@@ -156,7 +249,7 @@ object BastilleBattalionSync {
         STAT_SETTING_PATTERN.findAll(setting).forEach { match ->
             val code = match.groupValues[1]
             val value = match.groupValues[2].toIntOrNull() ?: return@forEach
-            val stat = Stat.entries.firstOrNull { it.code == code } ?: return@forEach
+            val stat = Stat.entries.firstOrNull { it.code == code && it != Stat.NONE } ?: return@forEach
             currentStats = currentStats.withStat(stat, value)
         }
     }
@@ -260,13 +353,19 @@ object BastilleBattalionSync {
     }
 
     private fun startBattle(decision: Int, prefs: Preferences) {
-        // Stance tracking deferred; battle results come from HTML parse.
-        prefs.getInt(PREF_GAME_TURN)
-        decision
+        val turn = prefs.getInt(PREF_GAME_TURN)
+        val boosts = BastilleBoosts(prefs.getString(PREF_BOOSTS))
+        currentBattle = BastilleBattle(
+            number = (turn + 2) / 3,
+            stats = currentStats,
+            boosts = boosts,
+            enemy = currentCastle,
+            stance = BastilleStance.fromOption(decision),
+        )
     }
 
-    private fun endBattle(html: String, prefs: Preferences) {
-        val results = logBattle(html)
+    private fun endBattle(html: String, prefs: Preferences, context: BastilleSyncContext) {
+        val results = logBattle(html, context)
         val won = results.won()
         prefs.setBoolean(PREF_LAST_BATTLE_WON, won)
         prefs.setString(PREF_LAST_BATTLE_RESULTS, results.value)
@@ -274,6 +373,8 @@ object BastilleBattalionSync {
         if (html.contains("GAME OVER")) {
             val match = TOTAL_CHEESE_PATTERN.find(html)
             if (match != null) {
+                val message = match.value
+                logLine(message, context)
                 val calculated = prefs.getInt(PREF_CHEESE)
                 val total = match.groupValues[2].replace(",", "").toIntOrNull() ?: calculated
                 if (calculated != total) {
@@ -281,19 +382,32 @@ object BastilleBattalionSync {
                 }
             }
         }
+
+        val battle = currentBattle
+        if (battle != null) {
+            battle.results = results
+            if (won) {
+                val cheese = prefs.getInt(PREF_LAST_CHEESE)
+                battle.cheese = cheese
+                BastilleBattalionFileLog.saveCheese(battle.toCheese(), prefs, context.playerId)
+            }
+            BastilleBattalionFileLog.saveBattle(battle, prefs, context.playerId)
+            currentBattle = null
+        }
     }
 
-    private fun gainCheese(html: String, prefs: Preferences): Int {
+    private fun gainCheese(html: String, prefs: Preferences, context: BastilleSyncContext): Int {
         val match = CHEESE_PATTERN.find(html)
         val cheese = match?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
         if (cheese > 0) {
+            match?.value?.let { logLine(it, context) }
             prefs.setInt(PREF_CHEESE, prefs.getInt(PREF_CHEESE) + cheese)
         }
         prefs.setInt(PREF_LAST_CHEESE, cheese)
         return cheese
     }
 
-    private fun collectCheese(html: String, prefs: Preferences) {
+    private fun collectCheese(html: String, prefs: Preferences, context: BastilleSyncContext) {
         val encounterName = prefs.getString(PREF_LAST_ENCOUNTER)
         val curds = prefs.getInt(PREF_LAST_CHEESE)
         if (curds == 0) {
@@ -303,7 +417,16 @@ object BastilleBattalionSync {
                 return
             }
         }
-        prefs.getInt(PREF_GAME_TURN)
+        val turn = prefs.getInt(PREF_GAME_TURN)
+        val boosts = BastilleBoosts(prefs.getString(PREF_BOOSTS))
+        val record = BastilleCheeseRecord.fromEncounter(
+            turn = turn,
+            encounterName = encounterName,
+            cheese = curds,
+            currentStat = { stat -> currentStats.get(stat) },
+            boosts = boosts,
+        )
+        BastilleBattalionFileLog.saveCheese(record, prefs, context.playerId)
     }
 
     private fun logBoosts(prefs: Preferences, activeEffectNames: Set<String>) {
@@ -315,17 +438,31 @@ object BastilleBattalionSync {
         prefs.setString(PREF_BOOSTS, boosts)
     }
 
-    private fun checkPredictions(prefs: Preferences) {
-        val predicted = BastilleDatabase.predictedStats(currentStyles) ?: return
+    private fun checkPredictions(prefs: Preferences, context: BastilleSyncContext): Boolean {
+        val predicted = BastilleDatabase.predictedStats(currentStyles) ?: return true
+        var ok = true
         for (stat in Stat.entries) {
-            if (predicted.get(stat) != currentStats.get(stat)) {
-                // Diagnostic mismatch — prefs still saved; full session logging deferred.
+            if (stat == Stat.NONE) continue
+            val calculated = predicted.get(stat)
+            val expected = currentStats.get(stat)
+            if (calculated != expected) {
+                logLine("$stat was calculated to be $calculated but is actually $expected", context)
+                ok = false
             }
         }
         saveStats(prefs)
+        return ok
     }
 
-    private fun logBattle(html: String): BattleResults {
+    private fun logLine(message: String, context: BastilleSyncContext) {
+        context.sessionLogger?.appendRawLine(message)
+    }
+
+    private fun logStrength(context: BastilleSyncContext) {
+        logLine(currentStats.toStrengthString(), context)
+    }
+
+    private fun logBattle(html: String, context: BastilleSyncContext): BastilleBattleResults {
         var aggressor = false
         var military = false
         var castle = false
@@ -341,35 +478,9 @@ object BastilleBattalionSync {
             }
         }
 
-        return BattleResults(aggressor, military, castle, psychological)
-    }
-
-    private data class BattleResults(
-        val aggressor: Boolean,
-        val military: Boolean,
-        val castle: Boolean,
-        val psychological: Boolean,
-    ) {
-        val value: String
-            get() {
-                val buf = StringBuilder()
-                appendPair(buf, 'M', aggressor, military)
-                buf.append(',')
-                appendPair(buf, 'C', aggressor, castle)
-                buf.append(',')
-                appendPair(buf, 'P', aggressor, psychological)
-                return buf.toString()
-            }
-
-        fun won(): Boolean = (if (military) 1 else 0) + (if (castle) 1 else 0) + (if (psychological) 1 else 0) >= 2
-
-        private fun appendPair(buf: StringBuilder, prefix: Char, aggressor: Boolean, won: Boolean) {
-            buf.append(prefix)
-            buf.append(if (aggressor) 'A' else 'D')
-            buf.append(if (won) '>' else '<')
-            buf.append(prefix)
-            buf.append(if (aggressor) 'D' else 'A')
-        }
+        val results = BastilleBattleResults(aggressor, military, castle, psychological)
+        logLine(if (results.won()) "You won!" else "You lost.", context)
+        return results
     }
 
     private fun Stats.withStat(stat: Stat, value: Int): Stats = when (stat) {
@@ -379,12 +490,14 @@ object BastilleBattalionSync {
         Stat.CD -> copy(cd = value)
         Stat.PA -> copy(pa = value)
         Stat.PD -> copy(pd = value)
+        Stat.NONE -> this
     }
 
     internal fun resetSessionForTest() {
         currentStyles.clear()
         currentStats = Stats()
         currentCastle = null
+        currentBattle = null
     }
 
     private const val PREF_STATS = "_bastilleStats"

@@ -9,6 +9,7 @@ import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.TCRSDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
@@ -90,6 +91,15 @@ class SessionManager(
                         effectManager.fetchEffects()
                         if (dayChanged) {
                             gameRuntimeLibrary?.updateOneDesc()
+                        }
+                        if (charState.inTwoCrazyRandomSummer) {
+                            TCRSDatabase.loadFromPreferences(
+                                charState.className,
+                                charState.zodiacSign,
+                                preferences,
+                            )
+                        } else {
+                            TCRSDatabase.reset()
                         }
                         gameRuntimeLibrary?.checkDynamicModifiers()
 

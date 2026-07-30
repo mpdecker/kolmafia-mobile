@@ -24,8 +24,9 @@ open class GameDatabase {
         OutfitDatabase.load()
         BountyDatabase.load()
 
-        // Consumables (food / drink / spleen) and cafe menu
+        // Consumables (food / drink / spleen / nonfilling) and cafe menu
         ConsumableDatabase.load()
+        net.sourceforge.kolmafia.buffbot.BuffBotDatabase.load()
         CafeDatabase.load()
 
         // Restores and modifiers
@@ -89,6 +90,9 @@ open class GameDatabase {
     fun food(name: String) = ConsumableDatabase.getFood(name)
     fun drink(name: String) = ConsumableDatabase.getDrink(name)
     fun spleen(name: String) = ConsumableDatabase.getSpleen(name)
+    fun nonFilling(name: String) = ConsumableDatabase.getNonFilling(name)
+    fun levelReq(name: String) = ConsumableDatabase.getLevelReqByName(name)
+    fun fullness(name: String) = ConsumableDatabase.getFullnessByName(name)
     fun restore(name: String) = RestoreDatabase.getByName(name)
     fun modifier(type: String, name: String) = ModifierDatabase.get(type, name)
     open fun itemModifier(name: String) = ModifierDatabase.getItem(name)

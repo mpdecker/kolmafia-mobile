@@ -189,6 +189,10 @@ data class CharacterState(
         get() = ascensionPath == AscensionPath.POKEFAM
     val inGLover: Boolean
         get() = ascensionPath == AscensionPath.GLOVER
+    val inRobocore: Boolean
+        get() = ascensionPath == AscensionPath.YOU_ROBOT
+    val inTwoCrazyRandomSummer: Boolean
+        get() = ascensionPath == AscensionPath.TWO_CRAZY_RANDOM_SUMMER
 
     // ── Computed: main buffed stat ────────────────────────────────────────────
     val buffedMainStat: Int get() = when (mainStat) {

@@ -41,6 +41,16 @@ object CoinmasterRegistry {
                 master.buyRowFor(itemId)?.let { master to it }
             }
 
+    /** Desktop CoinmasterRegistry.findSeller — first coinmaster that sells this item. */
+    fun findSeller(itemId: Int): CoinmasterData? = findBuyRowForItem(itemId)?.first
+
+    /** Desktop CoinmasterRegistry.findBuyer — first coinmaster that buys this item. */
+    fun findBuyer(itemId: Int): CoinmasterData? =
+        CoinmasterDatabase.findSellRowForItem(itemId)?.first
+            ?: all.firstNotNullOfOrNull { master ->
+                master.sellRowFor(itemId)?.let { master }
+            }
+
     fun resolve(name: String): String? {
         val trimmed = name.trim()
         if (trimmed.isEmpty() || trimmed.equals("none", ignoreCase = true)) return null
