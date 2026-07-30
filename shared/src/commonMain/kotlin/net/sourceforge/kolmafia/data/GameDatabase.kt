@@ -11,6 +11,8 @@ open class GameDatabase {
     suspend fun load() {
         if (isLoaded) return
 
+        DefaultsDatabase.load()
+
         // Core item / effect / equipment data
         ItemDatabase.load()
         EffectDatabase.load()
@@ -69,6 +71,7 @@ open class GameDatabase {
         VolcanoMazeDatabase.load()
         OceanDatabase.load()
         WereProfessorDatabase.load()
+        TCRSAstralDatabase.load()
         PocketDatabase.load()
         CultShortsDatabase.load()
 

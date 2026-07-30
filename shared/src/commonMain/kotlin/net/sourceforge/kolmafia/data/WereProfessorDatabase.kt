@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -9,6 +10,10 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
  */
 @OptIn(ExperimentalResourceApi::class)
 object WereProfessorDatabase {
+
+    const val RESEARCH_BENCH_CHOICE = 1523
+    const val KNOWN_RESEARCH = "beastSkillsKnown"
+    const val AVAILABLE_RESEARCH = "beastSkillsAvailable"
 
     data class Research(
         val key: Int,
@@ -47,6 +52,34 @@ object WereProfessorDatabase {
     }
 
     fun terminalResearch(): Set<Research> = terminalResearchInternal.toSet()
+
+    fun deriveKnownResearch(available: Set<Research>): Set<Research> {
+        val known = mutableSetOf<Research>()
+        for (terminal in terminalResearchInternal) {
+            var research: Research? = terminal
+            while (research != null) {
+                if (available.contains(research)) {
+                    break
+                }
+                val parent = research.parent
+                research = if (parent == "none") null else findResearch(parent)
+            }
+            var top: Research? = research?.let { findResearch(it.parent) } ?: terminal
+            while (top != null) {
+                known.add(top)
+                val parent = top.parent
+                top = if (parent == "none") null else findResearch(parent)
+            }
+        }
+        return known
+    }
+
+    fun loadResearch(preferences: Preferences, property: String): Set<Research> =
+        stringToResearchSet(preferences.getString(property, ""))
+
+    fun saveResearch(preferences: Preferences, property: String, research: Set<Research>) {
+        preferences.setString(property, researchSetToString(research))
+    }
 
     internal fun parseForTest(text: String): ParseSnapshot = parse(text)
 
@@ -115,4 +148,12 @@ object WereProfessorDatabase {
     }
 
     private const val TERMINAL_COST = 100
+
+    private fun stringToResearchSet(value: String): Set<Research> =
+        value.split(',')
+            .mapNotNull { token -> findResearch(token.trim()) }
+            .toSet()
+
+    private fun researchSetToString(research: Set<Research>): String =
+        research.sorted().joinToString(",") { it.field }
 }

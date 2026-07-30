@@ -2169,4 +2169,115 @@ class GameRuntimeLibraryCliTest {
         runLib(lib, """cli_execute("fax receive");""")
         assertTrue(receiveCalled)
     }
+
+    @Test
+    fun cliExecute_wereprofessorResearch_printsSkillTreeTable() = runBlocking {
+        net.sourceforge.kolmafia.data.WereProfessorDatabase.resetForTest()
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        val out = outputLib(lib, """cli_execute("wereprofessor research");""")
+        assertTrue(out.contains("<table border=2 cols=6>"))
+        assertTrue(out.contains("mus1 (10 rp)"))
+    }
+
+    @Test
+    fun cliExecute_wereprofessorResearchVerbose_includesEffectText() = runBlocking {
+        net.sourceforge.kolmafia.data.WereProfessorDatabase.resetForTest()
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        val out = outputLib(lib, """cli_execute("wereprofessor research verbose");""")
+        assertTrue(out.contains("Mus +20%"))
+    }
+
+    @Test
+    fun cliExecute_wereprofessorUnknownSubcommand_printsDoWhat() {
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(lib, """cli_execute("wereprofessor foo");""")
+        assertEquals("Do what?", out)
+    }
+
+    @Test
+    fun cliExecute_wereprofessorResearchField_rejectsUnknownResearch() = runBlocking {
+        net.sourceforge.kolmafia.data.WereProfessorDatabase.resetForTest()
+        val db = GameDatabase()
+        db.load()
+        val character = KoLCharacter()
+        character.updateFromApiResponse(CharacterApiResponse(path = "WereProfessor"))
+        val lib = GameRuntimeLibrary(gameDatabase = db, character = character, preferences = prefs())
+        val out = outputLib(lib, """cli_execute("wereprofessor research not_a_skill");""")
+        assertTrue(out.contains("is not known research"))
+    }
+
+    @Test
+    fun cliExecute_wereprofessorResearchField_rejectsSavageBeast() = runBlocking {
+        net.sourceforge.kolmafia.data.WereProfessorDatabase.resetForTest()
+        val db = GameDatabase()
+        db.load()
+        val character = KoLCharacter()
+        character.updateFromApiResponse(CharacterApiResponse(path = "WereProfessor"))
+        val effectsJson = """{"2898":{"name":"Savage Beast","duration":10}}"""
+        val client = HttpClient(MockEngine {
+            respond(
+                effectsJson,
+                HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val effectMgr = net.sourceforge.kolmafia.effect.EffectManager(client, GameEventBus())
+        effectMgr.fetchEffects()
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            character = character,
+            effectManager = effectMgr,
+            preferences = prefs(),
+        )
+        val out = outputLib(lib, """cli_execute("wereprofessor research mus1");""")
+        assertTrue(out.contains("locked out of your Humble Cottage"))
+    }
+
+    @Test
+    fun cliExecute_wereprofessorResearchField_delegatesToResearchBenchRequest() = runBlocking {
+        net.sourceforge.kolmafia.data.WereProfessorDatabase.resetForTest()
+        val db = GameDatabase()
+        db.load()
+        val character = KoLCharacter()
+        character.updateFromApiResponse(CharacterApiResponse(path = "WereProfessor"))
+        val preferences = prefs()
+        val mus1 = net.sourceforge.kolmafia.data.WereProfessorDatabase.findResearch("mus1")!!
+        net.sourceforge.kolmafia.data.WereProfessorDatabase.saveResearch(
+            preferences,
+            net.sourceforge.kolmafia.data.WereProfessorDatabase.AVAILABLE_RESEARCH,
+            setOf(mus1),
+        )
+        preferences.setInt("wereProfessorResearchPoints", 100)
+        var researched: String? = null
+        val request = object : net.sourceforge.kolmafia.request.ResearchBenchRequest(
+            HttpClient(MockEngine { respond("", HttpStatusCode.OK) }),
+            net.sourceforge.kolmafia.effect.EffectManager(
+                HttpClient(MockEngine { respond("", HttpStatusCode.OK) }),
+                GameEventBus(),
+            ),
+            preferences,
+        ) {
+            override suspend fun visitBench() = Result.success("" to "")
+            override suspend fun research(field: String): Result<Pair<String, String>> {
+                researched = field
+                preferences.setInt("wereProfessorResearchPoints", 90)
+                return Result.success("" to "")
+            }
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            character = character,
+            preferences = preferences,
+            researchBenchRequest = request,
+        )
+        val out = outputLib(lib, """cli_execute("wereprofessor research mus1");""")
+        assertEquals("mus1", researched)
+        assertTrue(out.contains("You have 90 Research Points available."))
+    }
 }

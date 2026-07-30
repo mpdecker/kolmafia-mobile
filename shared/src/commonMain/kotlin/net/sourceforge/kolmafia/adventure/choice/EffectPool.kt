@@ -6,4 +6,6 @@ object EffectPool {
     const val NERD_EFFECT     = "Nerd is the Word"
     const val CURSE3_EFFECT   = "Thrice-Cursed"
     const val EARTHEN_FIST    = "Earthen Fist"
+    const val MILD_MANNERED_PROFESSOR = "Mild-Mannered Professor"
+    const val SAVAGE_BEAST = "Savage Beast"
 }

@@ -74,6 +74,7 @@ import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.request.OceanRequest
+import net.sourceforge.kolmafia.request.ResearchBenchRequest
 import net.sourceforge.kolmafia.session.SessionManager
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.buffbot.BuffBotManager
@@ -137,6 +138,7 @@ val sharedModule = module {
     singleOf(::FightRequest)
     singleOf(::ChoiceRequest)
     singleOf(::OceanRequest)
+    singleOf(::ResearchBenchRequest)
     single { GoalManager() }
     single { QuestDatabase(get()) }
     single { QuestLogRequest(get(), get(), get()) }
@@ -470,6 +472,7 @@ val sharedModule = module {
             faxBotDatabase = get(),
             chatProbe = get(),
             chatManager = get(),
+            researchBenchRequest = get(),
         )
     }
     singleOf(::ScriptManager)

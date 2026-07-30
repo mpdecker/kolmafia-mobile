@@ -57,6 +57,7 @@ import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.YegDemonNameSync
 import net.sourceforge.kolmafia.session.CargoPocketSync
 import net.sourceforge.kolmafia.session.OceanManager
+import net.sourceforge.kolmafia.session.WereProfessorResearchSync
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
@@ -484,6 +485,9 @@ class AdventureManager(
         val maxSteps            = 20
 
         while (stepCount < maxSteps) {
+            if (WereProfessorResearchSync.isResearchBenchChoice(currentChoiceId)) {
+                WereProfessorResearchSync.visitChoice(currentResponseText, preferences)
+            }
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
                 val bastilleContext = bastilleSyncContext()
                 BastilleBattalionSync.syncVisit(
@@ -526,6 +530,7 @@ class AdventureManager(
             }
             var html = rawHtml
             var url = rawUrl
+            WereProfessorResearchSync.postChoice0(url, html, sessionLogger)
             OceanManager.registerRequest(url, sessionLogger)
             if (OceanRequest.isOceanPage(html, url) && OceanManager.shouldAutomate(preferences)) {
                 oceanRequest?.let { request ->
@@ -563,6 +568,13 @@ class AdventureManager(
                 BastilleBattalionSync.syncPostChoice(
                     currentChoiceId, option, html, preferences, effectNames, bastilleSyncContext(),
                 )
+            }
+            if (WereProfessorResearchSync.isResearchBenchChoice(currentChoiceId)) {
+                WereProfessorResearchSync.registerRequest(url, sessionLogger)
+                WereProfessorResearchSync.postChoice2(url, html, preferences, sessionLogger)
+                if (AdventureParser.parseAdventureResponse(html, url) is AdventureResult.Choice) {
+                    WereProfessorResearchSync.visitChoice(html, preferences)
+                }
             }
             questDatabase?.let {
                 QuestChoiceRules.apply(

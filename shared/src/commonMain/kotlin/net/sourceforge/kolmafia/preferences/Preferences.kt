@@ -1,23 +1,32 @@
 package net.sourceforge.kolmafia.preferences
 
 import com.russhwolf.settings.Settings
+import net.sourceforge.kolmafia.data.DefaultsDatabase
 
 class Preferences(private val settings: Settings) {
 
-    fun getString(key: String, default: String = ""): String =
-        settings.getString(key, default)
+    fun getString(key: String, default: String? = null): String =
+        settings.getString(key, default ?: DefaultsDatabase.getString(key))
 
     fun setString(key: String, value: String) =
         settings.putString(key, value)
 
-    fun getBoolean(key: String, default: Boolean = false): Boolean =
-        settings.getBoolean(key, default)
+    fun getBoolean(key: String, default: Boolean? = null): Boolean =
+        if (default != null) {
+            settings.getBoolean(key, default)
+        } else {
+            settings.getBoolean(key, DefaultsDatabase.getBoolean(key))
+        }
 
     fun setBoolean(key: String, value: Boolean) =
         settings.putBoolean(key, value)
 
-    fun getInt(key: String, default: Int = 0): Int =
-        settings.getInt(key, default)
+    fun getInt(key: String, default: Int? = null): Int =
+        if (default != null) {
+            settings.getInt(key, default)
+        } else {
+            settings.getInt(key, DefaultsDatabase.getInt(key))
+        }
 
     fun setInt(key: String, value: Int) =
         settings.putInt(key, value)

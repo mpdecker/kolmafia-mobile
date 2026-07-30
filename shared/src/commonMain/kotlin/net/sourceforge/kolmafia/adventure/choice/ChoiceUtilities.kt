@@ -15,6 +15,13 @@ object ChoiceUtilities {
     fun extractChoiceId(html: String): Int? =
         CHOICE_ID_REGEX.find(html)?.groupValues?.getOrNull(1)?.toIntOrNull()
 
+    fun extractChoiceFromUrl(url: String): Int =
+        Regex("""whichchoice=(\d+)""", RegexOption.IGNORE_CASE)
+            .find(url)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull() ?: 0
+
     fun parseChoices(html: String): Map<Int, String> =
         OPTION_TAG_REGEX.findAll(html)
             .mapNotNull { m ->
