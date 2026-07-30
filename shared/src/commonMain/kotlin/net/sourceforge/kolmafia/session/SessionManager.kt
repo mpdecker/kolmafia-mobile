@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
+import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.DailyResourceTracker
@@ -85,6 +86,7 @@ class SessionManager(
                         moodManager?.loadActiveMood()
                         banishManager?.load()
                         junkListManager?.load(preferences)
+                        BuffBotDatabase.load()
                         outfitManager?.refreshCustomOutfits()
 
                         inventoryManager.fetchInventory()

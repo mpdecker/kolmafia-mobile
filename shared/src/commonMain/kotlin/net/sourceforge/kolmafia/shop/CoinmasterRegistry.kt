@@ -70,6 +70,7 @@ object CoinmasterRegistry {
             nickname = "dmt",
             nicknames = listOf("dimemaster"),
             token = "dime",
+            property = "availableDimes",
             shopId = null,
             buyUrl = "bigisland.php",
             sellUrl = "bigisland.php",

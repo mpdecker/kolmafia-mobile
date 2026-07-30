@@ -11,6 +11,7 @@ object DailyLimitDatabase {
     private val _allLimits = mutableListOf<DailyLimitData>()
     private val _byName = mutableMapOf<String, MutableList<DailyLimitData>>()
     private val _byItemId = mutableMapOf<DailyLimitKind, MutableMap<Int, DailyLimitEntry>>()
+    private val _castPrefBySkillId = mutableMapOf<Int, String>()
     private var loaded = false
 
     val allLimits: List<DailyLimitData> get() = _allLimits
@@ -33,6 +34,12 @@ object DailyLimitDatabase {
             val entry = DailyLimitData(type, name, trackingProperty, maxValue)
             _allLimits += entry
             _byName.getOrPut(name.lowercase()) { mutableListOf() } += entry
+
+            if (type.equals("Cast", ignoreCase = true)) {
+                SkillDefinitionDatabase.getByName(name)?.id?.let { skillId ->
+                    _castPrefBySkillId[skillId] = trackingProperty
+                }
+            }
 
             val kind = DailyLimitKind.fromTag(type) ?: continue
             val itemId = ItemDatabase.getByName(name)?.id ?: continue
@@ -60,10 +67,18 @@ object DailyLimitDatabase {
 
     fun byType(type: String): List<DailyLimitData> = _allLimits.filter { it.type.equals(type, ignoreCase = true) }
 
+    /** Desktop SkillProxy `dailylimitpref` — Cast tracking pref for a skill id, or blank. */
+    fun getCastPrefForSkill(skillId: Int): String = _castPrefBySkillId[skillId] ?: ""
+
+    internal fun registerCastPrefForTest(skillId: Int, trackingProperty: String) {
+        _castPrefBySkillId[skillId] = trackingProperty
+    }
+
     internal fun resetForTest() {
         _allLimits.clear()
         _byName.clear()
         _byItemId.clear()
+        _castPrefBySkillId.clear()
         loaded = false
     }
 

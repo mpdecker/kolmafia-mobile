@@ -35,5 +35,39 @@ object ModifierNames {
         return byLowerName[trimmed.lowercase()]
     }
 
+    fun canonicalName(name: String): String = byCaselessName(name) ?: ""
+
+    fun valueType(name: String): String {
+        val canonical = byCaselessName(name) ?: return "none"
+        val lower = canonical.lowercase()
+
+        DoubleModifier.entries.forEach { mod ->
+            if (mod.tag.equals(canonical, ignoreCase = true) || mod.name.lowercase() == lower) {
+                return if (mod.multiple) "multinumeric" else "numeric"
+            }
+        }
+        BitmapModifier.entries.forEach { mod ->
+            if (mod.tag.equals(canonical, ignoreCase = true) || mod.name.lowercase() == lower) {
+                return "numeric"
+            }
+        }
+        DerivedModifier.entries.forEach { mod ->
+            if (mod.displayName.equals(canonical, ignoreCase = true) || mod.name.lowercase() == lower) {
+                return "numeric"
+            }
+        }
+        BooleanModifier.entries.forEach { mod ->
+            if (mod.tag.equals(canonical, ignoreCase = true) || mod.name.lowercase() == lower) {
+                return "boolean"
+            }
+        }
+        StringModifier.entries.forEach { mod ->
+            if (mod.tag.equals(canonical, ignoreCase = true) || mod.name.lowercase() == lower) {
+                return if (mod.multiple) "multistring" else "string"
+            }
+        }
+        return "none"
+    }
+
     fun isValid(name: String): Boolean = byCaselessName(name) != null
 }

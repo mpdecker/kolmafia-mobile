@@ -19,8 +19,8 @@ import net.sourceforge.kolmafia.request.CharacterRequest
 class GameRuntimeLibraryAshP248Test {
 
     @Test
-    fun revision_phase230() {
-        assertEquals("phase230", GameRuntimeLibrary.REVISION)
+    fun revision_phase236() {
+        assertEquals("phase240", GameRuntimeLibrary.REVISION)
     }
 
     @Test

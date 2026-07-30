@@ -18,4 +18,17 @@ object ElementNames {
     }
 
     fun isValid(name: String): Boolean = resolve(name) != null
+
+    fun getImage(name: String): String {
+        return when (resolve(name)?.lowercase()) {
+            null -> ""
+            "cold" -> "snowflake.gif"
+            "hot" -> "fire.gif"
+            "sleaze" -> "wink.gif"
+            "spooky" -> "skull.gif"
+            "stench" -> "stench.gif"
+            "none", "slime", "supercold" -> "circle.gif"
+            else -> ""
+        }
+    }
 }

@@ -23,6 +23,8 @@ object EffectDatabase {
     fun getById(id: Int): EffectData? = byId[id]
     fun getByName(name: String): EffectData? = byName[name.lowercase()]
     fun getByDescId(descId: String): EffectData? = byDescId[descId]
+    fun getByIdOrName(effectRef: String): EffectData? = EffectDefinitionProxy.getByIdOrName(effectRef)
+    fun resolveEffectId(effectRef: String): Int = EffectDefinitionProxy.resolveEffectId(effectRef)
     fun all(): Collection<EffectData> = byId.values
 
     /** Test hook — register an effect without loading statuseffects.txt. */
@@ -64,8 +66,9 @@ object EffectDatabase {
             val attrStr = parts[5].trim()
             val attributes = if (attrStr == "none") emptySet()
                              else attrStr.split(',').map { it.trim() }.toSet()
+            val actions = parts.getOrNull(6)?.trim()?.takeIf { it.isNotEmpty() }
 
-            val effect = EffectData(id, name, image, descId, quality, attributes)
+            val effect = EffectData(id, name, image, descId, quality, attributes, actions)
             byId[id] = effect
             byName[name.lowercase()] = effect
             byDescId[descId] = effect
