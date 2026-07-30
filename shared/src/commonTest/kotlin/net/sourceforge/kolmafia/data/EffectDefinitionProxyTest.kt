@@ -76,4 +76,72 @@ class EffectDefinitionProxyTest {
         assertEquals(3, CandyEffectTier.getEffectTier(2175))
         assertEquals(0, CandyEffectTier.getEffectTier(9999))
     }
+
+    @Test
+    fun getAllActions_reflectsTcrsPatchedSource() {
+        val effectName = "Proxy Tcrs Effect"
+        val foodName = "proxy-tcrs-food"
+        EffectDatabase.registerForTest(
+            EffectData(
+                id = 9_000_020,
+                name = effectName,
+                image = "proxy.gif",
+                descId = "proxy",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "eat 1 old food",
+            ),
+        )
+        ItemDatabase.registerForTest(
+            ItemData(
+                id = 9_000_021,
+                name = foodName,
+                descId = "proxy-food",
+                image = "food.gif",
+                primaryUse = ItemPrimaryUse.FOOD,
+                secondaryUses = emptySet(),
+                access = setOf('t', 'd'),
+                autosellPrice = 100,
+                plural = null,
+            ),
+        )
+        ModifierDatabase.injectForTest("Item", foodName, "Meat Drop: +1")
+        ConsumableDatabase.injectForTest(
+            ConsumableData(
+                name = foodName,
+                type = ConsumableType.FOOD,
+                amount = 1,
+                levelReq = 1,
+                quality = ConsumableQuality.DECENT,
+                advMin = 2,
+                advMax = 3,
+                muscMin = 0,
+                muscMax = 0,
+                mystMin = 0,
+                mystMax = 0,
+                moxieMin = 0,
+                moxieMax = 0,
+                notes = "base",
+            ),
+        )
+        TCRSDatabase.injectMapForTest(
+            mapOf(
+                9_000_021 to TCRSDatabase.TcrsEntry(
+                    name = "TCRS Proxy Food",
+                    size = 1,
+                    quality = "decent",
+                    modifiers = "Effect: $effectName",
+                ),
+            ),
+        )
+        TCRSDatabase.applyModifiers()
+        assertEquals(
+            listOf("eat 1 $foodName"),
+            EffectDefinitionProxy.getAllActions(9_000_020),
+        )
+        TCRSDatabase.reset()
+        ModifierDatabase.resetForTest()
+        ConsumableDatabase.resetForTest()
+        ItemDatabase.resetForTest()
+    }
 }

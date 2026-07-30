@@ -1,9 +1,19 @@
 package net.sourceforge.kolmafia.preferences
 
+import com.russhwolf.settings.ObservableSettings
 import com.russhwolf.settings.Settings
 import net.sourceforge.kolmafia.data.DefaultsDatabase
 
 class Preferences(private val settings: Settings) {
+
+    fun hasKey(key: String): Boolean = settings.hasKey(key)
+
+    fun removeKey(key: String) {
+        settings.remove(key)
+    }
+
+    fun storedKeys(): Set<String> =
+        (settings as? ObservableSettings)?.keys ?: emptySet()
 
     fun getString(key: String, default: String? = null): String =
         settings.getString(key, default ?: DefaultsDatabase.getString(key))
@@ -30,6 +40,21 @@ class Preferences(private val settings: Settings) {
 
     fun setInt(key: String, value: Int) =
         settings.putInt(key, value)
+
+    fun getLong(key: String, default: Long? = null): Long =
+        if (default != null) {
+            settings.getLong(key, default)
+        } else {
+            val intDefault = DefaultsDatabase.getInt(key)
+            if (intDefault != 0 || DefaultsDatabase.has(key)) {
+                intDefault.toLong()
+            } else {
+                settings.getLong(key, 0L)
+            }
+        }
+
+    fun setLong(key: String, value: Long) =
+        settings.putLong(key, value)
 
     fun registerCounterName(name: String) {
         val existing = getString(COUNTER_NAMES, "").split('|').filter { it.isNotBlank() }.toMutableSet()
@@ -129,6 +154,7 @@ class Preferences(private val settings: Settings) {
 
         // Rollover gating
         const val LAST_DAYCOUNT             = "lastBreakfastDaycount"   // int; -1 = never stored
+        const val LAST_ASCENSION_NUMBER     = "lastAscensionNumber"     // int; -1 = never stored
 
         // Rufus / Shadow Rift
         const val RUFUS_QUEST_TYPE          = "_rufusQuestType"         // string: "entity"|"artifact"|"monument"

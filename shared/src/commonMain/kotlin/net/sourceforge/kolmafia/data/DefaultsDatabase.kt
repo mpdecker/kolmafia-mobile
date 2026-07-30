@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -29,6 +30,9 @@ object DefaultsDatabase {
     private val legacyDailiesInternal = mutableSetOf<String>()
     private var loaded = false
 
+    private val legacyNonDailies = setOf("_shortOrderCookCharge")
+    private val onlyResetOnRollover = setOf("ascensionsToday", "potatoAlarmClockUsed")
+
     val isLoaded: Boolean get() = loaded
     val loadedEntryCount: Int get() = entries.size
 
@@ -57,6 +61,71 @@ object DefaultsDatabase {
         val notice = entries[name]?.deprecationNotice
         return notice?.takeIf { it.isNotEmpty() }
     }
+
+    /** Desktop [Preferences.loadUserPreferences] missing-key insertion on login. */
+    fun seedMissingDefaults(preferences: Preferences): Int {
+        var seeded = 0
+        for ((name, entry) in entries) {
+            if (preferences.hasKey(name)) continue
+            writeDefault(preferences, name, entry.value)
+            seeded++
+        }
+        return seeded
+    }
+
+    /** Desktop [net.sourceforge.kolmafia.preferences.Preferences.resetToDefault]. */
+    fun resetToDefault(preferences: Preferences, name: String): Boolean {
+        val entry = entries[name] ?: return false
+        writeDefault(preferences, name, entry.value)
+        return true
+    }
+
+    /** Desktop [net.sourceforge.kolmafia.preferences.Preferences.resetPerAscension] roa loop. */
+    fun resetOnAscensionPrefs(preferences: Preferences): Int =
+        resetOnAscension().count { resetToDefault(preferences, it) }
+
+    /** Desktop [net.sourceforge.kolmafia.preferences.Preferences.resetStartOfFight] rof loop. */
+    fun resetOnFightPrefs(preferences: Preferences): Int =
+        resetOnFight().count { resetToDefault(preferences, it) }
+
+    /**
+     * Detect ascension via [Preferences.LAST_ASCENSION_NUMBER] and reset roa prefs when it increases.
+     * Returns true when an ascension reset ran.
+     */
+    fun applyAscensionResetIfNeeded(preferences: Preferences, ascensionNumber: Int): Boolean {
+        val lastAsc = preferences.getInt(Preferences.LAST_ASCENSION_NUMBER, -1)
+        val ascended = lastAsc >= 0 && ascensionNumber > lastAsc
+        if (ascended) {
+            resetOnAscensionPrefs(preferences)
+        }
+        if (lastAsc != ascensionNumber) {
+            preferences.setInt(Preferences.LAST_ASCENSION_NUMBER, ascensionNumber)
+        }
+        return ascended
+    }
+
+    /** Desktop [net.sourceforge.kolmafia.preferences.Preferences.isDaily]. */
+    fun isDaily(name: String): Boolean =
+        (name.startsWith("_") && name !in legacyNonDailies) || name in legacyDailiesInternal
+
+    /** Desktop [net.sourceforge.kolmafia.preferences.Preferences.resetDailies]. */
+    fun resetDailies(preferences: Preferences): Int {
+        var reset = 0
+        for (name in preferences.storedKeys().toList()) {
+            if (!isDaily(name)) continue
+            if (!has(name)) {
+                preferences.removeKey(name)
+            } else {
+                resetToDefault(preferences, name)
+            }
+            reset++
+        }
+        return reset
+    }
+
+    /** Desktop [net.sourceforge.kolmafia.preferences.Preferences.resetPerRollover]. */
+    fun resetPerRolloverPrefs(preferences: Preferences): Int =
+        onlyResetOnRollover.count { resetToDefault(preferences, it) }
 
     internal fun parseForTest(text: String): ParseSnapshot = parse(text)
 
@@ -166,5 +235,22 @@ object DefaultsDatabase {
         }
 
         return attributes to deprecationNotice
+    }
+
+    private fun writeDefault(preferences: Preferences, name: String, value: String) {
+        when {
+            value.equals("true", ignoreCase = true) ->
+                preferences.setBoolean(name, true)
+            value.equals("false", ignoreCase = true) ->
+                preferences.setBoolean(name, false)
+            else -> {
+                val intValue = value.toIntOrNull()
+                if (intValue != null) {
+                    preferences.setInt(name, intValue)
+                } else {
+                    preferences.setString(name, value)
+                }
+            }
+        }
     }
 }

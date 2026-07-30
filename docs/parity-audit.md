@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-07-30 after Phase 253; TCRSAstralDatabase v1 wires astral summary files)*
+*Generated: 2026-06-03 (updated 2026-07-30 after Phase 260; TCRS applyModifiers v3 effect sources + concoction effects)*
 
 ## Scale Comparison
 
@@ -536,8 +536,8 @@ mobile wins on core automation paths and test isolation.
 
 ### Tier 3 — Data wiring
 
-7. **Wire bundled-but-unused data files** — ~~`journeyman.txt`~~ **wired** *(Phase 72)*; ~~`witchess_solutions.txt`~~ **wired** *(Phase 73)*; ~~`volcanomaze.txt`~~ **wired** *(Phase 74–75; loader + solve/step automation complete)*; ~~`monsterparts.txt`~~ **wired** *(Phase 80)*; ~~`bastille.txt`~~ **wired** *(Phase 220; `BastilleDatabase` + `BastilleBattalionSync` choice 1313–1319 pref sync)*; ~~`ocean.txt`~~ **wired** *(Phase 247–248; `OceanDatabase` destination map + `OceanManager` HTTP sailing via `oceanDestination`/`oceanAction` prefs)*; ~~`wereprofessor.txt`~~ **wired** *(Phase 249–251; `WereProfessorDatabase` + `ResearchBenchRequest`/`WereProfessorResearchSync` choice 1523 HTTP + `wereprofessor research` CLI)*; ~~`defaults.txt`~~ **wired** *(Phase 252; `DefaultsDatabase` pref defaults + `Preferences` bundled-default fallback)*; ~~`TCRS.astral_consumables.txt`~~ **wired** *(Phase 253; `TCRSAstralDatabase` consumable size/effect lookup)*; ~~`TCRS.astral_pets.txt`~~ **wired** *(Phase 253; `TCRSAstralDatabase` pet modifier lookup)*; etc.; ~~`questscouncil.txt`~~ **wired** *(Phase 58)* — **all 50 bundled `.txt` files now wired**
-8. **TCRS data strategy** — lazy-load class/sign files or document as explicit non-goal
+7. **Wire bundled-but-unused data files** — ~~`journeyman.txt`~~ **wired** *(Phase 72)*; ~~`witchess_solutions.txt`~~ **wired** *(Phase 73)*; ~~`volcanomaze.txt`~~ **wired** *(Phase 74–75; loader + solve/step automation complete)*; ~~`monsterparts.txt`~~ **wired** *(Phase 80)*; ~~`bastille.txt`~~ **wired** *(Phase 220; `BastilleDatabase` + `BastilleBattalionSync` choice 1313–1319 pref sync)*; ~~`ocean.txt`~~ **wired** *(Phase 247–248; `OceanDatabase` destination map + `OceanManager` HTTP sailing via `oceanDestination`/`oceanAction` prefs)*; ~~`wereprofessor.txt`~~ **wired** *(Phase 249–251; `WereProfessorDatabase` + `ResearchBenchRequest`/`WereProfessorResearchSync` choice 1523 HTTP + `wereprofessor research` CLI)*; ~~`defaults.txt`~~ **wired** *(Phase 252–257; `DefaultsDatabase` pref defaults + `Preferences` bundled-default fallback + login `seedMissingDefaults` write-back + `roa`/`rof` reset hooks on ascension/combat + `ld`/`_` daily rollover reset + `RolloverCounterReset` cat-burglar/kolhs/TurnCounter login hook)*; ~~`TCRS.astral_consumables.txt`~~ **wired** *(Phase 253; `TCRSAstralDatabase` consumable size/effect lookup)*; ~~`TCRS.astral_pets.txt`~~ **wired** *(Phase 253; `TCRSAstralDatabase` pet modifier lookup)*; etc.; ~~`questscouncil.txt`~~ **wired** *(Phase 58)* — **all 50 bundled `.txt` files now wired**
+8. **TCRS data strategy** — ~~`TCRSDatabase.applyModifiers` v1~~ **wired** *(Phase 258; pref-backed item modifier overrides via `ModifierDatabase.updateItem`/`resetOverrides` + familiar-equipment skip + login apply/reset hooks)*; ~~`TCRSDatabase.applyModifiers` v2~~ **wired** *(Phase 259; campground/chateau skip sets + `ConsumableDatabase.updateConsumable`/`resetOverrides` for TCRS size/quality adventures + login consumable reset)*; ~~`TCRSDatabase.applyModifiers` v3~~ **wired** *(Phase 260; `EffectDatabase.stripConsumableActions`/`addEffectSource`/`resetOverrides` + `ConcoctionDatabase.setEffectName`/`resetEffectNames` + `$effect[default|all]` live TCRS sources)*; lazy-load class/sign files or document as explicit non-goal for full ~160-file parity
 
 ### Tier 4 — Explicit non-goals (document, don't port)
 
@@ -801,6 +801,13 @@ Phase 250 → ResearchBenchRequest v1 (`WereProfessorDatabase.deriveKnownResearc
 Phase 251 → WereProfessor CLI v1 (`WereProfessorManager` skill-tree HTML dump + `wereprofessor research`/`research verbose`/`research <field>` via `cliDispatch` + desktop error-string validation + `ResearchBenchRequest` delegation); 3,960+ tests
 Phase 252 → DefaultsDatabase v1 (`defaults.txt` loader: global/user pref defaults + `roa`/`rof`/`ld`/`deprecated` attribute metadata + `Preferences` bundled-default fallback on read); 3,975+ tests
 Phase 253 → TCRSAstralDatabase v1 (`TCRS.astral_pets.txt`/`TCRS.astral_consumables.txt` loaders: class/sign/item lookup + consumable size/effect parse + `GameDatabase.load` hook; closes bundled-data gap); 3,990+ tests
+Phase 254 → DefaultsDatabase v2 (`DefaultsDatabase.seedMissingDefaults` login write-back + `Preferences.hasKey` + typed default seeding in `SessionManager.login` after `GameDatabase.load`); 4,000+ tests
+Phase 255 → DefaultsDatabase v3 (`resetToDefault`/`resetOnAscensionPrefs`/`resetOnFightPrefs` + `applyAscensionResetIfNeeded` ascension detection + combat-entry rof reset in `AdventureManager` + `BanishManager.clearAvatarBanishes`); 4,010+ tests
+Phase 256 → DefaultsDatabase v4 (`isDaily`/`resetDailies`/`resetPerRolloverPrefs` + `Preferences.storedKeys`/`removeKey` + login rollover hook in `SessionManager` day-change gate); 4,020+ tests
+Phase 257 → resetCounters v1 (`RolloverCounterReset` cat-burglar bank-heist carryover + kolhs school-spirit reset + wandering-monster TurnCounter clears + rollover-timestamp gap detection + `Preferences.getLong`/`setLong`); 4,030+ tests
+Phase 258 → TCRS applyModifiers v1 (`TCRSDatabase.applyModifiers`/`resetModifiers` + `ModifierDatabase.updateItem`/`resetOverrides` + familiar-equipment skip + SessionManager login apply/reset hooks; restores missing `RolloverCounterReset.kt` + tests); 4,045+ tests
+Phase 259 → TCRS applyModifiers v2 (`TCRSSkipItemIds` campground/chateau skip sets + `ConsumableDatabase.updateConsumable`/`resetOverrides` + TCRS size/quality adventure overrides + `$item[adventures]`/`fullness`/`quality` live after login); 4,060+ tests
+Phase 260 → TCRS applyModifiers v3 (`EffectDatabase.stripConsumableActions`/`addEffectSource`/`resetOverrides` + `ConcoctionDatabase.setEffectName`/`resetEffectNames` + `$effect[default|all]` TCRS patched sources); 4,075+ tests
 Audit → Full parity audit: dual ASH metrics (≥890 registered vs ~350–400 behavioral); Subsystem Scale table; Bundled Data Gap (29 loaded / 20 unwired); Tier 1–4 Top Priorities; JS runtime + explicit non-goals documented
 ```
 

@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.modifiers.StringModifier
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -36,6 +37,25 @@ object ConcoctionDatabase {
     fun getByIngredient(name: String): List<ConcoctionData> =
         _byIngredient[name.lowercase()] ?: emptyList()
     fun all(): Collection<ConcoctionData> = _byResult.values
+
+    fun getEffectName(resultName: String): String? = getByResult(resultName)?.effectName
+
+    /** Desktop Concoction.setEffectName — derive from item EFFECT modifier after TCRS apply. */
+    fun setEffectName(itemId: Int, itemName: String) {
+        val concoction = getByResult(itemName) ?: return
+        val effectName = ModifierDatabase.getStringModifier(itemName, StringModifier.EFFECT)
+            .ifBlank { null }
+        _byResult[concoction.result.lowercase()] = concoction.copy(effectName = effectName)
+    }
+
+    /** Re-derive effect names from current (bundled) item modifiers after TCRS reset. */
+    fun resetEffectNames() {
+        for ((key, concoction) in _byResult.toList()) {
+            val effectName = ModifierDatabase.getStringModifier(concoction.result, StringModifier.EFFECT)
+                .ifBlank { null }
+            _byResult[key] = concoction.copy(effectName = effectName)
+        }
+    }
 
     /** Test hook — inject a concoction without loading from disk. */
     internal fun injectForTest(concoction: ConcoctionData) {

@@ -18,6 +18,7 @@ import net.sourceforge.kolmafia.combat.RandomModifierParser
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ZoneLookup
 import net.sourceforge.kolmafia.equipment.OutfitManager
@@ -359,6 +360,9 @@ class AdventureManager(
     }
 
     private suspend fun resolveCombat(location: AdventureLocation): AdventureResult.Combat? {
+        if (!_inMultiFight) {
+            DefaultsDatabase.resetOnFightPrefs(preferences)
+        }
         if (lastTurnResponseText.isNotBlank()) {
             lastFightHtml = lastTurnResponseText
         }
