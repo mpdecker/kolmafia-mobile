@@ -14,6 +14,9 @@ object ConsumableDatabase {
     private val byNameDrink = mutableMapOf<String, ConsumableData>()
     private val byNameSpleen = mutableMapOf<String, ConsumableData>()
     private val byNameNonFilling = mutableMapOf<String, ConsumableData>()
+    private val bundledByNameFood = mutableMapOf<String, ConsumableData>()
+    private val bundledByNameDrink = mutableMapOf<String, ConsumableData>()
+    private val bundledByNameSpleen = mutableMapOf<String, ConsumableData>()
     private var loaded = false
 
     suspend fun load() {
@@ -22,6 +25,7 @@ object ConsumableDatabase {
         loadFile("files/data/inebriety.txt", ConsumableType.DRINK)
         loadFile("files/data/spleenhit.txt", ConsumableType.SPLEEN)
         loadNonFilling()
+        snapshotBundled()
         loaded = true
     }
 
@@ -80,12 +84,94 @@ object ConsumableDatabase {
     fun bestDrinks(minQuality: ConsumableQuality): List<ConsumableData> =
         byNameDrink.values.filter { it.quality >= minQuality }
 
+    /** Desktop ConsumablesDatabase.updateConsumable — runtime TCRS override for food/drink/spleen. */
+    fun updateConsumable(
+        itemName: String,
+        size: Int,
+        level: Int,
+        quality: ConsumableQuality,
+        adv: String,
+        mus: String,
+        myst: String,
+        mox: String,
+        notes: String,
+    ): Boolean {
+        val key = itemName.lowercase()
+        val existing = getFood(itemName) ?: getDrink(itemName) ?: getSpleen(itemName) ?: return false
+        val (advMin, advMax) = parseRange(adv)
+        val (muscMin, muscMax) = parseRange(mus)
+        val (mystMin, mystMax) = parseRange(myst)
+        val (moxieMin, moxieMax) = parseRange(mox)
+        val updated = existing.copy(
+            amount = size,
+            levelReq = level,
+            quality = quality,
+            advMin = advMin,
+            advMax = advMax,
+            muscMin = muscMin,
+            muscMax = muscMax,
+            mystMin = mystMin,
+            mystMax = mystMax,
+            moxieMin = moxieMin,
+            moxieMax = moxieMax,
+            notes = notes,
+        )
+        when (existing.type) {
+            ConsumableType.FOOD -> byNameFood[key] = updated
+            ConsumableType.DRINK -> byNameDrink[key] = updated
+            ConsumableType.SPLEEN -> byNameSpleen[key] = updated
+            ConsumableType.NONFILLING -> return false
+        }
+        return true
+    }
+
+    /** Restore runtime overrides from bundled fullness/inebriety/spleenhit snapshots. */
+    fun resetOverrides() {
+        byNameFood.clear()
+        byNameFood.putAll(bundledByNameFood)
+        byNameDrink.clear()
+        byNameDrink.putAll(bundledByNameDrink)
+        byNameSpleen.clear()
+        byNameSpleen.putAll(bundledByNameSpleen)
+    }
+
     internal fun resetForTest() {
         byNameFood.clear()
         byNameDrink.clear()
         byNameSpleen.clear()
         byNameNonFilling.clear()
+        bundledByNameFood.clear()
+        bundledByNameDrink.clear()
+        bundledByNameSpleen.clear()
         loaded = false
+    }
+
+    internal fun injectForTest(entry: ConsumableData) {
+        val key = entry.name.lowercase()
+        val map = when (entry.type) {
+            ConsumableType.FOOD -> byNameFood
+            ConsumableType.DRINK -> byNameDrink
+            ConsumableType.SPLEEN -> byNameSpleen
+            ConsumableType.NONFILLING -> byNameNonFilling
+        }
+        val bundled = when (entry.type) {
+            ConsumableType.FOOD -> bundledByNameFood
+            ConsumableType.DRINK -> bundledByNameDrink
+            ConsumableType.SPLEEN -> bundledByNameSpleen
+            ConsumableType.NONFILLING -> return
+        }
+        map[key] = entry
+        bundled[key] = entry
+        loaded = true
+    }
+
+    private fun snapshotBundled() {
+        bundledByNameFood.clear()
+        bundledByNameFood.putAll(byNameFood)
+        bundledByNameDrink.clear()
+        bundledByNameDrink.putAll(byNameDrink)
+        bundledByNameSpleen.clear()
+        bundledByNameSpleen.putAll(byNameSpleen)
     }
 
     internal fun applyNonFillingParse(text: String) {

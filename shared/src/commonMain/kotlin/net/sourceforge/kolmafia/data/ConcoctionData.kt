@@ -4,7 +4,8 @@ data class ConcoctionData(
     val result: String,
     val resultQuantity: Int,       // usually 1; SUSE items may produce multiple
     val methods: Set<String>,      // COMBINE, COOK, MIX, SMITH, etc.
-    val ingredients: List<ConcoctionIngredient>
+    val ingredients: List<ConcoctionIngredient>,
+    val effectName: String? = null,
 ) {
     val isCooking get() = methods.any { it.contains("COOK") || it.contains("PASTA") || it.contains("SAUCE") }
     val isMixing get() = methods.any { it.contains("MIX") || it.contains("COCK") || it.contains("STILL") }

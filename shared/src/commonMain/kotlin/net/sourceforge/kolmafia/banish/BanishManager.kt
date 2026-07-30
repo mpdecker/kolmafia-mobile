@@ -69,6 +69,14 @@ class BanishManager(private val preferences: Preferences) {
         save()
     }
 
+    /** Desktop ascension clears [ResetType.AVATAR] banishes (Prism Break). */
+    fun clearAvatarBanishes() {
+        _state.value = _state.value.copy(
+            monsters = _state.value.monsters.filter { it.banisher.resetType != ResetType.AVATAR },
+        )
+        save()
+    }
+
     /** Serializes [state] to [Preferences.BANISHED_MONSTERS]. */
     fun save() {
         val serialized = _state.value.monsters.joinToString("|") { b ->

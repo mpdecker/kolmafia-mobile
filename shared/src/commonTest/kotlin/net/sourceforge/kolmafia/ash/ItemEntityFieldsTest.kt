@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 import net.sourceforge.kolmafia.data.ConsumableDatabase
+import net.sourceforge.kolmafia.data.ConsumableQuality
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.RestoreDatabase
 import net.sourceforge.kolmafia.character.AscensionPath
@@ -52,6 +53,24 @@ class ItemEntityFieldsTest {
         assertEquals("good", ItemEntityFields.resolve("acceptable bagel", "quality", db).toString())
         assertEquals("8-9", ItemEntityFields.resolve("acceptable bagel", "adventures", db).toString())
         assertEquals("16-20", ItemEntityFields.resolve("Lucky Lindy", "adventures", db).toString())
+    }
+
+    @Test
+    fun adventures_andFullness_reflectTcrsConsumableOverride() {
+        ConsumableDatabase.updateConsumable(
+            itemName = "acceptable bagel",
+            size = 2,
+            level = 1,
+            quality = ConsumableQuality.GOOD,
+            adv = "6",
+            mus = "0",
+            myst = "0",
+            mox = "0",
+            notes = "Unspaded",
+        )
+        assertEquals("6", ItemEntityFields.resolve("acceptable bagel", "adventures", db).toString())
+        assertEquals(2L, ItemEntityFields.resolve("acceptable bagel", "fullness", db).toLong())
+        assertEquals("good", ItemEntityFields.resolve("acceptable bagel", "quality", db).toString())
     }
 
     @Test

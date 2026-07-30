@@ -63,6 +63,28 @@ object TurnCounter {
         save(preferences, entries)
     }
 
+    val WANDERING_MONSTER_LABELS = listOf(
+        "Romantic Monster window begin",
+        "Romantic Monster window end",
+        "Digitize Monster",
+        "Holiday Monster window begin",
+        "Holiday Monster window end",
+        "Event Monster window begin",
+        "Event Monster window end",
+        "Taco Elf window begin",
+        "Taco Elf window end",
+        "Latte Monster",
+    )
+
+    /** Desktop [net.sourceforge.kolmafia.KoLmafia.resetCounters] wandering-monster window clears. */
+    fun stopWanderingMonsterWindows(preferences: Preferences): Int {
+        val before = load(preferences).size
+        for (label in WANDERING_MONSTER_LABELS) {
+            stopCounting(preferences, label)
+        }
+        return before - load(preferences).size
+    }
+
     /** Remove counters whose absolute turn has been reached or passed. */
     fun removeExpired(preferences: Preferences, currentRun: Int) {
         val entries = load(preferences).filter { it.absoluteTurn > currentRun }

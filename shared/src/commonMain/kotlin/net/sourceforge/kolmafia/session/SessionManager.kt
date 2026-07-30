@@ -12,6 +12,7 @@ import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.TCRSDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
@@ -63,17 +64,28 @@ class SessionManager(
             is LoginResult.Success -> {
                 preferences.setString(Preferences.LAST_USERNAME, username)
                 gameDatabase.load()
+                DefaultsDatabase.seedMissingDefaults(preferences)
                 ShopRowDatabase.restoreLearnedRows(preferences)
                 characterRequest.fetchCharacterState().fold(
                     onSuccess = { apiResponse ->
                         character.updateFromApiResponse(apiResponse)
                         val charState = character.state.value
+                        val ascended = DefaultsDatabase.applyAscensionResetIfNeeded(
+                            preferences,
+                            charState.ascensionNumber,
+                        )
                         dailyResourceTracker.syncDay(charState.dayCount)
 
-                        // Gate rollover clear on actual day change
+                        // Gate rollover clear on day change or rollover timestamp gap (desktop parity)
                         val lastDay = preferences.getInt(Preferences.LAST_DAYCOUNT, -1)
                         val dayChanged = charState.dayCount != lastDay
-                        if (dayChanged) {
+                        val rolloverGap = RolloverCounterReset.shouldResetCounters(
+                            charState.rolloverTimestamp,
+                            preferences.getLong(RolloverCounterReset.LAST_COUNTER_DAY, -1L),
+                        )
+                        val rolloverChanged = dayChanged || rolloverGap
+                        if (rolloverChanged) {
+                            RolloverCounterReset.resetCounters(preferences, charState.rolloverTimestamp)
                             banishManager?.clearExpiredAndRollover(charState.currentRun)
                             breakfastManager?.clearBreakfastPrefs()
                             preferences.setInt(Preferences.LAST_DAYCOUNT, charState.dayCount)
@@ -89,6 +101,9 @@ class SessionManager(
                         moodManager?.loadMoodLibrary()
                         moodManager?.loadActiveMood()
                         banishManager?.load()
+                        if (ascended) {
+                            banishManager?.clearAvatarBanishes()
+                        }
                         junkListManager?.load(preferences)
                         BuffBotDatabase.load()
                         httpClient?.let { client ->
@@ -107,16 +122,19 @@ class SessionManager(
 
                         inventoryManager.fetchInventory()
                         effectManager.fetchEffects()
-                        if (dayChanged) {
+                        if (rolloverChanged) {
                             gameRuntimeLibrary?.updateOneDesc()
                         }
                         if (charState.inTwoCrazyRandomSummer) {
-                            TCRSDatabase.loadFromPreferences(
-                                charState.className,
-                                charState.zodiacSign,
-                                preferences,
-                            )
+                            if (TCRSDatabase.loadFromPreferences(
+                                    charState.className,
+                                    charState.zodiacSign,
+                                    preferences,
+                                )) {
+                                TCRSDatabase.applyModifiers()
+                            }
                         } else {
+                            TCRSDatabase.resetModifiers()
                             TCRSDatabase.reset()
                         }
                         gameRuntimeLibrary?.checkDynamicModifiers()

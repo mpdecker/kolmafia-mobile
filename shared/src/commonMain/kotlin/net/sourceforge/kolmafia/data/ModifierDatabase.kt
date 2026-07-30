@@ -120,7 +120,8 @@ object ModifierDatabase {
         return (listOf(override.trim()) + carried).filter { it.isNotBlank() }.joinToString(", ")
     }
 
-    internal fun resetOverridesForTest() {
+    /** Restore runtime overrides from bundled modifiers.txt snapshot (desktop resetModifiers Item slice). */
+    fun resetOverrides() {
         for ((type, entries) in _bundledByTypeAndName) {
             val live = _byTypeAndName.getOrPut(type) { mutableMapOf() }
             for ((name, entry) in entries) {
@@ -128,6 +129,14 @@ object ModifierDatabase {
             }
         }
     }
+
+    fun updateItem(itemId: Int, modifierString: String): Boolean {
+        val name = ItemDatabase.getById(itemId)?.name ?: return false
+        overrideModifier("Item", name, modifierString)
+        return true
+    }
+
+    internal fun resetOverridesForTest() = resetOverrides()
 
     internal fun injectForTest(entityType: String, name: String, modifiers: String) {
         val entry = ModifierEntry(entityType, name, modifiers)

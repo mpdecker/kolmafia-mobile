@@ -67,4 +67,18 @@ class TurnCounterTest {
         assertTrue(text.contains("Test Counter"))
         assertTrue(text.contains("5 turns"))
     }
+
+    @Test
+    fun stopWanderingMonsterWindows_removesKnownLabels() {
+        val prefs = Preferences(MapSettings())
+        TurnCounter.startCounting(prefs, 0, 10, "Romantic Monster window begin loc=*", "a.gif")
+        TurnCounter.startCounting(prefs, 0, 20, "Holiday Monster window end loc=* type=wander", "b.gif")
+        TurnCounter.startCounting(prefs, 0, 5, "Test Counter loc=*", "c.gif")
+        val removed = TurnCounter.stopWanderingMonsterWindows(prefs)
+        assertEquals(2, removed)
+        val raw = prefs.getString(TurnCounter.PREF_KEY, "")
+        assertTrue(!raw.contains("Romantic Monster"))
+        assertTrue(!raw.contains("Holiday Monster"))
+        assertTrue(raw.contains("Test Counter"))
+    }
 }
