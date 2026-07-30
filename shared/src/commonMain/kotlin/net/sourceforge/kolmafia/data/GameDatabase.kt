@@ -21,6 +21,7 @@ open class GameDatabase {
         SkillDescriptionConsequenceDatabase.load()
         CombatSkillConsequenceDatabase.load()
         FamiliarDefinitionDatabase.load()
+        PokefamDatabase.load()
         OutfitDatabase.load()
         BountyDatabase.load()
 

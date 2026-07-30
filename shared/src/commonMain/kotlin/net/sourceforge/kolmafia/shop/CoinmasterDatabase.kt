@@ -405,9 +405,14 @@ object CoinmasterDatabase {
             override.nickname?.let { builder.nickname = it }
             override.aliases?.let { builder.extraNicknames.addAll(it) }
             override.token?.let { builder.token = it }
+            override.property?.let { builder.property = it }
             override.useItemField?.let { builder.useItemField = it }
             override.buyUrl?.let { builder.buyUrl = it }
             override.sellUrl?.let { builder.sellUrl = it }
+        }
+        PROPERTY_OVERRIDES.forEach { (name, property) ->
+            val builder = builders.getOrPut(name) { Builder(name, null) }
+            builder.property = property
         }
     }
 
@@ -416,9 +421,18 @@ object CoinmasterDatabase {
         val aliases: List<String>? = null,
         val shopId: String? = null,
         val token: String? = null,
+        val property: String? = null,
         val useItemField: Boolean? = null,
         val buyUrl: String? = null,
         val sellUrl: String? = null,
+    )
+
+    private val PROPERTY_OVERRIDES = mapOf(
+        "Quartersmaster" to "availableQuarters",
+        "Game Shoppe" to "availableStoreCredits",
+        "PirateRealm Fun-a-Log" to "availableFunPoints",
+        "Sept-Ember Censer" to "availableSeptEmbers",
+        "Mr. Store 2002" to "availableMrStore2002Credits",
     )
 
     private val SPECIAL_OVERRIDES = mapOf(
@@ -426,6 +440,7 @@ object CoinmasterDatabase {
             nickname = "dimemaster",
             aliases = listOf("dmt"),
             token = "dime",
+            property = "availableDimes",
             buyUrl = "bigisland.php",
             sellUrl = "bigisland.php",
         ),
@@ -453,6 +468,7 @@ object CoinmasterDatabase {
         "The Swagger Shop" to SpecialOverride(
             nickname = "swagger",
             token = "swagger",
+            property = "availableSwagger",
             buyUrl = "peevpee.php",
         ),
         "Vending Machine" to SpecialOverride(
@@ -468,6 +484,7 @@ object CoinmasterDatabase {
         var nickname: String = shopKey ?: masterName.lowercase().replace(Regex("[^a-z0-9]+"), "")
         val extraNicknames = mutableListOf<String>()
         var token: String? = null
+        var property: String? = null
         var useItemField: Boolean = false
         var buyUrl: String? = null
         var sellUrl: String? = null
@@ -482,6 +499,7 @@ object CoinmasterDatabase {
                 nickname = nickname,
                 nicknames = extraNicknames,
                 token = token,
+                property = property,
                 shopId = shopKey,
                 buyItems = dedupedBuy,
                 sellItems = dedupedSell,

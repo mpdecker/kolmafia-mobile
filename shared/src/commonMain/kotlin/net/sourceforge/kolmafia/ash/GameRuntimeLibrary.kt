@@ -18,6 +18,8 @@ import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.DescriptionCache
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
+import net.sourceforge.kolmafia.buffbot.BuffBotManager
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.combat.RandomModifierStats
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
@@ -209,6 +211,8 @@ class GameRuntimeLibrary(
     internal val cleanupJunkRunner: net.sourceforge.kolmafia.session.CleanupJunkRunner? = null,
     internal val autoMallRunner: net.sourceforge.kolmafia.session.AutoMallRunner? = null,
     internal val quarkRunner: net.sourceforge.kolmafia.session.QuarkRunner? = null,
+    internal val buffBotManager: BuffBotManager? = null,
+    internal val buffBotDatabase: BuffBotDatabase? = null,
 ) : RuntimeLibrary() {
 
     init {
@@ -220,7 +224,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase230"
+        const val REVISION = "phase240"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -980,6 +984,16 @@ class GameRuntimeLibrary(
             val recipient = m.groupValues[1].trim()
             val message = m.groupValues[2]
             kotlinx.coroutines.runBlocking { chatSender?.sendPrivate(recipient, message) }
+        },
+
+        // buff bot skill [turns] — PM buffbot request protocol
+        Regex("^buff\\s+(\\S+)\\s+(\\S+)(?:\\s+(\\d+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val bot = m.groupValues[1].trim()
+            val skillToken = m.groupValues[2].trim()
+            val turns = m.groupValues.getOrNull(3)?.trim()?.toIntOrNull()
+            kotlinx.coroutines.runBlocking {
+                runBuffRequestCli(bot, skillToken, turns, rt)
+            }
         },
 
         // kmail recipient message — text-only kmail via sendmessage.php
@@ -2650,6 +2664,45 @@ class GameRuntimeLibrary(
                 preferences,
                 buildItemUseLimitsContext(),
             )
+            AshType.SKILL -> SkillEntityFields.resolve(
+                base.toString(),
+                field,
+                gameDatabase,
+                skillManager,
+                preferences,
+            )
+            AshType.EFFECT -> EffectEntityFields.resolve(
+                base.toString(),
+                field,
+                gameDatabase,
+            )
+            AshType.FAMILIAR -> FamiliarEntityFields.resolve(
+                base.toString(),
+                field,
+                gameDatabase,
+                familiarManager,
+                preferences,
+            )
+            AshType.BOUNTY -> BountyEntityFields.resolve(
+                base.toString(),
+                field,
+                gameDatabase,
+            )
+            AshType.PHYLUM -> PhylumEntityFields.resolve(base.toString(), field)
+            AshType.ELEMENT -> ElementEntityFields.resolve(base.toString(), field)
+            AshType.MODIFIER -> ModifierEntityFields.resolve(base.toString(), field)
+            AshType.CLASS -> ClassEntityFields.resolve(base.toString(), field)
+            AshType.COINMASTER -> {
+                val inventory = inventoryManager?.state?.value?.items
+                    ?.mapValues { (_, item) -> item.quantity }
+                    ?: emptyMap()
+                CoinmasterEntityFields.resolve(
+                    base.toString(),
+                    field,
+                    preferences,
+                    inventory,
+                )
+            }
             else -> null
         }
     }
@@ -2850,6 +2903,21 @@ class GameRuntimeLibrary(
         registerAshP246Batch(scope)
         registerAshP247Batch(scope)
         registerAshP248Batch(scope)
+        registerAshP249Batch(scope)
+        registerAshP250Batch(scope)
+        registerAshP251Batch(scope)
+        registerAshP252Batch(scope)
+        registerAshP253Batch(scope)
+        registerAshP254Batch(scope)
+        registerAshP255Batch(scope)
+        registerAshP256Batch(scope)
+        registerAshP257Batch(scope)
+        registerAshP258Batch(scope)
+        registerAshP259Batch(scope)
+        registerAshP260Batch(scope)
+        registerAshP261Batch(scope)
+        registerAshP262Batch(scope)
+        registerAshP263Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

@@ -874,6 +874,55 @@ class GameRuntimeLibraryCliTest {
     }
 
     @Test
+    fun cliExecute_buff_sendsPmAndDoesNotEchoStub() {
+        val db = net.sourceforge.kolmafia.buffbot.BuffBotDatabase.forTest(
+            costs = listOf(
+                net.sourceforge.kolmafia.buffbot.BuffCost(
+                    buffId = 3004,
+                    buffName = "Empathy of the Newt",
+                    meatCost = 100L,
+                    turns = 10,
+                ),
+            ),
+        )
+        var recipient = ""
+        var message = ""
+        val sender = object : net.sourceforge.kolmafia.chat.ChatSender(
+            HttpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun sendPrivate(rec: String, msg: String): Result<Unit> {
+                recipient = rec
+                message = msg
+                return Result.success(Unit)
+            }
+        }
+        val lib = GameRuntimeLibrary(
+            buffBotManager = net.sourceforge.kolmafia.buffbot.BuffBotManager(sender, db),
+            buffBotDatabase = db,
+        )
+        val out = outputLib(lib, """cli_execute("buff OakBot 3004 10");""")
+        assertFalse(out.contains("[cli]"))
+        assertTrue(out.contains("Buff request sent to OakBot"))
+        assertEquals("OakBot", recipient)
+        assertEquals("3004 10", message)
+    }
+
+    @Test
+    fun cliExecute_buff_unknownSkill_printsErrorWithoutEcho() {
+        val db = net.sourceforge.kolmafia.buffbot.BuffBotDatabase.forTest(costs = emptyList())
+        val sender = net.sourceforge.kolmafia.chat.ChatSender(
+            HttpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
+        )
+        val lib = GameRuntimeLibrary(
+            buffBotManager = net.sourceforge.kolmafia.buffbot.BuffBotManager(sender, db),
+            buffBotDatabase = db,
+        )
+        val out = outputLib(lib, """cli_execute("buff OakBot unknown-skill");""")
+        assertFalse(out.contains("[cli]"))
+        assertTrue(out.contains("Unknown skill"))
+    }
+
+    @Test
     fun cliExecute_note_savesAndPrintsUserNote() {
         val p = prefs()
         val lib = GameRuntimeLibrary(preferences = p)

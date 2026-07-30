@@ -32,4 +32,18 @@ class BountyDatabaseTest {
         val matches = BountyDatabase.getMatchingNames("bean")
         assertTrue(matches.contains("bean-shaped rock"))
     }
+
+    @Test
+    fun kolInternalType_easyHardSpecial() = runBlocking {
+        BountyDatabase.load()
+        assertEquals("low", BountyDatabase.getByName("bean-shaped rock")?.kolInternalType())
+        assertEquals("high", BountyDatabase.getByName("absence of moss")?.kolInternalType())
+    }
+
+    @Test
+    fun typeString_matchesBountyTxt() = runBlocking {
+        BountyDatabase.load()
+        assertEquals("easy", BountyDatabase.getByName("bean-shaped rock")?.typeString())
+        assertEquals("hard", BountyDatabase.getByName("absence of moss")?.typeString())
+    }
 }

@@ -3,7 +3,9 @@ package net.sourceforge.kolmafia.data
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import net.sourceforge.kolmafia.data.EffectQuality
 
@@ -40,6 +42,34 @@ class EffectDatabaseTest {
             "Grafted",
             EffectDatabase.getByDescId("003e2e2d7de4a3fb2982c7615b1cbcdc")?.name,
         )
+    }
+
+    @Test
+    fun load_parsesDefaultActionColumn() = runTest {
+        EffectDatabase.load()
+        val sleepy = EffectDatabase.getById(2)
+        assertNotNull(sleepy)
+        assertEquals(
+            "use 1 decorative fountain|eat 1 hippy herbal tea",
+            sleepy.actions,
+        )
+    }
+
+    @Test
+    fun load_parsesSongAttribute() = runTest {
+        EffectDatabase.load()
+        val antiphon = EffectDatabase.getById(60)
+        assertNotNull(antiphon)
+        assertTrue(antiphon.isSong())
+        assertEquals("song", antiphon.combinedAttributes())
+    }
+
+    @Test
+    fun load_parsesSynthesisActions() = runTest {
+        EffectDatabase.load()
+        val hot = EffectDatabase.getById(2165)
+        assertNotNull(hot)
+        assertEquals("synthesize Synthesis: Hot", hot.actions)
     }
 }
 

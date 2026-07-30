@@ -2,7 +2,6 @@ package net.sourceforge.kolmafia.ash
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class GameRuntimeLibraryStubsTest {
 
@@ -19,12 +18,39 @@ class GameRuntimeLibraryStubsTest {
     }
 
     @Test
-    fun userConfirm_throwsScriptException() {
+    fun userConfirm_oneArg_returnsTrue() {
         val lib = GameRuntimeLibrary.forTesting()
-        val failed = runCatching {
-            outputLib(lib, """user_confirm("Continue?");""")
-        }.isFailure
-        assertTrue(failed)
+        assertEquals("true", outputLib(lib, """print(to_string(user_confirm("Continue?")));""").trim())
+    }
+
+    @Test
+    fun userConfirm_threeArg_returnsDefaultBoolean() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("false", outputLib(lib, """print(to_string(user_confirm("Continue?", 30, false)));""").trim())
+    }
+
+    @Test
+    fun userPrompt_oneArg_returnsEmptyString() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("", outputLib(lib, """print(user_prompt("Name?"));""").trim())
+    }
+
+    @Test
+    fun userPrompt_options_returnsFirstAggregateKey() {
+        val lib = GameRuntimeLibrary.forTesting()
+        val src = """
+            string[string] opts;
+            opts["a"] = "A";
+            opts["b"] = "B";
+            print(user_prompt("Pick", opts));
+        """
+        assertEquals("a", outputLib(lib, src).trim())
+    }
+
+    @Test
+    fun userPrompt_threeArg_returnsDefaultString() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("default", outputLib(lib, """print(user_prompt("Name?", 30, "default"));""").trim())
     }
 
     @Test

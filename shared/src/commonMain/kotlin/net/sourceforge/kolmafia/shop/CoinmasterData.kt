@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.shop
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.session.SessionLogger
 
 data class CoinmasterData(
@@ -10,6 +11,7 @@ data class CoinmasterData(
     val nickname: String,
     val nicknames: List<String> = emptyList(),
     val token: String?,
+    val property: String? = null,
     val shopId: String?,
     val buyItems: List<ShopRow>,
     val sellItems: List<ShopRow>,
@@ -72,4 +74,22 @@ data class CoinmasterData(
 
     fun inaccessibleReason(): String =
         if (isAccessible()) "" else "Shop not available"
+
+    /** Desktop [CoinmasterData.getItem] — token currency item id when resolvable. */
+    fun tokenItemId(): Int? = token?.let { ItemDatabase.getByName(it)?.id }
+
+    /** Desktop [CoinmasterData.availableTokens] — inventory count, else pref, else 0. */
+    fun availableTokens(preferences: Preferences?, inventory: Map<Int, Int>): Int {
+        val itemId = tokenItemId()
+        if (itemId != null) {
+            if (itemId == HermitRequest.WORTHLESS_ITEM_ID) {
+                return HermitRequest.worthlessCountFromMaps(inventory, emptyMap(), emptyMap())
+            }
+            return inventory[itemId] ?: 0
+        }
+        property?.let { pref ->
+            return preferences?.getInt(pref, 0) ?: 0
+        }
+        return 0
+    }
 }

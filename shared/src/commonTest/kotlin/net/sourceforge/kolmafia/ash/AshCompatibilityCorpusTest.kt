@@ -390,6 +390,132 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_skillBracketFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("combat", outputLib(lib, """print(to_skill("CLEESH")["type"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_skill("Liver of Steel")["passive"]);""").trim())
+        assertEquals(
+            "seal clubber",
+            outputLib(lib, """print(to_skill("Thrust-Smack")["class"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_effectBracketFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("2", outputLib(lib, """print(to_effect("Sleepy")["id"]);""").trim())
+        assertEquals("bad", outputLib(lib, """print(to_effect("Sleepy")["quality"]);""").trim())
+        assertEquals(
+            "use 1 decorative fountain",
+            outputLib(lib, """print(to_effect("Sleepy")["default"]);""").trim(),
+        )
+        assertEquals("true", outputLib(lib, """print(to_effect("Aloysius' Antiphon of Aptitude")["song"]);""").trim())
+        assertEquals("1", outputLib(lib, """print(to_effect("Synthesis: Hot")["candy_tier"]);""").trim())
+    }
+
+    @Test
+    fun corpus_familiarBracketFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("1", outputLib(lib, """print(to_familiar("Mosquito")["id"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_familiar("Mosquito")["combat"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_familiar("Mosquito")["physical_damage"]);""").trim())
+        assertEquals("Bite", outputLib(lib, """print(to_familiar("Angry Goat")["poke_move_1"]);""").trim())
+    }
+
+    @Test
+    fun corpus_bountyBracketFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("easy", outputLib(lib, """print(to_bounty("bean-shaped rock")["type"]);""").trim())
+        assertEquals("low", outputLib(lib, """print(to_bounty("bean-shaped rock")["kol_internal_type"]);""").trim())
+        assertEquals("12", outputLib(lib, """print(to_bounty("bean-shaped rock")["number"]);""").trim())
+        assertEquals("beanbat", outputLib(lib, """print(to_bounty("bean-shaped rock")["monster"]);""").trim())
+    }
+
+    @Test
+    fun corpus_phylumElementBracketFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("beastflavor.gif", outputLib(lib, """print(to_phylum("beast")["image"]);""").trim())
+        assertEquals("snowflake.gif", outputLib(lib, """print(to_element("cold")["image"]);""").trim())
+    }
+
+    @Test
+    fun corpus_modifierClassBracketFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("numeric", outputLib(lib, """print(to_modifier("Muscle")["type"]);""").trim())
+        assertEquals("1", outputLib(lib, """print(to_class("Seal Clubber")["id"]);""").trim())
+    }
+
+    @Test
+    fun corpus_coinmasterBracketFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("dimemaster", outputLib(lib, """print(to_coinmaster("dimemaster")["nickname"]);""").trim())
+        assertEquals(
+            "Shore Inc. Ship Trip Scrip",
+            outputLib(lib, """print(to_coinmaster("shore")["token"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_interactiveAshSoftDefaults_live() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("true", outputLib(lib, """print(to_string(user_confirm("ok?")));""").trim())
+        assertEquals("mobot", outputLib(lib, """print(user_prompt("name?", 5, "mobot"));""").trim())
+    }
+
+    @Test
+    fun corpus_userNotifySoftDefaults_live() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("ok", outputLib(lib, """
+            user_notify("heads up");
+            user_notify("hidden only", true);
+            print("ok");
+        """.trimIndent()).trim())
+    }
+
+    @Test
+    fun corpus_requestBuff_live() {
+        val db = net.sourceforge.kolmafia.buffbot.BuffBotDatabase.forTest(
+            costs = listOf(
+                net.sourceforge.kolmafia.buffbot.BuffCost(
+                    buffId = 3004,
+                    buffName = "Empathy of the Newt",
+                    meatCost = 100L,
+                    turns = 10,
+                ),
+            ),
+        )
+        val sender = net.sourceforge.kolmafia.chat.ChatSender(
+            io.ktor.client.HttpClient(
+                io.ktor.client.engine.mock.MockEngine {
+                    respond("{}", io.ktor.http.HttpStatusCode.OK)
+                },
+            ),
+        )
+        val lib = GameRuntimeLibrary(
+            buffBotManager = net.sourceforge.kolmafia.buffbot.BuffBotManager(sender, db),
+            buffBotDatabase = db,
+        )
+        assertEquals("true", outputLib(lib, """print(request_buff("OakBot", 3004));""").trim())
+        val cliOut = outputLib(lib, """cli_execute("buff OakBot 3004");""")
+        assertFalse(cliOut.contains("[cli]"))
+        assertTrue(cliOut.contains("Buff request sent to OakBot"))
+    }
+
+    @Test
     fun corpus_itemBracketFieldsV6_live() = runBlocking {
         val db = GameDatabase()
         db.load()

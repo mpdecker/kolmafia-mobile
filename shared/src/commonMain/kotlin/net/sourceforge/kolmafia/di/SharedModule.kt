@@ -458,6 +458,8 @@ val sharedModule = module {
             cleanupJunkRunner = get(),
             autoMallRunner = get(),
             quarkRunner = get(),
+            buffBotManager = get(),
+            buffBotDatabase = get(),
         )
     }
     singleOf(::ScriptManager)

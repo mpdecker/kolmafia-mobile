@@ -34,6 +34,31 @@ object PhylumNames {
 
     private val BY_NAME = PHYLA.associateBy { normalize(it.name) }
 
+    private val IMAGE_BY_NAME = mapOf(
+        "beast" to "beastflavor.gif",
+        "bug" to "stinkbug.gif",
+        "constellation" to "star.gif",
+        "construct" to "sprocket.gif",
+        "demon" to "demonflavor.gif",
+        "dude" to "happy.gif",
+        "elemental" to "rrainbow.gif",
+        "elf" to "elfflavor.gif",
+        "fish" to "fish.gif",
+        "goblin" to "goblinflavor.gif",
+        "hippy" to "hippyflavor.gif",
+        "hobo" to "hoboflavor.gif",
+        "horror" to "skull.gif",
+        "humanoid" to "statue.gif",
+        "merkin" to "merkinflavor.gif",
+        "orc" to "frattyflavor.gif",
+        "penguin" to "bowtie.gif",
+        "pirate" to "pirateflavor.gif",
+        "plant" to "leafflavor.gif",
+        "slime" to "sebashield.gif",
+        "undead" to "spookyflavor.gif",
+        "weird" to "weirdflavor.gif",
+    )
+
     private fun normalize(name: String): String = name.trim().lowercase().replace("-", "")
 
     fun resolve(name: String): String? {
@@ -52,4 +77,9 @@ object PhylumNames {
     }
 
     fun isValid(name: String): Boolean = resolve(name) != null
+
+    fun getImage(name: String): String {
+        val resolved = resolve(name) ?: return ""
+        return IMAGE_BY_NAME[normalize(resolved)] ?: ""
+    }
 }

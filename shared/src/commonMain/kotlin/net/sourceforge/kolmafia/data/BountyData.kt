@@ -9,5 +9,19 @@ data class BountyData(
     val image: String,
     val count: Int,
     val monster: String,
-    val bestLocation: String
-)
+    val bestLocation: String,
+) {
+    fun typeString(): String = when (type) {
+        BountyType.EASY -> "easy"
+        BountyType.HARD -> "hard"
+        BountyType.SPECIAL -> "special"
+        BountyType.UNKNOWN -> ""
+    }
+
+    fun kolInternalType(): String = when (type) {
+        BountyType.EASY -> "low"
+        BountyType.HARD -> "high"
+        BountyType.SPECIAL -> "special"
+        BountyType.UNKNOWN -> ""
+    }
+}

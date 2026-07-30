@@ -27,6 +27,16 @@ enum class CharacterClass(
     val isMoxieBased       get() = mainStat == MainStat.MOXIE
     val isStandardClass    get() = id in 1..6
 
+    val ascensionPath: AscensionPath
+        get() = when (this) {
+            SEAL_CLUBBER, TURTLE_TAMER, PASTAMANCER, SAUCEROR, DISCO_BANDIT, ACCORDION_THIEF ->
+                AscensionPath.NONE
+            ED -> AscensionPath.ACTUALLY_ED_THE_UNDYING
+            GELATINOUS_NOOB -> AscensionPath.GELATINOUS_NOOB
+            COW_PUNCHER, BEANSLINGER, SNAKE_OILER -> AscensionPath.AVATAR_OF_WEST_OF_LOATHING
+            else -> AscensionPath.UNKNOWN
+        }
+
     companion object {
         private val byId = entries.associateBy { it.id }
 
