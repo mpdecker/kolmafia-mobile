@@ -11,7 +11,9 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.character.CharacterApiResponse
@@ -400,6 +402,120 @@ class AshCompatibilityCorpusTest {
             "seal clubber",
             outputLib(lib, """print(to_skill("Thrust-Smack")["class"]);""").trim(),
         )
+    }
+
+    @Test
+    fun corpus_faxbotCanFaxbot_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val faxDb = net.sourceforge.kolmafia.faxbot.FaxBotDatabase.instance
+        faxDb.clearForTest()
+        val bot = net.sourceforge.kolmafia.faxbot.FaxBot("onlyfax", 1)
+        bot.addMonsters(
+            listOf(
+                net.sourceforge.kolmafia.faxbot.FaxBotMonster(
+                    "rockfish", "rockfish", "rockfish", "fish", 848,
+                ),
+            ),
+        )
+        faxDb.registerBotForTest(bot)
+        val probe = object : net.sourceforge.kolmafia.chat.ChatProbe(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun isPlayerOnline(player: String): Boolean = true
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            faxBotDatabase = faxDb,
+            chatProbe = probe,
+        )
+        assertEquals("true", outputLib(lib, """print(can_faxbot(to_monster("rockfish")));""").trim())
+        assertEquals(
+            "true",
+            outputLib(lib, """print(can_faxbot(to_monster("rockfish"), "onlyfax"));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_isOnline_live() {
+        val probe = object : net.sourceforge.kolmafia.chat.ChatProbe(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun isPlayerOnline(player: String): Boolean =
+                player.equals("onlyfax", ignoreCase = true)
+        }
+        val lib = GameRuntimeLibrary(chatProbe = probe)
+        assertEquals("true", outputLib(lib, """print(is_online("onlyfax"));""").trim())
+        assertEquals("false", outputLib(lib, """print(is_online("easyfax"));""").trim())
+    }
+
+    @Test
+    fun corpus_slash_count_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val itemId = db.item("seal tooth")!!.id
+        val probe = object : net.sourceforge.kolmafia.chat.ChatProbe(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun slashCount(id: Int): Int = if (id == itemId) 9 else 0
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, chatProbe = probe)
+        assertEquals("9", outputLib(lib, """print(slash_count(to_item("seal tooth")));""").trim())
+    }
+
+    @Test
+    fun corpus_chat_clan_live() {
+        val sender = object : net.sourceforge.kolmafia.chat.ChatSender(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+        ) {
+            var lastChannel: String? = null
+            var lastMessage: String? = null
+            override suspend fun send(channel: String, message: String): Result<Unit> {
+                lastChannel = channel
+                lastMessage = message
+                return Result.success(Unit)
+            }
+        }
+        val lib = GameRuntimeLibrary(chatSender = sender)
+        outputLib(lib, """chat_clan("corpus ping");""")
+        assertEquals("clan", sender.lastChannel)
+        assertEquals("corpus ping", sender.lastMessage)
+    }
+
+    @Test
+    fun corpus_who_clan_live() {
+        val probe = object : net.sourceforge.kolmafia.chat.ChatProbe(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun whoClan(): Map<String, Boolean> =
+                mapOf("onlyfax" to true, "easyfax" to false)
+        }
+        val lib = GameRuntimeLibrary(chatProbe = probe)
+        assertEquals("true", outputLib(lib, """print(contains_key(who_clan(), "onlyfax"));""").trim())
+        assertEquals("true", outputLib(lib, """print(who_clan()["onlyfax"]);""").trim())
+    }
+
+    @Test
+    fun corpus_get_player_id_live() {
+        val probe = object : net.sourceforge.kolmafia.chat.ChatProbe(
+            HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) }),
+        ) {
+            override suspend fun lookupPlayerId(name: String): String =
+                if (name.equals("onlyfax", ignoreCase = true)) "12345" else name
+        }
+        val lib = GameRuntimeLibrary(chatProbe = probe)
+        assertEquals("12345", outputLib(lib, """print(get_player_id("onlyfax"));""").trim())
+    }
+
+    @Test
+    fun corpus_chat_notify_live() = runTest {
+        val manager = net.sourceforge.kolmafia.chat.ChatManager()
+        val lib = GameRuntimeLibrary(chatManager = manager)
+        outputLib(lib, """chat_notify("corpus hello", "red");""")
+        val messages = manager.channelFlow(net.sourceforge.kolmafia.chat.ChatManager.EVENTS_CHANNEL).first()
+        assertEquals(1, messages.size)
+        assertEquals("corpus hello", messages[0].content)
+        assertEquals("red", messages[0].color)
     }
 
     @Test

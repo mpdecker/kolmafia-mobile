@@ -20,6 +20,8 @@ import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.buffbot.BuffBotManager
+import net.sourceforge.kolmafia.faxbot.FaxBotDatabase
+import net.sourceforge.kolmafia.faxbot.FaxBotManager
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.combat.RandomModifierStats
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
@@ -129,6 +131,7 @@ import net.sourceforge.kolmafia.session.SummoningChamberManager
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.YegDemonNameSync
 import net.sourceforge.kolmafia.session.PastaThrall
+import net.sourceforge.kolmafia.chat.ChatProbe
 import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
@@ -213,6 +216,10 @@ class GameRuntimeLibrary(
     internal val quarkRunner: net.sourceforge.kolmafia.session.QuarkRunner? = null,
     internal val buffBotManager: BuffBotManager? = null,
     internal val buffBotDatabase: BuffBotDatabase? = null,
+    internal val faxBotManager: FaxBotManager? = null,
+    internal val faxBotDatabase: FaxBotDatabase? = null,
+    internal val chatProbe: ChatProbe? = null,
+    internal val chatManager: net.sourceforge.kolmafia.chat.ChatManager? = null,
 ) : RuntimeLibrary() {
 
     init {
@@ -224,7 +231,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase240"
+        const val REVISION = "phase247"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -986,6 +993,11 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { chatSender?.sendPrivate(recipient, message) }
         },
 
+        // buff — desktop alias for skills list refresh (must precede buff bot skill pattern)
+        Regex("^buff$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { skillManager?.fetchSkills() }
+        },
+
         // buff bot skill [turns] — PM buffbot request protocol
         Regex("^buff\\s+(\\S+)\\s+(\\S+)(?:\\s+(\\d+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             val bot = m.groupValues[1].trim()
@@ -994,6 +1006,18 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking {
                 runBuffRequestCli(bot, skillToken, turns, rt)
             }
+        },
+
+        // faxbot [command] — PM faxbot request protocol
+        Regex("^faxbot\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val command = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking { runFaxbotCli(command, rt) }
+        },
+
+        // fax send|put|receive|get — clan VIP lounge fax machine
+        Regex("^fax\\s+(send|put|receive|get)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val option = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking { runFaxCli(option, rt) }
         },
 
         // kmail recipient message — text-only kmail via sendmessage.php
@@ -2014,6 +2038,20 @@ class GameRuntimeLibrary(
             rt.print("Too many attachments.")
             return
         }
+        if (isMeat && meat > 0) {
+            val activeEffectNames = effectManager?.state?.value?.effects
+                ?.map { it.name.lowercase() }
+                ?.toSet()
+                ?: emptySet()
+            val db = buffBotDatabase ?: BuffBotDatabase.instance
+            val offering = db.getOffering(recipient, meat, activeEffectNames, gameDatabase)
+            offering.abortMessage?.let { message ->
+                rt.print(message)
+                return
+            }
+            offering.conversionMessage?.let { rt.print(it) }
+            meat = offering.meatAmount
+        }
         kotlinx.coroutines.runBlocking {
             val mailResult = sendMailRequest?.send(recipient, message, attachments, meat)
             if (mailResult?.isFailure == true && attachments.isNotEmpty() && meat == 0L) {
@@ -2918,6 +2956,12 @@ class GameRuntimeLibrary(
         registerAshP261Batch(scope)
         registerAshP262Batch(scope)
         registerAshP263Batch(scope)
+        registerAshP264Batch(scope)
+        registerAshP265Batch(scope)
+        registerAshP266Batch(scope)
+        registerAshP267Batch(scope)
+        registerAshP268Batch(scope)
+        registerAshP269Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

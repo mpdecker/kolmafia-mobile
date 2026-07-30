@@ -7,7 +7,8 @@ data class ChatMessage(
     val channel: String?,       // null for private messages
     val content: String,
     val isAction: Boolean,
-    val epochSeconds: Long
+    val epochSeconds: Long,
+    val color: String? = null,
 )
 
 data class ChatPollResponse(

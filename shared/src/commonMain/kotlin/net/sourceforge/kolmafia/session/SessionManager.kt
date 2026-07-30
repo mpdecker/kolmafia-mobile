@@ -1,10 +1,13 @@
 package net.sourceforge.kolmafia.session
 
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
+import net.sourceforge.kolmafia.faxbot.FaxBotDatabase
 import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.DailyResourceTracker
@@ -51,6 +54,7 @@ class SessionManager(
     private val sessionLogger: SessionLogger? = null,
     private val gameRuntimeLibrary: GameRuntimeLibrary? = null,
     private val junkListManager: JunkListManager? = null,
+    private val httpClient: HttpClient? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -87,6 +91,18 @@ class SessionManager(
                         banishManager?.load()
                         junkListManager?.load(preferences)
                         BuffBotDatabase.load()
+                        httpClient?.let { client ->
+                            appScope.launch {
+                                try {
+                                    BuffBotDatabase.instance.configureOfferings(client)
+                                } catch (_: Exception) {
+                                }
+                                try {
+                                    FaxBotDatabase.instance.configure(client, gameDatabase)
+                                } catch (_: Exception) {
+                                }
+                            }
+                        }
                         outfitManager?.refreshCustomOutfits()
 
                         inventoryManager.fetchInventory()

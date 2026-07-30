@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import net.sourceforge.kolmafia.chat.ChatManager
 import net.sourceforge.kolmafia.chat.ChatPoller
 import net.sourceforge.kolmafia.chat.ChatSender
+import net.sourceforge.kolmafia.chat.parseChatColor
 import org.koin.compose.koinInject
 
 @Composable
@@ -73,7 +74,7 @@ fun ChatScreen(
                 .fillMaxHeight()
                 .padding(4.dp)
         ) {
-            val channelList = (setOf("clan") + channels).toList().sorted()
+            val channelList = (setOf("clan", ChatManager.EVENTS_CHANNEL) + channels).toList().sorted()
             items(channelList) { channel ->
                 Text(
                     text = "#$channel",
@@ -107,10 +108,17 @@ fun ChatScreen(
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 items(messages) { msg ->
-                    val prefix = if (msg.isAction) "* ${msg.sender}" else "<${msg.sender}>"
+                    val text = when {
+                        msg.sender.isBlank() && msg.color != null -> msg.content
+                        msg.isAction -> "* ${msg.sender} ${msg.content}"
+                        else -> "<${msg.sender}> ${msg.content}"
+                    }
+                    val textColor = parseChatColor(msg.color)
+                        ?: MaterialTheme.colorScheme.onSurface
                     Text(
-                        text = "$prefix ${msg.content}",
+                        text = text,
                         style = MaterialTheme.typography.bodySmall,
+                        color = textColor,
                         modifier = Modifier.padding(vertical = 1.dp)
                     )
                 }
