@@ -112,7 +112,7 @@ object AdventureParser {
 
     fun parseAdventureResponse(html: String, finalUrl: String): AdventureResult = when {
         finalUrl.contains("fight.php") || html.contains("You're fighting") -> parseCombatStart(html)
-        finalUrl.contains("choice.php") || html.contains("whichchoice") -> parseChoice(html)
+        html.contains("whichchoice") -> parseChoice(html)
         else -> parseNonCombat(html)
     }
 

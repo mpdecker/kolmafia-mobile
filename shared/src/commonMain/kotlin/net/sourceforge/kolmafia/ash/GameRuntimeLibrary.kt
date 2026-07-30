@@ -231,7 +231,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase247"
+        const val REVISION = "phase249"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -2140,7 +2140,7 @@ class GameRuntimeLibrary(
             BastilleBattalionSync.syncPreChoice(choiceId, option, prefs, bastilleContext)
         }
         kotlinx.coroutines.runBlocking {
-            req.choose(choiceId, option).onSuccess { html ->
+            req.choose(choiceId, option).onSuccess { (html, _) ->
                 QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext())
                 if (prefs != null && BastilleBattalionSync.isBastilleChoice(choiceId)) {
                     val effectNames = effectManager?.state?.value?.effects?.map { it.name }?.toSet()

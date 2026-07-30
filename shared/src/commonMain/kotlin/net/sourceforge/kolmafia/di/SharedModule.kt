@@ -73,6 +73,7 @@ import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
+import net.sourceforge.kolmafia.request.OceanRequest
 import net.sourceforge.kolmafia.session.SessionManager
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.buffbot.BuffBotManager
@@ -135,6 +136,7 @@ val sharedModule = module {
     singleOf(::AdventureRequest)
     singleOf(::FightRequest)
     singleOf(::ChoiceRequest)
+    singleOf(::OceanRequest)
     single { GoalManager() }
     single { QuestDatabase(get()) }
     single { QuestLogRequest(get(), get(), get()) }
@@ -390,6 +392,7 @@ val sharedModule = module {
             cargoPocketSync = get(),
             demonInCombatNameSync = get(),
             sessionLogger = get(),
+            oceanRequest = get(),
         )
     }
     single {

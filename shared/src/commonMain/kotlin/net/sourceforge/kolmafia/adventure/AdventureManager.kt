@@ -52,9 +52,11 @@ import net.sourceforge.kolmafia.session.SkillLearnFromResponse
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
+import net.sourceforge.kolmafia.request.OceanRequest
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.YegDemonNameSync
 import net.sourceforge.kolmafia.session.CargoPocketSync
+import net.sourceforge.kolmafia.session.OceanManager
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
@@ -100,6 +102,7 @@ class AdventureManager(
     private val cargoPocketSync: CargoPocketSync? = null,
     private val demonInCombatNameSync: DemonInCombatNameSync? = null,
     private val sessionLogger: SessionLogger? = null,
+    private val oceanRequest: OceanRequest? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -517,9 +520,39 @@ class AdventureManager(
                 BastilleBattalionSync.syncPreChoice(currentChoiceId, option, preferences, bastilleContext)
             }
             val extraFormFields = cargoPocketFormFields(currentChoiceId, option, ctx)
-            val html = choiceRequest.choose(currentChoiceId, option, extraFormFields).getOrElse { e ->
+            val (rawHtml, rawUrl) = choiceRequest.choose(currentChoiceId, option, extraFormFields).getOrElse { e ->
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(e)))
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
+            }
+            var html = rawHtml
+            var url = rawUrl
+            OceanManager.registerRequest(url, sessionLogger)
+            if (OceanRequest.isOceanPage(html, url) && OceanManager.shouldAutomate(preferences)) {
+                oceanRequest?.let { request ->
+                    when (
+                        val oceanResult = OceanManager.processOceanAdventure(
+                            request,
+                            preferences,
+                            sessionLogger,
+                        )
+                    ) {
+                        is OceanManager.OceanResult.Stop -> {
+                            eventBus.emit(
+                                GameEvent.AdventureLoopStopped(StopReason.GoalMet(oceanResult.message)),
+                            )
+                            return AdventureResult.Choice(
+                                currentChoiceId,
+                                "Choice Adventure",
+                                chosenOption = option,
+                            )
+                        }
+                        is OceanManager.OceanResult.Continued -> {
+                            html = oceanResult.html
+                            url = oceanResult.url
+                        }
+                        is OceanManager.OceanResult.Manual -> Unit
+                    }
+                }
             }
             syncCargoPocketPick(currentChoiceId, option, extraFormFields, html)
             syncCargoPocketVisit(currentChoiceId, html)
@@ -543,7 +576,7 @@ class AdventureManager(
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
 
-            val next = AdventureParser.parseAdventureResponse(html, "")
+            val next = AdventureParser.parseAdventureResponse(html, url)
             if (next is AdventureResult.Combat) {
                 syncCargoPocketFight(currentChoiceId, option, extraFormFields)
                 _fightFollowsChoice = true

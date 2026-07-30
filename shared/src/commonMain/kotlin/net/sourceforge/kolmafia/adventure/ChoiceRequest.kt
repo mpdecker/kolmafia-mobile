@@ -2,7 +2,8 @@ package net.sourceforge.kolmafia.adventure
 
 import io.ktor.client.*
 import io.ktor.client.request.forms.*
-import io.ktor.client.statement.*
+import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.request
 import io.ktor.http.*
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
@@ -11,7 +12,7 @@ class ChoiceRequest(private val client: HttpClient) {
         choiceId: Int,
         option: Int,
         extraFormFields: Map<String, String> = emptyMap(),
-    ): Result<String> = try {
+    ): Result<Pair<String, String>> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/choice.php",
             formParameters = parameters {
@@ -22,7 +23,7 @@ class ChoiceRequest(private val client: HttpClient) {
                 }
             }
         )
-        Result.success(response.bodyAsText())
+        Result.success(response.bodyAsText() to response.request.url.toString())
     } catch (e: Exception) {
         Result.failure(e)
     }
