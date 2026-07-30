@@ -30,7 +30,7 @@ object CafeDatabase {
         val map = when (type) {
             ConsumableType.FOOD -> byNameFood
             ConsumableType.DRINK -> byNameDrink
-            ConsumableType.SPLEEN -> return
+            ConsumableType.SPLEEN, ConsumableType.NONFILLING -> return
         }
         for (raw in text.lines()) {
             val line = raw.trim()

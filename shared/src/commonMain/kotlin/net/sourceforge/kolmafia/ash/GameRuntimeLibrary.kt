@@ -88,6 +88,7 @@ import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.request.UntinkerRequest
+import net.sourceforge.kolmafia.request.ItemUseLimitsContext
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.PirateRealmSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
@@ -102,6 +103,7 @@ import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.BastilleBattalionSync
+import net.sourceforge.kolmafia.session.BastilleSyncContext
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
@@ -218,7 +220,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase220"
+        const val REVISION = "phase230"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1851,6 +1853,65 @@ class GameRuntimeLibrary(
         )
     }
 
+    /** Context for evaluating restore bracket expressions on `$item[minhp|maxhp|minmp|maxmp]`. */
+    internal fun buildRestoreExpressionContext(): ExpressionContext {
+        val state = character?.state?.value ?: CharacterState()
+        val effects = effectManager?.state?.value?.effects ?: emptyList()
+        val skillNames = skillManager?.state?.value?.skills
+            ?.map { it.name }
+            ?.toSet()
+            ?: emptySet()
+        return ExpressionContext(
+            level = state.level,
+            inebriety = state.inebriety,
+            fullness = state.fullness,
+            spleenUsed = state.spleenUsed,
+            familiarWeight = state.familiarWeight,
+            ascensions = state.ascensionNumber,
+            effectsCount = effects.size,
+            fury = state.fury,
+            audience = state.audience,
+            gender = state.gender.modifierValue,
+            telescopeUpgrades = state.telescopeUpgrades,
+            activeEffects = effects.associate { it.name.lowercase() to it.duration },
+            skills = skillNames.map { it.lowercase() }.toSet(),
+            challengePath = state.challengePath,
+            className = state.className,
+            isRestricted = state.isRestricted,
+            familiarName = state.familiarName.lowercase(),
+            mainhandItemName = state.equipment[EquipmentSlot.WEAPON]?.lowercase() ?: "",
+            prefLookup = { name -> preferences?.getString(name, "") ?: "" },
+            characterMaxHp = state.maxHp,
+            characterMaxMp = state.maxMp,
+            characterCurrentHp = state.currentHp,
+            equippedItemNames = state.equippedItems()
+                .map { it.second.lowercase() }
+                .filter { it.isNotBlank() }
+                .toSet(),
+            inBeecore = state.inBeecore,
+        )
+    }
+
+    /** Context for `$item[dailyusesleft]` including fight/choice/limit-mode/path guards. */
+    internal fun buildItemUseLimitsContext(): ItemUseLimitsContext {
+        val state = character?.state?.value ?: CharacterState()
+        val prefs = preferences
+        val cpuUpgrades = prefs?.getString("youRobotCPUUpgrades", "") ?: ""
+        return ItemUseLimitsContext(
+            character = state,
+            preferences = prefs,
+            expressionContext = buildRestoreExpressionContext(),
+            inMultiFight = adventureManager?.inMultiFight == true,
+            choiceFollowsFight = adventureManager?.fightFollowsChoice == true,
+            inChoiceAdventure = adventureManager?.inChoiceResolution == true,
+            canWalkAwayFromChoice = adventureManager?.canWalkAwayFromChoice() ?: true,
+            canUsePotions = !state.inRobocore || cpuUpgrades.contains("robot_potions"),
+            accessibleCount = { itemId ->
+                inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+            },
+        )
+    }
+
     /** Desktop garbage-shirt XP ×2 when shirt equipped and charge remains. */
     internal fun garbageShirtXpMultiplier(): Int {
         val state = character?.state?.value ?: return 1
@@ -2021,8 +2082,10 @@ class GameRuntimeLibrary(
         val req = choiceRequest ?: return
         val db = questDatabase ?: return
         val prefs = preferences
+        val bastilleContext = bastilleSyncContext()
         if (prefs != null && BastilleBattalionSync.isBastilleChoice(choiceId)) {
-            BastilleBattalionSync.syncPreChoice(choiceId, option, prefs)
+            BastilleBattalionSync.registerRequest(choiceId, option, prefs, bastilleContext)
+            BastilleBattalionSync.syncPreChoice(choiceId, option, prefs, bastilleContext)
         }
         kotlinx.coroutines.runBlocking {
             req.choose(choiceId, option).onSuccess { html ->
@@ -2030,21 +2093,32 @@ class GameRuntimeLibrary(
                 if (prefs != null && BastilleBattalionSync.isBastilleChoice(choiceId)) {
                     val effectNames = effectManager?.state?.value?.effects?.map { it.name }?.toSet()
                         ?: emptySet()
-                    BastilleBattalionSync.syncPostChoice(choiceId, option, html, prefs, effectNames)
+                    BastilleBattalionSync.syncPostChoice(
+                        choiceId, option, html, prefs, effectNames, bastilleContext,
+                    )
                 }
                 QuestChoiceRules.apply(choiceId, html, db, option, preferences, inventoryManager)
             }
         }
     }
 
+    private fun bastilleSyncContext(): BastilleSyncContext =
+        BastilleSyncContext(
+            sessionLogger = sessionLogger,
+            playerId = character?.state?.value?.playerId ?: 0,
+        )
+
     private fun syncBastilleVisitFromUrl(html: String, url: String, prefs: Preferences) {
+        val bastilleContext = bastilleSyncContext()
         if (url.contains("forceoption=0")) {
-            BastilleBattalionSync.syncVisit(BastilleBattalionSync.CHOICE_RIG, html, url, prefs)
+            BastilleBattalionSync.syncVisit(
+                BastilleBattalionSync.CHOICE_RIG, html, url, prefs, bastilleContext,
+            )
         }
         val choiceId = WHICH_CHOICE_URL_PATTERN.find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
             ?: net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities.extractChoiceId(html)
         if (choiceId != null && BastilleBattalionSync.isBastilleChoice(choiceId)) {
-            BastilleBattalionSync.syncVisit(choiceId, html, url, prefs)
+            BastilleBattalionSync.syncVisit(choiceId, html, url, prefs, bastilleContext)
         }
     }
 
@@ -2567,6 +2641,15 @@ class GameRuntimeLibrary(
                 character?.state?.value,
             )
             AshType.PATH -> PathEntityFields.resolve(base.toString(), field, preferences)
+            AshType.ITEM -> ItemEntityFields.resolve(
+                base.toString(),
+                field,
+                gameDatabase,
+                buildRestoreExpressionContext(),
+                character?.state?.value ?: CharacterState(),
+                preferences,
+                buildItemUseLimitsContext(),
+            )
             else -> null
         }
     }
@@ -2755,6 +2838,18 @@ class GameRuntimeLibrary(
         registerAshP234Batch(scope)
         registerAshP235Batch(scope)
         registerAshP236Batch(scope)
+        registerAshP237Batch(scope)
+        registerAshP238Batch(scope)
+        registerAshP239Batch(scope)
+        registerAshP240Batch(scope)
+        registerAshP241Batch(scope)
+        registerAshP242Batch(scope)
+        registerAshP243Batch(scope)
+        registerAshP244Batch(scope)
+        registerAshP245Batch(scope)
+        registerAshP246Batch(scope)
+        registerAshP247Batch(scope)
+        registerAshP248Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

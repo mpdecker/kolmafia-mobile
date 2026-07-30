@@ -386,6 +386,7 @@ val sharedModule = module {
             yegDemonNameSync = get(),
             cargoPocketSync = get(),
             demonInCombatNameSync = get(),
+            sessionLogger = get(),
         )
     }
     single {
@@ -541,6 +542,6 @@ val sharedModule = module {
     singleOf(::ChatManager)
     singleOf(::ChatSender)
     singleOf(::ChatPoller)
-    single { BuffBotDatabase.default }
+    single { BuffBotDatabase.instance }
     singleOf(::BuffBotManager)
 }

@@ -46,6 +46,8 @@ import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.BastilleBattalionSync
+import net.sourceforge.kolmafia.session.BastilleSyncContext
+import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.session.SkillLearnFromResponse
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
@@ -97,6 +99,7 @@ class AdventureManager(
     private val yegDemonNameSync: YegDemonNameSync? = null,
     private val cargoPocketSync: CargoPocketSync? = null,
     private val demonInCombatNameSync: DemonInCombatNameSync? = null,
+    private val sessionLogger: SessionLogger? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -107,10 +110,15 @@ class AdventureManager(
     private var itemGoalMetThisTurn = false
     private var _inMultiFight = false
     private var _fightFollowsChoice = false
+    private var _inChoiceResolution = false
     private var lastFightHtml: String = ""
 
     val inMultiFight: Boolean get() = _inMultiFight
     val fightFollowsChoice: Boolean get() = _fightFollowsChoice
+    val inChoiceResolution: Boolean get() = _inChoiceResolution
+
+    /** Desktop ChoiceManager.canWalkAway — stub true until choice HTML walk-away parity. */
+    fun canWalkAwayFromChoice(): Boolean = true
 
     fun canStillSteal(): Boolean {
         if (!net.sourceforge.kolmafia.character.CharacterStats.canPickpocket(
@@ -132,6 +140,10 @@ class AdventureManager(
     internal fun testSetCombatFlags(inMultiFight: Boolean, fightFollowsChoice: Boolean) {
         _inMultiFight = inMultiFight
         _fightFollowsChoice = fightFollowsChoice
+    }
+
+    internal fun testSetChoiceResolution(inChoiceResolution: Boolean) {
+        _inChoiceResolution = inChoiceResolution
     }
 
     fun setSkillUses(n: Int) { skillUses = n }
@@ -450,6 +462,18 @@ class AdventureManager(
         choiceId: Int,
         initialResponseText: String,
     ): AdventureResult.Choice {
+        _inChoiceResolution = true
+        try {
+            return resolveChoiceLoop(choiceId, initialResponseText)
+        } finally {
+            _inChoiceResolution = false
+        }
+    }
+
+    private suspend fun resolveChoiceLoop(
+        choiceId: Int,
+        initialResponseText: String,
+    ): AdventureResult.Choice {
         var currentChoiceId     = choiceId
         var currentResponseText = initialResponseText
         var stepCount           = 0
@@ -458,7 +482,10 @@ class AdventureManager(
 
         while (stepCount < maxSteps) {
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
-                BastilleBattalionSync.syncVisit(currentChoiceId, currentResponseText, url = null, preferences)
+                val bastilleContext = bastilleSyncContext()
+                BastilleBattalionSync.syncVisit(
+                    currentChoiceId, currentResponseText, url = null, preferences, bastilleContext,
+                )
             }
             val ctx = ChoiceContext(
                 choiceId       = currentChoiceId,
@@ -485,7 +512,9 @@ class AdventureManager(
             lastChosenOption = option
 
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
-                BastilleBattalionSync.syncPreChoice(currentChoiceId, option, preferences)
+                val bastilleContext = bastilleSyncContext()
+                BastilleBattalionSync.registerRequest(currentChoiceId, option, preferences, bastilleContext)
+                BastilleBattalionSync.syncPreChoice(currentChoiceId, option, preferences, bastilleContext)
             }
             val extraFormFields = cargoPocketFormFields(currentChoiceId, option, ctx)
             val html = choiceRequest.choose(currentChoiceId, option, extraFormFields).getOrElse { e ->
@@ -499,7 +528,7 @@ class AdventureManager(
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
                 val effectNames = effects?.state?.value?.effects?.map { it.name }?.toSet() ?: emptySet()
                 BastilleBattalionSync.syncPostChoice(
-                    currentChoiceId, option, html, preferences, effectNames,
+                    currentChoiceId, option, html, preferences, effectNames, bastilleSyncContext(),
                 )
             }
             questDatabase?.let {
@@ -627,4 +656,10 @@ class AdventureManager(
         preferences?.let { AlliedRadioRequest.parseVisitChoice(html, it) }
         demonInCombatNameSync?.parseRadioResponse(html)
     }
+
+    private fun bastilleSyncContext(): BastilleSyncContext =
+        BastilleSyncContext(
+            sessionLogger = sessionLogger,
+            playerId = character.state.value.playerId,
+        )
 }

@@ -18,6 +18,7 @@ object BastilleDatabase {
         CD(3),
         PA(4),
         PD(5),
+        NONE(6),
         ;
 
         val code: String get() = name
@@ -38,10 +39,16 @@ object BastilleDatabase {
             Stat.CD -> cd
             Stat.PA -> pa
             Stat.PD -> pd
+            Stat.NONE -> 0
         }
 
         fun toSetting(): String =
-            Stat.entries.joinToString(",") { "${it.code}=${get(it)}" }
+            Stat.entries
+                .filter { it != Stat.NONE }
+                .joinToString(",") { "${it.code}=${get(it)}" }
+
+        fun toStrengthString(): String =
+            "Military ${ma}/${md} Castle ${ca}/${cd} Psychological ${pa}/${pd}"
     }
 
     enum class Upgrade(val option: Int, val prefix: String) {

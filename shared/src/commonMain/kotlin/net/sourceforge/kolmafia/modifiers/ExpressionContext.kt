@@ -76,6 +76,10 @@ data class ExpressionContext(
     val basementLevel: Int = 0,
     /** Character max HP for HP token (not monster HP). */
     val characterMaxHp: Int = 0,
+    /** Character max MP for MP token in restore expressions. */
+    val characterMaxMp: Int = 0,
+    /** Character current HP for CURHP token in restore expressions. */
+    val characterCurrentHp: Int = 0,
 
     /** Lowercase equipped item names for equipped() in monster expressions. */
     val equippedItemNames: Set<String> = emptySet(),
@@ -113,6 +117,8 @@ data class ExpressionContext(
         "MCD" -> mindControlLevel.toDouble()
         "BL" -> basementLevel.toDouble()
         "HP" -> characterMaxHp.toDouble()
+        "MP" -> characterMaxMp.toDouble()
+        "CURHP" -> characterCurrentHp.toDouble()
         "STAT" -> maxOf(buffedMuscle, buffedMysticality, buffedMoxie).toDouble()
         else -> null
     }
@@ -238,6 +244,13 @@ data class ExpressionContext(
             familiarName = state.familiarName.lowercase(),
             mainhandItemName = state.equipment[net.sourceforge.kolmafia.character.EquipmentSlot.WEAPON]
                 ?.lowercase() ?: "",
+            characterMaxHp = state.maxHp,
+            characterMaxMp = state.maxMp,
+            characterCurrentHp = state.currentHp,
+            equippedItemNames = state.equippedItems()
+                .map { it.second.lowercase() }
+                .filter { it.isNotBlank() }
+                .toSet(),
         )
     }
 }

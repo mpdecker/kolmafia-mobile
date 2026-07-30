@@ -36,6 +36,7 @@ import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.NpcStoreDatabase
 import net.sourceforge.kolmafia.data.RestoreDatabase
+import net.sourceforge.kolmafia.data.TCRSDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.inventory.InventoryItem
@@ -278,6 +279,154 @@ class AshCompatibilityCorpusTest {
         assertEquals("41", outputLib(lib, """print(to_path("You, Robot")["id"]);""").trim())
         assertEquals("true", outputLib(lib, """print(to_string(to_path("You, Robot")["familiars"]));""").trim())
         assertEquals("5", outputLib(lib, """print(to_path("You, Robot")["points"]);""").trim())
+    }
+
+    @Test
+    fun corpus_itemEntityFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("3", outputLib(lib, """print(to_item("acceptable bagel")["fullness"]);""").trim())
+        assertEquals("good", outputLib(lib, """print(to_item("acceptable bagel")["quality"]);""").trim())
+        assertEquals("13", outputLib(lib, """print(to_item("mime army challenge coin")["levelreq"]);""").trim())
+    }
+
+    @Test
+    fun corpus_itemRestoreFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("101", outputLib(lib, """print(to_item("aspirin")["minhp"]);""").trim())
+        assertEquals("101", outputLib(lib, """print(to_item("aspirin")["maxhp"]);""").trim())
+        assertEquals("30", outputLib(lib, """print(to_item("ancient pills")["minmp"]);""").trim())
+    }
+
+    @Test
+    fun corpus_itemFlagFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("true", outputLib(lib, """print(to_item("acceptable bagel")["tradeable"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_item("ten-leaf clover")["multi"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_item("seal-clubbing club")["smithable"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_item("seal tooth")["combat_reusable"]);""").trim())
+    }
+
+    @Test
+    fun corpus_itemMetadataFields_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("Unspaded", outputLib(lib, """print(to_item("candy rations")["notes"]);""").trim())
+        assertEquals("simple", outputLib(lib, """print(to_item("tamarind-flavored chewing gum")["candy_type"]);""").trim())
+        assertEquals("true", outputLib(lib, """print(to_item("fancy chocolate")["chocolate"]);""").trim())
+        assertEquals("unspaded", outputLib(lib, """print(to_item("hard rock candy")["candy_type"]);""").trim())
+    }
+
+    @Test
+    fun corpus_itemDailyUsesLeft_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = net.sourceforge.kolmafia.character.KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(
+                    fullness = "10",
+                    stomachsize = "15",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            character = char,
+            preferences = prefs(),
+        )
+        assertEquals("5", outputLib(lib, """print(to_item("hot wing")["dailyusesleft"]);""").trim())
+        assertEquals(
+            "2147483647",
+            outputLib(lib, """print(to_item("ten-leaf clover")["dailyusesleft"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_itemDailyUsesLeftV2_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val char = net.sourceforge.kolmafia.character.KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(
+                    fullness = "0",
+                    stomachsize = "15",
+                ),
+            )
+        }
+        val mgr = net.sourceforge.kolmafia.adventure.AdventureManager(
+            adventureRequest = net.sourceforge.kolmafia.adventure.AdventureRequest(
+                io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine { respond("") }),
+            ),
+            fightRequest = net.sourceforge.kolmafia.adventure.FightRequest(
+                io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine { respond("") }),
+            ),
+            choiceRequest = net.sourceforge.kolmafia.adventure.ChoiceRequest(
+                io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine { respond("") }),
+            ),
+            characterRequest = net.sourceforge.kolmafia.request.CharacterRequest(
+                io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine { respond("") }),
+            ),
+            character = char,
+            preferences = prefs(),
+            eventBus = net.sourceforge.kolmafia.event.GameEventBus(),
+        )
+        mgr.testSetCombatFlags(inMultiFight = true, fightFollowsChoice = false)
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            character = char,
+            preferences = prefs(),
+            adventureManager = mgr,
+        )
+        assertEquals(
+            "0",
+            outputLib(lib, """print(to_item("hot wing")["dailyusesleft"]);""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_itemBracketFieldsV6_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals("folder2.gif", outputLib(lib, """print(to_item("folder (red)")["smallimage"]);""").trim())
+        assertEquals(
+            "The Shore, Inc. Gift Shop",
+            outputLib(lib, """print(to_item("dinghy plans")["seller"]);""").trim(),
+        )
+        assertEquals("Dimemaster", outputLib(lib, """print(to_item("beer bong")["buyer"]);""").trim())
+        assertEquals(
+            "Holiday Weight Gain",
+            outputLib(lib, """print(to_item("A Crimbo Carol, Ch. 1")["skill"]);""").trim(),
+        )
+        assertEquals(
+            "concoction of clumsiness",
+            outputLib(lib, """print(to_item("fumble formula")["recipe"]);""").trim(),
+        )
+        assertEquals("Work Ethic", outputLib(lib, """print(to_item("hot wing")["noob_skill"]);""").trim())
+    }
+
+    @Test
+    fun corpus_itemBracketTcrsName_live() = runBlocking {
+        TCRSDatabase.reset()
+        val db = GameDatabase()
+        db.load()
+        val lib = GameRuntimeLibrary(gameDatabase = db)
+        assertEquals(
+            "hot wing",
+            outputLib(lib, """print(to_item("hot wing")["tcrs_name"]);""").trim(),
+        )
+        TCRSDatabase.registerForTest(471, "bouncing spicy batwing")
+        assertEquals(
+            "bouncing spicy batwing",
+            outputLib(lib, """print(to_item("hot wing")["tcrs_name"]);""").trim(),
+        )
+        TCRSDatabase.reset()
     }
 
     @Test

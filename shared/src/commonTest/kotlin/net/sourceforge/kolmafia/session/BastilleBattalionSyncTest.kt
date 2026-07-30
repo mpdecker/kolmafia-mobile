@@ -7,7 +7,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.data.BastilleDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.BastilleSyncContext
+import net.sourceforge.kolmafia.session.SessionLogger
 
 class BastilleBattalionSyncTest {
 
@@ -23,6 +26,70 @@ class BastilleBattalionSyncTest {
     fun tearDown() {
         BastilleBattalionSync.resetSessionForTest()
     }
+
+    @Test
+    fun registerRequest_logsUpgradeDecorationAction() {
+        assertTrue(
+            BastilleBattalionSync.registerRequest(
+                BastilleBattalionSync.CHOICE_RIG,
+                decision = 1,
+                prefs = prefs,
+                context = sessionContext(),
+            ),
+        )
+        assertTrue(sessionLines().any { it.contains("Decorating the Barbican") })
+    }
+
+    @Test
+    fun checkPredictions_logsMismatchViaSessionLog() {
+        BastilleDatabase.injectForTest(
+            BastilleDatabase.parseForTest(
+                """
+                1	BARBECUE	BRUTALIST	CANNON	SHARKS	5	0	0	0	0	0
+                """.trimIndent(),
+            ),
+        )
+        val html = """
+            <img style='top: 233; left: 130;' src='https://d2uyhvukfffg5a.cloudfront.net/otherimages/bbatt/barb1.png'>
+            <img style='top: 233; left: 130;' src='https://d2uyhvukfffg5a.cloudfront.net/otherimages/bbatt/needle.png'>
+        """.trimIndent()
+        BastilleBattalionSync.syncPostChoice(
+            BastilleBattalionSync.CHOICE_RIG,
+            decision = 1,
+            html = html,
+            prefs = prefs,
+            context = sessionContext(),
+        )
+        assertTrue(
+            sessionLines().any { it.contains("MA was calculated to be 5 but is actually 6") },
+        )
+        BastilleDatabase.resetForTest()
+    }
+
+    @Test
+    fun syncPostChoice_logsStrengthAfterCheeseTurn() {
+        prefs.setString("_bastilleStats", "MA=2,MD=0,CA=0,CD=0,PA=0,PD=0")
+        prefs.setString("_bastilleLastEncounter", "Raid the cave")
+        prefs.setInt("_bastilleLastCheese", 20)
+        prefs.setInt("_bastilleGameTurn", 2)
+        BastilleBattalionSync.syncPostChoice(
+            BastilleBattalionSync.CHOICE_CHEESE_SEEKING,
+            decision = 1,
+            html = """
+                <img style='top: 233; left: 126;' src='https://d2uyhvukfffg5a.cloudfront.net/otherimages/bbatt/needle.png'>
+                (turn #3)
+            """.trimIndent(),
+            prefs = prefs,
+            context = sessionContext(),
+        )
+        assertTrue(sessionLines().any { it.contains("Military 2/0 Castle 0/0 Psychological 0/0") })
+    }
+
+    private fun sessionContext(): BastilleSyncContext =
+        BastilleSyncContext(sessionLogger = SessionLogger(prefs, net.sourceforge.kolmafia.event.GameEventBus()))
+
+    private fun sessionLines(): List<String> =
+        prefs.getString("sessionLogLines", "").lines().filter { it.isNotBlank() }
 
     @Test
     fun syncPostChoice_parsesEnemyCastleOnGameStart() {

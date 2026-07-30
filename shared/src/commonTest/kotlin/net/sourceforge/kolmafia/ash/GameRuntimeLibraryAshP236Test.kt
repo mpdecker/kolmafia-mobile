@@ -9,8 +9,8 @@ import net.sourceforge.kolmafia.session.BastilleBattalionSync
 class GameRuntimeLibraryAshP236Test {
 
     @Test
-    fun revision_isPhase220() {
-        assertEquals("phase220", GameRuntimeLibrary.REVISION)
+    fun revision_isphase222() {
+        assertEquals("phase230", GameRuntimeLibrary.REVISION)
     }
 
     @Test
