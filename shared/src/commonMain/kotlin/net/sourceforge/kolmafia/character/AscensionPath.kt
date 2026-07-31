@@ -105,6 +105,13 @@ enum class AscensionPath(
         pointsPreference = "noobPoints",
         avatarPath = true,
     ),
+    LICENSE_TO_ADVENTURE(
+        "License to Adventure",
+        pathId = 30,
+        pathImage = "briefcase.gif",
+        pointsPreference = "bondPoints",
+        liverCapacity = 2,
+    ),
     YOU_ROBOT(
         "You, Robot",
         canDrink = false,
@@ -258,6 +265,7 @@ enum class AscensionPath(
     KINGDOM_OF_EXPLOATHING("Kingdom of Exploathing", pathId = 37, pathImage = "puff.gif"),
     SURPRISING_FIST("Way of the Surprising Fist", pathId = 6, pathImage = "wosp_fist.gif"),
     STANDARD("Standard", pathId = 22, pathImage = "standardicon.gif"),
+    SLOW_AND_STEADY("Slow and Steady", pathId = 18, pathImage = "sas"),
 
     UNKNOWN("Unknown");
 
@@ -271,6 +279,9 @@ enum class AscensionPath(
         )
 
     fun canUseFamiliars(): Boolean = allowsFamiliars
+
+    /** Desktop KoLCharacter.inSlowcore — Slow and Steady path disables average-adventure lookup. */
+    fun inSlowcore(): Boolean = this == SLOW_AND_STEADY
 
     companion object {
         private val byApiName: Map<String, AscensionPath> =

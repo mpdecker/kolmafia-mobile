@@ -1,7 +1,9 @@
 package net.sourceforge.kolmafia.session
 
+import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.track.TrackManager
 
 /**
  * Partial port of desktop [net.sourceforge.kolmafia.KoLmafia.resetCounters] for mobile login rollover.
@@ -21,6 +23,9 @@ object RolloverCounterReset {
         val perRolloverPrefsReset: Int = 0,
         val dailyPrefsReset: Int = 0,
         val wanderingCountersStopped: Int = 0,
+        val banishRolloverCleared: Int = 0,
+        val trackRolloverCleared: Int = 0,
+        val mayonnaiseCountersAdjusted: Int = 0,
     )
 
     /** Desktop: rollover - lastCounterDay > 3600 */
@@ -28,12 +33,21 @@ object RolloverCounterReset {
         rolloverTimestamp > 0 &&
             (lastCounterDay < 0 || rolloverTimestamp - lastCounterDay > 3600)
 
-    fun resetCounters(preferences: Preferences, rolloverTimestamp: Long): ResetSummary {
+    fun resetCounters(
+        preferences: Preferences,
+        rolloverTimestamp: Long,
+        currentRun: Int = 0,
+        banishManager: BanishManager? = null,
+    ): ResetSummary {
         val kolhsReset = resetKolhsTotalSchoolSpirited(preferences)
         val catBurglarBankDelta = carryOverCatBurglarBankHeists(preferences)
         val perRolloverPrefsReset = DefaultsDatabase.resetPerRolloverPrefs(preferences)
         val dailyPrefsReset = DefaultsDatabase.resetDailies(preferences)
+        val banishRolloverCleared = banishManager?.resetRollover() ?: 0
+        val trackRolloverCleared = TrackManager.resetRollover(preferences)
         val wanderingCountersStopped = TurnCounter.stopWanderingMonsterWindows(preferences)
+        val mayonnaiseCountersAdjusted =
+            TurnCounter.resetMayonnaiseWindowsForRun(preferences, currentRun)
         preferences.setLong(LAST_COUNTER_DAY, rolloverTimestamp)
         return ResetSummary(
             kolhsReset = kolhsReset,
@@ -41,6 +55,9 @@ object RolloverCounterReset {
             perRolloverPrefsReset = perRolloverPrefsReset,
             dailyPrefsReset = dailyPrefsReset,
             wanderingCountersStopped = wanderingCountersStopped,
+            banishRolloverCleared = banishRolloverCleared,
+            trackRolloverCleared = trackRolloverCleared,
+            mayonnaiseCountersAdjusted = mayonnaiseCountersAdjusted,
         )
     }
 

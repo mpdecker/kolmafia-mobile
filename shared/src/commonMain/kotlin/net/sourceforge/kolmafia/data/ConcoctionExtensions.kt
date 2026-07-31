@@ -20,3 +20,7 @@ fun ConcoctionData.isStationCraftable(): Boolean =
     !methods.contains("MANUAL") && craftMode() != null && ingredients.size >= 2
 
 fun ConcoctionData.craftTypeDescription(): String = CraftTypeDescription.describe(methods)
+
+/** Desktop ConsumablesDatabase.areAdventuresBoosted — sushi/stillsuit skip ode/lunch/etc. */
+fun ConcoctionData.areAdventuresBoosted(): Boolean =
+    !methods.contains("SUSHI") && !methods.contains("STILLSUIT")

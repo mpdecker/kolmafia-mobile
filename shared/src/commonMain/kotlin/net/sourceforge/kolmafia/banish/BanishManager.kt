@@ -50,6 +50,21 @@ class BanishManager(private val preferences: Preferences) {
             .filter { !it.isExpired(currentTurn) }
             .associate { it.monsterName to it.banisher }
 
+    /** Desktop [net.sourceforge.kolmafia.session.BanishManager.resetRollover] — rollover-only banishes. */
+    fun resetRollover(): Int {
+        val before = _state.value.monsters.size
+        _state.value = _state.value.copy(
+            monsters = _state.value.monsters.filter {
+                it.banisher.resetType != ResetType.ROLLOVER
+            },
+        )
+        val cleared = before - _state.value.monsters.size
+        if (cleared > 0) {
+            save()
+        }
+        return cleared
+    }
+
     /**
      * Removes all [ResetType.ROLLOVER], [ResetType.AVATAR], and [ResetType.TURN_ROLLOVER] banishes
      * (they reset every rollover), and also removes expired [ResetType.TURNS] banishes.

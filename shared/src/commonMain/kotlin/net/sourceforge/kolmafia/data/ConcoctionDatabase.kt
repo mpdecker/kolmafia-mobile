@@ -16,6 +16,9 @@ object ConcoctionDatabase {
     private val _byIngredient = mutableMapOf<String, MutableList<ConcoctionData>>()
     private var loaded = false
     private var pullsRemaining: Int = -1
+    private var refreshNeeded = false
+    private var refreshLevel = 0
+    private var recalculateAdventureRange = false
 
     val byResult: Map<String, ConcoctionData> get() = _byResult
     val byIngredient: Map<String, List<ConcoctionData>> get() = _byIngredient
@@ -57,6 +60,35 @@ object ConcoctionDatabase {
         }
     }
 
+    /** Desktop ConcoctionDatabase.markRecalculateAdventureRange — variable consumables changed adv yields. */
+    fun markRecalculateAdventureRange() {
+        recalculateAdventureRange = true
+    }
+
+    /** Desktop ConcoctionDatabase.refreshConcoctions — v1 re-derives effect names; full creatable cache deferred. */
+    fun refreshConcoctions(force: Boolean = true) {
+        if (force) {
+            refreshNeeded = true
+        }
+        if (!refreshNeeded) {
+            return
+        }
+        if (refreshLevel > 0) {
+            return
+        }
+        refreshConcoctionsNow()
+    }
+
+    /** Desktop ConcoctionDatabase.refreshConcoctionsNow — v1 effect-name refresh; cache rebuild uses getAdventuresNeeded v1. */
+    fun refreshConcoctionsNow() {
+        refreshNeeded = false
+        resetEffectNames()
+        if (recalculateAdventureRange) {
+            ConsumableDatabase.calculateAllAverageAdventures()
+            recalculateAdventureRange = false
+        }
+    }
+
     /** Test hook — inject a concoction without loading from disk. */
     internal fun injectForTest(concoction: ConcoctionData) {
         _byResult[concoction.result.lowercase()] = concoction
@@ -74,7 +106,16 @@ object ConcoctionDatabase {
         _byIngredient.clear()
         loaded = false
         pullsRemaining = -1
+        resetRefreshStateForTest()
     }
+
+    internal fun resetRefreshStateForTest() {
+        refreshNeeded = false
+        refreshLevel = 0
+        recalculateAdventureRange = false
+    }
+
+    internal fun recalculateAdventureRangeForTest(): Boolean = recalculateAdventureRange
     fun cooking(): List<ConcoctionData> = _byResult.values.filter { it.isCooking }
     fun mixing(): List<ConcoctionData> = _byResult.values.filter { it.isMixing }
     fun smithing(): List<ConcoctionData> = _byResult.values.filter { it.isSmithing }

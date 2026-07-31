@@ -17,6 +17,9 @@ object TCRSDatabase {
         val modifiers: String = "",
     )
 
+    private const val CAFE_BOOZE_SUFFIX = "_cafe_booze"
+    private const val CAFE_FOOD_SUFFIX = "_cafe_food"
+
     private val standardSignNames = setOf(
         "Mongoose", "Wallaby", "Vole",
         "Platypus", "Opossum", "Marmot",
@@ -25,6 +28,8 @@ object TCRSDatabase {
 
     private var currentClassSign = ""
     private val tcrsMap = mutableMapOf<Int, TcrsEntry>()
+    private val tcrsBoozeMap = mutableMapOf<Int, TcrsEntry>()
+    private val tcrsFoodMap = mutableMapOf<Int, TcrsEntry>()
 
     fun getTCRSName(itemId: Int): String {
         val entry = tcrsMap[itemId]
@@ -33,7 +38,7 @@ object TCRSDatabase {
 
     fun getEntry(itemId: Int): TcrsEntry? = tcrsMap[itemId]
 
-    fun applyModifiers(): Int {
+    fun applyModifiers(characterLevel: Int): Int {
         EffectDatabase.stripConsumableActions()
         var applied = 0
         for ((itemId, entry) in tcrsMap) {
@@ -53,15 +58,28 @@ object TCRSDatabase {
             }
             if (changed) applied++
         }
+        for ((cafeId, entry) in tcrsBoozeMap) {
+            val name = CafeDatabase.getCafeBoozeName(cafeId) ?: continue
+            if (applyConsumableModifiersByName(ConsumableType.DRINK, name, entry)) applied++
+        }
+        for ((cafeId, entry) in tcrsFoodMap) {
+            val name = CafeDatabase.getCafeFoodName(cafeId) ?: continue
+            if (applyConsumableModifiersByName(ConsumableType.FOOD, name, entry)) applied++
+        }
+        ConsumableDatabase.setLevelVariableConsumables(characterLevel)
+        ConcoctionDatabase.refreshConcoctions()
         return applied
     }
 
-    fun resetModifiers() {
+    fun resetModifiers(preferences: Preferences, characterLevel: Int) {
         if (currentClassSign.isEmpty()) return
         ModifierDatabase.resetOverrides()
         ConsumableDatabase.resetOverrides()
         EffectDatabase.resetOverrides()
         ConcoctionDatabase.resetEffectNames()
+        ConcoctionDatabase.refreshConcoctions()
+        ConsumableDatabase.setVariableConsumables(preferences, characterLevel)
+        ConsumableDatabase.calculateAllAverageAdventures()
     }
 
     private fun shouldSkipItem(itemId: Int): Boolean {
@@ -88,6 +106,14 @@ object TCRSDatabase {
             ItemPrimaryUse.SPLEEN -> ConsumableType.SPLEEN
             else -> return false
         }
+        return applyConsumableModifiersByName(usage, itemName, entry)
+    }
+
+    private fun applyConsumableModifiersByName(
+        usage: ConsumableType,
+        itemName: String,
+        entry: TcrsEntry,
+    ): Boolean {
         if (ConsumableDatabase.getConsumableByName(itemName) == null) return false
         val level = ConsumableDatabase.getLevelReqByName(itemName) ?: 0
         val adv = if (usage == ConsumableType.SPLEEN) 0 else entry.size * qualityMultiplier(entry.quality)
@@ -120,10 +146,10 @@ object TCRSDatabase {
         return "TCRS_${classPart}_${signName}${suffix}.txt"
     }
 
-    fun prefKey(className: String, signName: String): String {
+    fun prefKey(className: String, signName: String, suffix: String = ""): String {
         if (!validate(className, signName)) return ""
         val classPart = className.replace(' ', '_')
-        return "tcrs_${classPart}_${signName}"
+        return "tcrs_${classPart}_${signName}$suffix"
     }
 
     fun validate(className: String, signName: String): Boolean {
@@ -158,6 +184,20 @@ object TCRSDatabase {
         currentClassSign = "$className/$signName"
     }
 
+    fun loadCafeFromPreferences(className: String, signName: String, preferences: Preferences) {
+        if (!validate(className, signName)) return
+        tcrsBoozeMap.clear()
+        tcrsFoodMap.clear()
+        val boozeText = preferences.getString(prefKey(className, signName, CAFE_BOOZE_SUFFIX), "")
+        if (boozeText.isNotBlank()) {
+            tcrsBoozeMap.putAll(parseFromText(boozeText))
+        }
+        val foodText = preferences.getString(prefKey(className, signName, CAFE_FOOD_SUFFIX), "")
+        if (foodText.isNotBlank()) {
+            tcrsFoodMap.putAll(parseFromText(foodText))
+        }
+    }
+
     fun loadFromPreferences(className: String, signName: String, preferences: Preferences): Boolean {
         if (!validate(className, signName)) {
             reset()
@@ -171,17 +211,31 @@ object TCRSDatabase {
             return false
         }
         load(className, signName, text)
+        loadCafeFromPreferences(className, signName, preferences)
         return true
     }
 
     fun saveToPreferences(className: String, signName: String, preferences: Preferences): Boolean {
         if (!validate(className, signName)) return false
-        val key = prefKey(className, signName)
-        if (tcrsMap.isEmpty()) {
+        saveMapToPreferences(className, signName, preferences, "", tcrsMap)
+        saveMapToPreferences(className, signName, preferences, CAFE_BOOZE_SUFFIX, tcrsBoozeMap)
+        saveMapToPreferences(className, signName, preferences, CAFE_FOOD_SUFFIX, tcrsFoodMap)
+        return true
+    }
+
+    private fun saveMapToPreferences(
+        className: String,
+        signName: String,
+        preferences: Preferences,
+        suffix: String,
+        map: Map<Int, TcrsEntry>,
+    ) {
+        val key = prefKey(className, signName, suffix)
+        if (map.isEmpty()) {
             preferences.setString(key, "")
-            return true
+            return
         }
-        val lines = tcrsMap.entries.sortedBy { it.key }.joinToString("\n") { (itemId, entry) ->
+        val lines = map.entries.sortedBy { it.key }.joinToString("\n") { (itemId, entry) ->
             listOf(
                 itemId.toString(),
                 entry.name,
@@ -191,12 +245,13 @@ object TCRSDatabase {
             ).joinToString("\t")
         }
         preferences.setString(key, lines)
-        return true
     }
 
     fun reset() {
         currentClassSign = ""
         tcrsMap.clear()
+        tcrsBoozeMap.clear()
+        tcrsFoodMap.clear()
     }
 
     internal fun registerForTest(itemId: Int, name: String) {
@@ -207,6 +262,16 @@ object TCRSDatabase {
         tcrsMap.clear()
         tcrsMap.putAll(entries)
         currentClassSign = classSign
+    }
+
+    internal fun injectCafeMapsForTest(
+        booze: Map<Int, TcrsEntry> = emptyMap(),
+        food: Map<Int, TcrsEntry> = emptyMap(),
+    ) {
+        tcrsBoozeMap.clear()
+        tcrsBoozeMap.putAll(booze)
+        tcrsFoodMap.clear()
+        tcrsFoodMap.putAll(food)
     }
 
     internal fun currentClassSignForTest(): String = currentClassSign
