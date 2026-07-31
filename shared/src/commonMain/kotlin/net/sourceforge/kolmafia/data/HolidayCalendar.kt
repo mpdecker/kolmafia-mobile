@@ -15,6 +15,15 @@ object HolidayCalendar {
         return realLifeHoliday(month, day) ?: ""
     }
 
+    /** Desktop HolidayDatabase.isMonday — real-calendar Monday gate for lasagna garish bonus. */
+    fun isMonday(dateYmd: String = currentDateString()): Boolean {
+        if (dateYmd.length != 8) return false
+        val year = dateYmd.substring(0, 4).toIntOrNull() ?: return false
+        val month = dateYmd.substring(4, 6).toIntOrNull() ?: return false
+        val day = dateYmd.substring(6, 8).toIntOrNull() ?: return false
+        return dayOfWeek(year, month, day) == 1
+    }
+
     private fun realLifeHoliday(month: Int, day: Int): String? = when (month) {
         1 -> when (day) {
             1 -> "New Year's Day"
@@ -55,16 +64,15 @@ object HolidayCalendar {
         if (month != 11) return null
         var thursdays = 0
         for (d in 1..day) {
-            if (dayOfWeek(month, d) == 4) thursdays++
+            if (dayOfWeek(currentDateString().substring(0, 4).toIntOrNull() ?: 2026, month, d) == 4) thursdays++
         }
-        return if (thursdays == 4 && dayOfWeek(month, day) == 4) "Feast of Boris" else null
+        return if (thursdays == 4 && dayOfWeek(currentDateString().substring(0, 4).toIntOrNull() ?: 2026, month, day) == 4) "Feast of Boris" else null
     }
 
-    /** 0=Sunday … 4=Thursday. Uses Zeller-style approximation on real calendar. */
-    private fun dayOfWeek(month: Int, day: Int): Int {
-        val y = currentDateString().substring(0, 4).toIntOrNull() ?: 2026
+    /** 0=Sunday … 6=Saturday. Uses Zeller-style approximation on real calendar. */
+    private fun dayOfWeek(year: Int, month: Int, day: Int): Int {
         val m = if (month < 3) month + 12 else month
-        val yr = if (month < 3) y - 1 else y
+        val yr = if (month < 3) year - 1 else year
         val k = yr % 100
         val j = yr / 100
         val h = (day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 + 5 * j) % 7

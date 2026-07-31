@@ -85,7 +85,12 @@ class SessionManager(
                         )
                         val rolloverChanged = dayChanged || rolloverGap
                         if (rolloverChanged) {
-                            RolloverCounterReset.resetCounters(preferences, charState.rolloverTimestamp)
+                            RolloverCounterReset.resetCounters(
+                                preferences,
+                                charState.rolloverTimestamp,
+                                charState.currentRun,
+                                banishManager,
+                            )
                             banishManager?.clearExpiredAndRollover(charState.currentRun)
                             breakfastManager?.clearBreakfastPrefs()
                             preferences.setInt(Preferences.LAST_DAYCOUNT, charState.dayCount)
@@ -131,10 +136,10 @@ class SessionManager(
                                     charState.zodiacSign,
                                     preferences,
                                 )) {
-                                TCRSDatabase.applyModifiers()
+                                TCRSDatabase.applyModifiers(charState.level)
                             }
                         } else {
-                            TCRSDatabase.resetModifiers()
+                            TCRSDatabase.resetModifiers(preferences, charState.level)
                             TCRSDatabase.reset()
                         }
                         gameRuntimeLibrary?.checkDynamicModifiers()

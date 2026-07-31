@@ -1,11 +1,13 @@
 package net.sourceforge.kolmafia.data
 
+import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.data.TCRSDatabase.TcrsEntry
+import net.sourceforge.kolmafia.preferences.Preferences
 
 class TCRSDatabaseApplyModifiersTest {
 
@@ -196,6 +198,7 @@ class TCRSDatabaseApplyModifiersTest {
     @AfterTest
     fun tearDown() {
         TCRSDatabase.reset()
+        CafeDatabase.resetForTest()
         ModifierDatabase.resetForTest()
         ConsumableDatabase.resetForTest()
         EffectDatabase.resetForTest()
@@ -208,7 +211,7 @@ class TCRSDatabaseApplyModifiersTest {
         TCRSDatabase.injectMapForTest(
             mapOf(testItemId to TcrsEntry(name = "TCRS Sword", modifiers = "Meat Drop: +10")),
         )
-        val applied = TCRSDatabase.applyModifiers()
+        val applied = TCRSDatabase.applyModifiers(11)
         assertEquals(1, applied)
         assertTrue(ModifierDatabase.getItem(itemName)?.modifiers?.contains("Meat Drop: +10") == true)
     }
@@ -218,7 +221,7 @@ class TCRSDatabaseApplyModifiersTest {
         TCRSDatabase.injectMapForTest(
             mapOf(familiarItemId to TcrsEntry(name = "TCRS Fam", modifiers = "Meat Drop: +10")),
         )
-        val applied = TCRSDatabase.applyModifiers()
+        val applied = TCRSDatabase.applyModifiers(11)
         assertEquals(0, applied)
         assertEquals("Meat Drop: +1", ModifierDatabase.getItem("tcrs-fam-item")?.modifiers)
     }
@@ -229,7 +232,7 @@ class TCRSDatabaseApplyModifiersTest {
         TCRSDatabase.injectMapForTest(
             mapOf(campgroundId to TcrsEntry(name = "TCRS Camp", modifiers = "Meat Drop: +10")),
         )
-        val applied = TCRSDatabase.applyModifiers()
+        val applied = TCRSDatabase.applyModifiers(11)
         assertEquals(0, applied)
         assertEquals("Meat Drop: +1", ModifierDatabase.getItem("campground-skip-item")?.modifiers)
     }
@@ -240,7 +243,7 @@ class TCRSDatabaseApplyModifiersTest {
         TCRSDatabase.injectMapForTest(
             mapOf(chateauId to TcrsEntry(name = "TCRS Chateau", modifiers = "Meat Drop: +10")),
         )
-        val applied = TCRSDatabase.applyModifiers()
+        val applied = TCRSDatabase.applyModifiers(11)
         assertEquals(0, applied)
         assertEquals("Meat Drop: +1", ModifierDatabase.getItem("chateau-skip-item")?.modifiers)
     }
@@ -250,7 +253,7 @@ class TCRSDatabaseApplyModifiersTest {
         TCRSDatabase.injectMapForTest(
             mapOf(testItemId to TcrsEntry(name = "TCRS Sword", modifiers = "")),
         )
-        val applied = TCRSDatabase.applyModifiers()
+        val applied = TCRSDatabase.applyModifiers(11)
         assertEquals(1, applied)
     }
 
@@ -266,7 +269,7 @@ class TCRSDatabaseApplyModifiersTest {
                 ),
             ),
         )
-        TCRSDatabase.applyModifiers()
+        TCRSDatabase.applyModifiers(11)
         assertEquals("6", ConsumableDatabase.getAdventureRange(foodName))
         assertEquals(2, ConsumableDatabase.getFullnessByName(foodName))
         assertEquals("good", ConsumableDatabase.getQualityName(foodName))
@@ -284,7 +287,7 @@ class TCRSDatabaseApplyModifiersTest {
                 ),
             ),
         )
-        TCRSDatabase.applyModifiers()
+        TCRSDatabase.applyModifiers(11)
         assertEquals("0", ConsumableDatabase.getAdventureRange(spleenName))
         assertEquals(3, ConsumableDatabase.getSpleenByName(spleenName))
     }
@@ -301,7 +304,7 @@ class TCRSDatabaseApplyModifiersTest {
                 ),
             ),
         )
-        TCRSDatabase.applyModifiers()
+        TCRSDatabase.applyModifiers(11)
         assertEquals("4", ConsumableDatabase.getAdventureRange(foodName))
         assertEquals(2, ConsumableDatabase.getFullnessByName(foodName))
     }
@@ -311,9 +314,9 @@ class TCRSDatabaseApplyModifiersTest {
         TCRSDatabase.injectMapForTest(
             mapOf(testItemId to TcrsEntry(name = "TCRS Sword", modifiers = "Meat Drop: +10")),
         )
-        TCRSDatabase.applyModifiers()
+        TCRSDatabase.applyModifiers(11)
         assertTrue(ModifierDatabase.getItem(itemName)?.modifiers?.contains("Meat Drop: +10") == true)
-        TCRSDatabase.resetModifiers()
+        TCRSDatabase.resetModifiers(testPrefs(), 11)
         assertEquals("Meat Drop: +1", ModifierDatabase.getItem(itemName)?.modifiers)
     }
 
@@ -329,9 +332,9 @@ class TCRSDatabaseApplyModifiersTest {
                 ),
             ),
         )
-        TCRSDatabase.applyModifiers()
+        TCRSDatabase.applyModifiers(11)
         assertEquals("6", ConsumableDatabase.getAdventureRange(foodName))
-        TCRSDatabase.resetModifiers()
+        TCRSDatabase.resetModifiers(testPrefs(), 11)
         assertEquals("2-3", ConsumableDatabase.getAdventureRange(foodName))
         assertEquals(1, ConsumableDatabase.getFullnessByName(foodName))
     }
@@ -341,7 +344,7 @@ class TCRSDatabaseApplyModifiersTest {
         ModifierDatabase.injectForTest("Item", itemName, "Meat Drop: +1")
         ModifierDatabase.overrideModifier("Item", itemName, "Meat Drop: +99")
         TCRSDatabase.reset()
-        TCRSDatabase.resetModifiers()
+        TCRSDatabase.resetModifiers(testPrefs(), 11)
         assertEquals("Meat Drop: +99", ModifierDatabase.getItem(itemName)?.modifiers)
     }
 
@@ -357,7 +360,7 @@ class TCRSDatabaseApplyModifiersTest {
                 ),
             ),
         )
-        TCRSDatabase.applyModifiers()
+        TCRSDatabase.applyModifiers(11)
         assertEquals(
             "eat 1 $effectFoodName",
             EffectDatabase.getByName(effectName)?.actions,
@@ -376,9 +379,9 @@ class TCRSDatabaseApplyModifiersTest {
                 ),
             ),
         )
-        TCRSDatabase.applyModifiers()
+        TCRSDatabase.applyModifiers(11)
         assertEquals("eat 1 $effectFoodName", EffectDatabase.getByName(effectName)?.actions)
-        TCRSDatabase.resetModifiers()
+        TCRSDatabase.resetModifiers(testPrefs(), 11)
         assertEquals("eat 1 old food", EffectDatabase.getByName(effectName)?.actions)
     }
 
@@ -394,9 +397,89 @@ class TCRSDatabaseApplyModifiersTest {
                 ),
             ),
         )
-        TCRSDatabase.applyModifiers()
+        TCRSDatabase.applyModifiers(11)
         assertEquals(effectName, ConcoctionDatabase.getEffectName(effectFoodName))
-        TCRSDatabase.resetModifiers()
+        TCRSDatabase.resetModifiers(testPrefs(), 11)
         assertEquals(null, ConcoctionDatabase.getEffectName(effectFoodName))
     }
+
+    @Test
+    fun applyModifiers_cafeBoozeMapAppliesDrinkAdventures() {
+        val cafeId = -1
+        val cafeName = "tcrs-cafe-porter"
+        CafeDatabase.injectForTest(cafeId, cafeName, ConsumableType.DRINK)
+        ConsumableDatabase.injectForTest(
+            ConsumableData(
+                name = cafeName,
+                type = ConsumableType.DRINK,
+                amount = 3,
+                levelReq = 4,
+                quality = ConsumableQuality.DECENT,
+                advMin = 3,
+                advMax = 5,
+                muscMin = 0,
+                muscMax = 0,
+                mystMin = 0,
+                mystMax = 0,
+                moxieMin = 0,
+                moxieMax = 0,
+                notes = "base",
+            ),
+        )
+        TCRSDatabase.injectMapForTest(emptyMap())
+        TCRSDatabase.injectCafeMapsForTest(
+            booze = mapOf(
+                cafeId to TcrsEntry(
+                    name = "TCRS Porter",
+                    size = 2,
+                    quality = "good",
+                    modifiers = "",
+                ),
+            ),
+        )
+        TCRSDatabase.applyModifiers(11)
+        assertEquals("6", ConsumableDatabase.getAdventureRange(cafeName))
+        assertEquals(2, ConsumableDatabase.getInebrietyByName(cafeName))
+    }
+
+    @Test
+    fun applyModifiers_cafeFoodMapAppliesFoodAdventures() {
+        val cafeId = -1
+        val cafeName = "tcrs-cafe-frog"
+        CafeDatabase.injectForTest(cafeId, cafeName, ConsumableType.FOOD)
+        ConsumableDatabase.injectForTest(
+            ConsumableData(
+                name = cafeName,
+                type = ConsumableType.FOOD,
+                amount = 2,
+                levelReq = 1,
+                quality = ConsumableQuality.DECENT,
+                advMin = 2,
+                advMax = 4,
+                muscMin = 0,
+                muscMax = 0,
+                mystMin = 0,
+                mystMax = 0,
+                moxieMin = 0,
+                moxieMax = 0,
+                notes = "base",
+            ),
+        )
+        TCRSDatabase.injectMapForTest(emptyMap())
+        TCRSDatabase.injectCafeMapsForTest(
+            food = mapOf(
+                cafeId to TcrsEntry(
+                    name = "TCRS Frog",
+                    size = 3,
+                    quality = "decent",
+                    modifiers = "",
+                ),
+            ),
+        )
+        TCRSDatabase.applyModifiers(11)
+        assertEquals("6", ConsumableDatabase.getAdventureRange(cafeName))
+        assertEquals(3, ConsumableDatabase.getFullnessByName(cafeName))
+    }
+
+    private fun testPrefs(): Preferences = Preferences(MapSettings())
 }

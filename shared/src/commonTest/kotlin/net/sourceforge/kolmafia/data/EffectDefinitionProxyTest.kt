@@ -134,7 +134,7 @@ class EffectDefinitionProxyTest {
                 ),
             ),
         )
-        TCRSDatabase.applyModifiers()
+        TCRSDatabase.applyModifiers(11)
         assertEquals(
             listOf("eat 1 $foodName"),
             EffectDefinitionProxy.getAllActions(9_000_020),

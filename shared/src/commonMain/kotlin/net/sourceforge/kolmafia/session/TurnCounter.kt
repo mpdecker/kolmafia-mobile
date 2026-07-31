@@ -85,6 +85,28 @@ object TurnCounter {
         return before - load(preferences).size
     }
 
+    /**
+     * Desktop [net.sourceforge.kolmafia.KoLmafia.resetCounters] mayonnaise window carryover:
+     * re-base remaining turns for the next run.
+     */
+    fun resetMayonnaiseWindowsForRun(preferences: Preferences, currentRun: Int): Int {
+        val entries = load(preferences)
+        var adjusted = 0
+        val updated = entries.map { entry ->
+            if (!entry.parsedLabel().startsWith(MAYONNAISE_LABEL_PREFIX)) {
+                entry
+            } else {
+                adjusted++
+                val remaining = (entry.absoluteTurn - currentRun).coerceAtLeast(0)
+                entry.copy(absoluteTurn = currentRun + remaining)
+            }
+        }
+        if (adjusted > 0) {
+            save(preferences, updated)
+        }
+        return adjusted
+    }
+
     /** Remove counters whose absolute turn has been reached or passed. */
     fun removeExpired(preferences: Preferences, currentRun: Int) {
         val entries = load(preferences).filter { it.absoluteTurn > currentRun }
@@ -138,6 +160,7 @@ object TurnCounter {
     }
 
     const val PREF_KEY = "relayCounters"
+    const val MAYONNAISE_LABEL_PREFIX = "Mmmmmmayonnaise window "
 
     val NEMESIS_ASSASSIN_MONSTERS = setOf(
         "menacing thug",

@@ -81,4 +81,48 @@ class TurnCounterTest {
         assertTrue(!raw.contains("Holiday Monster"))
         assertTrue(raw.contains("Test Counter"))
     }
+
+    @Test
+    fun resetMayonnaiseWindowsForRun_leavesNonMayoCountersUnchanged() {
+        val prefs = Preferences(MapSettings())
+        TurnCounter.startCounting(prefs, currentRun = 100, turns = 10, "Test Counter loc=*", "x.gif")
+        val adjusted = TurnCounter.resetMayonnaiseWindowsForRun(prefs, currentRun = 100)
+        assertEquals(0, adjusted)
+        assertEquals(110, TurnCounter.findByLabel(prefs, "Test Counter")?.absoluteTurn)
+    }
+
+    @Test
+    fun resetMayonnaiseWindowsForRun_rebasesRemainingMayoWindow() {
+        val prefs = Preferences(MapSettings())
+        TurnCounter.startCounting(
+            prefs,
+            currentRun = 100,
+            turns = 5,
+            "Mmmmmmayonnaise window 1 loc=*",
+            "mayo.gif",
+        )
+        val adjusted = TurnCounter.resetMayonnaiseWindowsForRun(prefs, currentRun = 102)
+        assertEquals(1, adjusted)
+        val entry = TurnCounter.findByLabel(prefs, "Mmmmmmayonnaise window 1")
+        assertNotNull(entry)
+        assertEquals(105, entry.absoluteTurn)
+        assertEquals(3, TurnCounter.turnsRemaining(entry, currentRun = 102))
+    }
+
+    @Test
+    fun resetMayonnaiseWindowsForRun_clampsExpiredMayoToZeroRemaining() {
+        val prefs = Preferences(MapSettings())
+        TurnCounter.startCounting(
+            prefs,
+            currentRun = 100,
+            turns = 5,
+            "Mmmmmmayonnaise window 2 loc=*",
+            "mayo.gif",
+        )
+        TurnCounter.resetMayonnaiseWindowsForRun(prefs, currentRun = 110)
+        val entry = TurnCounter.findByLabel(prefs, "Mmmmmmayonnaise window 2")
+        assertNotNull(entry)
+        assertEquals(110, entry.absoluteTurn)
+        assertEquals(0, TurnCounter.turnsRemaining(entry, currentRun = 110))
+    }
 }
