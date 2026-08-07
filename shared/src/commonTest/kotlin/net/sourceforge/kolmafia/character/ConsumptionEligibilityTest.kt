@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.data.ConcoctionQueueBudget
 import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillType
 
@@ -66,5 +67,29 @@ class ConsumptionEligibilityTest {
         val state = CharacterState(challengePath = "You, Robot", spleenLimit = 15)
         assertFalse(ConsumptionEligibility.canChew(state))
         assertEquals(0, ConsumptionEligibility.spleenCapacity(state))
+    }
+
+    @Test
+    fun effectiveFullnessRemaining_subtractsQueuedFullness() {
+        ConcoctionQueueBudget.queuedFullness = 5
+        val state = CharacterState(challengePath = "Standard", fullness = 2)
+        assertEquals(8, ConsumptionEligibility.effectiveFullnessRemaining(state))
+        ConcoctionQueueBudget.resetForTest()
+    }
+
+    @Test
+    fun effectiveInebrietyRemaining_subtractsQueuedInebriety() {
+        ConcoctionQueueBudget.queuedInebriety = 3
+        val state = CharacterState(challengePath = "Standard", inebriety = 4)
+        assertEquals(7, ConsumptionEligibility.effectiveInebrietyRemaining(state))
+        ConcoctionQueueBudget.resetForTest()
+    }
+
+    @Test
+    fun effectiveSpleenRemaining_subtractsQueuedSpleenHit() {
+        ConcoctionQueueBudget.queuedSpleenHit = 2
+        val state = CharacterState(challengePath = "Standard", spleenUsed = 1)
+        assertEquals(12, ConsumptionEligibility.effectiveSpleenRemaining(state))
+        ConcoctionQueueBudget.resetForTest()
     }
 }

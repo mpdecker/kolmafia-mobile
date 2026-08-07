@@ -499,6 +499,9 @@ val sharedModule = module {
             gameRuntimeLibrary   = get(),
             junkListManager      = get(),
             httpClient           = get(),
+            closetRequest        = get(),
+            storageRequest       = get(),
+            clanStashRequest     = get(),
         )
     }
     singleOf(::ShopRequest)

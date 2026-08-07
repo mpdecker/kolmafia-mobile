@@ -232,7 +232,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase270"
+        const val REVISION = "phase290"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 

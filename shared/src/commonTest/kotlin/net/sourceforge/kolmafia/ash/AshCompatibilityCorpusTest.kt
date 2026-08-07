@@ -2127,6 +2127,14 @@ class AshCompatibilityCorpusTest {
         )
         ConcoctionDatabase.injectForTest(
             ConcoctionData(
+                result = "corpus malt",
+                resultQuantity = 1,
+                methods = setOf("COMBINE"),
+                ingredients = emptyList(),
+            ),
+        )
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
                 result = "corpus brew",
                 resultQuantity = 1,
                 methods = setOf("COMBINE"),
@@ -2145,6 +2153,7 @@ class AshCompatibilityCorpusTest {
             override val state = flow.asStateFlow()
         }
         val lib = GameRuntimeLibrary(inventoryManager = inventory)
+        ConcoctionDatabase.refreshConcoctionsFromInventory(mapOf(6102 to 6))
         assertEquals("3", outputLib(lib, """print(creatable_amount(to_item("corpus brew")));""").trim())
         assertEquals("1", outputLib(lib, """print(count(get_ingredients(to_item("corpus brew"))));""").trim())
     }

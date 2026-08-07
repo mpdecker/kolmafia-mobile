@@ -10,8 +10,13 @@ import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.faxbot.FaxBotDatabase
 import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.ConcoctionAvailableIngredients
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.ConcoctionIngredientSources
+import net.sourceforge.kolmafia.data.ConcoctionRefreshContext
 import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.TCRSDatabase
@@ -23,9 +28,12 @@ import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.request.CharacterRequest
+import net.sourceforge.kolmafia.request.ClanStashRequest
+import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.LoginResult
 import net.sourceforge.kolmafia.request.QuestLogRequest
+import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.shop.ShopRowDatabase
 import net.sourceforge.kolmafia.skill.SkillManager
 
@@ -56,6 +64,9 @@ class SessionManager(
     private val gameRuntimeLibrary: GameRuntimeLibrary? = null,
     private val junkListManager: JunkListManager? = null,
     private val httpClient: HttpClient? = null,
+    private val closetRequest: ClosetRequest? = null,
+    private val storageRequest: StorageRequest? = null,
+    private val clanStashRequest: ClanStashRequest? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -142,6 +153,18 @@ class SessionManager(
                             TCRSDatabase.resetModifiers(preferences, charState.level)
                             TCRSDatabase.reset()
                         }
+                        val sources = buildIngredientSources(charState)
+                        val aggregatedCounts = ConcoctionAvailableIngredients.aggregate(sources)
+                        ConcoctionDatabase.refreshConcoctionsFromAggregated(
+                            ConcoctionRefreshContext.fromLiveSession(
+                                aggregatedCounts = aggregatedCounts,
+                                state = charState,
+                                skills = skillManager.state.value.skills,
+                                prefs = preferences,
+                                accessibleCount = { id -> aggregatedCounts[id] ?: 0 },
+                                storageCounts = sources.storage,
+                            ),
+                        )
                         gameRuntimeLibrary?.checkDynamicModifiers()
 
                         // Run breakfast actions
@@ -164,5 +187,25 @@ class SessionManager(
 
     fun logout() {
         character.reset()
+    }
+
+    private suspend fun buildIngredientSources(charState: CharacterState): ConcoctionIngredientSources {
+        val inventory = inventoryManager.state.value.items.mapValues { it.value.quantity }
+        val closet = closetRequest?.fetchContents() ?: emptyMap()
+        val classified = storageRequest?.fetchClassifiedContents(charState, preferences)
+        val storage = if (StorageRequest.canUseStorage(charState)) {
+            classified?.storage ?: emptyMap()
+        } else {
+            emptyMap()
+        }
+        val freepulls = classified?.freepulls ?: emptyMap()
+        val stash = clanStashRequest?.fetchContents() ?: emptyMap()
+        return ConcoctionIngredientSources(
+            inventory = inventory,
+            closet = closet,
+            storage = storage,
+            freepulls = freepulls,
+            stash = stash,
+        )
     }
 }
