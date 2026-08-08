@@ -81,6 +81,19 @@ fun ConcoctionData.isTinkerCraftable(): Boolean =
 fun ConcoctionData.isSushiCraftable(): Boolean =
     ConcoctionCreationCost.primaryMethod(methods) == "SUSHI"
 
+fun ConcoctionData.isMalusCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "MALUS" &&
+        ingredients.size == 1
+
+fun ConcoctionData.isJewelCraftable(): Boolean {
+    val primary = ConcoctionCreationCost.primaryMethod(methods) ?: return false
+    return primary in setOf("JEWEL", "JEWELRY") && ingredients.size == 2
+}
+
+fun ConcoctionData.isBarrelCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "BARREL" &&
+        ingredients.isEmpty()
+
 fun ConcoctionData.isCreateAndConsume(): Boolean = isSushiCraftable()
 
 fun ConcoctionData.isCreateSupported(): Boolean =
@@ -88,7 +101,7 @@ fun ConcoctionData.isCreateSupported(): Boolean =
         isClipArtCraftable() || isRollCraftable() || isTerminalCraftable() ||
         isSewerCraftable() || isVykeaCraftable() || isMuseCraftable() ||
         isPhineasCraftable() || isStaffCraftable() || isTinkerCraftable() ||
-        isSushiCraftable()
+        isSushiCraftable() || isMalusCraftable() || isJewelCraftable() || isBarrelCraftable()
 
 fun ConcoctionData.isAutoCraftable(): Boolean =
     isSuseCraftable() || isStationCraftable()

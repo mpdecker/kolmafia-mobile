@@ -514,6 +514,143 @@ class ConcoctionCreateRequestTest {
     }
 
     @Test
+    fun create_routesMalusToGuild() = runTest {
+        registerItem(88401, "twinkly powder")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "twinkly nuggets",
+                resultQuantity = 1,
+                methods = setOf("MALUS"),
+                ingredients = listOf(ConcoctionIngredient("twinkly powder", 5)),
+            ),
+        )
+        val malusPosts = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            when {
+                request.method == HttpMethod.Post && request.url.encodedPath.endsWith("guild.php") -> {
+                    malusPosts += request.body.toByteArray().decodeToString()
+                    respond("You acquire an item: <b>twinkly nuggets</b>", HttpStatusCode.OK)
+                }
+                else -> respond("ok", HttpStatusCode.OK)
+            }
+        })
+        val createRequest = ConcoctionCreateRequest(
+            retrieveItemService = StubRetrieveItemService { _, qty -> qty },
+            craftRequest = CraftRequest(client),
+            useItemRequest = UseItemRequest(client),
+            gameDatabase = null,
+            malusCreateRequest = MalusCreateRequest(
+                client = client,
+                createItemIngredients = createItemIngredients { _, qty -> qty },
+                gameDatabase = null,
+            ),
+        )
+
+        val result = createRequest.create("twinkly nuggets", 1)
+
+        assertTrue(result.isSuccess)
+        assertEquals(1, malusPosts.size)
+        assertTrue(malusPosts.single().contains("action=malussmash"))
+        assertTrue(malusPosts.single().contains("whichitem=88401"))
+    }
+
+    @Test
+    fun create_routesJewelToCraft() = runTest {
+        registerItem(88501, "hamethyst")
+        registerItem(88502, "ring setting")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "hamethyst ring",
+                resultQuantity = 1,
+                methods = setOf("JEWEL"),
+                ingredients = listOf(
+                    ConcoctionIngredient("hamethyst", 1),
+                    ConcoctionIngredient("ring setting", 1),
+                ),
+            ),
+        )
+        val craftPosts = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            when {
+                request.method == HttpMethod.Post && request.url.encodedPath.endsWith("craft.php") -> {
+                    craftPosts += request.body.toByteArray().decodeToString()
+                    respond("<!-- cr:1x0,0=88501 -->", HttpStatusCode.OK)
+                }
+                else -> respond("ok", HttpStatusCode.OK)
+            }
+        })
+        val createRequest = ConcoctionCreateRequest(
+            retrieveItemService = StubRetrieveItemService { _, qty -> qty },
+            craftRequest = CraftRequest(client),
+            useItemRequest = UseItemRequest(client),
+            gameDatabase = null,
+            jewelCreateRequest = JewelCreateRequest(
+                craftRequest = CraftRequest(client),
+                createItemIngredients = createItemIngredients { _, qty -> qty },
+                gameDatabase = null,
+            ),
+        )
+
+        val result = createRequest.create("hamethyst ring", 1)
+
+        assertTrue(result.isSuccess)
+        assertEquals(1, craftPosts.size)
+        assertTrue(craftPosts.single().contains("mode=combine"))
+        assertTrue(craftPosts.single().contains("a=88501"))
+    }
+
+    @Test
+    fun create_routesBarrelToShrine() = runTest {
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "barrel lid",
+                resultQuantity = 1,
+                methods = setOf("BARREL"),
+                ingredients = emptyList(),
+            ),
+        )
+        val shrineVisits = mutableListOf<String>()
+        val choicePosts = mutableListOf<Pair<Int, Int>>()
+        val client = HttpClient(MockEngine { request ->
+            when {
+                request.url.toString().contains("da.php?barrelshrine=1") -> {
+                    shrineVisits += request.url.toString()
+                    respond("shrine", HttpStatusCode.OK)
+                }
+                request.method == HttpMethod.Post && request.url.encodedPath.endsWith("choice.php") -> {
+                    val body = request.body.toByteArray().decodeToString()
+                    val choiceId = Regex("""whichchoice=(\d+)""").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: -1
+                    val option = Regex("""option=(\d+)""").find(body)?.groupValues?.get(1)?.toIntOrNull() ?: -1
+                    choicePosts += choiceId to option
+                    respond("You acquire an item: <b>barrel lid</b>", HttpStatusCode.OK)
+                }
+                else -> respond("ok", HttpStatusCode.OK)
+            }
+        })
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs).apply {
+            setBoolean("barrelShrineUnlocked", true)
+        }
+        val createRequest = ConcoctionCreateRequest(
+            retrieveItemService = StubRetrieveItemService { _, qty -> qty },
+            craftRequest = CraftRequest(client),
+            useItemRequest = UseItemRequest(client),
+            gameDatabase = null,
+            barrelCreateRequest = BarrelCreateRequest(
+                client = client,
+                choiceRequest = net.sourceforge.kolmafia.adventure.ChoiceRequest(client),
+                preferences = preferences,
+            ),
+        )
+
+        val result = createRequest.create("barrel lid", 1, preferences = preferences)
+
+        assertTrue(result.isSuccess)
+        assertEquals(1, shrineVisits.size)
+        assertEquals(listOf(BarrelChoiceMapper.CHOICE_ID to BarrelChoiceMapper.OPTION_PROTECTION), choicePosts)
+    }
+
+    @Test
     fun create_routesTinkerToGnomes() = runTest {
         registerItem(88301, "flange")
         registerItem(88302, "cog")

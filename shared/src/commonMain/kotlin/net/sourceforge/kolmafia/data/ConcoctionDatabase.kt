@@ -28,6 +28,9 @@ object ConcoctionDatabase {
     private var speakeasyConcoctionsRegistered = false
     private var hotDogConcoctionsRegistered = false
     private var floundryConcoctionsRegistered = false
+    private var guildCreationIndexesBuilt = false
+    private val _chefStaffByBaseItemId = mutableMapOf<Int, ConcoctionData>()
+    private val _malusByIngredientItemId = mutableMapOf<Int, ConcoctionData>()
 
     val byResult: Map<String, ConcoctionData> get() = _byResult
     val byIngredient: Map<String, List<ConcoctionData>> get() = _byIngredient
@@ -72,6 +75,41 @@ object ConcoctionDatabase {
     fun getByIngredient(name: String): List<ConcoctionData> =
         _byIngredient[name.lowercase()] ?: emptyList()
     fun all(): Collection<ConcoctionData> = _byResult.values
+
+    /** Desktop [net.sourceforge.kolmafia.persistence.ConcoctionDatabase.chefStaffCreation]. */
+    fun chefStaffByBaseItemId(itemId: Int): ConcoctionData? {
+        ensureGuildCreationIndexes()
+        return _chefStaffByBaseItemId[itemId]
+    }
+
+    fun malusByIngredientItemId(itemId: Int): ConcoctionData? {
+        ensureGuildCreationIndexes()
+        return _malusByIngredientItemId[itemId]
+    }
+
+    private fun ensureGuildCreationIndexes() {
+        if (guildCreationIndexesBuilt) return
+        _chefStaffByBaseItemId.clear()
+        _malusByIngredientItemId.clear()
+        for (concoction in _byResult.values) {
+            val primary = ConcoctionCreationCost.primaryMethod(concoction.methods) ?: continue
+            val firstIngredient = concoction.ingredients.firstOrNull() ?: continue
+            val itemId = ItemDatabase.getByName(firstIngredient.name)?.id ?: continue
+            when (primary) {
+                "STAFF" -> _chefStaffByBaseItemId[itemId] = concoction
+                "MALUS" -> if (concoction.ingredients.size == 1) {
+                    _malusByIngredientItemId[itemId] = concoction
+                }
+            }
+        }
+        guildCreationIndexesBuilt = true
+    }
+
+    private fun invalidateGuildCreationIndexes() {
+        guildCreationIndexesBuilt = false
+        _chefStaffByBaseItemId.clear()
+        _malusByIngredientItemId.clear()
+    }
 
     fun getEffectName(resultName: String): String? = getByResult(resultName)?.effectName
 
@@ -552,6 +590,7 @@ object ConcoctionDatabase {
                 .getOrPut(ingredient.name.lowercase()) { mutableListOf() }
                 .add(concoction)
         }
+        invalidateGuildCreationIndexes()
         loaded = true
     }
 
@@ -560,6 +599,7 @@ object ConcoctionDatabase {
     internal fun parseForTest(text: String) {
         _byResult.clear()
         _byIngredient.clear()
+        invalidateGuildCreationIndexes()
         parse(text)
         loaded = true
     }
@@ -567,6 +607,7 @@ object ConcoctionDatabase {
     internal fun resetForTest() {
         _byResult.clear()
         _byIngredient.clear()
+        invalidateGuildCreationIndexes()
         runtimeByResult.clear()
         loaded = false
         pullsRemaining = -1
@@ -649,5 +690,6 @@ object ConcoctionDatabase {
                     .add(concoction)
             }
         }
+        invalidateGuildCreationIndexes()
     }
 }

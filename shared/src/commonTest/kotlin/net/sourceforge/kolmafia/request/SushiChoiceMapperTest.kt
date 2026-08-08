@@ -80,6 +80,45 @@ class SushiChoiceMapperTest {
         )
     }
 
+    @Test
+    fun formFieldsFromUrl_beefyNigiri() {
+        val url = "sushi.php?action=Yep.&whichsushi=1"
+        val fields = SushiChoiceMapper.formFieldsFromUrl(url)
+        assertEquals("beefy nigiri", SushiChoiceMapper.resultNameFromFormFields(fields!!))
+    }
+
+    @Test
+    fun formFieldsFromUrl_magicalBeefyMaki() {
+        registerMapperItems()
+        val url = "https://www.kingdomofloathing.com/sushi.php?action=Yep.&whichsushi=4&whichtopping=$CAVIAR_ID"
+        val fields = SushiChoiceMapper.formFieldsFromUrl(url)
+        assertEquals("magical beefy maki", SushiChoiceMapper.resultNameFromFormFields(fields!!))
+    }
+
+    @Test
+    fun formFieldsFromUrl_giantDragonRoll() {
+        registerMapperItems()
+        val url = "sushi.php?whichsushi=4&whichfilling1=$CUCUMBER_ID"
+        val fields = SushiChoiceMapper.formFieldsFromUrl(url)
+        assertEquals("giant dragon roll", SushiChoiceMapper.resultNameFromFormFields(fields!!))
+    }
+
+    @Test
+    fun formFieldsFromUrl_tempuraAvocadoBentoWithEelSauce() {
+        registerMapperItems()
+        val url = "sushi.php?whichsushi=7&veggie=$TEMPURA_AVOCADO_ID&dipping=$EEL_SAUCE_ID"
+        val fields = SushiChoiceMapper.formFieldsFromUrl(url)
+        assertEquals(
+            "tempura avocado bento box with eel sauce",
+            SushiChoiceMapper.resultNameFromFormFields(fields!!),
+        )
+    }
+
+    @Test
+    fun formFieldsFromUrl_withoutWhichsushi_returnsNull() {
+        assertNull(SushiChoiceMapper.formFieldsFromUrl("sushi.php"))
+    }
+
     private fun registerMapperItems() {
         listOf(
             CAVIAR_ID to "dragonfish caviar",

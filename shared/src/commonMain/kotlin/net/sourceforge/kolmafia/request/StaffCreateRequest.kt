@@ -14,12 +14,16 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.item.CreateItemIngredients
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.session.SessionLogger
 
 /** Desktop [net.sourceforge.kolmafia.request.concoction.ChefStaffRequest] — chefstaff upgrade at guild.php. */
 class StaffCreateRequest(
     private val client: HttpClient,
     private val createItemIngredients: CreateItemIngredients,
     private val gameDatabase: GameDatabase?,
+    private val sessionLogger: SessionLogger? = null,
+    private val eventBus: GameEventBus? = null,
 ) {
     suspend fun create(
         concoction: ConcoctionData,
@@ -75,6 +79,12 @@ class StaffCreateRequest(
             if (!isSuccessResponse(body)) {
                 return Result.success(created)
             }
+            GuildCreationSync.parseStaff(
+                url = "guild.php?action=makestaff&whichstaff=$baseStaffId",
+                responseText = body,
+                eventBus = eventBus,
+                sessionLogger = sessionLogger,
+            )
             created++
         }
 

@@ -30,8 +30,9 @@ object ConcoctionMeatPasteNeeded {
         return runningTotal
     }
 
-    private fun isPasteMethod(concoction: ConcoctionData): Boolean =
-        "COMBINE" in concoction.methods ||
-            "ACOMBINE" in concoction.methods ||
-            "JEWELRY" in concoction.methods
+    private fun isPasteMethod(concoction: ConcoctionData): Boolean {
+        if ("COMBINE" in concoction.methods || "ACOMBINE" in concoction.methods) return true
+        if ("JEWEL" in concoction.methods || "EJEWEL" in concoction.methods) return true
+        return "JEWELRY" in ConcoctionMethodAliases.normalize(concoction.methods)
+    }
 }

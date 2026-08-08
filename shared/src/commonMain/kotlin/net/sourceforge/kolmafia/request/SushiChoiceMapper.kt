@@ -91,6 +91,26 @@ object SushiChoiceMapper {
         return name
     }
 
+    private val SUSHI_PATTERN = Regex("""whichsushi=(\d+)""", RegexOption.IGNORE_CASE)
+    private val TOPPING_PATTERN = Regex("""whichtopping=(\d+)""", RegexOption.IGNORE_CASE)
+    private val FILLING1_PATTERN = Regex("""whichfilling1=(\d+)""", RegexOption.IGNORE_CASE)
+    private val VEGGIE_PATTERN = Regex("""veggie=(\d+)""", RegexOption.IGNORE_CASE)
+    private val DIPPING_PATTERN = Regex("""dipping=(\d+)""", RegexOption.IGNORE_CASE)
+
+    /** Desktop [net.sourceforge.kolmafia.request.concoction.SushiRequest.sushiName] URL parse. */
+    fun formFieldsFromUrl(url: String): Map<String, String>? {
+        val sushiId = SUSHI_PATTERN.find(url)?.groupValues?.getOrNull(1) ?: return null
+        val fields = linkedMapOf(
+            "action" to "Yep.",
+            "whichsushi" to sushiId,
+        )
+        TOPPING_PATTERN.find(url)?.groupValues?.getOrNull(1)?.let { fields["whichtopping"] = it }
+        FILLING1_PATTERN.find(url)?.groupValues?.getOrNull(1)?.let { fields["whichfilling1"] = it }
+        VEGGIE_PATTERN.find(url)?.groupValues?.getOrNull(1)?.let { fields["veggie"] = it }
+        DIPPING_PATTERN.find(url)?.groupValues?.getOrNull(1)?.let { fields["dipping"] = it }
+        return fields
+    }
+
     fun formFields(resultName: String): Map<String, String>? {
         val sushiId = nameToId(resultName)
         if (sushiId <= 0) return null

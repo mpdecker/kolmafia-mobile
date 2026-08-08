@@ -86,6 +86,8 @@ object SkillLearner {
                 val maxLevel = SkillMaxLevel.getMaxLevel(skillId)
                 if (maxLevel > 0) {
                     preferences.incrementInt(levelPref, delta = 1, max = maxLevel)
+                } else if (skillId in 1000..6999 && preferences.getInt(levelPref, 0) == 0) {
+                    preferences.setInt(levelPref, 1)
                 }
             }
         }

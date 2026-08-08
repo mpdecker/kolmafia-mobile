@@ -44,6 +44,7 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.request.CraftRequest
+import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.familiar.FamiliarManager
@@ -103,13 +104,20 @@ import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.request.SendGiftRequest
 import net.sourceforge.kolmafia.request.SendMailRequest
 import net.sourceforge.kolmafia.request.StorageRequest
+import net.sourceforge.kolmafia.request.SushiConsumptionSync
+import net.sourceforge.kolmafia.request.BarrelChoiceMapper
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.BastilleBattalionSync
+import net.sourceforge.kolmafia.session.BarrelShrineSync
+import net.sourceforge.kolmafia.session.GuildVisitSync
 import net.sourceforge.kolmafia.session.BastilleSyncContext
 import net.sourceforge.kolmafia.session.DreadKissesTracker
+import net.sourceforge.kolmafia.session.DreadScrollManager
+import net.sourceforge.kolmafia.session.MerkinQuestSync
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
@@ -195,6 +203,7 @@ class GameRuntimeLibrary(
     internal val chatSender: ChatSender? = null,
     internal val maximizerManager: MaximizerManager? = null,
     internal val sessionLogger: net.sourceforge.kolmafia.session.SessionLogger? = null,
+    internal val eventBus: GameEventBus? = null,
     internal val breakfastManager: BreakfastManager? = null,
     internal val sendMailRequest: SendMailRequest? = null,
     internal val sendGiftRequest: SendGiftRequest? = null,
@@ -235,7 +244,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase320"
+        const val REVISION = "phase333"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -807,6 +816,14 @@ class GameRuntimeLibrary(
 
         Regex("^cargo(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliCargo(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^dreadscroll$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliDreadscroll(rt::print)
+        },
+
+        Regex("^barrelprayer(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliBarrelPrayer(m.groupValues[1].trim(), rt::print)
         },
 
         Regex("^factory$", RegexOption.IGNORE_CASE) to { _, _ ->
@@ -1827,6 +1844,39 @@ class GameRuntimeLibrary(
                     inventoryManager,
                 )
             }
+            DreadScrollManager.handleKillscroll(html, preferences, sessionLogger)
+            DreadScrollManager.handleHealscroll(html, preferences, sessionLogger)
+        }
+        if (url != null && url.contains("whichchoice=704", ignoreCase = true)) {
+            DreadScrollManager.handleLibrary(html, preferences, sessionLogger)
+        }
+        if (url != null && url.contains("whichchoice=703", ignoreCase = true)) {
+            if (html.contains(DreadScrollManager.HIGH_PRIEST_SUCCESS, ignoreCase = true)) {
+                DreadScrollManager.handleHighPriestSuccess(html, preferences, eventBus, sessionLogger)
+            } else {
+                DreadScrollManager.recordFailure(url, html, preferences)
+            }
+        }
+        if (url != null) {
+            MerkinQuestSync.applyFromUrl(url, preferences, sessionLogger)
+        }
+        if (url != null &&
+            url.contains("inv_use.php", ignoreCase = true) &&
+            url.contains("whichitem=${DreadScrollManager.DREADSCROLL_ID}")
+        ) {
+            DreadScrollManager.parseDreadscrollUse(html, preferences, eventBus, sessionLogger)
+        }
+        if (url != null &&
+            url.contains("inv_use.php", ignoreCase = true) &&
+            url.contains("whichitem=${DreadScrollManager.KNUCKLEBONE_ID}")
+        ) {
+            DreadScrollManager.handleKnucklebone(html, preferences, sessionLogger)
+        }
+        if (url != null &&
+            url.contains("skills.php", ignoreCase = true) &&
+            url.contains("whichskill=${DreadScrollManager.DEEP_DARK_VISIONS_SKILL}")
+        ) {
+            DreadScrollManager.handleDeepDarkVisions(html, preferences, sessionLogger)
         }
         if (url != null && (
                 url.contains("charpane.php", ignoreCase = true) ||
@@ -1896,6 +1946,41 @@ class GameRuntimeLibrary(
         }
         if (url != null && url.contains("knoll_mushrooms.php", ignoreCase = true)) {
             character?.let { MushroomPlotSync.apply(preferences, it, html, url) }
+        }
+        if (url != null && url.contains("sushi.php", ignoreCase = true)) {
+            SushiConsumptionSync.parseConsumptionFromVisit(
+                url = url,
+                responseText = html,
+                character = character,
+                eventBus = eventBus,
+                preferences = preferences,
+            )
+        }
+        if (url != null && url.contains("barrelshrine=1", ignoreCase = true)) {
+            preferences?.let { BarrelShrineSync.syncUnlockFromHtml(html, it) }
+        }
+        if (html.contains("barrelshrine", ignoreCase = true)) {
+            preferences?.let { BarrelShrineSync.syncUnlockFromHtml(html, it) }
+        }
+        if (preferences != null && (
+                url?.contains("whichchoice=1100", ignoreCase = true) == true ||
+                    ChoiceUtilities.extractChoiceId(html) == BarrelChoiceMapper.CHOICE_ID
+                )
+        ) {
+            BarrelShrineSync.syncFromVisit(html, preferences)
+        }
+        if (url != null && url.contains("guild.php", ignoreCase = true)) {
+            GuildVisitSync.syncStoreOpen(html, character, preferences)
+            GuildVisitSync.parseFromVisit(
+                url,
+                html,
+                eventBus,
+                sessionLogger,
+                character,
+                preferences,
+                skillManager,
+                inventoryManager,
+            )
         }
         ClanLoungeSync.apply(preferences, html, url)
         character?.let { SessionMeatSync.apply(it, html) }
@@ -2273,6 +2358,9 @@ class GameRuntimeLibrary(
                     BastilleBattalionSync.syncPostChoice(
                         choiceId, option, html, prefs, effectNames, bastilleContext,
                     )
+                }
+                if (prefs != null && choiceId == BarrelChoiceMapper.CHOICE_ID) {
+                    BarrelShrineSync.syncPostChoice(option, prefs)
                 }
                 QuestChoiceRules.apply(choiceId, html, db, option, preferences, inventoryManager)
             }
