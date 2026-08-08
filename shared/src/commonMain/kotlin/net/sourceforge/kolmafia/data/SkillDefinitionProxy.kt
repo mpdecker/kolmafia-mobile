@@ -6,6 +6,19 @@ import net.sourceforge.kolmafia.preferences.Preferences
 object SkillDefinitionProxy {
 
     private val libramSkillIds = setOf(7219, 7220, 7221, 7222, 7223, 7224, 7225)
+    private val SKILL_ID_FROM_URL = Regex("""skillid=(\d+)""")
+
+    fun classSkillBase(characterClassId: Int): Int = characterClassId * 1000
+
+    fun findSkillFromUrl(url: String, characterClassId: Int): Int {
+        val relativeId = SKILL_ID_FROM_URL.find(url)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: return 0
+        return classSkillBase(characterClassId) + relativeId
+    }
+
+    fun getGuildPurchaseCost(skillId: Int): Int {
+        val guildLevel = SkillDefinitionDatabase.getById(skillId)?.guildLevel ?: 0
+        return getPurchaseCost(skillId, guildLevel)
+    }
 
     fun getByIdOrName(skillRef: String): SkillDefinition? {
         skillRef.toIntOrNull()?.let { SkillDefinitionDatabase.getById(it) }?.let { return it }

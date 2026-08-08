@@ -13,6 +13,7 @@ import kotlinx.serialization.Serializable
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.session.DreadScrollManager
 
 // Verify field names against live api.php?what=skills response before shipping.
 @Serializable
@@ -27,7 +28,9 @@ private data class SkillApiEntry(
 open class SkillManager(
     private val client: HttpClient,
     private val castRequest: SkillCastRequest,
-    private val eventBus: GameEventBus
+    private val eventBus: GameEventBus,
+    private val preferences: net.sourceforge.kolmafia.preferences.Preferences? = null,
+    private val sessionLogger: net.sourceforge.kolmafia.session.SessionLogger? = null,
 ) {
     private val _state = MutableStateFlow(SkillState())
     val state: StateFlow<SkillState> = _state.asStateFlow()
@@ -66,7 +69,10 @@ open class SkillManager(
 
     open suspend fun cast(skill: SkillData, quantity: Int = 1): Result<Unit> {
         val result = castRequest.cast(skill.id, quantity)
-        result.onSuccess {
+        result.onSuccess { body ->
+            if (skill.id == DreadScrollManager.DEEP_DARK_VISIONS_SKILL) {
+                DreadScrollManager.handleDeepDarkVisions(body, preferences, sessionLogger)
+            }
             val updatedSkills = _state.value.skills.map { s ->
                 if (s.id == skill.id) s.copy(timesCast = s.timesCast + quantity) else s
             }

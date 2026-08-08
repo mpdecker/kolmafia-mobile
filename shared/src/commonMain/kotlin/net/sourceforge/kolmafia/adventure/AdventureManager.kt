@@ -46,6 +46,8 @@ import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.request.BarrelChoiceMapper
+import net.sourceforge.kolmafia.session.BarrelShrineSync
 import net.sourceforge.kolmafia.session.BastilleBattalionSync
 import net.sourceforge.kolmafia.session.BastilleSyncContext
 import net.sourceforge.kolmafia.session.SessionLogger
@@ -492,6 +494,9 @@ class AdventureManager(
             if (WereProfessorResearchSync.isResearchBenchChoice(currentChoiceId)) {
                 WereProfessorResearchSync.visitChoice(currentResponseText, preferences)
             }
+            if (currentChoiceId == BarrelChoiceMapper.CHOICE_ID) {
+                BarrelShrineSync.syncFromVisit(currentResponseText, preferences)
+            }
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
                 val bastilleContext = bastilleSyncContext()
                 BastilleBattalionSync.syncVisit(
@@ -572,6 +577,9 @@ class AdventureManager(
                 BastilleBattalionSync.syncPostChoice(
                     currentChoiceId, option, html, preferences, effectNames, bastilleSyncContext(),
                 )
+            }
+            if (currentChoiceId == BarrelChoiceMapper.CHOICE_ID) {
+                BarrelShrineSync.syncPostChoice(option, preferences)
             }
             if (WereProfessorResearchSync.isResearchBenchChoice(currentChoiceId)) {
                 WereProfessorResearchSync.registerRequest(url, sessionLogger)

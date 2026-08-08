@@ -8,6 +8,7 @@ data class SkillDefinition(
     val mpCost: Int,
     val duration: Int,
     val isPermable: Boolean = true, // from "Permable: false" attribute
+    val guildLevel: Int = 0, // from "Level: N" attribute in classskills.txt
     val isPassive: Boolean,
     val isCombat: Boolean,
     val isNonCombat: Boolean,

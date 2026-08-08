@@ -43,11 +43,14 @@ object SkillDefinitionDatabase {
             val duration = parts[5].trim().toIntOrNull() ?: 0
 
             var isPermable = true
+            var guildLevel = 0
             for (i in 6 until parts.size) {
                 val attr = parts[i].trim()
                 if (attr.startsWith("Permable:")) {
                     val value = attr.removePrefix("Permable:").trim()
                     isPermable = value.lowercase() != "false"
+                } else if (attr.startsWith("Level:")) {
+                    guildLevel = attr.removePrefix("Level:").trim().toIntOrNull() ?: 0
                 }
             }
 
@@ -59,6 +62,7 @@ object SkillDefinitionDatabase {
                 mpCost = mpCost,
                 duration = duration,
                 isPermable = isPermable,
+                guildLevel = guildLevel,
                 isPassive = "passive" in tags,
                 isCombat = "combat" in tags,
                 isNonCombat = "nc" in tags,

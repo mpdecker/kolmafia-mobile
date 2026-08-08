@@ -83,6 +83,9 @@ import net.sourceforge.kolmafia.request.FalloutShelterRequest
 import net.sourceforge.kolmafia.request.VykeaCreateRequest
 import net.sourceforge.kolmafia.request.MuseCreateRequest
 import net.sourceforge.kolmafia.request.PhineasCreateRequest
+import net.sourceforge.kolmafia.request.BarrelCreateRequest
+import net.sourceforge.kolmafia.request.JewelCreateRequest
+import net.sourceforge.kolmafia.request.MalusCreateRequest
 import net.sourceforge.kolmafia.request.StaffCreateRequest
 import net.sourceforge.kolmafia.request.GnomeTinkerCreateRequest
 import net.sourceforge.kolmafia.request.SushiCreateRequest
@@ -193,7 +196,14 @@ val sharedModule = module {
             RufusHandlers.registerAll(r, get())
         }
     }
-    singleOf(::UseItemRequest)
+    single {
+        UseItemRequest(
+            client = get(),
+            preferences = get(),
+            sessionLogger = get(),
+            eventBus = get(),
+        )
+    }
     singleOf(::HermitRequest)
     singleOf(::ThriftyRequest)
     singleOf(::StandardRequest)
@@ -315,6 +325,10 @@ val sharedModule = module {
                 useItemRequest = get(),
                 retrieveItemService = get(),
                 gameDatabase = get(),
+                npcBuyRequest = get(),
+                preferences = get(),
+                inventoryManager = get(),
+                character = get(),
             ),
             terminalExtrudeCreateRequest = TerminalExtrudeCreateRequest(
                 terminalRequest = get(),
@@ -354,6 +368,8 @@ val sharedModule = module {
                 client = get(),
                 createItemIngredients = get(),
                 gameDatabase = get(),
+                sessionLogger = get(),
+                eventBus = get(),
             ),
             gnomeTinkerCreateRequest = GnomeTinkerCreateRequest(
                 client = get(),
@@ -369,6 +385,27 @@ val sharedModule = module {
                 sessionLogger = get(),
                 preferences = get(),
                 eventBus = get(),
+            ),
+            malusCreateRequest = MalusCreateRequest(
+                client = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+                skillManager = get(),
+                sessionLogger = get(),
+                eventBus = get(),
+            ),
+            jewelCreateRequest = JewelCreateRequest(
+                craftRequest = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+                accessibleCount = { id ->
+                    get<InventoryManager>().state.value.items[id]?.quantity ?: 0
+                },
+            ),
+            barrelCreateRequest = BarrelCreateRequest(
+                client = get(),
+                choiceRequest = get(),
+                preferences = get(),
             ),
         )
     }
@@ -441,7 +478,15 @@ val sharedModule = module {
     }
     singleOf(::FamiliarManager)
     singleOf(::SkillCastRequest)
-    singleOf(::SkillManager)
+    single {
+        SkillManager(
+            client = get(),
+            castRequest = get(),
+            eventBus = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
     singleOf(::RecoveryManager)
     singleOf(::UneffectRequest)
     single { MoodManager(skillManager = get(), preferences = get(), uneffectRequest = get()) }
@@ -592,6 +637,7 @@ val sharedModule = module {
             chatSender          = get(),
             maximizerManager    = get(),
             sessionLogger       = get(),
+            eventBus            = get(),
             breakfastManager    = get(),
             sendMailRequest     = get(),
             sendGiftRequest     = get(),

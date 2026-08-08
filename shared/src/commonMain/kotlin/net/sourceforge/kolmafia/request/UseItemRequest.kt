@@ -7,9 +7,18 @@ import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import io.ktor.http.parameters
+import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.DreadScrollManager
+import net.sourceforge.kolmafia.session.SessionLogger
 
-open class UseItemRequest(private val client: HttpClient) {
+open class UseItemRequest(
+    private val client: HttpClient,
+    private val preferences: Preferences? = null,
+    private val sessionLogger: SessionLogger? = null,
+    private val eventBus: GameEventBus? = null,
+) {
     /**
      * Uses an item via inv_use.php.
      * @param itemId  KoL item ID
@@ -24,7 +33,13 @@ open class UseItemRequest(private val client: HttpClient) {
                 if (quantity > 1) parameter("quantity", quantity)
             }
             if (response.status.isSuccess()) {
-                Result.success(response.bodyAsText())
+                val body = response.bodyAsText()
+                if (itemId == DreadScrollManager.KNUCKLEBONE_ID) {
+                    DreadScrollManager.handleKnucklebone(body, preferences, sessionLogger)
+                } else if (itemId == DreadScrollManager.DREADSCROLL_ID) {
+                    DreadScrollManager.parseDreadscrollUse(body, preferences, eventBus, sessionLogger)
+                }
+                Result.success(body)
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))
             }

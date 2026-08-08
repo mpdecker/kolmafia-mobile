@@ -8,6 +8,9 @@ import net.sourceforge.kolmafia.data.craftMode
 import net.sourceforge.kolmafia.data.isClipArtCraftable
 import net.sourceforge.kolmafia.data.isCoinmasterCraftable
 import net.sourceforge.kolmafia.data.isCreateSupported
+import net.sourceforge.kolmafia.data.isBarrelCraftable
+import net.sourceforge.kolmafia.data.isJewelCraftable
+import net.sourceforge.kolmafia.data.isMalusCraftable
 import net.sourceforge.kolmafia.data.isMuseCraftable
 import net.sourceforge.kolmafia.data.isPhineasCraftable
 import net.sourceforge.kolmafia.data.isStaffCraftable
@@ -28,7 +31,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.shop.ShopRequest
 
-/** Desktop CreateItemRequest v10 — method router for station/SUSE/STILL/COINMASTER/CLIPART/ROLL/TERMINAL/SEWER/VYKEA/MUSE/PHINEAS/STAFF/GNOME_TINKER/SUSHI create. */
+/** Desktop CreateItemRequest v13 — method router for station/SUSE/STILL/COINMASTER/CLIPART/ROLL/TERMINAL/SEWER/VYKEA/MUSE/PHINEAS/STAFF/GNOME_TINKER/SUSHI/MALUS/JEWEL/BARREL create. */
 class ConcoctionCreateRequest(
     private val retrieveItemService: RetrieveItemService?,
     private val craftRequest: CraftRequest?,
@@ -48,6 +51,9 @@ class ConcoctionCreateRequest(
     private val staffCreateRequest: StaffCreateRequest? = null,
     private val gnomeTinkerCreateRequest: GnomeTinkerCreateRequest? = null,
     private val sushiCreateRequest: SushiCreateRequest? = null,
+    private val malusCreateRequest: MalusCreateRequest? = null,
+    private val jewelCreateRequest: JewelCreateRequest? = null,
+    private val barrelCreateRequest: BarrelCreateRequest? = null,
 ) {
     private val stillCreateRequest = StillCreateRequest(
         shopRequest = shopRequest,
@@ -94,6 +100,12 @@ class ConcoctionCreateRequest(
                     gnomeTinkerCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
                 concoction.isSushiCraftable() ->
                     sushiCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                concoction.isMalusCraftable() ->
+                    malusCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                concoction.isJewelCraftable() ->
+                    jewelCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                concoction.isBarrelCraftable() ->
+                    barrelCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
                 concoction.isStillCraftable() ->
                     stillCreateRequest.create(concoction, quantity, state, preferences).getOrThrow()
                 concoction.isCoinmasterCraftable() ->

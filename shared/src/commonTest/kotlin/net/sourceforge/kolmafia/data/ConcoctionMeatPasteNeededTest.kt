@@ -40,6 +40,21 @@ class ConcoctionMeatPasteNeededTest {
     }
 
     @Test
+    fun getMeatPasteNeeded_jewel_included() {
+        val concoction = ConcoctionData(
+            result = "hamethyst ring",
+            resultQuantity = 1,
+            methods = setOf("JEWEL"),
+            ingredients = listOf(
+                ConcoctionIngredient("hamethyst", 1),
+                ConcoctionIngredient("ring setting", 1),
+            ),
+        )
+
+        assertEquals(2, ConcoctionMeatPasteNeeded.getMeatPasteNeeded(concoction, quantityNeeded = 2))
+    }
+
+    @Test
     fun getMeatPasteNeeded_jewelry_included() {
         val concoction = ConcoctionData(
             result = "jewelry item",
