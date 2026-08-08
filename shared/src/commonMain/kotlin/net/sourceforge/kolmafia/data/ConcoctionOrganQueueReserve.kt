@@ -107,6 +107,27 @@ object ConcoctionOrganQueueReserve {
             }
         }
     }
+
+    fun reapply(reservation: ConcoctionQueueReservation) {
+        ConcoctionQueueBudget.queuedFullness += reservation.fullnessUsed
+        ConcoctionQueueBudget.queuedInebriety += reservation.grossInebrietyUsed
+        ConcoctionQueueBudget.queuedSpleenHit += reservation.spleenHitUsed
+
+        if (reservation.mayodiolSwapApplied) {
+            ConcoctionQueueBudget.queuedFullness--
+            ConcoctionQueueBudget.queuedInebriety++
+        }
+
+        if (reservation.mimeShotglassUsed) {
+            ConcoctionQueueBudget.queuedInebriety--
+            ConcoctionQueueBudget.queuedMimeShotglass = true
+        }
+
+        val itemId = ItemDatabase.getByName(reservation.resultName)?.id ?: 0
+        if (ConcoctionMayoQueue.isMayo(itemId)) {
+            ConcoctionQueueBudget.lastQueuedMayo = itemId
+        }
+    }
 }
 
 /** Organ budget deltas for a single craft-queue push (merged into [ConcoctionQueueReservation]). */

@@ -48,7 +48,7 @@ object ConcoctionMethodGates {
         limitMode: String = "none",
         resultName: String? = null,
     ): Boolean = when (method) {
-        "FLOUNDRY" -> isFloundryPermitted(state, prefs, accessibleCount)
+        "FLOUNDRY" -> isFloundryPermitted(state, prefs, accessibleCount, resultName)
         "BARREL" -> isBarrelPermitted(state, prefs)
         "GNOME_TINKER" -> isGnomeTinkerPermitted(state, prefs)
         "GNOME_PART" -> isGnomePartPermitted(prefs, familiarUsable)
@@ -86,10 +86,12 @@ object ConcoctionMethodGates {
         state: CharacterState,
         prefs: Preferences?,
         accessibleCount: (Int) -> Int,
+        resultName: String?,
     ): Boolean {
         if (inBadMoon(state)) return false
         if (!ClanLoungeSync.hasFloundry(prefs)) return false
         if (hasFloundryItemToday(prefs, accessibleCount)) return false
+        if (resultName != null && !FloundryAvailability.isAvailable(resultName)) return false
         return StandardRequest.isAllowed(
             RestrictedItemType.ITEMS,
             "Clan Floundry",

@@ -107,8 +107,7 @@ internal fun GameRuntimeLibrary.registerCraftFunctions(scope: AshScope) {
 
     regFn(scope, "create", AshType.BOOLEAN, listOf("it" to AshType.ITEM)) { _, args ->
         val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.FALSE
-        val got = kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, 1) ?: 0 }
-        AshValue.of(got >= 1)
+        AshValue.of(kotlinx.coroutines.runBlocking { createItem(itemId, 1) })
     }
 
     regFn(scope, "create", AshType.BOOLEAN,
@@ -116,8 +115,7 @@ internal fun GameRuntimeLibrary.registerCraftFunctions(scope: AshScope) {
         val count = args[0].toLong().toInt()
         val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.FALSE
         if (count <= 0) return@regFn AshValue.TRUE
-        val got = kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) ?: 0 }
-        AshValue.of(got >= count)
+        AshValue.of(kotlinx.coroutines.runBlocking { createItem(itemId, count) })
     }
 
     regFn(scope, "create", AshType.BOOLEAN,
@@ -125,7 +123,6 @@ internal fun GameRuntimeLibrary.registerCraftFunctions(scope: AshScope) {
         val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.FALSE
         val count = args[1].toLong().toInt()
         if (count <= 0) return@regFn AshValue.TRUE
-        val got = kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) ?: 0 }
-        AshValue.of(got >= count)
+        AshValue.of(kotlinx.coroutines.runBlocking { createItem(itemId, count) })
     }
 }

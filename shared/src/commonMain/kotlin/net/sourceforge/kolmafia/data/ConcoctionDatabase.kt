@@ -27,6 +27,7 @@ object ConcoctionDatabase {
     private var lastRefreshContext: ConcoctionRefreshContext = ConcoctionRefreshContext.EMPTY
     private var speakeasyConcoctionsRegistered = false
     private var hotDogConcoctionsRegistered = false
+    private var floundryConcoctionsRegistered = false
 
     val byResult: Map<String, ConcoctionData> get() = _byResult
     val byIngredient: Map<String, List<ConcoctionData>> get() = _byIngredient
@@ -170,6 +171,7 @@ object ConcoctionDatabase {
     private fun rebuildRuntimeState(context: ConcoctionRefreshContext) {
         registerLoungeSpeakeasyConcoctions()
         registerLoungeHotDogConcoctions()
+        registerLoungeFloundryConcoctions()
         val preservedQueued = runtimeByResult.mapValues { (_, state) ->
             state.queued to state.queuedPulls
         }
@@ -195,6 +197,20 @@ object ConcoctionDatabase {
                 continue
             }
             if (isHotDogConcoction(concoction)) {
+                runtimeByResult[key] = ConcoctionRuntimeState(
+                    initial = 0,
+                    creatable = 0,
+                    total = 0,
+                    visibleTotal = 0,
+                    price = 0,
+                    skipCalculate = true,
+                    queued = preserved?.first ?: 0,
+                    queuedPulls = preserved?.second ?: 0,
+                    wasPossible = preservedWasPossible[key] ?: false,
+                )
+                continue
+            }
+            if (isFloundryConcoction(concoction)) {
                 runtimeByResult[key] = ConcoctionRuntimeState(
                     initial = 0,
                     creatable = 0,
@@ -274,6 +290,7 @@ object ConcoctionDatabase {
         applyPullablePass(context)
         applySpeakeasyRefreshTail(context, preservedQueued, preservedWasPossible)
         applyHotDogRefreshTail(context, preservedQueued, preservedWasPossible)
+        applyFloundryRefreshTail(context, preservedQueued, preservedWasPossible)
         ConcoctionCreatableRegistry.updateFromRefresh()
     }
 
@@ -342,6 +359,38 @@ object ConcoctionDatabase {
         }
     }
 
+    /** Desktop Concoction.resetCalculations floundry branch — fish stock initial counts. */
+    private fun applyFloundryRefreshTail(
+        context: ConcoctionRefreshContext,
+        preservedQueued: Map<String, Pair<Int, Int>>,
+        preservedWasPossible: Map<String, Boolean>,
+    ) {
+        val prefs = context.preferences
+        val hasFloundry = ClanLoungeSync.hasFloundry(prefs)
+        val dailyUsed = prefs?.getBoolean(ClanLoungeSync.FLOUNDRY_ITEM_USED_PREF, false) == true
+
+        for (entry in FloundryDatabase.allItems()) {
+            val key = entry.name.lowercase()
+            val preserved = preservedQueued[key]
+            val available = hasFloundry &&
+                !dailyUsed &&
+                FloundryAvailability.isAvailable(entry.name)
+            val initial = if (available) FloundryAvailability.creatableCount(entry.name) else 0
+            runtimeByResult[key] = ConcoctionRuntimeState(
+                initial = initial,
+                creatable = initial,
+                total = initial,
+                visibleTotal = initial,
+                freeTotal = initial,
+                price = 0,
+                skipCalculate = true,
+                queued = preserved?.first ?: 0,
+                queuedPulls = preserved?.second ?: 0,
+                wasPossible = preservedWasPossible[key] ?: false,
+            )
+        }
+    }
+
     /** Idempotent virtual HOT_DOG concoctions for clan lounge dogs not in concoctions.txt. */
     private fun registerLoungeHotDogConcoctions() {
         if (hotDogConcoctionsRegistered) return
@@ -379,6 +428,25 @@ object ConcoctionDatabase {
 
     private fun isSpeakeasyConcoction(concoction: ConcoctionData): Boolean =
         "SPEAKEASY" in concoction.methods
+
+    /** Idempotent virtual FLOUNDRY concoctions for clan lounge fish items not in concoctions.txt. */
+    private fun registerLoungeFloundryConcoctions() {
+        if (floundryConcoctionsRegistered) return
+        for (entry in FloundryDatabase.allItems()) {
+            val key = entry.name.lowercase()
+            if (key in _byResult) continue
+            _byResult[key] = ConcoctionData(
+                result = entry.name,
+                resultQuantity = 1,
+                methods = setOf("FLOUNDRY"),
+                ingredients = emptyList(),
+            )
+        }
+        floundryConcoctionsRegistered = true
+    }
+
+    private fun isFloundryConcoction(concoction: ConcoctionData): Boolean =
+        "FLOUNDRY" in concoction.methods
 
     /** Desktop refresh calculate2 tail — storage pull budgeting for ronin concoctions. */
     private fun applyPullablePass(context: ConcoctionRefreshContext) {
@@ -488,6 +556,14 @@ object ConcoctionDatabase {
     }
 
     /** Test hook — reset singleton state. */
+    /** Test hook — parse concoctions text without loading bundled file. */
+    internal fun parseForTest(text: String) {
+        _byResult.clear()
+        _byIngredient.clear()
+        parse(text)
+        loaded = true
+    }
+
     internal fun resetForTest() {
         _byResult.clear()
         _byIngredient.clear()
@@ -501,6 +577,7 @@ object ConcoctionDatabase {
         lastRefreshContext = ConcoctionRefreshContext.EMPTY
         speakeasyConcoctionsRegistered = false
         hotDogConcoctionsRegistered = false
+        floundryConcoctionsRegistered = false
         resetRefreshStateForTest()
     }
 
@@ -544,13 +621,17 @@ object ConcoctionDatabase {
             val (resultName, resultQty) = parseNameWithQuantity(parts[0])
             val methods = parts[1].split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
 
-            val ingredients = (2 until parts.size).mapNotNull { idx ->
+            var param = 0
+            val ingredients = mutableListOf<ConcoctionIngredient>()
+            for (idx in 2 until parts.size) {
                 val raw2 = parts[idx].trim()
-                if (raw2.isEmpty()) null
-                else {
-                    val (ingName, ingQty) = parseNameWithQuantity(raw2)
-                    ConcoctionIngredient(ingName, ingQty)
+                if (raw2.isEmpty()) continue
+                if (raw2.all { it.isDigit() }) {
+                    param = (param shl 8) or raw2.toInt()
+                    continue
                 }
+                val (ingName, ingQty) = parseNameWithQuantity(raw2)
+                ingredients += ConcoctionIngredient(ingName, ingQty)
             }
 
             val concoction = ConcoctionData(
@@ -558,6 +639,7 @@ object ConcoctionDatabase {
                 resultQuantity = resultQty,
                 methods = methods,
                 ingredients = ingredients,
+                param = param,
             )
 
             _byResult[resultName.lowercase()] = concoction

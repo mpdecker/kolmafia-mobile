@@ -14,6 +14,7 @@ class ConcoctionPermittedTest {
     @AfterTest
     fun cleanup() {
         ConcoctionDatabase.resetForTest()
+        FloundryAvailability.resetForTest()
     }
 
     @Test
@@ -132,6 +133,13 @@ class ConcoctionPermittedTest {
             ),
         )
         prefs.setBoolean(net.sourceforge.kolmafia.clan.ClanLoungeSync.CLAN_HAS_FLOUNDRY_PREF, true)
+        FloundryAvailability.addForTest("carpe", 100)
+        ConcoctionDatabase.refreshConcoctionsNow(
+            ConcoctionRefreshContext(
+                characterState = CharacterState(zodiacSign = "Mongoose"),
+                preferences = prefs,
+            ),
+        )
         assertTrue(
             ConcoctionPermitted.isPermittedMethod(
                 concoction,

@@ -68,6 +68,15 @@ open class ClanLoungeRequest(private val client: HttpClient) {
         )
     }
 
+    /** Desktop ClanLoungeRequest.visitLounge(FLOUNDRY) — refresh fish stock availability. */
+    open suspend fun visitFloundry(
+        preferences: Preferences? = null,
+    ): Result<String> = postLoungeForm(
+        formParams = { append("action", "floundry") },
+        syncUrlSuffix = "?action=floundry",
+        preferences = preferences,
+    )
+
     /** Desktop ClanLoungeRequest.visitLounge(SPEAKEASY) — refresh drink availability. */
     open suspend fun visitSpeakeasy(
         preferences: Preferences? = null,

@@ -101,6 +101,26 @@ object ConcoctionCraftQueue {
     fun entries(): List<ConcoctionQueueReservation> =
         clearOrder.flatMap { buckets.getValue(it) }
 
+    /** Re-queue a popped reservation (desktop addCreationQueue failure restore). */
+    fun restore(reservation: ConcoctionQueueReservation, quantity: Int = reservation.quantity) {
+        val restored = if (quantity == reservation.quantity) {
+            reservation
+        } else {
+            reservation.copy(quantity = quantity)
+        }
+        val store = storageBucket(restored.queueBucket)
+        buckets.getValue(store).add(restored)
+        globalOrder.add(restored)
+        ConcoctionQueueReserve.reapply(restored)
+        ConcoctionOrganQueueReserve.reapply(restored)
+        ConcoctionSpecialQueue.reapply(
+            restored.specialQueueDelta,
+            ConcoctionQueueContext(preferences = restored.preferences),
+        )
+        applyQueuedDelta(restored, sign = 1)
+        ConcoctionDatabase.refreshAfterQueueMutation()
+    }
+
     internal fun resetForTest() {
         for (stack in buckets.values) {
             stack.clear()

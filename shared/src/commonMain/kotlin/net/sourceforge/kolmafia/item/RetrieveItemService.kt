@@ -5,8 +5,11 @@ import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.craftMode
 import net.sourceforge.kolmafia.data.isAutoCraftable
+import net.sourceforge.kolmafia.data.isCreateSupported
 import net.sourceforge.kolmafia.data.isStationCraftable
 import net.sourceforge.kolmafia.data.isSuseCraftable
+import net.sourceforge.kolmafia.item.CreateItemIngredients
+import net.sourceforge.kolmafia.request.ConcoctionCreateRequest
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.ItemRestriction
 import net.sourceforge.kolmafia.mall.MallManager
@@ -46,6 +49,8 @@ open class RetrieveItemService(
     private val standardRequest: StandardRequest? = null,
     private val thriftyRequest: ThriftyRequest? = null,
     private val trendyRequest: TrendyRequest? = null,
+    private val specialtyCreateProvider: (() -> ConcoctionCreateRequest)? = null,
+    private val createItemIngredientsProvider: (() -> CreateItemIngredients)? = null,
 ) {
     open suspend fun retrieve(itemId: Int, qty: Int): Int {
         val itemName = gameDatabase?.item(itemId)?.name ?: return 0
@@ -177,14 +182,43 @@ open class RetrieveItemService(
 
     private suspend fun craftMissing(itemName: String, itemId: Int, qty: Int): Int {
         val concoction = ConcoctionDatabase.getByResult(itemName) ?: return 0
-        if (!concoction.isAutoCraftable()) return 0
 
-        if (concoction.isSuseCraftable() && useItemRequest != null) {
-            return craftSuse(concoction, itemId, qty)
+        if (concoction.isAutoCraftable()) {
+            if (concoction.isSuseCraftable() && useItemRequest != null) {
+                return craftSuse(concoction, itemId, qty)
+            }
+
+            if (concoction.isStationCraftable()) {
+                return craftAtStation(concoction, itemId, qty)
+            }
         }
 
-        if (!concoction.isStationCraftable()) return 0
-        return craftAtStation(concoction, itemId, qty)
+        if (concoction.isCreateSupported() && specialtyCreateProvider != null) {
+            return craftSpecialty(concoction, itemId, qty)
+        }
+
+        return 0
+    }
+
+    private suspend fun craftSpecialty(
+        concoction: net.sourceforge.kolmafia.data.ConcoctionData,
+        itemId: Int,
+        qty: Int,
+    ): Int {
+        val create = specialtyCreateProvider ?: return 0
+        val before = inventoryCount(itemId)
+        var remaining = qty
+        while (remaining > 0) {
+            val created = create.invoke()
+                .create(concoction.result, 1)
+                .getOrDefault(0)
+            inventoryManager?.fetchInventory()
+            if (created <= 0) break
+            val gained = inventoryCount(itemId) - before
+            remaining = qty - gained
+            if (gained >= qty) break
+        }
+        return (inventoryCount(itemId) - before).coerceIn(0, qty)
     }
 
     private suspend fun craftSuse(
@@ -193,13 +227,15 @@ open class RetrieveItemService(
         qty: Int,
     ): Int {
         val use = useItemRequest ?: return 0
+        val helper = createItemIngredientsProvider?.invoke() ?: return 0
         val source = concoction.ingredients.firstOrNull()?.name ?: return 0
         val sourceId = gameDatabase?.item(source)?.id ?: return 0
+        val state = character?.state?.value
         val before = inventoryCount(itemId)
         var attempts = 0
         while (inventoryCount(itemId) - before < qty && attempts < qty * 2) {
             attempts++
-            if (retrieve(sourceId, 1) < 1) break
+            if (!helper.makeIngredients(concoction, 1, state)) break
             if (use.use(sourceId, 1).isFailure) break
             inventoryManager?.fetchInventory()
         }
@@ -213,18 +249,17 @@ open class RetrieveItemService(
     ): Int {
         val mode = concoction.craftMode() ?: return 0
         val craft = craftRequest ?: return 0
+        val helper = createItemIngredientsProvider?.invoke() ?: return 0
         val ing1 = gameDatabase?.item(concoction.ingredients[0].name)?.id ?: return 0
         val ing2 = gameDatabase?.item(concoction.ingredients[1].name)?.id ?: return 0
+        val state = character?.state?.value
         val before = inventoryCount(itemId)
         var remaining = qty
         while (remaining > 0) {
-            for (ing in concoction.ingredients) {
-                val ingId = gameDatabase?.item(ing.name)?.id ?: return inventoryCount(itemId) - before
-                if (retrieve(ingId, ing.quantity) < ing.quantity) {
-                    return (inventoryCount(itemId) - before).coerceIn(0, qty)
-                }
-            }
             val batch = remaining.coerceAtMost(qty)
+            if (!helper.makeIngredients(concoction, batch, state)) {
+                return (inventoryCount(itemId) - before).coerceIn(0, qty)
+            }
             val created = craft.craft(mode, batch, ing1, ing2)
             inventoryManager?.fetchInventory()
             if (created <= 0) break
@@ -241,7 +276,7 @@ open class RetrieveItemService(
     /** Desktop [InventoryManager.doRetrieveItem] restricted-item early exit helper. */
     private fun canCreateItem(itemId: Int, itemName: String): Boolean {
         val concoction = ConcoctionDatabase.getByResult(itemName)
-        if (concoction?.isAutoCraftable() == true) return true
+        if (concoction?.isCreateSupported() == true) return true
         if (coinmasterManager != null && coinmasterManager.findMasterForBuyItem(itemId) != null) {
             return true
         }

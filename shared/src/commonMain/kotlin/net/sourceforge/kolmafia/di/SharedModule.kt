@@ -70,11 +70,25 @@ import net.sourceforge.kolmafia.inventory.JunkListManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.CafePurchaseRequest
+import net.sourceforge.kolmafia.request.CrimboCafeRequest
+import net.sourceforge.kolmafia.request.FloundryRequest
 import net.sourceforge.kolmafia.request.CafeRequest
 import net.sourceforge.kolmafia.request.ChezSnooteeRequest
+import net.sourceforge.kolmafia.request.ClipArtCreateRequest
 import net.sourceforge.kolmafia.request.ConcoctionCreateRequest
 import net.sourceforge.kolmafia.request.HellKitchenRequest
 import net.sourceforge.kolmafia.request.MicroBreweryRequest
+import net.sourceforge.kolmafia.request.RollingPinCreateRequest
+import net.sourceforge.kolmafia.request.FalloutShelterRequest
+import net.sourceforge.kolmafia.request.VykeaCreateRequest
+import net.sourceforge.kolmafia.request.MuseCreateRequest
+import net.sourceforge.kolmafia.request.PhineasCreateRequest
+import net.sourceforge.kolmafia.request.StaffCreateRequest
+import net.sourceforge.kolmafia.request.GnomeTinkerCreateRequest
+import net.sourceforge.kolmafia.request.SushiCreateRequest
+import net.sourceforge.kolmafia.request.SewerCreateRequest
+import net.sourceforge.kolmafia.request.TerminalExtrudeCreateRequest
+import net.sourceforge.kolmafia.request.TerminalRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
@@ -91,6 +105,7 @@ import net.sourceforge.kolmafia.chat.ChatManager
 import net.sourceforge.kolmafia.chat.ChatPoller
 import net.sourceforge.kolmafia.chat.ChatProbe
 import net.sourceforge.kolmafia.chat.ChatSender
+import net.sourceforge.kolmafia.item.CreateItemIngredients
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPriceManager
@@ -254,6 +269,14 @@ val sharedModule = module {
     singleOf(::EquipmentRequest)
     singleOf(::CustomOutfitRequest)
     singleOf(::CampgroundRequest)
+    singleOf(::FalloutShelterRequest)
+    single {
+        TerminalRequest(
+            client = get(),
+            campgroundRequest = get(),
+            falloutShelterRequest = get(),
+        )
+    }
     singleOf(::ClanRumpusRequest)
     singleOf(::ClanLoungeRequest)
     singleOf(::CafeRequest)
@@ -267,10 +290,14 @@ val sharedModule = module {
         MicroBreweryRequest(hellKitchenRequest = get())
     }
     single {
+        CrimboCafeRequest(cafeRequest = get())
+    }
+    single {
         CafePurchaseRequest(
             hellKitchenRequest = get(),
             chezSnooteeRequest = get(),
             microBreweryRequest = get(),
+            crimboCafeRequest = get(),
         )
     }
     single {
@@ -279,6 +306,70 @@ val sharedModule = module {
             craftRequest = get(),
             useItemRequest = get(),
             gameDatabase = get(),
+            createItemIngredients = get(),
+            shopRequest = get(),
+            coinmasterManager = get(),
+            character = get(),
+            clipArtCreateRequest = ClipArtCreateRequest(get()),
+            rollingPinCreateRequest = RollingPinCreateRequest(
+                useItemRequest = get(),
+                retrieveItemService = get(),
+                gameDatabase = get(),
+            ),
+            terminalExtrudeCreateRequest = TerminalExtrudeCreateRequest(
+                terminalRequest = get(),
+                createItemIngredients = get(),
+            ),
+            sewerCreateRequest = SewerCreateRequest(
+                useItemRequest = get(),
+                closetRequest = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+                inventoryCountById = { id ->
+                    get<InventoryManager>().state.value.items[id]?.quantity ?: 0
+                },
+            ),
+            vykeaCreateRequest = VykeaCreateRequest(
+                useItemRequest = get(),
+                choiceRequest = get(),
+                retrieveItemService = get(),
+                createItemIngredients = get(),
+                vykeaCompanionManager = get(),
+                gameDatabase = get(),
+                accessibleCount = { id ->
+                    get<InventoryManager>().state.value.items[id]?.quantity ?: 0
+                },
+            ),
+            museCreateRequest = MuseCreateRequest(
+                useItemRequest = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+            ),
+            phineasCreateRequest = PhineasCreateRequest(
+                client = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+            ),
+            staffCreateRequest = StaffCreateRequest(
+                client = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+            ),
+            gnomeTinkerCreateRequest = GnomeTinkerCreateRequest(
+                client = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+            ),
+            sushiCreateRequest = SushiCreateRequest(
+                client = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+                inventoryManager = get(),
+                character = get(),
+                sessionLogger = get(),
+                preferences = get(),
+                eventBus = get(),
+            ),
         )
     }
     single {
@@ -287,16 +378,20 @@ val sharedModule = module {
             inventoryManager = get(),
         )
     }
+    singleOf(::FloundryRequest)
     single {
         ConcoctionQueueRunner(
             clanLoungeRequest = get(),
             eatFoodRequest = get(),
             drinkBoozeRequest = get(),
             chewRequest = get(),
+            useItemRequest = get(),
             retrieveItemService = get(),
             concoctionCreateRequest = get(),
             cafePurchaseRequest = get(),
             stillSuitRequest = get(),
+            floundryRequest = get(),
+            familiarManager = get(),
         )
     }
     singleOf(::FamiliarRequest)
@@ -524,6 +619,8 @@ val sharedModule = module {
             chatProbe = get(),
             chatManager = get(),
             researchBenchRequest = get(),
+            concoctionQueueRunner = get(),
+            concoctionCreateRequest = get(),
         )
     }
     singleOf(::ScriptManager)
@@ -593,6 +690,14 @@ val sharedModule = module {
             standardRequest  = get(),
             thriftyRequest   = get(),
             trendyRequest    = get(),
+            specialtyCreateProvider = { get() },
+            createItemIngredientsProvider = { get() },
+        )
+    }
+    single {
+        CreateItemIngredients(
+            retrieveItemService = get(),
+            gameDatabase = get(),
         )
     }
     single {

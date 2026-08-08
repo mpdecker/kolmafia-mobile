@@ -16,7 +16,7 @@ class GameRuntimeLibraryCraftTest {
     private fun stubDb(): GameDatabase = object : GameDatabase() {
         override fun item(id: Int) = when (id) {
             42 -> ItemData(
-                id = 42, name = "present", descId = "", image = "",
+                id = 42, name = "retrieve widget", descId = "", image = "",
                 primaryUse = ItemPrimaryUse.NONE, secondaryUses = emptySet(),
                 access = setOf('t'), autosellPrice = 10, plural = null
             )
@@ -33,6 +33,7 @@ class GameRuntimeLibraryCraftTest {
             else -> null
         }
         override fun item(name: String) = when (name.lowercase()) {
+            "retrieve widget" -> item(42)
             "present" -> item(42)
             "box" -> item(1)
             "paper", "wrapping paper" -> item(2)
@@ -48,7 +49,7 @@ class GameRuntimeLibraryCraftTest {
                 override suspend fun retrieve(itemId: Int, qty: Int) = if (itemId == 42) qty else 0
             },
         )
-        assertEquals("true", outputLib(lib, """print(to_string(create(2, to_item("present"))));"""))
+        assertEquals("true", outputLib(lib, """print(to_string(create(2, to_item("retrieve widget"))));"""))
     }
 
     @Test

@@ -13,6 +13,7 @@ import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.clan.ClanHotdogMenuCache
+import net.sourceforge.kolmafia.clan.ClanManager
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConcoctionAvailableIngredients
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
@@ -74,6 +75,7 @@ class SessionManager(
     suspend fun login(username: String, password: String): SessionState {
         return when (val loginResult = loginRequest.login(username, password)) {
             is LoginResult.Success -> {
+                ClanManager.clearCache(newCharacter = true)
                 preferences.setString(Preferences.LAST_USERNAME, username)
                 gameDatabase.load()
                 DefaultsDatabase.seedMissingDefaults(preferences)
@@ -188,6 +190,7 @@ class SessionManager(
     }
 
     fun logout() {
+        ClanManager.clearCache(newCharacter = true)
         character.reset()
     }
 

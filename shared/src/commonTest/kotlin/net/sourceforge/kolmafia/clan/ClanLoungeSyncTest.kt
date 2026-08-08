@@ -8,6 +8,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionRefreshContext
+import net.sourceforge.kolmafia.data.FloundryAvailability
 import net.sourceforge.kolmafia.data.HotDogAvailability
 import net.sourceforge.kolmafia.data.SpeakeasyAvailability
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -20,6 +21,7 @@ class ClanLoungeSyncTest {
     fun tearDown() {
         SpeakeasyAvailability.resetForTest()
         HotDogAvailability.resetForTest()
+        FloundryAvailability.resetForTest()
         ConcoctionDatabase.resetForTest()
     }
 
@@ -231,5 +233,31 @@ class ClanLoungeSyncTest {
         )
         assertFalse(prefs.getBoolean(ClanLoungeSync.FANCY_HOT_DOG_EATEN_PREF, true))
         assertEquals(2, prefs.getInt(ClanLoungeSync.SPEAKEASY_DRINKS_DRUNK_PREF))
+    }
+
+    @Test
+    fun apply_floundryActionParsesStockAndLocations() {
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean(ClanLoungeSync.CLAN_HAS_FLOUNDRY_PREF, true)
+        val html = """
+            <br>1234 carp
+            <br><b>carp:</b> The Distant Woods
+            <br><b>cod:</b> The Sea
+        """.trimIndent()
+        ClanLoungeSync.apply(prefs, html, "$loungeUrl?action=floundry")
+
+        assertTrue(FloundryAvailability.isAvailable("carpe"))
+        assertEquals(123, ConcoctionDatabase.totalCount("carpe"))
+        assertEquals("The Distant Woods", prefs.getString(ClanLoungeSync.FLOUNDRY_CARP_LOCATION_PREF, ""))
+        assertEquals("The Sea", prefs.getString("_floundryCodLocation", ""))
+    }
+
+    @Test
+    fun syncFloundryLocations_skipsWhenCarpLocationAlreadySet() {
+        val prefs = Preferences(MapSettings())
+        prefs.setString(ClanLoungeSync.FLOUNDRY_CARP_LOCATION_PREF, "Existing Woods")
+        val html = """<br><b>carp:</b> The Distant Woods"""
+        ClanLoungeSync.syncFloundryLocationsFromHtml(html, prefs)
+        assertEquals("Existing Woods", prefs.getString(ClanLoungeSync.FLOUNDRY_CARP_LOCATION_PREF, ""))
     }
 }

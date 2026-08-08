@@ -7,11 +7,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.ConcoctionBuyables
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.NpcStoreData
 import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.item.CreateItemIngredients
 import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
@@ -402,7 +406,8 @@ class RetrieveItemServiceTest {
                 })
             }
         }
-        val service = RetrieveItemService(
+        lateinit var service: RetrieveItemService
+        service = RetrieveItemService(
             inventoryManager = inv,
             closetRequest = null,
             storageRequest = null,
@@ -410,6 +415,7 @@ class RetrieveItemServiceTest {
             mallManager = null,
             useItemRequest = use,
             gameDatabase = db,
+            createItemIngredientsProvider = { CreateItemIngredients(service, db) },
         )
         try {
             assertEquals(2, service.retrieve(ITEM_ID, 2))
@@ -466,7 +472,8 @@ class RetrieveItemServiceTest {
         val craft = object : net.sourceforge.kolmafia.request.CraftRequest(HttpClient(MockEngine { respond("") })) {
             override suspend fun craft(mode: String, quantity: Int, itemId1: Int, itemId2: Int): Int = quantity
         }
-        val service = RetrieveItemService(
+        lateinit var service: RetrieveItemService
+        service = RetrieveItemService(
             inventoryManager = inv,
             closetRequest = null,
             storageRequest = null,
@@ -474,6 +481,7 @@ class RetrieveItemServiceTest {
             mallManager = null,
             craftRequest = craft,
             gameDatabase = db,
+            createItemIngredientsProvider = { CreateItemIngredients(service, db) },
         )
         try {
             assertEquals(2, service.retrieve(ITEM_ID, 2))
@@ -524,7 +532,8 @@ class RetrieveItemServiceTest {
         val craft = object : net.sourceforge.kolmafia.request.CraftRequest(HttpClient(MockEngine { respond("") })) {
             override suspend fun craft(mode: String, quantity: Int, itemId1: Int, itemId2: Int): Int = 0
         }
-        val service = RetrieveItemService(
+        lateinit var service: RetrieveItemService
+        service = RetrieveItemService(
             inventoryManager = inv,
             closetRequest = null,
             storageRequest = null,
@@ -532,6 +541,7 @@ class RetrieveItemServiceTest {
             mallManager = null,
             craftRequest = craft,
             gameDatabase = db,
+            createItemIngredientsProvider = { CreateItemIngredients(service, db) },
         )
         try {
             assertEquals(0, service.retrieve(ITEM_ID, 1))
@@ -678,7 +688,8 @@ class RetrieveItemServiceTest {
         val use = object : net.sourceforge.kolmafia.request.UseItemRequest(HttpClient(MockEngine { respond("") })) {
             override suspend fun use(itemId: Int, quantity: Int): Result<String> = Result.success("ok")
         }
-        val service = RetrieveItemService(
+        lateinit var service: RetrieveItemService
+        service = RetrieveItemService(
             inventoryManager = inv,
             closetRequest = null,
             storageRequest = null,
@@ -687,12 +698,195 @@ class RetrieveItemServiceTest {
             useItemRequest = use,
             gameDatabase = db,
             character = char,
+            createItemIngredientsProvider = { CreateItemIngredients(service, db) },
         )
         try {
             assertEquals(1, service.retrieve(ITEM_ID, 1))
         } finally {
             ConcoctionDatabase.resetForTest()
             net.sourceforge.kolmafia.request.StandardRequest.resetForTest()
+        }
+    }
+
+    @Test
+    fun retrieve_craftsSpecialtyTinker_whenProviderCreatesItem() = runTest {
+        ConcoctionDatabase.resetForTest()
+        ConcoctionDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConcoctionData(
+                result = ITEM_NAME,
+                resultQuantity = 1,
+                methods = setOf("TINKER"),
+                ingredients = listOf(
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("flange", 1),
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("cog", 1),
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("sprocket", 1),
+                ),
+            ),
+        )
+        val flangeId = 88301
+        val cogId = 88302
+        val sprocketId = 88303
+        val db = object : GameDatabase() {
+            override fun item(id: Int) = when (id) {
+                ITEM_ID -> testItemData()
+                flangeId -> ItemData(
+                    flangeId, "flange", "", "", ItemPrimaryUse.NONE,
+                    emptySet(), setOf('t'), 0, null,
+                )
+                cogId -> ItemData(
+                    cogId, "cog", "", "", ItemPrimaryUse.NONE,
+                    emptySet(), setOf('t'), 0, null,
+                )
+                sprocketId -> ItemData(
+                    sprocketId, "sprocket", "", "", ItemPrimaryUse.NONE,
+                    emptySet(), setOf('t'), 0, null,
+                )
+                else -> null
+            }
+            override fun item(name: String) = when (name) {
+                ITEM_NAME -> testItemData()
+                "flange" -> item(flangeId)
+                "cog" -> item(cogId)
+                "sprocket" -> item(sprocketId)
+                else -> null
+            }
+        }
+        val client = HttpClient(MockEngine {
+            respond("Gnorman deftly assembles your items into something new.")
+        })
+        var crafted = false
+        val inv = object : InventoryManager(client, GameEventBus()) {
+            private val _s = MutableStateFlow(
+                InventoryState(
+                    items = mapOf(
+                        flangeId to InventoryItem(flangeId, "flange", 1, ItemType.OTHER),
+                        cogId to InventoryItem(cogId, "cog", 1, ItemType.OTHER),
+                        sprocketId to InventoryItem(sprocketId, "sprocket", 1, ItemType.OTHER),
+                    ),
+                ),
+            )
+            override val state: StateFlow<InventoryState> = _s
+            override suspend fun fetchInventory() {
+                if (crafted) {
+                    _s.value = InventoryState(
+                        items = mapOf(
+                            ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, 1, ItemType.OTHER),
+                        ),
+                    )
+                }
+            }
+        }
+        lateinit var createRequest: net.sourceforge.kolmafia.request.ConcoctionCreateRequest
+        val retrieve = RetrieveItemService(
+            inventoryManager = inv,
+            closetRequest = null,
+            storageRequest = null,
+            npcBuyRequest = null,
+            mallManager = null,
+            gameDatabase = db,
+            specialtyCreateProvider = { createRequest },
+        )
+        val createItemIngredients = CreateItemIngredients(retrieve, db)
+        val gnomeTinker = net.sourceforge.kolmafia.request.GnomeTinkerCreateRequest(
+            client = client,
+            createItemIngredients = createItemIngredients,
+            gameDatabase = db,
+        )
+        createRequest = net.sourceforge.kolmafia.request.ConcoctionCreateRequest(
+            retrieveItemService = retrieve,
+            craftRequest = net.sourceforge.kolmafia.request.CraftRequest(client),
+            useItemRequest = net.sourceforge.kolmafia.request.UseItemRequest(client),
+            gameDatabase = db,
+            gnomeTinkerCreateRequest = gnomeTinker,
+        )
+        val service = retrieve
+        try {
+            crafted = true
+            assertEquals(1, service.retrieve(ITEM_ID, 1))
+        } finally {
+            ConcoctionDatabase.resetForTest()
+        }
+    }
+
+    @Test
+    fun retrieve_craftAtStation_nonKnoll_retrievesMeatPaste() = runTest {
+        ConcoctionDatabase.resetForTest()
+        ConcoctionDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConcoctionData(
+                result = ITEM_NAME,
+                resultQuantity = 1,
+                methods = setOf("COMBINE"),
+                ingredients = listOf(
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("ingredient a", 1),
+                    net.sourceforge.kolmafia.data.ConcoctionIngredient("ingredient b", 1),
+                ),
+            ),
+        )
+        val ingA = 50
+        val ingB = 51
+        val pasteId = ConcoctionBuyables.MEAT_PASTE
+        val db = object : GameDatabase() {
+            override fun item(id: Int) = when (id) {
+                ITEM_ID -> testItemData()
+                ingA -> ItemData(ingA, "ingredient a", "", "", ItemPrimaryUse.NONE, emptySet(), setOf('t'), 0, null)
+                ingB -> ItemData(ingB, "ingredient b", "", "", ItemPrimaryUse.NONE, emptySet(), setOf('t'), 0, null)
+                pasteId -> ItemData(pasteId, "meat paste", "", "", ItemPrimaryUse.NONE, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String) = when (name) {
+                ITEM_NAME -> testItemData()
+                "ingredient a" -> item(ingA)
+                "ingredient b" -> item(ingB)
+                "meat paste" -> item(pasteId)
+                else -> null
+            }
+        }
+        val retrieved = mutableListOf<Int>()
+        val inv = object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+            private val _s = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    ingA to InventoryItem(ingA, "ingredient a", 2, ItemType.OTHER),
+                    ingB to InventoryItem(ingB, "ingredient b", 2, ItemType.OTHER),
+                    pasteId to InventoryItem(pasteId, "meat paste", 2, ItemType.OTHER),
+                )),
+            )
+            override val state: StateFlow<InventoryState> = _s
+            override suspend fun fetchInventory() {
+                _s.value = InventoryState(items = mapOf(
+                    ITEM_ID to InventoryItem(ITEM_ID, ITEM_NAME, 1, ItemType.OTHER),
+                ))
+            }
+        }
+        val craft = object : net.sourceforge.kolmafia.request.CraftRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun craft(mode: String, quantity: Int, itemId1: Int, itemId2: Int): Int = quantity
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                net.sourceforge.kolmafia.character.CharacterApiResponse(sign = "Seal"),
+            )
+        }
+        lateinit var tracking: RetrieveItemService
+        tracking = object : RetrieveItemService(
+            inventoryManager = inv,
+            closetRequest = null,
+            storageRequest = null,
+            npcBuyRequest = null,
+            mallManager = null,
+            craftRequest = craft,
+            gameDatabase = db,
+            character = char,
+            createItemIngredientsProvider = { CreateItemIngredients(tracking, db) },
+        ) {
+            override suspend fun retrieve(itemId: Int, qty: Int): Int {
+                retrieved += itemId
+                return super.retrieve(itemId, qty)
+            }
+        }
+        try {
+            assertEquals(1, tracking.retrieve(ITEM_ID, 1))
+            assertTrue(pasteId in retrieved)
+        } finally {
+            ConcoctionDatabase.resetForTest()
         }
     }
 }

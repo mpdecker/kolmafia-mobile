@@ -32,7 +32,7 @@ object CreatableAmount {
     private fun loungeQuantity(concoction: ConcoctionData, itemName: String): Int {
         val method = ConcoctionCreationCost.primaryMethod(concoction.methods)
         return when (method) {
-            "HOT_DOG", "SPEAKEASY" -> ConcoctionDatabase.totalCount(itemName)
+            "HOT_DOG", "SPEAKEASY", "FLOUNDRY" -> ConcoctionDatabase.totalCount(itemName)
             else -> ConcoctionDatabase.creatableCount(itemName)
         }
     }

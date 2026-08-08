@@ -4,10 +4,18 @@ import io.ktor.client.*
 import io.ktor.client.engine.mock.*
 import io.ktor.http.*
 import kotlinx.coroutines.test.runTest
+import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.session.ConsumptionHelperState
 
 class EatFoodRequestTest {
+
+    @AfterTest
+    fun tearDown() {
+        ConsumptionHelperState.resetForTest()
+    }
 
     private fun makeClient(handler: MockRequestHandler): HttpClient = HttpClient(MockEngine(handler))
 
@@ -72,5 +80,44 @@ class EatFoodRequestTest {
         val client = makeClient { throw Exception("Network error") }
         val result = EatFoodRequest(client).eat(itemId = 1, quantity = 1)
         assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun consumeFood_abortsOnTooFullResponse() = runTest {
+        val client = makeClient {
+            respond("You're too full to eat that.", HttpStatusCode.OK)
+        }
+        val outcome = EatFoodRequest(client).consumeFood(itemId = 1, quantity = 1).getOrThrow()
+        assertTrue(outcome is ConsumptionRequestOutcome.Aborted)
+        assertEquals(0, (outcome as ConsumptionRequestOutcome.Aborted).consumed)
+    }
+
+    @Test
+    fun consumeFood_sendsUtensilWhenFoodHelperQueued() = runTest {
+        ConsumptionHelperState.queueFoodHelper(5459, 1)
+        val capturedPaths = mutableListOf<String>()
+        val client = makeClient { request ->
+            capturedPaths += request.url.fullPath
+            respond("You eat the food.", HttpStatusCode.OK)
+        }
+        EatFoodRequest(client).consumeFood(itemId = 100, quantity = 1).getOrThrow()
+        assertTrue(capturedPaths.any { it.contains("utensil=5459") })
+    }
+
+    @Test
+    fun consumeFood_multiIteratesBlackPudding() = runTest {
+        var calls = 0
+        val client = makeClient {
+            calls++
+            if (calls == 1) {
+                respond("You eat the pudding.", HttpStatusCode.OK)
+            } else {
+                respond("You're too full to eat that.", HttpStatusCode.OK)
+            }
+        }
+        val outcome = EatFoodRequest(client).consumeFood(itemId = 2338, quantity = 3).getOrThrow()
+        assertTrue(outcome is ConsumptionRequestOutcome.Aborted)
+        assertEquals(1, (outcome as ConsumptionRequestOutcome.Aborted).consumed)
+        assertEquals(2, calls)
     }
 }

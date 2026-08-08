@@ -2,12 +2,15 @@ package net.sourceforge.kolmafia.clan
 
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.FloundryAvailability
+import net.sourceforge.kolmafia.data.FloundryDatabase
 import net.sourceforge.kolmafia.data.HotDogAvailability
 import net.sourceforge.kolmafia.data.HotDogDatabase
 import net.sourceforge.kolmafia.data.RestrictedItemType
 import net.sourceforge.kolmafia.data.SpeakeasyAvailability
 import net.sourceforge.kolmafia.data.SpeakeasyDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.FloundryRequest
 import net.sourceforge.kolmafia.request.StandardRequest
 
 /**
@@ -24,6 +27,8 @@ object ClanLoungeSync {
     const val FANCY_HOT_DOG_EATEN_PREF = "_fancyHotDogEaten"
     const val SPEAKEASY_DRINKS_DRUNK_PREF = "_speakeasyDrinksDrunk"
     const val MIME_ARMY_SHOTGLASS_USED_PREF = "_mimeArmyShotglassUsed"
+    const val FLOUNDRY_CARP_LOCATION_PREF = "_floundryCarpLocation"
+    const val FLOUNDRY_ITEM_USED_PREF = "_floundryItemUsed"
     const val CLAN_HOT_DOG_STAND_RESTRICTION = "Clan hot dog stand"
     const val CLAN_SPEAKEASY_RESTRICTION = "Clan speakeasy"
 
@@ -46,6 +51,9 @@ object ClanLoungeSync {
     private val WHICHDOG_PATTERN = Regex("""whichdog=(-\d+)""")
     private val DRINK_PATTERN = Regex("""drink=(\d+)""")
     private val SPEAKEASY_DRINK_ROW_PATTERN = Regex("""name="drink"\s+value="\d+"""")
+    private val FISH_LOCATION_PATTERN = Regex(
+        """<br><b>(carp|cod|trout|bass|hatchetfish|tuna):</b> ([^<]+)""",
+    )
 
     fun hasFloundry(prefs: Preferences?): Boolean =
         prefs?.getBoolean(CLAN_HAS_FLOUNDRY_PREF, false) == true
@@ -70,6 +78,27 @@ object ClanLoungeSync {
     fun syncHotDogAvailabilityFromHtml(html: String) {
         HotDogAvailability.reset()
         HotDogAvailability.addFromHtml(html)
+    }
+
+    /** Desktop ClanLoungeRequest.parseFloundry availability rebuild. */
+    fun syncFloundryFromHtml(html: String, prefs: Preferences?) {
+        FloundryAvailability.reset()
+        FloundryAvailability.addFromHtml(html)
+        syncFloundryLocationsFromHtml(html, prefs)
+        ConcoctionDatabase.refreshAfterLoungeMutation(prefs)
+    }
+
+    /** Desktop ClanLoungeRequest.parseFloundryLocations — once per day when carp location unset. */
+    fun syncFloundryLocationsFromHtml(html: String, prefs: Preferences?) {
+        if (prefs == null) return
+        if (prefs.getString(FLOUNDRY_CARP_LOCATION_PREF, "").isNotEmpty()) return
+        for (match in FISH_LOCATION_PATTERN.findAll(html)) {
+            val fish = match.groupValues.getOrNull(1)?.trim().orEmpty()
+            val location = match.groupValues.getOrNull(2)?.trim().orEmpty()
+            if (fish.isEmpty() || location.isEmpty()) continue
+            val prefKey = FloundryDatabase.locationPrefForFish(fish) ?: continue
+            prefs.setString(prefKey, location)
+        }
     }
 
     /** Desktop ClanLoungeRequest.parseSpeakeasy drink-count strings. */
@@ -139,6 +168,10 @@ object ClanLoungeSync {
             syncSpeakeasyDrinksDrunkFromHtml(html, preferences)
             ConcoctionDatabase.refreshAfterLoungeMutation(preferences)
         }
+        if (action.equals("floundry", ignoreCase = true)) {
+            preferences?.setBoolean(CLAN_HAS_FLOUNDRY_PREF, true)
+            syncFloundryFromHtml(html, preferences)
+        }
         when (preaction?.lowercase()) {
             "eathotdog" -> {
                 if (syncHotDogEatFromResponse(html, url, preferences)) {
@@ -146,6 +179,12 @@ object ClanLoungeSync {
                 }
             }
             "speakeasydrink" -> syncSpeakeasyDrinkFromResponse(html, url, preferences)
+            "buyfloundryitem" -> {
+                if (html.contains("You acquire")) {
+                    preferences?.setBoolean(FloundryRequest.FLOUNDRY_ITEM_CREATED_PREF, true)
+                    ConcoctionDatabase.refreshAfterLoungeMutation(preferences)
+                }
+            }
         }
     }
 

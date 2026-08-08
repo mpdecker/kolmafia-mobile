@@ -14,6 +14,7 @@ import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionRefreshContext
+import net.sourceforge.kolmafia.data.FloundryAvailability
 import net.sourceforge.kolmafia.data.HotDogAvailability
 import net.sourceforge.kolmafia.data.SpeakeasyAvailability
 
@@ -24,6 +25,7 @@ class ClanLoungeRequestTest {
         ConcoctionDatabase.resetForTest()
         HotDogAvailability.resetForTest()
         SpeakeasyAvailability.resetForTest()
+        FloundryAvailability.resetForTest()
     }
 
     @Test fun useKlaw_success_returnsBody() = runTest {
@@ -104,6 +106,19 @@ class ClanLoungeRequestTest {
         assertTrue(result.isSuccess)
         assertTrue(bodies.single().contains("action=speakeasy"), "body=${bodies.single()}")
         assertTrue(bodies.single().contains("whichfloor=2"), "body=${bodies.single()}")
+    }
+
+    @Test fun visitFloundry_sendsFloundryAction() = runTest {
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        val bodies = mutableListOf<String>()
+        val client = HttpClient(MockEngine { req ->
+            bodies += req.body.toByteArray().decodeToString()
+            respond("""<br>100 carp""")
+        })
+        val result = ClanLoungeRequest(client).visitFloundry(preferences = prefs)
+        assertTrue(result.isSuccess)
+        assertTrue(bodies.single().contains("action=floundry"), "body=${bodies.single()}")
+        assertTrue(FloundryAvailability.isAvailable("carpe"))
     }
 
     @Test fun eatHotDog_sendsEathotdogForm() = runTest {

@@ -36,6 +36,7 @@ import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.ClassResourceCharpaneSync
+import net.sourceforge.kolmafia.clan.ClanIdSync
 import net.sourceforge.kolmafia.character.ClassResourceCombatSync
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
@@ -221,6 +222,8 @@ class GameRuntimeLibrary(
     internal val chatProbe: ChatProbe? = null,
     internal val chatManager: net.sourceforge.kolmafia.chat.ChatManager? = null,
     internal val researchBenchRequest: net.sourceforge.kolmafia.request.ResearchBenchRequest? = null,
+    internal val concoctionQueueRunner: net.sourceforge.kolmafia.session.ConcoctionQueueRunner? = null,
+    internal val concoctionCreateRequest: net.sourceforge.kolmafia.request.ConcoctionCreateRequest? = null,
 ) : RuntimeLibrary() {
 
     init {
@@ -232,7 +235,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase300"
+        const val REVISION = "phase320"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -469,6 +472,122 @@ class GameRuntimeLibrary(
         Regex("^chew\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
             kotlinx.coroutines.runBlocking { chewRequest?.chew(itemId, 1) }
+        },
+
+        // "ghost N item" / "hobo N item" / "slimeling N item" / "robo item"
+        Regex("^ghost\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                familiarFeedItem(itemId, qty, net.sourceforge.kolmafia.data.ConcoctionConsumptionType.GLUTTONOUS_GHOST)
+            }
+        },
+        Regex("^ghost\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                familiarFeedItem(itemId, 1, net.sourceforge.kolmafia.data.ConcoctionConsumptionType.GLUTTONOUS_GHOST)
+            }
+        },
+        Regex("^hobo\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                familiarFeedItem(itemId, qty, net.sourceforge.kolmafia.data.ConcoctionConsumptionType.SPIRIT_HOBO)
+            }
+        },
+        Regex("^hobo\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                familiarFeedItem(itemId, 1, net.sourceforge.kolmafia.data.ConcoctionConsumptionType.SPIRIT_HOBO)
+            }
+        },
+        Regex("^slimeling\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                familiarFeedItem(itemId, qty, net.sourceforge.kolmafia.data.ConcoctionConsumptionType.SLIMELING)
+            }
+        },
+        Regex("^slimeling\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                familiarFeedItem(itemId, 1, net.sourceforge.kolmafia.data.ConcoctionConsumptionType.SLIMELING)
+            }
+        },
+        Regex("^robo\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                familiarFeedItem(itemId, 1, net.sourceforge.kolmafia.data.ConcoctionConsumptionType.ROBORTENDER)
+            }
+        },
+
+        // craft queue drain — desktop UseItemDequeuePanel headless equivalents
+        Regex("^eatqueue$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                drainQueue(
+                    net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket.FOOD,
+                    net.sourceforge.kolmafia.data.ConcoctionConsumptionType.EAT,
+                )
+            }
+        },
+        Regex("^drinkqueue$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                drainQueue(
+                    net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket.BOOZE,
+                    net.sourceforge.kolmafia.data.ConcoctionConsumptionType.DRINK,
+                )
+            }
+        },
+        Regex("^chewqueue$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                drainQueue(
+                    net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket.SPLEEN,
+                    net.sourceforge.kolmafia.data.ConcoctionConsumptionType.SPLEEN,
+                )
+            }
+        },
+        Regex("^usequeue$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                drainQueue(
+                    net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket.POTION,
+                    net.sourceforge.kolmafia.data.ConcoctionConsumptionType.USE,
+                )
+            }
+        },
+        Regex("^ghostqueue$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                drainQueue(
+                    net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket.FOOD,
+                    net.sourceforge.kolmafia.data.ConcoctionConsumptionType.GLUTTONOUS_GHOST,
+                )
+            }
+        },
+        Regex("^hoboqueue$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                drainQueue(
+                    net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket.BOOZE,
+                    net.sourceforge.kolmafia.data.ConcoctionConsumptionType.SPIRIT_HOBO,
+                )
+            }
+        },
+        Regex("^slimelingqueue$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                drainQueue(
+                    net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket.FOOD,
+                    net.sourceforge.kolmafia.data.ConcoctionConsumptionType.SLIMELING,
+                )
+            }
+        },
+        Regex("^roboequeue$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                drainQueue(
+                    net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket.BOOZE,
+                    net.sourceforge.kolmafia.data.ConcoctionConsumptionType.ROBORTENDER,
+                )
+            }
+        },
+        Regex("^createqueue$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { drainCreateQueues() }
         },
 
         // "eatsilent N item" / "drinksilent N item"
@@ -1557,19 +1676,19 @@ class GameRuntimeLibrary(
             }
         },
 
-        // "create N item" — compound retrieve (includes craft/coinmaster/mall)
+        // "create N item" — auto-craft when possible, else compound retrieve
         Regex("^create\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val count = m.groupValues[1].toIntOrNull() ?: return@to
             val itemName = m.groupValues[2].trim()
             val itemId = gameDatabase?.item(itemName)?.id ?: return@to
-            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+            kotlinx.coroutines.runBlocking { createItem(itemId, count) }
         },
 
         // make / bake / mix / smith / tinker / ply — aliases for create
         Regex("^(?:make|bake|mix|smith|tinker|ply)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val count = m.groupValues[1].toIntOrNull() ?: return@to
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+            kotlinx.coroutines.runBlocking { createItem(itemId, count) }
         },
 
         // "buy|mallbuy N item[@limit]" — checkpoint-wrapped mall purchase
@@ -1715,6 +1834,7 @@ class GameRuntimeLibrary(
             )
         ) {
             character?.let { ClassResourceCharpaneSync.apply(it, html) }
+            ClanIdSync.apply(html)
         }
         if (url != null && url.contains("campground.php", ignoreCase = true)) {
             character?.let { GardenSync.apply(it, html, preferences) }
@@ -2528,6 +2648,7 @@ class GameRuntimeLibrary(
                     vykeaCompanionManager?.syncFromCharpane(html)
                     pastaThrallManager?.syncFromCharpane(html)
                     character?.let { ClassResourceCharpaneSync.apply(it, html) }
+            ClanIdSync.apply(html)
                 }
                 if (path.contains("edbase", ignoreCase = true) && html.contains("whichchoice=1053")) {
                     edServantManager?.syncFromChoice1053(html)
@@ -2967,6 +3088,8 @@ class GameRuntimeLibrary(
         registerAshP267Batch(scope)
         registerAshP268Batch(scope)
         registerAshP269Batch(scope)
+        registerAshP301Batch(scope)
+        registerAshP305Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

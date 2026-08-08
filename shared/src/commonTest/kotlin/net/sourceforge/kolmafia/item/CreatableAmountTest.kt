@@ -7,11 +7,13 @@ import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionData
 import net.sourceforge.kolmafia.data.ConcoctionIngredient
 import net.sourceforge.kolmafia.data.ConcoctionRefreshContext
+import net.sourceforge.kolmafia.data.FloundryAvailability
 import net.sourceforge.kolmafia.data.HotDogAvailability
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.SpeakeasyAvailability
+import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.preferences.Preferences
 import com.russhwolf.settings.MapSettings
@@ -24,6 +26,7 @@ class CreatableAmountTest {
         ConcoctionDatabase.resetForTest()
         HotDogAvailability.resetForTest()
         SpeakeasyAvailability.resetForTest()
+        FloundryAvailability.resetForTest()
     }
 
     @Test
@@ -170,6 +173,21 @@ class CreatableAmountTest {
             ),
         )
         assertEquals(1, CreatableAmount.quantityPossible(7592, accessibleCount = { _, _ -> 0 }))
+    }
+
+    @Test
+    fun quantityPossible_floundryUsesTotalCountNotCreatable() {
+        registerItem(9001, "carpe")
+        FloundryAvailability.addForTest("carpe", 250)
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean(ClanLoungeSync.CLAN_HAS_FLOUNDRY_PREF, true)
+        ConcoctionDatabase.refreshConcoctionsNow(
+            ConcoctionRefreshContext(
+                characterState = CharacterState(),
+                preferences = prefs,
+            ),
+        )
+        assertEquals(25, CreatableAmount.quantityPossible(9001, accessibleCount = { _, _ -> 0 }))
     }
 
     private fun registerItem(id: Int, name: String) {
