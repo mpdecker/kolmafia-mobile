@@ -2333,10 +2333,10 @@ class AshCompatibilityCorpusTest {
 
     @Test
     fun corpus_floundryCraftGate_live() {
-        registerCorpusItem(9901, "floundry fish")
+        registerCorpusItem(9001, "carpe")
         ConcoctionDatabase.injectForTest(
             ConcoctionData(
-                result = "floundry fish",
+                result = "carpe",
                 resultQuantity = 1,
                 methods = setOf("FLOUNDRY"),
                 ingredients = emptyList(),
@@ -2344,9 +2344,15 @@ class AshCompatibilityCorpusTest {
         )
         val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
         val lib = GameRuntimeLibrary(preferences = prefs)
-        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9901));""").trim())
+        assertEquals("false", outputLib(lib, """print(is_craft_permitted(9001));""").trim())
         prefs.setBoolean(net.sourceforge.kolmafia.clan.ClanLoungeSync.CLAN_HAS_FLOUNDRY_PREF, true)
-        assertEquals("true", outputLib(lib, """print(is_craft_permitted(9901));""").trim())
+        net.sourceforge.kolmafia.data.FloundryAvailability.addForTest("carpe", 100)
+        ConcoctionDatabase.refreshConcoctionsNow(
+            net.sourceforge.kolmafia.data.ConcoctionRefreshContext(
+                preferences = prefs,
+            ),
+        )
+        assertEquals("true", outputLib(lib, """print(is_craft_permitted(9001));""").trim())
     }
 
     @Test

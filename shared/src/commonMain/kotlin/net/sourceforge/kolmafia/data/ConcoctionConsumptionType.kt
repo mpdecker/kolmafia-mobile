@@ -6,4 +6,10 @@ enum class ConcoctionConsumptionType {
     EAT,
     DRINK,
     SPLEEN,
+    USE,
+    GLUTTONOUS_GHOST,
+    SPIRIT_HOBO,
+    SLIMELING,
+    ROBORTENDER,
+    STOCKING_MIMIC,
 }

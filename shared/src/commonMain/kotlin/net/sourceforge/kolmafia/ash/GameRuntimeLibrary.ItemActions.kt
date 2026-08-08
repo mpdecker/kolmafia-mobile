@@ -1,9 +1,67 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ConcoctionConsumptionType
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.session.ConcoctionQueueRunner
+
+internal suspend fun GameRuntimeLibrary.familiarFeedItem(
+    itemId: Int,
+    quantity: Int,
+    type: ConcoctionConsumptionType,
+): Boolean {
+    val itemName = gameDatabase?.item(itemId)?.name
+        ?: ItemDatabase.getById(itemId)?.name
+        ?: return false
+    if (!ConcoctionQueueRunner.isFamiliarFeedEligible(itemName, type)) return false
+    val activeFamiliarId = familiarManager?.state?.value?.activeFamiliar?.id
+    ConcoctionQueueRunner.preflightBingeWithFamiliar(type, activeFamiliarId)
+        .onFailure { return false }
+    val retrieve = retrieveItemService ?: return false
+    if (retrieve.retrieve(itemId, quantity) < quantity) return false
+    val use = useItemRequest ?: return false
+    return when (type) {
+        ConcoctionConsumptionType.STOCKING_MIMIC -> use.feedCandy(itemId, quantity).isSuccess
+        ConcoctionConsumptionType.ROBORTENDER -> {
+            repeat(quantity) {
+                if (use.robooze(itemId).isFailure) return false
+            }
+            true
+        }
+        ConcoctionConsumptionType.GLUTTONOUS_GHOST,
+        ConcoctionConsumptionType.SPIRIT_HOBO,
+        ConcoctionConsumptionType.SLIMELING,
+        -> use.binge(itemId, quantity).isSuccess
+        else -> false
+    }
+}
+
 internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
 
     // helper: resolve item name → game ID (Int), null if unknown
     fun resolveItemId(itemName: String): Int? = gameDatabase?.item(itemName)?.id
+
+    fun registerFamiliarFeedAsh(
+        name: String,
+        type: ConcoctionConsumptionType,
+        fixedQty: Int? = null,
+    ) {
+        regFn(scope, name, AshType.BOOLEAN,
+            listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+            val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
+            val qty = fixedQty ?: args[0].toLong().toInt()
+            AshValue.of(kotlinx.coroutines.runBlocking { familiarFeedItem(itemId, qty, type) })
+        }
+        regFn(scope, name, AshType.BOOLEAN, listOf("it" to AshType.ITEM)) { _, args ->
+            val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.of(false)
+            val qty = fixedQty ?: 1
+            AshValue.of(kotlinx.coroutines.runBlocking { familiarFeedItem(itemId, qty, type) })
+        }
+    }
+
+    registerFamiliarFeedAsh("ghost", ConcoctionConsumptionType.GLUTTONOUS_GHOST)
+    registerFamiliarFeedAsh("hobo", ConcoctionConsumptionType.SPIRIT_HOBO)
+    registerFamiliarFeedAsh("slimeling", ConcoctionConsumptionType.SLIMELING)
+    registerFamiliarFeedAsh("robo", ConcoctionConsumptionType.ROBORTENDER, fixedQty = 1)
 
     // 1. use(qty: int, it: item) → boolean
     regFn(scope, "use", AshType.BOOLEAN,

@@ -7,6 +7,7 @@ data class ConcoctionData(
     val ingredients: List<ConcoctionIngredient>,
     val effectName: String? = null,
     val craftYield: Int = 1,       // desktop Concoction.yield — turns per craft batch
+    val param: Int = 0,            // desktop Concoction.param — CLIPART clip bytes packed
 ) {
     val isCooking get() = methods.any { it.contains("COOK") || it.contains("PASTA") || it.contains("SAUCE") }
     val isMixing get() = methods.any { it.contains("MIX") || it.contains("COCK") || it.contains("STILL") }

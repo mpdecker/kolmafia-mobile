@@ -103,6 +103,32 @@ object ConcoctionSpecialQueue {
         }
     }
 
+    fun reapply(delta: SpecialQueueDelta, context: ConcoctionQueueContext = ConcoctionQueueContext()) {
+        if (delta.fancyDogUsed) {
+            ConcoctionQueueBudget.queuedFancyDog = true
+        }
+        if (delta.speakeasyDrinkUsed != 0) {
+            ConcoctionQueueBudget.queuedSpeakeasyDrink += delta.speakeasyDrinkUsed
+        }
+        when (delta.itemId) {
+            SMORE -> {
+                ConcoctionQueueBudget.queuedSmores += delta.smoresUsed
+                if (delta.refreshedSmoresData) {
+                    refreshSmoresData(context)
+                }
+                ConcoctionQueueBudget.queuedFullness--
+            }
+            AFFIRMATION_COOKIE ->
+                ConcoctionQueueBudget.queuedAffirmationCookies += delta.affirmationCookiesUsed
+            SPAGHETTI_BREAKFAST ->
+                ConcoctionQueueBudget.queuedSpaghettiBreakfast += delta.spaghettiBreakfastUsed
+            EVERFULL_GLASS ->
+                ConcoctionQueueBudget.queuedEverfullGlass += delta.everfullGlassUsed
+            PIRATE_FORK ->
+                ConcoctionQueueBudget.queuedPirateFork += delta.pirateForkUsed
+        }
+    }
+
     private fun refreshSmoresData(context: ConcoctionQueueContext): Boolean {
         val prefs = context.preferences ?: return false
         ConsumableDatabase.setSmoresData(prefs)

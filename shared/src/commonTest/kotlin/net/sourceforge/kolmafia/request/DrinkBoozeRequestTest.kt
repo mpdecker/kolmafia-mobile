@@ -4,10 +4,18 @@ import io.ktor.client.*
 import io.ktor.client.engine.mock.*
 import io.ktor.http.*
 import kotlinx.coroutines.test.runTest
+import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.session.ConsumptionHelperState
 
 class DrinkBoozeRequestTest {
+
+    @AfterTest
+    fun tearDown() {
+        ConsumptionHelperState.resetForTest()
+    }
 
     private fun makeClient(handler: MockRequestHandler): HttpClient = HttpClient(MockEngine(handler))
 
@@ -72,5 +80,26 @@ class DrinkBoozeRequestTest {
         val client = makeClient { throw Exception("Network error") }
         val result = DrinkBoozeRequest(client).drink(itemId = 1, quantity = 1)
         assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun consumeDrink_abortsOnTooDrunkResponse() = runTest {
+        val client = makeClient {
+            respond("You're way too drunk already.", HttpStatusCode.OK)
+        }
+        val outcome = DrinkBoozeRequest(client).consumeDrink(itemId = 1, quantity = 1).getOrThrow()
+        assertTrue(outcome is ConsumptionRequestOutcome.Aborted)
+    }
+
+    @Test
+    fun consumeDrink_sendsUtensilWhenDrinkHelperQueued() = runTest {
+        ConsumptionHelperState.queueDrinkHelper(3324, 1)
+        val capturedPaths = mutableListOf<String>()
+        val client = makeClient { request ->
+            capturedPaths += request.url.fullPath
+            respond("You drink the booze.", HttpStatusCode.OK)
+        }
+        DrinkBoozeRequest(client).consumeDrink(itemId = 100, quantity = 1).getOrThrow()
+        assertTrue(capturedPaths.any { it.contains("utensil=3324") })
     }
 }

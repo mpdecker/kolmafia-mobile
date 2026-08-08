@@ -25,6 +25,23 @@ open class CampgroundRequest(private val client: HttpClient) {
         Result.failure(e)
     }
 
+    /** POSTs campground.php?action=terminal — opens the Source terminal interface. */
+    open suspend fun visitTerminal(): Result<String> = try {
+        val response = client.submitForm(
+            url = "$KOL_BASE_URL/campground.php",
+            formParameters = parameters {
+                append("action", "terminal")
+            },
+        )
+        if (!response.status.isSuccess()) {
+            Result.failure(Exception("HTTP ${response.status.value}"))
+        } else {
+            Result.success(response.bodyAsText())
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
     /** POSTs campground.php?action=spinningwheel — uses the workshed spinning wheel. */
     open suspend fun useSpinningWheel(): Result<String> = try {
         val response = client.submitForm(

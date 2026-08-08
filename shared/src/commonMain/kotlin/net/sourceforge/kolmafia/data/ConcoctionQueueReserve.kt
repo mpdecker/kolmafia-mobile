@@ -109,6 +109,26 @@ object ConcoctionQueueReserve {
         }
     }
 
+    fun reapply(reservation: ConcoctionQueueReservation) {
+        ConcoctionQueueBudget.adventuresUsed += reservation.adventuresUsed
+        ConcoctionQueueBudget.freeCraftingTurns += reservation.freeCraftingTurns
+        ConcoctionQueueBudget.stillsUsed += reservation.stillsUsed
+        ConcoctionQueueBudget.tomesUsed += reservation.tomesUsed
+        ConcoctionQueueBudget.extrudesUsed += reservation.extrudesUsed
+        ConcoctionQueueBudget.meatSpent += reservation.meatSpent
+        ConcoctionQueueBudget.pullsUsed += reservation.pullsUsed
+
+        val bucket = reservation.ingredientBucket
+        if (bucket != null) {
+            if (reservation.pseudoIngredientDelta != PseudoIngredientDelta()) {
+                ConcoctionQueuedPseudoIngredients.track(bucket, reservation.pseudoIngredientDelta)
+            }
+            for ((itemId, quantity) in reservation.ingredientCredits) {
+                ConcoctionQueuedIngredients.trackConsumption(bucket, itemId, quantity)
+            }
+        }
+    }
+
     private data class BudgetSnapshot(
         val adventuresUsed: Int,
         val freeCraftingTurns: Int,

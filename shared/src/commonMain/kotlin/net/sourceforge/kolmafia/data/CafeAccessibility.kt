@@ -41,6 +41,12 @@ object CafeAccessibility {
         return true
     }
 
+    /** Desktop CrimboCafeRequest.AVAILABLE — seasonal; pref-gated on mobile. */
+    fun isCrimboCafeAvailable(prefs: Preferences?): Boolean =
+        prefs?.getBoolean(CRIMBO_CAFE_AVAILABLE_PREF, false) == true
+
+    const val CRIMBO_CAFE_AVAILABLE_PREF = "crimboCafeAvailable"
+
     fun discountedPrice(price: Int, larpCount: Int = 0): Int {
         if (larpCount <= 0) return price
         return kotlin.math.ceil(0.90 * price.toDouble()).toInt()

@@ -11,7 +11,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.data.CafeAccessibility
 import net.sourceforge.kolmafia.data.ChezSnooteeDatabase
+import net.sourceforge.kolmafia.data.CrimboCafeDatabase
 import net.sourceforge.kolmafia.data.ConcoctionConsumptionType
 import net.sourceforge.kolmafia.data.ConcoctionData
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
@@ -51,6 +53,40 @@ class CafePurchaseRequestTest {
         val entry = MicroBreweryDatabase.resolve("Scrawny Stout")
         assertEquals(-2, entry?.whichItem)
         assertEquals(75, entry?.price)
+    }
+
+    @Test
+    fun crimboCafeDatabase_resolvesNegativeWhichItem() {
+        val entry = CrimboCafeDatabase.resolve("Peppermint Nutrition Block")
+        assertEquals(-104, entry?.whichItem)
+        assertEquals(50, entry?.price)
+        assertEquals(CrimboCafeDatabase.CAFE_ID, entry?.cafeId)
+    }
+
+    @Test
+    fun purchase_crimboCafe_postsCafePhp() = runTest {
+        registerConcoction("Peppermint Nutrition Block", ConsumableType.FOOD)
+        val bodies = mutableListOf<String>()
+        val client = HttpClient(MockEngine { req ->
+            bodies += req.body.toByteArray().decodeToString()
+            respond("You gain some stats.")
+        })
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean(CafeAccessibility.CRIMBO_CAFE_AVAILABLE_PREF, true)
+        val purchase = buildPurchase(client)
+        val state = CharacterState(meat = 500)
+
+        val result = purchase.purchase(
+            name = "Peppermint Nutrition Block",
+            type = ConcoctionConsumptionType.EAT,
+            state = state,
+            prefs = prefs,
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals(1, bodies.size)
+        assertTrue(bodies.single().contains("cafeid=10"))
+        assertTrue(bodies.single().contains("whichitem=-104"))
     }
 
     @Test
@@ -122,6 +158,7 @@ class CafePurchaseRequestTest {
             hellKitchenRequest = hellKitchen,
             chezSnooteeRequest = ChezSnooteeRequest(hellKitchen),
             microBreweryRequest = MicroBreweryRequest(hellKitchen),
+            crimboCafeRequest = CrimboCafeRequest(cafeRequest),
         )
     }
 
