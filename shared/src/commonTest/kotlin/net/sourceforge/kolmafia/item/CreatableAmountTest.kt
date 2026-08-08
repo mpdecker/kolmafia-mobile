@@ -6,9 +6,15 @@ import kotlin.test.assertEquals
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionData
 import net.sourceforge.kolmafia.data.ConcoctionIngredient
+import net.sourceforge.kolmafia.data.ConcoctionRefreshContext
+import net.sourceforge.kolmafia.data.HotDogAvailability
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.data.SpeakeasyAvailability
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.preferences.Preferences
+import com.russhwolf.settings.MapSettings
 
 class CreatableAmountTest {
 
@@ -16,6 +22,8 @@ class CreatableAmountTest {
     fun cleanup() {
         ItemDatabase.resetForTest()
         ConcoctionDatabase.resetForTest()
+        HotDogAvailability.resetForTest()
+        SpeakeasyAvailability.resetForTest()
     }
 
     @Test
@@ -38,9 +46,11 @@ class CreatableAmountTest {
             3002 to 10,
             3003 to 9,
         )
-        val possible = CreatableAmount.quantityPossible(3001) { id, _ ->
-            counts[id] ?: 0
-        }
+        val possible = CreatableAmount.quantityPossible(
+            3001,
+            accessibleCount = { id, _ -> counts[id] ?: 0 },
+            preferRuntime = false,
+        )
         assertEquals(3, possible)
     }
 
@@ -56,14 +66,110 @@ class CreatableAmountTest {
                 ingredients = listOf(ConcoctionIngredient("single ingredient", 1)),
             ),
         )
-        val possible = CreatableAmount.quantityPossible(3101) { _, _ -> 4 }
+        val possible = CreatableAmount.quantityPossible(
+            3101,
+            accessibleCount = { _, _ -> 4 },
+            preferRuntime = false,
+        )
         assertEquals(12, possible)
     }
 
     @Test
     fun quantityPossible_zeroWhenNoConcoction() {
         registerItem(3201, "not craftable")
-        assertEquals(0, CreatableAmount.quantityPossible(3201) { _, _ -> 99 })
+        assertEquals(0, CreatableAmount.quantityPossible(3201, accessibleCount = { _, _ -> 99 }, preferRuntime = false))
+    }
+
+    @Test
+    fun quantityPossible_prefersRuntimeAfterRefresh_nestedParent() {
+        registerItem(8001, "runtime parent")
+        registerItem(8002, "runtime leaf")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "runtime leaf",
+                resultQuantity = 1,
+                methods = setOf("SMITH"),
+                ingredients = emptyList(),
+            ),
+        )
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "runtime parent",
+                resultQuantity = 1,
+                methods = setOf("SMITH"),
+                ingredients = listOf(ConcoctionIngredient("runtime leaf", 1)),
+            ),
+        )
+
+        val flatOnly = CreatableAmount.quantityPossible(
+            8001,
+            accessibleCount = { _, _ -> 0 },
+            preferRuntime = false,
+        )
+        assertEquals(0, flatOnly)
+
+        ConcoctionDatabase.refreshConcoctionsNow(
+            ConcoctionRefreshContext.fromAggregatedCounts(mapOf(8002 to 2)),
+        )
+        assertEquals(2, CreatableAmount.quantityPossible(8001, accessibleCount = { _, _ -> 0 }))
+    }
+
+    @Test
+    fun quantityPossible_adventureLimitedRefresh_returnsZeroCreatable() {
+        registerItem(8101, "adv amount parent")
+        registerItem(8102, "adv amount leaf")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "adv amount leaf",
+                resultQuantity = 1,
+                methods = setOf("SMITH"),
+                ingredients = emptyList(),
+            ),
+        )
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "adv amount parent",
+                resultQuantity = 1,
+                methods = setOf("SMITH"),
+                ingredients = listOf(ConcoctionIngredient("adv amount leaf", 1)),
+            ),
+        )
+
+        ConcoctionDatabase.refreshConcoctionsNow(
+            ConcoctionRefreshContext.fromLiveSession(
+                aggregatedCounts = mapOf(8102 to 5),
+                state = net.sourceforge.kolmafia.character.CharacterState(adventuresLeft = 0),
+                accessibleCount = { id -> if (id == 8102) 5 else 0 },
+            ),
+        )
+
+        assertEquals(0, CreatableAmount.quantityPossible(8101, accessibleCount = { _, _ -> 0 }))
+    }
+
+    @Test
+    fun quantityPossible_hotDogUsesTotalCountNotCreatable() {
+        registerItem(9201, "basic hot dog")
+        HotDogAvailability.addForTest("basic hot dog")
+        ConcoctionDatabase.refreshConcoctionsNow(
+            ConcoctionRefreshContext(
+                characterState = CharacterState(),
+                preferences = Preferences(MapSettings()),
+            ),
+        )
+        assertEquals(1, CreatableAmount.quantityPossible(9201, accessibleCount = { _, _ -> 0 }))
+    }
+
+    @Test
+    fun quantityPossible_speakeasyUsesTotalCountNotCreatable() {
+        registerItem(7592, "Lucky Lindy")
+        SpeakeasyAvailability.addLoungeId(4)
+        ConcoctionDatabase.refreshConcoctionsNow(
+            ConcoctionRefreshContext(
+                characterState = CharacterState(meat = 500),
+                preferences = Preferences(MapSettings()),
+            ),
+        )
+        assertEquals(1, CreatableAmount.quantityPossible(7592, accessibleCount = { _, _ -> 0 }))
     }
 
     private fun registerItem(id: Int, name: String) {

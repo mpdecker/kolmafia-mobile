@@ -53,6 +53,8 @@ class ConcoctionAdventuresNeededTest {
     @AfterTest
     fun tearDown() {
         ConcoctionDatabase.resetForTest()
+        ConsumableDatabase.resetForTest()
+        ItemDatabase.resetForTest()
     }
 
     @Test
@@ -187,5 +189,44 @@ class ConcoctionAdventuresNeededTest {
             ),
         )
         assertEquals(8.0, withTuxedo)
+    }
+
+    @Test
+    fun phase279InventoryInitial_regressionStillSkipsDeduction() {
+        ItemDatabase.registerForTest(
+            ItemData(
+                id = 701,
+                name = "test smith leaf",
+                descId = "phase279_leaf",
+                image = "leaf.gif",
+                primaryUse = ItemPrimaryUse.FOOD,
+                secondaryUses = emptySet(),
+                access = setOf('t', 'd'),
+                autosellPrice = 100,
+                plural = null,
+            ),
+        )
+        ConcoctionDatabase.injectForTest(leafSmith)
+        ConsumableDatabase.resetConsumablesForTest()
+        ConsumableDatabase.injectConsumableForTest(
+            ConsumableData(
+                name = "test smith leaf",
+                type = ConsumableType.FOOD,
+                amount = 2,
+                levelReq = 1,
+                quality = ConsumableQuality.DECENT,
+                advMin = 10,
+                advMax = 10,
+                muscMin = 0,
+                muscMax = 0,
+                mystMin = 0,
+                mystMax = 0,
+                moxieMin = 0,
+                moxieMax = 0,
+                notes = "",
+            ),
+        )
+        ConcoctionDatabase.refreshConcoctionsFromInventory(mapOf(701 to 1))
+        assertEquals(10.0, ConsumableDatabase.getAverageAdventures("test smith leaf"))
     }
 }

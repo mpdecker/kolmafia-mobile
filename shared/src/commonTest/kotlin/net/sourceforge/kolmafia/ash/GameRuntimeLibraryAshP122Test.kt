@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionData
 import net.sourceforge.kolmafia.data.ConcoctionIngredient
+import net.sourceforge.kolmafia.data.ConcoctionRefreshContext
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
@@ -93,7 +94,82 @@ class GameRuntimeLibraryAshP122Test {
         assertEquals("2", outputLib(lib, """print(creatable_amount(to_item("hot wing")));""").trim())
     }
 
-    private fun registerItem(id: Int, name: String) {
+    @Test
+    fun creatableAmount_usesRuntimeAfterRefresh_nestedChild() {
+        registerItem(5201, "nested dish")
+        registerItem(5202, "nested sauce")
+        registerItem(5203, "nested base")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "nested base",
+                resultQuantity = 1,
+                methods = setOf("COMBINE"),
+                ingredients = emptyList(),
+            ),
+        )
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "nested sauce",
+                resultQuantity = 1,
+                methods = setOf("COMBINE"),
+                ingredients = listOf(ConcoctionIngredient("nested base", 1)),
+            ),
+        )
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "nested dish",
+                resultQuantity = 1,
+                methods = setOf("COMBINE"),
+                ingredients = listOf(
+                    ConcoctionIngredient("nested sauce", 1),
+                    ConcoctionIngredient("nested base", 1),
+                ),
+            ),
+        )
+        val inventory = TestInventoryManager(
+            mapOf(
+                5203 to InventoryItem(5203, "nested base", 3, ItemType.OTHER),
+            ),
+        )
+        val lib = GameRuntimeLibrary(inventoryManager = inventory)
+        ConcoctionDatabase.refreshConcoctionsNow(
+            ConcoctionRefreshContext.fromAggregatedCounts(mapOf(5203 to 3)),
+        )
+        assertEquals("1", outputLib(lib, """print(creatable_amount(to_item("nested dish")));""").trim())
+    }
+
+    @Test
+    fun getIngredients_interchangeableIngredient_returnsSwappedItemId() {
+        registerItem(41, "schlitz", autosell = 10)
+        registerItem(81, "willer", autosell = 20)
+        registerItem(6001, "schlitz cocktail")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "schlitz cocktail",
+                resultQuantity = 1,
+                methods = setOf("COMBINE"),
+                ingredients = listOf(ConcoctionIngredient("schlitz", 1)),
+            ),
+        )
+        val inventory = TestInventoryManager(
+            mapOf(
+                81 to InventoryItem(81, "willer", 3, ItemType.OTHER),
+            ),
+        )
+        val lib = GameRuntimeLibrary(inventoryManager = inventory)
+        assertEquals(
+            "true",
+            outputLib(
+                lib,
+                """
+                int[item] ing = get_ingredients(to_item("schlitz cocktail"));
+                print(ing[to_item("willer")] == 1 && ing[to_item("schlitz")] == 0);
+                """.trimIndent(),
+            ).trim(),
+        )
+    }
+
+    private fun registerItem(id: Int, name: String, autosell: Int = 1) {
         ItemDatabase.registerForTest(
             ItemData(
                 id = id,
@@ -103,7 +179,7 @@ class GameRuntimeLibraryAshP122Test {
                 primaryUse = ItemPrimaryUse.USABLE,
                 secondaryUses = emptySet(),
                 access = setOf('t', 'd'),
-                autosellPrice = 1,
+                autosellPrice = autosell,
                 plural = null,
             ),
         )

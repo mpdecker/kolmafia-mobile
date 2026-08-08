@@ -21,6 +21,18 @@ class ConcoctionDatabasePullsTest {
     fun setPullsRemaining_storesValue() {
         ConcoctionDatabase.setPullsRemaining(12)
         assertEquals(12, ConcoctionDatabase.getPullsRemaining())
+        assertEquals(12, ConcoctionDatabase.getPullsBudgeted())
+    }
+
+    @Test
+    fun setPullsBudgeted_clampsToRemainingAndPullsUsed() {
+        ConcoctionDatabase.setPullsRemaining(10)
+        ConcoctionQueueBudget.pullsUsed = 4
+        ConcoctionDatabase.setPullsBudgeted(20)
+        assertEquals(10, ConcoctionDatabase.getPullsBudgeted())
+
+        ConcoctionDatabase.setPullsBudgeted(2)
+        assertEquals(4, ConcoctionDatabase.getPullsBudgeted())
     }
 
     @Test

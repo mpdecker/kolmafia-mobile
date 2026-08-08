@@ -43,6 +43,8 @@ object ConcoctionCreationCost {
         "MAYAM" to 0L,
         "PHOTO_BOOTH" to 0L,
         "TAKERSPACE" to 0L,
+        "SPEAKEASY" to 0L,
+        "HOT_DOG" to 0L,
     )
 
     private val ADVENTURE_USAGE = mapOf(
@@ -65,6 +67,7 @@ object ConcoctionCreationCost {
         "JEWEL", "MALUS", "COINMASTER", "VYKEA", "FLOUNDRY", "BARREL", "GNOME_TINKER",
         "GNOME_PART", "BURNING_LEAVES", "WAX", "NEWSPAPER", "METEOROID", "WOOL",
         "TERMINAL", "SPACEGATE", "FANTASY_REALM", "STILLSUIT", "MAYAM", "PHOTO_BOOTH", "TAKERSPACE",
+        "SPEAKEASY", "HOT_DOG",
         "CLIPART", "JEWELRY", "ROLLING_PIN", "SAUSAGE_O_MATIC", "MULTI_USE", "SINGLE_USE",
     )
 

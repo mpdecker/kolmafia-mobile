@@ -1,4 +1,4 @@
-﻿package net.sourceforge.kolmafia.data
+package net.sourceforge.kolmafia.data
 
 /** Item IDs excluded from TCRS modifier application (desktop TCRSDatabase.applyModifiers skips). */
 object TCRSSkipItemIds {

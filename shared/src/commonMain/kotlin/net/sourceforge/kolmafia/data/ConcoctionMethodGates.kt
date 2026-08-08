@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.ZodiacSign
 import net.sourceforge.kolmafia.clan.ClanLoungeSync
+import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.item.FreeCraftingTurns
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.StandardRequest
@@ -45,6 +46,7 @@ object ConcoctionMethodGates {
         familiarUsable: (Int) -> Boolean = { false },
         skills: List<SkillData> = emptyList(),
         limitMode: String = "none",
+        resultName: String? = null,
     ): Boolean = when (method) {
         "FLOUNDRY" -> isFloundryPermitted(state, prefs, accessibleCount)
         "BARREL" -> isBarrelPermitted(state, prefs)
@@ -59,6 +61,8 @@ object ConcoctionMethodGates {
         "MAYAM" -> isMayamPermitted(state, accessibleCount)
         "PHOTO_BOOTH" -> isPhotoBoothPermitted(prefs)
         "TAKERSPACE" -> isTakerspacePermitted(prefs)
+        "SPEAKEASY" -> isSpeakeasyPermitted(limitMode, resultName, state)
+        "HOT_DOG" -> isHotDogPermitted(limitMode, resultName, prefs, state)
         "STAFF" -> isStaffPermitted(state, prefs)
         "PHINEAS" -> isPhineasPermitted(accessibleCount)
         "COOK" -> KitchenEquipmentGates.isCookPermitted(state, prefs)
@@ -185,6 +189,35 @@ object ConcoctionMethodGates {
     private fun isPhotoBoothPermitted(prefs: Preferences?): Boolean {
         if (!ClanLoungeSync.hasPhotoBooth(prefs)) return false
         return (prefs?.getInt("_photoBoothEquipment", 0) ?: 0) < 3
+    }
+
+    private fun isSpeakeasyPermitted(
+        limitMode: String,
+        resultName: String?,
+        state: CharacterState,
+    ): Boolean {
+        if (LimitModeGates.limitClan(limitMode)) return false
+        if (!ClanLoungeSync.isSpeakeasyAllowed(state)) return false
+        if (resultName == null) return false
+        return SpeakeasyAvailability.isAvailable(resultName)
+    }
+
+    private fun isHotDogPermitted(
+        limitMode: String,
+        resultName: String?,
+        prefs: Preferences?,
+        state: CharacterState,
+    ): Boolean {
+        if (LimitModeGates.limitClan(limitMode)) return false
+        if (!ClanLoungeSync.isHotDogStandAllowed(state)) return false
+        if (resultName == null) return false
+        if (!HotDogAvailability.isAvailable(resultName)) return false
+        if (HotDogDatabase.isFancyHotDog(resultName) &&
+            prefs?.getBoolean(ClanLoungeSync.FANCY_HOT_DOG_EATEN_PREF, false) == true
+        ) {
+            return false
+        }
+        return true
     }
 
     private fun isTakerspacePermitted(prefs: Preferences?): Boolean =

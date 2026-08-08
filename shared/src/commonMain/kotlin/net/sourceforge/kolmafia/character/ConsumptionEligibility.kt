@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.character
 
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
@@ -78,6 +79,30 @@ object ConsumptionEligibility {
 
     fun spleenCapacity(state: CharacterState): Int =
         if (canChew(state)) state.ascensionPath.spleenCapacity else 0
+
+    fun effectiveFullnessRemaining(
+        state: CharacterState,
+        skills: List<SkillData> = emptyList(),
+        modifiers: CurrentModifiers? = null,
+    ): Int = (
+        stomachCapacity(state, skills, modifiers) -
+            state.fullness -
+            ConcoctionDatabase.getQueuedFullness()
+        ).coerceAtLeast(0)
+
+    fun effectiveInebrietyRemaining(
+        state: CharacterState,
+        skills: List<SkillData> = emptyList(),
+        modifiers: CurrentModifiers? = null,
+    ): Int = (
+        liverCapacity(state, skills, modifiers) -
+            state.inebriety -
+            ConcoctionDatabase.getQueuedInebriety()
+        ).coerceAtLeast(0)
+
+    fun effectiveSpleenRemaining(state: CharacterState): Int = (
+        spleenCapacity(state) - state.spleenUsed - ConcoctionDatabase.getQueuedSpleenHit()
+        ).coerceAtLeast(0)
 
     fun canExpandStomach(state: CharacterState, skills: List<SkillData> = emptyList()): Boolean =
         CharacterCapacity.canExpandStomachCapacity(state, skills)

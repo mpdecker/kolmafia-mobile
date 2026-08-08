@@ -74,6 +74,16 @@ object DailyLimitDatabase {
         _castPrefBySkillId[skillId] = trackingProperty
     }
 
+    /** Desktop speakeasy drink detection — daily limit entry with `_speakeasyDrinksDrunk` tracking. */
+    fun isSpeakeasyDrink(itemId: Int): Boolean =
+        _byItemId.values.any { bucket ->
+            bucket[itemId]?.trackingProperty == "_speakeasyDrinksDrunk"
+        }
+
+    internal fun registerEntryForTest(entry: DailyLimitEntry) {
+        _byItemId.getOrPut(entry.kind) { mutableMapOf() }[entry.itemId] = entry
+    }
+
     internal fun resetForTest() {
         _allLimits.clear()
         _byName.clear()
