@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.item.FreeCraftingTurns
 import net.sourceforge.kolmafia.preferences.Preferences
 
@@ -15,6 +16,8 @@ data class ConcoctionQueueContext(
     val isFancyDog: (String) -> Boolean = HotDogDatabase::isFancyHotDog,
     val isPermitted: (ConcoctionData) -> Boolean = { true },
     val runtimeFor: (String) -> ConcoctionRuntimeState? = { null },
+    val limitMode: String = "none",
+    val characterState: CharacterState? = null,
 ) {
     fun booleanPref(key: String): Boolean =
         preferences?.getBoolean(key) ?: getBooleanPref(key)
@@ -42,6 +45,8 @@ data class ConcoctionQueueContext(
                 foodQueueDepth = foodDepth,
                 isFancyDog = HotDogDatabase::isFancyHotDog,
                 runtimeFor = { name -> ConcoctionDatabase.getRuntime(name) },
+                limitMode = context.characterState?.limitMode ?: "none",
+                characterState = context.characterState,
             )
         }
     }

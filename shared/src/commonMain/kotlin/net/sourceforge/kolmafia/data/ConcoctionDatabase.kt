@@ -1,7 +1,9 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.inventory.ItemRestriction
 import net.sourceforge.kolmafia.modifiers.StringModifier
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -23,6 +25,8 @@ object ConcoctionDatabase {
     private var recalculateAdventureRange = false
     private val runtimeByResult = mutableMapOf<String, ConcoctionRuntimeState>()
     private var lastRefreshContext: ConcoctionRefreshContext = ConcoctionRefreshContext.EMPTY
+    private var speakeasyConcoctionsRegistered = false
+    private var hotDogConcoctionsRegistered = false
 
     val byResult: Map<String, ConcoctionData> get() = _byResult
     val byIngredient: Map<String, List<ConcoctionData>> get() = _byIngredient
@@ -164,6 +168,8 @@ object ConcoctionDatabase {
     }
 
     private fun rebuildRuntimeState(context: ConcoctionRefreshContext) {
+        registerLoungeSpeakeasyConcoctions()
+        registerLoungeHotDogConcoctions()
         val preservedQueued = runtimeByResult.mapValues { (_, state) ->
             state.queued to state.queuedPulls
         }
@@ -173,6 +179,35 @@ object ConcoctionDatabase {
             val initial = context.itemCount(concoction.result)
             val key = concoction.result.lowercase()
             val preserved = preservedQueued[key]
+            if (isSpeakeasyConcoction(concoction)) {
+                val cost = SpeakeasyDatabase.nameToCost(concoction.result).coerceAtLeast(0)
+                runtimeByResult[key] = ConcoctionRuntimeState(
+                    initial = 0,
+                    creatable = 0,
+                    total = 0,
+                    visibleTotal = 0,
+                    price = cost,
+                    skipCalculate = true,
+                    queued = preserved?.first ?: 0,
+                    queuedPulls = preserved?.second ?: 0,
+                    wasPossible = preservedWasPossible[key] ?: false,
+                )
+                continue
+            }
+            if (isHotDogConcoction(concoction)) {
+                runtimeByResult[key] = ConcoctionRuntimeState(
+                    initial = 0,
+                    creatable = 0,
+                    total = 0,
+                    visibleTotal = 0,
+                    price = 0,
+                    skipCalculate = true,
+                    queued = preserved?.first ?: 0,
+                    queuedPulls = preserved?.second ?: 0,
+                    wasPossible = preservedWasPossible[key] ?: false,
+                )
+                continue
+            }
             if (isCoinmasterPurchaseOnly(concoction)) {
                 val itemId = ItemDatabase.getByName(concoction.result)?.id
                 val acquirable = if (itemId != null && context.canUseCoinmasters) {
@@ -237,8 +272,113 @@ object ConcoctionDatabase {
             )
         }
         applyPullablePass(context)
+        applySpeakeasyRefreshTail(context, preservedQueued, preservedWasPossible)
+        applyHotDogRefreshTail(context, preservedQueued, preservedWasPossible)
         ConcoctionCreatableRegistry.updateFromRefresh()
     }
+
+    /** Desktop Concoction.resetCalculations speakeasy branch — meat/daily-limit initial counts. */
+    private fun applySpeakeasyRefreshTail(
+        context: ConcoctionRefreshContext,
+        preservedQueued: Map<String, Pair<Int, Int>>,
+        preservedWasPossible: Map<String, Boolean>,
+    ) {
+        val meat = context.characterState?.meat ?: 0
+        val drunk = context.preferences?.getInt(ClanLoungeSync.SPEAKEASY_DRINKS_DRUNK_PREF)
+            ?: DefaultsDatabase.getInt(ClanLoungeSync.SPEAKEASY_DRINKS_DRUNK_PREF)
+        val drinkableNumber = (3 - drunk).coerceAtLeast(0)
+
+        for (entry in SpeakeasyDatabase.entries) {
+            val key = entry.name.lowercase()
+            val preserved = preservedQueued[key]
+            val cost = entry.cost
+            val initial = if (!SpeakeasyAvailability.isAvailable(entry.name) || cost <= 0) {
+                0
+            } else {
+                minOf(meat / cost, drinkableNumber).coerceAtLeast(0)
+            }
+            runtimeByResult[key] = ConcoctionRuntimeState(
+                initial = initial,
+                creatable = initial,
+                total = initial,
+                visibleTotal = initial,
+                freeTotal = initial,
+                price = cost,
+                skipCalculate = true,
+                queued = preserved?.first ?: 0,
+                queuedPulls = preserved?.second ?: 0,
+                wasPossible = preservedWasPossible[key] ?: false,
+            )
+        }
+    }
+
+    /** Desktop Concoction.resetCalculations hot dog special branch — availability + fancy daily limit. */
+    private fun applyHotDogRefreshTail(
+        context: ConcoctionRefreshContext,
+        preservedQueued: Map<String, Pair<Int, Int>>,
+        preservedWasPossible: Map<String, Boolean>,
+    ) {
+        val fancyEaten = context.preferences?.getBoolean(ClanLoungeSync.FANCY_HOT_DOG_EATEN_PREF, false)
+            ?: DefaultsDatabase.getBoolean(ClanLoungeSync.FANCY_HOT_DOG_EATEN_PREF)
+
+        for (entry in HotDogDatabase.entries) {
+            val key = entry.name.lowercase()
+            val preserved = preservedQueued[key]
+            val available = HotDogAvailability.isAvailable(entry.name) &&
+                !(HotDogDatabase.isFancyHotDog(entry.name) && fancyEaten)
+            val initial = if (available) 1 else 0
+            runtimeByResult[key] = ConcoctionRuntimeState(
+                initial = initial,
+                creatable = 0,
+                total = initial,
+                visibleTotal = initial,
+                freeTotal = initial,
+                price = 0,
+                skipCalculate = true,
+                queued = preserved?.first ?: 0,
+                queuedPulls = preserved?.second ?: 0,
+                wasPossible = preservedWasPossible[key] ?: false,
+            )
+        }
+    }
+
+    /** Idempotent virtual HOT_DOG concoctions for clan lounge dogs not in concoctions.txt. */
+    private fun registerLoungeHotDogConcoctions() {
+        if (hotDogConcoctionsRegistered) return
+        for (entry in HotDogDatabase.entries) {
+            val key = entry.name.lowercase()
+            if (key in _byResult) continue
+            _byResult[key] = ConcoctionData(
+                result = entry.name,
+                resultQuantity = 1,
+                methods = setOf("HOT_DOG"),
+                ingredients = emptyList(),
+            )
+        }
+        hotDogConcoctionsRegistered = true
+    }
+
+    private fun isHotDogConcoction(concoction: ConcoctionData): Boolean =
+        "HOT_DOG" in concoction.methods
+
+    /** Idempotent virtual SPEAKEASY concoctions for clan lounge drinks not in concoctions.txt. */
+    private fun registerLoungeSpeakeasyConcoctions() {
+        if (speakeasyConcoctionsRegistered) return
+        for (entry in SpeakeasyDatabase.entries) {
+            val key = entry.name.lowercase()
+            if (key in _byResult) continue
+            _byResult[key] = ConcoctionData(
+                result = entry.name,
+                resultQuantity = 1,
+                methods = setOf("SPEAKEASY"),
+                ingredients = emptyList(),
+            )
+        }
+        speakeasyConcoctionsRegistered = true
+    }
+
+    private fun isSpeakeasyConcoction(concoction: ConcoctionData): Boolean =
+        "SPEAKEASY" in concoction.methods
 
     /** Desktop refresh calculate2 tail — storage pull budgeting for ronin concoctions. */
     private fun applyPullablePass(context: ConcoctionRefreshContext) {
@@ -283,11 +423,26 @@ object ConcoctionDatabase {
         return characterLevel >= levelReq
     }
 
+    /** Re-run refresh using the last [ConcoctionRefreshContext] (desktop post-queue-drain refresh). */
+    fun refreshConcoctionsNowFromLastContext() {
+        refreshConcoctionsNow(lastRefreshContext)
+    }
+
     /** Re-run calculate2 after craft queue push/pop using the last refresh context. */
     internal fun refreshAfterQueueMutation() {
         val context = lastRefreshContext.withQueuedCredits(ConcoctionQueuedIngredients.creditForRefresh())
         if (context != ConcoctionRefreshContext.EMPTY || runtimeByResult.isNotEmpty()) {
             rebuildRuntimeState(context)
+        }
+    }
+
+    /** Re-run refresh after clan lounge speakeasy/hot-dog availability or daily-limit mutation. */
+    internal fun refreshAfterLoungeMutation(preferences: Preferences? = null) {
+        val context = preferences?.let { lastRefreshContext.copy(preferences = it) } ?: lastRefreshContext
+        if (context != ConcoctionRefreshContext.EMPTY || runtimeByResult.isNotEmpty()) {
+            rebuildRuntimeState(context)
+        } else {
+            refreshConcoctionsNow(context)
         }
     }
 
@@ -344,6 +499,8 @@ object ConcoctionDatabase {
         ConcoctionCraftQueue.resetForTest()
         ConcoctionCreatableRegistry.resetForTest()
         lastRefreshContext = ConcoctionRefreshContext.EMPTY
+        speakeasyConcoctionsRegistered = false
+        hotDogConcoctionsRegistered = false
         resetRefreshStateForTest()
     }
 

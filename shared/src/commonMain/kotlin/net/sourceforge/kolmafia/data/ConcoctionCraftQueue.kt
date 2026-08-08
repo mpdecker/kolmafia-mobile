@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket
+import net.sourceforge.kolmafia.inventory.LimitModeGates
 
 /** Desktop ConcoctionDatabase push/pop — per-bucket craft queue with budget reservation. */
 object ConcoctionCraftQueue {
@@ -24,10 +26,25 @@ object ConcoctionCraftQueue {
         if (quantity <= 0) return false
         val concoction = ConcoctionDatabase.getByResult(resultName) ?: return false
         val runtime = context.runtimeFor(concoction.result) ?: return false
+        val itemId = ItemDatabase.getByName(resultName)?.id ?: 0
+        if (LimitModeGates.limitClan(context.limitMode)) {
+            if (HotDogDatabase.isHotDog(resultName) ||
+                context.isFancyDog(resultName) ||
+                (itemId != 0 && ConcoctionSpecialQueue.isSpeakeasyDrink(itemId))
+            ) {
+                return false
+            }
+        }
+        val state = context.characterState
+        if (HotDogDatabase.isHotDog(resultName) || context.isFancyDog(resultName)) {
+            if (!ClanLoungeSync.isHotDogStandAllowed(state)) return false
+        }
+        if (itemId != 0 && ConcoctionSpecialQueue.isSpeakeasyDrink(itemId)) {
+            if (!ClanLoungeSync.isSpeakeasyAllowed(state)) return false
+        }
         if (context.isFancyDog(resultName) && !HotDogDatabase.canQueueFancyDog(context)) {
             return false
         }
-        val itemId = ItemDatabase.getByName(resultName)?.id ?: 0
         if (itemId != 0 &&
             ConcoctionSpecialQueue.isSpeakeasyDrink(itemId) &&
             !SpeakeasyDatabase.canQueueSpeakeasyDrink(quantity, context)

@@ -130,6 +130,7 @@ data class ConcoctionRefreshContext(
                         accessibleCount = accessibleCount,
                         prefs = prefs,
                         familiarUsable = familiarUsable,
+                        limitMode = state.limitMode,
                     )
                 },
                 limitPoolsFactory = {

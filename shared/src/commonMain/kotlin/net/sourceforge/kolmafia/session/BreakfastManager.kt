@@ -7,6 +7,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.clan.ClanHotdogMenuCache
+import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryState
@@ -45,7 +47,7 @@ open class BreakfastManager(
 
         harvestGarden(suffix)
         checkRumpusRoom(suffix)
-        checkVIPLounge(suffix, inventoryState)
+        checkVIPLounge(suffix, charState, inventoryState)
         readGuildManual(suffix, charState, inventoryState)
         getHermitClovers(inventoryState)
         collectHardwood()
@@ -138,7 +140,11 @@ open class BreakfastManager(
         }
     }
 
-    private suspend fun checkVIPLounge(suffix: String, inventoryState: InventoryState) {
+    private suspend fun checkVIPLounge(
+        suffix: String,
+        charState: CharacterState,
+        inventoryState: InventoryState,
+    ) {
         val loungePrefKey = if (suffix == "Softcore") Preferences.VISIT_LOUNGE_SOFTCORE else Preferences.VISIT_LOUNGE_HARDCORE
         if (!preferences.getBoolean(loungePrefKey, true)) return
         if (!inventoryState.items.containsKey(VIP_LOUNGE_KEY_ID)) return
@@ -167,6 +173,14 @@ open class BreakfastManager(
             clanLoungeRequest.playPoolGame().onSuccess {
                 preferences.setInt(Preferences.POOL_GAME_RESULT, 1)
             }
+        }
+
+        if (preferences.getBoolean(ClanLoungeSync.CLAN_HAS_HOT_DOG_STAND_PREF, false)) {
+            ClanHotdogMenuCache.restoreIntoAvailability(preferences)
+            clanLoungeRequest.visitHotDogStand(preferences, charState)
+        }
+        if (preferences.getBoolean(ClanLoungeSync.CLAN_HAS_SPEAKEASY_PREF, false)) {
+            clanLoungeRequest.visitSpeakeasy(preferences, charState)
         }
     }
 

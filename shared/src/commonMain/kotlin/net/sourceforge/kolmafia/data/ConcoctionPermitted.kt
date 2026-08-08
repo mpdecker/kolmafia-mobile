@@ -24,6 +24,8 @@ object ConcoctionPermitted {
         "FLOUNDRY", "BARREL", "VYKEA",
         "GNOME_PART", "BURNING_LEAVES", "WAX", "NEWSPAPER", "METEOROID", "WOOL",
         "TERMINAL", "SPACEGATE", "FANTASY_REALM", "STILLSUIT", "MAYAM", "PHOTO_BOOTH", "TAKERSPACE",
+        "SPEAKEASY",
+        "HOT_DOG",
     )
 
     private val REQUIREMENT_TOKENS = setOf(
@@ -80,7 +82,17 @@ object ConcoctionPermitted {
             )
         }
 
-        if (!isMethodPermitted(method, state, skills, prefs, accessibleCount, familiarUsable, limitMode)) {
+        if (!isMethodPermitted(
+                method,
+                state,
+                skills,
+                prefs,
+                accessibleCount,
+                familiarUsable,
+                limitMode,
+                concoction.result,
+            )
+        ) {
             return false
         }
 
@@ -132,6 +144,7 @@ object ConcoctionPermitted {
         accessibleCount: (Int) -> Int,
         familiarUsable: (Int) -> Boolean,
         limitMode: String,
+        resultName: String? = null,
     ): Boolean = when (method) {
         "STILL" -> state.stillsAvailable > 0
         "SUSHI" -> prefs?.getBoolean("hasSushiMat", false) == true
@@ -144,6 +157,7 @@ object ConcoctionPermitted {
         "FLOUNDRY", "BARREL", "GNOME_TINKER", "VYKEA",
         "GNOME_PART", "BURNING_LEAVES", "WAX", "NEWSPAPER", "METEOROID", "WOOL",
         "TERMINAL", "SPACEGATE", "FANTASY_REALM", "STILLSUIT", "MAYAM", "PHOTO_BOOTH", "TAKERSPACE",
+        "SPEAKEASY", "HOT_DOG",
         ->
             ConcoctionMethodGates.isPermitted(
                 method,
@@ -153,6 +167,7 @@ object ConcoctionPermitted {
                 familiarUsable,
                 skills,
                 limitMode,
+                resultName,
             )
         "COMBINE", "ACOMBINE" -> true
         "STAR", "SUGAR", "PIXEL", "TINKER" -> false

@@ -177,6 +177,46 @@ class BreakfastManagerTest {
         assertEquals(3, p.getInt(Preferences.DELUXE_KLAW_SUMMONS))
     }
 
+    @Test fun runBreakfast_visitsHotDogStandWhenFurniturePrefSet() = runBlocking {
+        val hotDogCalls = mutableListOf<Unit>()
+        val speakeasyCalls = mutableListOf<Unit>()
+        val p = prefs {
+            putBoolean(net.sourceforge.kolmafia.clan.ClanLoungeSync.CLAN_HAS_HOT_DOG_STAND_PREF, true)
+            putBoolean(net.sourceforge.kolmafia.clan.ClanLoungeSync.CLAN_HAS_SPEAKEASY_PREF, true)
+            putInt(Preferences.DELUXE_KLAW_SUMMONS, 3)
+            putBoolean(Preferences.LOOKING_GLASS, true)
+            putBoolean(Preferences.FIREWORKS_SHOP, true)
+            putInt(Preferences.POOL_GAME_RESULT, 1)
+        }
+        val lounge = object : ClanLoungeRequest(mockClient) {
+            override suspend fun visitHotDogStand(
+                preferences: net.sourceforge.kolmafia.preferences.Preferences?,
+                state: net.sourceforge.kolmafia.character.CharacterState?,
+            ) = Result.success("ok").also { hotDogCalls.add(Unit) }
+            override suspend fun visitSpeakeasy(
+                preferences: net.sourceforge.kolmafia.preferences.Preferences?,
+                state: net.sourceforge.kolmafia.character.CharacterState?,
+            ) = Result.success("ok").also { speakeasyCalls.add(Unit) }
+        }
+        val mgr = BreakfastManager(
+            campgroundRequest = object : CampgroundRequest(mockClient) {
+                override suspend fun harvestGarden() = Result.success(Unit)
+                override suspend fun useSpinningWheel() = Result.success("ok")
+            },
+            clanRumpusRequest = object : ClanRumpusRequest(mockClient) {
+                override suspend fun visit() = Result.success(Unit)
+            },
+            clanLoungeRequest = lounge,
+            preferences = p,
+            useItemRequest = UseItemRequest(mockClient),
+            hermitRequest = HermitRequest(mockClient),
+            httpClient = mockClient,
+        )
+        mgr.runBreakfast(charState(), inventoryWithItems(BreakfastManager.VIP_LOUNGE_KEY_ID))
+        assertEquals(1, hotDogCalls.size)
+        assertEquals(1, speakeasyCalls.size)
+    }
+
     @Test fun runBreakfast_setsBreakfastCompletedAtEnd() = runBlocking {
         val p = prefs()
         manager(prefs = p).runBreakfast(charState(), InventoryState())

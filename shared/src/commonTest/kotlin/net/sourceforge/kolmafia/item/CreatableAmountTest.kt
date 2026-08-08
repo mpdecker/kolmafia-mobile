@@ -7,9 +7,14 @@ import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionData
 import net.sourceforge.kolmafia.data.ConcoctionIngredient
 import net.sourceforge.kolmafia.data.ConcoctionRefreshContext
+import net.sourceforge.kolmafia.data.HotDogAvailability
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.data.SpeakeasyAvailability
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.preferences.Preferences
+import com.russhwolf.settings.MapSettings
 
 class CreatableAmountTest {
 
@@ -17,6 +22,8 @@ class CreatableAmountTest {
     fun cleanup() {
         ItemDatabase.resetForTest()
         ConcoctionDatabase.resetForTest()
+        HotDogAvailability.resetForTest()
+        SpeakeasyAvailability.resetForTest()
     }
 
     @Test
@@ -137,6 +144,32 @@ class CreatableAmountTest {
         )
 
         assertEquals(0, CreatableAmount.quantityPossible(8101, accessibleCount = { _, _ -> 0 }))
+    }
+
+    @Test
+    fun quantityPossible_hotDogUsesTotalCountNotCreatable() {
+        registerItem(9201, "basic hot dog")
+        HotDogAvailability.addForTest("basic hot dog")
+        ConcoctionDatabase.refreshConcoctionsNow(
+            ConcoctionRefreshContext(
+                characterState = CharacterState(),
+                preferences = Preferences(MapSettings()),
+            ),
+        )
+        assertEquals(1, CreatableAmount.quantityPossible(9201, accessibleCount = { _, _ -> 0 }))
+    }
+
+    @Test
+    fun quantityPossible_speakeasyUsesTotalCountNotCreatable() {
+        registerItem(7592, "Lucky Lindy")
+        SpeakeasyAvailability.addLoungeId(4)
+        ConcoctionDatabase.refreshConcoctionsNow(
+            ConcoctionRefreshContext(
+                characterState = CharacterState(meat = 500),
+                preferences = Preferences(MapSettings()),
+            ),
+        )
+        assertEquals(1, CreatableAmount.quantityPossible(7592, accessibleCount = { _, _ -> 0 }))
     }
 
     private fun registerItem(id: Int, name: String) {

@@ -43,6 +43,9 @@ object SpeakeasyDatabase {
     fun nameToIndex(name: String): Int =
         indexByName[name.lowercase()] ?: -1
 
+    fun loungeIdToIndex(loungeId: Int): Int =
+        entries.indexOfFirst { it.loungeId == loungeId }
+
     fun indexToName(index: Int): String? =
         entries.getOrNull(index)?.name
 

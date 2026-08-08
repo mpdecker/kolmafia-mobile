@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.item
 
+import net.sourceforge.kolmafia.data.ConcoctionCreationCost
 import net.sourceforge.kolmafia.data.ConcoctionData
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionInterchangeableIngredients
@@ -14,13 +15,26 @@ object CreatableAmount {
     ): Int {
         val itemName = ItemDatabase.getById(itemId)?.name ?: return 0
         val concoction = ConcoctionDatabase.getByResult(itemName) ?: return 0
-        if (concoction.ingredients.isEmpty()) return 0
+        if (concoction.ingredients.isEmpty()) {
+            if (preferRuntime && ConcoctionDatabase.getRuntime(itemName) != null) {
+                return loungeQuantity(concoction, itemName)
+            }
+            return 0
+        }
 
         if (preferRuntime && ConcoctionDatabase.getRuntime(itemName) != null) {
             return ConcoctionDatabase.creatableCount(itemName)
         }
 
         return quantityPossibleFlat(concoction, accessibleCount)
+    }
+
+    private fun loungeQuantity(concoction: ConcoctionData, itemName: String): Int {
+        val method = ConcoctionCreationCost.primaryMethod(concoction.methods)
+        return when (method) {
+            "HOT_DOG", "SPEAKEASY" -> ConcoctionDatabase.totalCount(itemName)
+            else -> ConcoctionDatabase.creatableCount(itemName)
+        }
     }
 
     private fun quantityPossibleFlat(

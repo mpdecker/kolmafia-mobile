@@ -83,6 +83,35 @@ class StandardRequestTest {
     }
 
     @Test
+    fun isAllowed_clanItems_blocksHotDogStand() {
+        StandardRequest.parseResponse(
+            """<b>Clan Items</b><p><span class="i">Clan hot dog stand,</span><span class="i">Clan speakeasy</span><p>""",
+        )
+        val restricted = CharacterState(isHardcore = true, roninLeft = 0)
+        assertFalse(
+            StandardRequest.isAllowed(
+                RestrictedItemType.CLAN_ITEMS,
+                "Clan hot dog stand",
+                restricted,
+            ),
+        )
+        assertFalse(
+            StandardRequest.isAllowed(
+                RestrictedItemType.CLAN_ITEMS,
+                "Clan speakeasy",
+                restricted,
+            ),
+        )
+        assertTrue(
+            StandardRequest.isAllowed(
+                RestrictedItemType.CLAN_ITEMS,
+                "Pool Table",
+                restricted,
+            ),
+        )
+    }
+
+    @Test
     fun isAllowed_quantumPath_allowsRestrictedFamiliar() {
         StandardRequest.parseResponse(
             """<b>Familiars</b><p><span class="i">banned familiar,</span><span class="i">other</span><p>""",

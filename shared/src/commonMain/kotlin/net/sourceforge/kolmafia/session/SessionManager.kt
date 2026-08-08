@@ -12,6 +12,7 @@ import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.DailyResourceTracker
+import net.sourceforge.kolmafia.clan.ClanHotdogMenuCache
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConcoctionAvailableIngredients
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
@@ -165,6 +166,7 @@ class SessionManager(
                                 storageCounts = sources.storage,
                             ),
                         )
+                        ClanHotdogMenuCache.restoreIntoAvailability(preferences)
                         gameRuntimeLibrary?.checkDynamicModifiers()
 
                         // Run breakfast actions

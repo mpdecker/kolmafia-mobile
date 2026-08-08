@@ -8,6 +8,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.preferences.Preferences
 
 class ConcoctionSpecialQueueTest {
@@ -20,6 +22,8 @@ class ConcoctionSpecialQueueTest {
         DailyLimitDatabase.resetForTest()
         ConcoctionCraftQueue.resetForTest()
         ConcoctionQueueBudget.resetForTest()
+        SpeakeasyAvailability.resetForTest()
+        HotDogAvailability.resetForTest()
     }
 
     @Test
@@ -239,6 +243,116 @@ class ConcoctionSpecialQueueTest {
     }
 
     @Test
+    fun pushBasicHotDog_succeedsWhenVirtualConcoctionAvailableAfterRefresh() {
+        ConsumableDatabase.injectForTest(
+            ConsumableData(
+                name = "basic hot dog",
+                type = ConsumableType.FOOD,
+                amount = 1,
+                levelReq = 1,
+                quality = ConsumableQuality.CRAPPY,
+                advMin = 1,
+                advMax = 1,
+                muscMin = 0,
+                muscMax = 0,
+                mystMin = 0,
+                mystMax = 0,
+                moxieMin = 0,
+                moxieMax = 0,
+                notes = "",
+            ),
+        )
+        HotDogAvailability.addForTest("basic hot dog")
+        val refreshContext = ConcoctionRefreshContext(
+            characterState = CharacterState(),
+            preferences = Preferences(MapSettings()),
+        )
+        ConcoctionDatabase.refreshConcoctionsNow(refreshContext)
+        val context = ConcoctionQueueContext.fromRefreshContext(refreshContext)
+
+        assertTrue(ConcoctionCraftQueue.push("basic hot dog", 1, context))
+        assertFalse(ConcoctionQueueBudget.queuedFancyDog)
+        assertEquals(1, ConcoctionQueueBudget.queuedFullness)
+
+        ConcoctionCraftQueue.pop()
+        assertEquals(0, ConcoctionQueueBudget.queuedFullness)
+    }
+
+    @Test
+    fun pushFancyHotDog_succeedsWhenVirtualConcoctionAvailableAfterRefresh() {
+        ConsumableDatabase.injectForTest(
+            ConsumableData(
+                name = "sly dog",
+                type = ConsumableType.FOOD,
+                amount = 2,
+                levelReq = 1,
+                quality = ConsumableQuality.AWESOME,
+                advMin = 6,
+                advMax = 8,
+                muscMin = 0,
+                muscMax = 0,
+                mystMin = 0,
+                mystMax = 0,
+                moxieMin = 10,
+                moxieMax = 15,
+                notes = "",
+            ),
+        )
+        HotDogAvailability.addForTest("sly dog")
+        val refreshContext = ConcoctionRefreshContext(
+            characterState = CharacterState(),
+            preferences = Preferences(MapSettings()),
+        )
+        ConcoctionDatabase.refreshConcoctionsNow(refreshContext)
+        val context = ConcoctionQueueContext.fromRefreshContext(refreshContext)
+
+        assertTrue(ConcoctionCraftQueue.push("sly dog", 1, context))
+        assertTrue(ConcoctionQueueBudget.queuedFancyDog)
+        assertEquals(2, ConcoctionQueueBudget.queuedFullness)
+
+        ConcoctionCraftQueue.pop()
+        assertFalse(ConcoctionQueueBudget.queuedFancyDog)
+    }
+
+    @Test
+    fun pushSpeakeasyDrink_succeedsWhenVirtualConcoctionAvailableAfterRefresh() {
+        registerSpeakeasyDrink(7592, "Lucky Lindy")
+        ConsumableDatabase.injectForTest(
+            ConsumableData(
+                name = "Lucky Lindy",
+                type = ConsumableType.DRINK,
+                amount = 1,
+                levelReq = 1,
+                quality = ConsumableQuality.AWESOME,
+                advMin = 1,
+                advMax = 1,
+                muscMin = 0,
+                muscMax = 0,
+                mystMin = 0,
+                mystMax = 0,
+                moxieMin = 0,
+                moxieMax = 0,
+                notes = "",
+            ),
+        )
+        SpeakeasyAvailability.addLoungeId(4)
+        val prefs = Preferences(MapSettings())
+        val refreshContext = ConcoctionRefreshContext(
+            characterState = CharacterState(meat = 500),
+            preferences = prefs,
+        )
+        ConcoctionDatabase.refreshConcoctionsNow(refreshContext)
+        val context = ConcoctionQueueContext.fromRefreshContext(refreshContext)
+
+        assertTrue(ConcoctionCraftQueue.push("Lucky Lindy", 1, context))
+        assertEquals(1, ConcoctionQueueBudget.queuedSpeakeasyDrink)
+        assertEquals(1, ConcoctionQueueBudget.queuedInebriety)
+
+        ConcoctionCraftQueue.pop()
+        assertEquals(0, ConcoctionQueueBudget.queuedSpeakeasyDrink)
+    }
+
+    @Test
     fun pushSpeakeasyDrink_blockedWhenDailyCapReached() {
         registerSpeakeasyDrink(7592, "Lucky Lindy")
         ConcoctionDatabase.injectForTest(
@@ -294,6 +408,77 @@ class ConcoctionSpecialQueueTest {
         assertEquals(1, ConcoctionQueueBudget.queuedSpeakeasyDrink)
         assertFalse(ConcoctionCraftQueue.push("Lucky Lindy", 2, context))
         assertEquals(1, ConcoctionQueueBudget.queuedSpeakeasyDrink)
+    }
+
+    @Test
+    fun pushFancyHotDog_blockedWhenLimitClan() {
+        registerItem(9002, "sly dog")
+        ConsumableDatabase.injectForTest(
+            ConsumableData(
+                name = "sly dog",
+                type = ConsumableType.FOOD,
+                amount = 2,
+                levelReq = 1,
+                quality = ConsumableQuality.AWESOME,
+                advMin = 6,
+                advMax = 8,
+                muscMin = 0,
+                muscMax = 0,
+                mystMin = 0,
+                mystMax = 0,
+                moxieMin = 10,
+                moxieMax = 15,
+                notes = "",
+            ),
+        )
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "sly dog",
+                resultQuantity = 1,
+                methods = setOf("HOT_DOG"),
+                ingredients = emptyList(),
+            ),
+        )
+        val context = ConcoctionQueueContext(
+            limitMode = "spelunky",
+            runtimeFor = { name ->
+                if (name.equals("sly dog", ignoreCase = true)) {
+                    ConcoctionRuntimeState(initial = 1, creatable = 0)
+                } else {
+                    null
+                }
+            },
+        )
+
+        assertFalse(ConcoctionCraftQueue.push("sly dog", 1, context))
+        assertFalse(ConcoctionQueueBudget.queuedFancyDog)
+        assertEquals(0, ConcoctionQueueBudget.queuedFullness)
+    }
+
+    @Test
+    fun pushSpeakeasyDrink_blockedWhenLimitClan() {
+        registerSpeakeasyDrink(7592, "Lucky Lindy")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "Lucky Lindy",
+                resultQuantity = 1,
+                methods = setOf("SPEAKEASY"),
+                ingredients = emptyList(),
+            ),
+        )
+        val context = ConcoctionQueueContext(
+            limitMode = "ed",
+            runtimeFor = { name ->
+                if (name.equals("Lucky Lindy", ignoreCase = true)) {
+                    ConcoctionRuntimeState(initial = 0, creatable = 1)
+                } else {
+                    null
+                }
+            },
+        )
+
+        assertFalse(ConcoctionCraftQueue.push("Lucky Lindy", 1, context))
+        assertEquals(0, ConcoctionQueueBudget.queuedSpeakeasyDrink)
     }
 
     @Test

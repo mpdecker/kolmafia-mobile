@@ -39,6 +39,7 @@ import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.IntergnatDemonNameSync
 import net.sourceforge.kolmafia.session.YegDemonNameSync
 import net.sourceforge.kolmafia.request.CargoCultistShortsRequest
+import net.sourceforge.kolmafia.session.ConcoctionQueueRunner
 import net.sourceforge.kolmafia.session.CleanupJunkRunner
 import net.sourceforge.kolmafia.session.AutoMallRunner
 import net.sourceforge.kolmafia.session.QuarkRunner
@@ -68,6 +69,12 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.JunkListManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
+import net.sourceforge.kolmafia.request.CafePurchaseRequest
+import net.sourceforge.kolmafia.request.CafeRequest
+import net.sourceforge.kolmafia.request.ChezSnooteeRequest
+import net.sourceforge.kolmafia.request.ConcoctionCreateRequest
+import net.sourceforge.kolmafia.request.HellKitchenRequest
+import net.sourceforge.kolmafia.request.MicroBreweryRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
@@ -107,6 +114,7 @@ import net.sourceforge.kolmafia.request.SendMailRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StandardRequest
+import net.sourceforge.kolmafia.request.StillSuitRequest
 import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -248,6 +256,49 @@ val sharedModule = module {
     singleOf(::CampgroundRequest)
     singleOf(::ClanRumpusRequest)
     singleOf(::ClanLoungeRequest)
+    singleOf(::CafeRequest)
+    single {
+        HellKitchenRequest(cafeRequest = get())
+    }
+    single {
+        ChezSnooteeRequest(hellKitchenRequest = get())
+    }
+    single {
+        MicroBreweryRequest(hellKitchenRequest = get())
+    }
+    single {
+        CafePurchaseRequest(
+            hellKitchenRequest = get(),
+            chezSnooteeRequest = get(),
+            microBreweryRequest = get(),
+        )
+    }
+    single {
+        ConcoctionCreateRequest(
+            retrieveItemService = get(),
+            craftRequest = get(),
+            useItemRequest = get(),
+            gameDatabase = get(),
+        )
+    }
+    single {
+        StillSuitRequest(
+            client = get(),
+            inventoryManager = get(),
+        )
+    }
+    single {
+        ConcoctionQueueRunner(
+            clanLoungeRequest = get(),
+            eatFoodRequest = get(),
+            drinkBoozeRequest = get(),
+            chewRequest = get(),
+            retrieveItemService = get(),
+            concoctionCreateRequest = get(),
+            cafePurchaseRequest = get(),
+            stillSuitRequest = get(),
+        )
+    }
     singleOf(::FamiliarRequest)
     single {
         MaximizerManager(
