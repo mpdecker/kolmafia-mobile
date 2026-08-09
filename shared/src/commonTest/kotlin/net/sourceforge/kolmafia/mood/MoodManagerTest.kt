@@ -352,6 +352,64 @@ class MoodManagerTest {
         assertEquals("combat", s.getString(Preferences.ACTIVE_MOOD_NAME, ""))
     }
 
+    @Test fun clearActiveTriggers_clearsBuffTriggersAndSyncsLibrary() {
+        val p = prefs()
+        val manager = MoodManager(fakeCastSkillManager(mutableListOf()), p)
+        val mood = Mood("combat", listOf(trigger(10, 200)))
+        manager.addMoodToLibrary(mood)
+        manager.activeMood = mood
+        assertTrue(manager.clearActiveTriggers())
+        assertTrue(manager.activeMood?.triggers?.isEmpty() == true)
+        assertTrue(manager.moodLibrary["combat"]?.triggers?.isEmpty() == true)
+    }
+
+    @Test fun activeTriggerLines_formatsEffectiveTriggers() {
+        val manager = MoodManager(fakeCastSkillManager(mutableListOf()), prefs())
+        manager.activeMood = Mood("test", listOf(trigger(10, 200)))
+        assertEquals(listOf("Effect 10 => cast Skill 200"), manager.activeTriggerLines())
+    }
+
+    @Test fun clearAllActiveTriggers_clearsBuffAndRemovalTriggers() {
+        val manager = MoodManager(fakeCastSkillManager(mutableListOf()), prefs())
+        val mood = Mood(
+            "combat",
+            triggers = listOf(trigger(10, 200)),
+            removalTriggers = listOf(
+                MoodRemovalTrigger(
+                    type = MoodRemovalTriggerType.LOSE_EFFECT,
+                    effectId = 10,
+                    effectName = "Effect 10",
+                    action = "uneffect Effect 10",
+                ),
+            ),
+        )
+        manager.addMoodToLibrary(mood)
+        manager.activeMood = mood
+        assertTrue(manager.clearAllActiveTriggers())
+        assertTrue(manager.activeMood?.triggers?.isEmpty() == true)
+        assertTrue(manager.activeMood?.removalTriggers?.isEmpty() == true)
+    }
+
+    @Test fun activeEditMoodLines_combinesBuffAndRemovalLines() {
+        val manager = MoodManager(fakeCastSkillManager(mutableListOf()), prefs())
+        manager.activeMood = Mood(
+            "test",
+            triggers = listOf(trigger(10, 200)),
+            removalTriggers = listOf(
+                MoodRemovalTrigger(
+                    type = MoodRemovalTriggerType.UNCONDITIONAL,
+                    effectId = 0,
+                    effectName = "",
+                    action = "rest",
+                ),
+            ),
+        )
+        assertEquals(
+            listOf("Effect 10 => cast Skill 200", "unconditional => rest"),
+            manager.activeEditMoodLines(),
+        )
+    }
+
     @Test fun setActiveMoodByName_unknownName_returnsFalse() {
         val manager = MoodManager(fakeCastSkillManager(mutableListOf()), prefs())
         assertFalse(manager.setActiveMoodByName("doesNotExist"))
@@ -418,9 +476,10 @@ class MoodManagerTest {
                 effectState: EffectState,
                 skillState: SkillState,
                 charState: CharacterState,
+                multiplicity: Int,
             ) {
-                checkpointedExecute(effectState, skillState, charState)
-                super.executeActiveMood(effectState, skillState, charState)
+                checkpointedExecute(effectState, skillState, charState, multiplicity = 0)
+                super.executeActiveMood(effectState, skillState, charState, multiplicity = 0)
             }
         }
         manager.activeMood = Mood("test", listOf(trigger(effectId = 10, skillId = 200)))

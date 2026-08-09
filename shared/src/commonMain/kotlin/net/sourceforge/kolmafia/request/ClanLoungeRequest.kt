@@ -47,6 +47,13 @@ open class ClanLoungeRequest(private val client: HttpClient) {
     /** Visit the clan VIP lounge fax machine. */
     open suspend fun visitFaxMachine(): Result<String> = postFaxForm(preaction = null)
 
+    /** Soak in the clan VIP lounge hot tub. Desktop ClanLoungeRequest(Action.HOTTUB). */
+    open suspend fun useHotTub(preferences: Preferences? = null): Result<String> = postLoungeForm(
+        formParams = { append("action", "hottub") },
+        syncUrlSuffix = "?action=hottub",
+        preferences = preferences,
+    )
+
     /** Send a photocopied monster via the clan fax machine. */
     open suspend fun sendFax(): Result<String> = postFaxForm(preaction = "sendfax")
 

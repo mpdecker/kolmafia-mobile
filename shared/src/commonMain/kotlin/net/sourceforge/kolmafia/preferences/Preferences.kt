@@ -111,8 +111,12 @@ class Preferences(private val settings: Settings) {
         const val MANA_BURN_ENABLED        = "manaBurnEnabled"       // default false
         const val MANA_BURN_MIN_MP_PCT     = "manaBurnMinMpPct"      // burn when MP% >= this; default 90
         const val ALLOW_NON_MOOD_BURNING   = "allowNonMoodBurning"   // burn non-mood buffs; default false
+        const val MAX_MANA_BURN            = "maxManaBurn"           // max effect duration extension; default 1000
+        const val ALLOW_SUMMON_BURNING     = "allowSummonBurning"    // breakfast/libram burn path; Phase 351
         const val MANA_BURN_SUMMON_THRESHOLD = "manaBurnSummonThreshold" // MP% to prefer summons; 0=off
         const val MANA_BURN_SKILLS         = "manaBurnSkills"        // pipe-separated skill priority list
+
+        fun skillBurnPrefKey(skillId: Int): String = "skillBurn$skillId"
 
         // Adventure location tracking
         const val ADVENTURE_SPENT_TURNS    = "adventureSpentTurns"

@@ -58,7 +58,10 @@ import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.modifiers.ExpressionContext
 import net.sourceforge.kolmafia.modifiers.StatNames
 import net.sourceforge.kolmafia.location.LocationDatabase
+import net.sourceforge.kolmafia.mood.EditMoodCommandParser
 import net.sourceforge.kolmafia.mood.MoodManager
+import net.sourceforge.kolmafia.mood.maximalSet
+import net.sourceforge.kolmafia.mood.minimalSet
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestChoiceRules
@@ -93,6 +96,11 @@ import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.TrendyRequest
+import net.sourceforge.kolmafia.request.UneffectAction
+import net.sourceforge.kolmafia.request.UneffectActionContext
+import net.sourceforge.kolmafia.request.UneffectActionResolver
+import net.sourceforge.kolmafia.request.UneffectItemAcquisition
+import net.sourceforge.kolmafia.request.UneffectRemovableMaps
 import net.sourceforge.kolmafia.request.UntinkerRequest
 import net.sourceforge.kolmafia.request.ItemUseLimitsContext
 import net.sourceforge.kolmafia.request.ManageStoreRequest
@@ -118,6 +126,7 @@ import net.sourceforge.kolmafia.session.BastilleSyncContext
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DreadScrollManager
 import net.sourceforge.kolmafia.session.MerkinQuestSync
+import net.sourceforge.kolmafia.session.SeaMerkinSync
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
@@ -235,8 +244,15 @@ class GameRuntimeLibrary(
     internal val concoctionCreateRequest: net.sourceforge.kolmafia.request.ConcoctionCreateRequest? = null,
 ) : RuntimeLibrary() {
 
+    private val moodCliContext = object : AshRuntimeContext {
+        override fun print(msg: String) = Unit
+        override fun lastCombatAction(): String = ""
+        override fun setCombatAction(action: String) = Unit
+    }
+
     init {
         preferences?.let { DynamicItemModifierSync.applyCachedOverrides(it) }
+        moodManager?.cliExecutor = { cmd -> dispatchCli(cmd, moodCliContext) }
     }
 
     companion object {
@@ -244,7 +260,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase333"
+        const val REVISION = "phase350"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -299,32 +315,169 @@ class GameRuntimeLibrary(
         prefs.setString(ScriptManager.SCRIPTS_PREF_KEY, Json.encodeToString(updated))
     }
 
+    private fun runMoodCheckpointed(multiplicity: Int) {
+        moodManager?.let { mood ->
+            kotlinx.coroutines.runBlocking {
+                mood.checkpointedExecute(
+                    effectState = effectManager?.state?.value ?: EffectState(),
+                    skillState = skillManager?.state?.value ?: SkillState(),
+                    charState = character?.state?.value ?: CharacterState(),
+                    character = character,
+                    equipmentRequest = equipmentRequest,
+                    gameDatabase = gameDatabase,
+                    multiplicity = multiplicity,
+                )
+            }
+        }
+    }
+
+    private fun parseMoodCliNameAndMultiplicity(raw: String): Pair<String, Int> {
+        var params = raw.trim()
+        var multiplicity = 0
+        val lastSpace = params.lastIndexOf(' ')
+        if (lastSpace != -1) {
+            val possible = params.substring(lastSpace + 1)
+            if (possible.isNotEmpty() && possible.all { it.isDigit() }) {
+                multiplicity = possible.toIntOrNull() ?: 0
+                params = params.substring(0, lastSpace).trim()
+            }
+        }
+        return params to multiplicity
+    }
+
+    private fun moodEffectState(): EffectState =
+        effectManager?.state?.value ?: EffectState()
+
+    private fun moodSkillState(): SkillState =
+        skillManager?.state?.value ?: SkillState()
+
+    private fun moodCharState(): CharacterState =
+        character?.state?.value ?: CharacterState()
+
+    private fun dispatchEditMood(parameters: String, rt: AshRuntimeContext) {
+        val mood = moodManager ?: return
+        when {
+            parameters.isEmpty() || parameters.equals("list", ignoreCase = true) -> {
+                mood.activeEditMoodLines().forEach { line -> rt.print(line) }
+            }
+            parameters.equals("clear", ignoreCase = true) -> {
+                if (mood.clearAllActiveTriggers()) {
+                    rt.print("Cleared mood.")
+                }
+            }
+            parameters.equals("autofill", ignoreCase = true) -> {
+                mood.maximalSet(moodEffectState(), moodSkillState(), moodCharState())
+                mood.saveActiveMood()
+                mood.saveMoodLibrary()
+                mood.activeEditMoodLines().forEach { line -> rt.print(line) }
+            }
+            else -> {
+                val parsed = EditMoodCommandParser.parseParameters(parameters)
+                if (parsed == null) {
+                    rt.print("Invalid command: editmood $parameters")
+                    return
+                }
+                val (type, effectName, action) = parsed
+                val trigger = mood.addActiveRemovalTrigger(type, effectName, action.orEmpty())
+                if (trigger == null) {
+                    rt.print("Invalid command: editmood $parameters")
+                    return
+                }
+                mood.saveActiveMood()
+                mood.saveMoodLibrary()
+                rt.print("Set mood trigger: ${mood.formatRemovalTriggerLine(trigger)}")
+            }
+        }
+    }
+
     private val cliDispatch: List<Pair<Regex, (MatchResult, AshRuntimeContext) -> Unit>> = listOf(
 
-        // "mood execute" — run missing triggers for active mood
-        Regex("^mood\\s+execute$", RegexOption.IGNORE_CASE) to { _, _ ->
+        // "save as mood" — desktop SaveAsMoodCommand → minimalSet + save
+        Regex("^save as mood$", RegexOption.IGNORE_CASE) to { _, _ ->
             moodManager?.let { mood ->
-                kotlinx.coroutines.runBlocking {
-                    mood.executeActiveMood(
-                        effectState = effectManager?.state?.value ?: EffectState(),
-                        skillState  = skillManager?.state?.value  ?: SkillState(),
-                        charState   = character?.state?.value     ?: CharacterState(),
-                    )
-                }
+                mood.minimalSet(moodEffectState())
+                mood.saveActiveMood()
+                mood.saveMoodLibrary()
             }
         },
 
-        // "mood <name>" — set active mood by name, then execute
-        Regex("^mood\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val name = m.groupValues[1].trim()
-            moodManager?.setActiveMoodByName(name)
+        // "editmood ..." — desktop EditMoodCommand
+        Regex("^editmood(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            dispatchEditMood(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt)
+        },
+
+        // "trigger ..." — desktop EditMoodCommand plural alias
+        Regex("^trigger(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            dispatchEditMood(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt)
+        },
+
+        // "mood execute" — run missing triggers for active mood
+        Regex("^mood\\s+execute$", RegexOption.IGNORE_CASE) to { _, rt ->
+            if (recoveryManager?.isRecoveryActive == true || moodManager?.isExecuting() == true) {
+                return@to
+            }
+            runMoodCheckpointed(multiplicity = 0)
+            rt.print("Mood swing complete.")
+        },
+
+        // "mood repeat [<n>]" — desktop MoodCommand repeat
+        Regex("^mood\\s+repeat(?:\\s+(\\d+))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            if (recoveryManager?.isRecoveryActive == true || moodManager?.isExecuting() == true) {
+                return@to
+            }
+            val multiplicity = m.groupValues.getOrNull(1)?.toIntOrNull() ?: 0
+            runMoodCheckpointed(multiplicity = multiplicity)
+            rt.print("Mood swing complete.")
+        },
+
+        // "mood autofill" — desktop MoodManager.maximalSet()
+        Regex("^mood\\s+autofill$", RegexOption.IGNORE_CASE) to { _, _ ->
             moodManager?.let { mood ->
-                kotlinx.coroutines.runBlocking {
-                    mood.executeActiveMood(
-                        effectState = effectManager?.state?.value ?: EffectState(),
-                        skillState  = skillManager?.state?.value  ?: SkillState(),
-                        charState   = character?.state?.value     ?: CharacterState(),
-                    )
+                mood.maximalSet(
+                    effectState = effectManager?.state?.value ?: EffectState(),
+                    skillState  = skillManager?.state?.value  ?: SkillState(),
+                    charState   = character?.state?.value     ?: CharacterState(),
+                )
+                mood.saveActiveMood()
+                mood.saveMoodLibrary()
+            }
+        },
+
+        // bare "mood" or "mood list" — print active buff triggers
+        Regex("^mood(?:\\s+list)?$", RegexOption.IGNORE_CASE) to { _, rt ->
+            moodManager?.activeTriggerLines()?.forEach { line -> rt.print(line) }
+        },
+
+        // "mood listall" — print library mood names
+        Regex("^mood\\s+listall$", RegexOption.IGNORE_CASE) to { _, rt ->
+            moodManager?.libraryDisplayNames()?.forEach { name -> rt.print(name) }
+        },
+
+        // "mood clear" — remove all buff triggers from active mood
+        Regex("^mood\\s+clear$", RegexOption.IGNORE_CASE) to { _, rt ->
+            if (moodManager?.clearActiveTriggers() == true) {
+                rt.print("Cleared mood.")
+            }
+        },
+
+        // "mood <name> [<n>]" — set active mood; optional repeat-then-restore
+        Regex("^mood\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val (name, multiplicity) = parseMoodCliNameAndMultiplicity(m.groupValues[1])
+            val previousName = preferences?.getString(Preferences.ACTIVE_MOOD_NAME, "").orEmpty()
+            if (moodManager?.setActiveMoodByName(name) != true) {
+                return@to
+            }
+            if (multiplicity > 0) {
+                if (recoveryManager?.isRecoveryActive == true || moodManager?.isExecuting() == true) {
+                    return@to
+                }
+                runMoodCheckpointed(multiplicity = multiplicity)
+                rt.print("Mood swing complete.")
+                if (previousName.isNotBlank()) {
+                    moodManager?.setActiveMoodByName(previousName)
+                } else {
+                    moodManager?.activeMood = null
+                    moodManager?.saveActiveMood()
                 }
             }
         },
@@ -1052,6 +1205,11 @@ class GameRuntimeLibrary(
         // pool — play one VIP lounge pool game
         Regex("^pool$", RegexOption.IGNORE_CASE) to { _, _ ->
             kotlinx.coroutines.runBlocking { clanLoungeRequest?.playPoolGame() }
+        },
+
+        // hottub / soak — clan VIP lounge hot tub
+        Regex("^(?:hottub|soak)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking { clanLoungeRequest?.useHotTub(preferences) }
         },
 
         // profam <item> — use one copy (professional familiar leaflet pattern)
@@ -1860,6 +2018,18 @@ class GameRuntimeLibrary(
         if (url != null) {
             MerkinQuestSync.applyFromUrl(url, preferences, sessionLogger)
         }
+        if (url != null && url.contains("sea_merkin.php", ignoreCase = true)) {
+            SeaMerkinSync.parseTemple(
+                url,
+                html,
+                character?.state?.value?.inSeaPath == true,
+                preferences,
+                sessionLogger,
+            )
+        }
+        if (url != null && url.contains("adventure.php", ignoreCase = true)) {
+            SeaMerkinSync.parseColosseum(url, html, preferences, sessionLogger)
+        }
         if (url != null &&
             url.contains("inv_use.php", ignoreCase = true) &&
             url.contains("whichitem=${DreadScrollManager.DREADSCROLL_ID}")
@@ -1980,6 +2150,7 @@ class GameRuntimeLibrary(
                 preferences,
                 skillManager,
                 inventoryManager,
+                questDatabase,
             )
         }
         ClanLoungeSync.apply(preferences, html, url)
@@ -2043,6 +2214,9 @@ class GameRuntimeLibrary(
             preferences = preferences,
             currentRun = character?.state?.value?.currentRun ?: 0,
             gameDatabase = gameDatabase,
+            consumeItem = { itemId, quantity ->
+                inventoryManager?.consumeItemLocally(itemId, quantity)
+            },
         )
 
     internal fun buildCurrentModifiers(): CurrentModifiers {
@@ -2751,10 +2925,104 @@ class GameRuntimeLibrary(
     }
 
     internal fun uneffectByName(name: String) {
-        val req = uneffectRequest ?: return
         val effect = effectManager?.state?.value?.effects
             ?.find { it.name.equals(name, ignoreCase = true) } ?: return
-        kotlinx.coroutines.runBlocking { req.uneffect(effect.id) }
+        val prefs = preferences ?: return
+        val charState = character?.state?.value
+        val inv = inventoryManager?.state?.value
+        val hasItemId: (Int) -> Boolean = { id ->
+            (inv?.items?.get(id)?.quantity ?: 0) > 0
+        }
+        val hasSkill = UneffectRemovableMaps.hasSkillResolver(preferences, skillManager)
+        val canCastSkill: (String) -> Boolean = { skillName ->
+            skillManager?.state?.value?.skills
+                ?.any { it.name.equals(skillName, ignoreCase = true) } == true
+        }
+        val moodAction = moodManager?.getDefaultAction("gain_effect", effect.name).orEmpty()
+        val checkContext = buildCheckContext()
+        val accessibleCount: (Int) -> Int = { itemId ->
+            kotlinx.coroutines.runBlocking {
+                physicalAccessibleCount(itemId, net.sourceforge.kolmafia.data.ItemDatabase.getItemName(itemId))
+            }
+        }
+        lateinit var actionCtx: UneffectActionContext
+        actionCtx = UneffectActionContext(
+            effectId = effect.id,
+            effectName = effect.name,
+            moodPredefinedAction = moodAction,
+            preferences = prefs,
+            characterState = charState,
+            hasItemId = hasItemId,
+            hasSkill = hasSkill,
+            canCastSkill = canCastSkill,
+            canRetrieveRemedy = retrieveItemService != null,
+            canAcquireUneffectItem = { itemId ->
+                UneffectItemAcquisition.canAcquireUneffectItem(
+                    itemId = itemId,
+                    effectId = effect.id,
+                    ctx = actionCtx,
+                    checkContext = checkContext,
+                    prefs = prefs,
+                    db = gameDatabase,
+                    charState = charState,
+                    accessibleCount = accessibleCount,
+                )
+            },
+        )
+        val action = UneffectActionResolver.resolve(actionCtx)
+        if (action is UneffectAction.HttpUneffect &&
+            UneffectItemAcquisition.shouldBlockNeedsCocoaHttpUneffect(
+                effectId = effect.id,
+                ctx = actionCtx,
+                checkContext = checkContext,
+                prefs = prefs,
+                db = gameDatabase,
+                charState = charState,
+                accessibleCount = accessibleCount,
+            )
+        ) {
+            sessionLogger?.appendRawLine(
+                "${effect.name} can be removed only with hot Dreadsylvanian cocoa.",
+            )
+            return
+        }
+        executeUneffectAction(action, effect.id)
+    }
+
+    private fun executeUneffectAction(action: UneffectAction, effectId: Int) {
+        when (action) {
+            is UneffectAction.CastSkill -> {
+                val skill = skillManager?.state?.value?.skills
+                    ?.find { it.name.equals(action.skillName, ignoreCase = true) } ?: return
+                kotlinx.coroutines.runBlocking { skillManager.cast(skill) }
+            }
+            is UneffectAction.HotTub -> {
+                kotlinx.coroutines.runBlocking { clanLoungeRequest?.useHotTub(preferences) }
+            }
+            is UneffectAction.UseItem -> {
+                val useReq = useItemRequest
+                if (useReq != null) {
+                    var used = false
+                    kotlinx.coroutines.runBlocking {
+                        if (action.retrieveFirst) {
+                            retrieveItemService?.retrieve(action.itemId, 1)
+                        }
+                        val qty = inventoryManager?.state?.value?.items?.get(action.itemId)?.quantity ?: 0
+                        if (qty > 0) {
+                            useReq.use(action.itemId, 1)
+                            used = true
+                        }
+                    }
+                    if (used) return
+                }
+                val req = uneffectRequest ?: return
+                kotlinx.coroutines.runBlocking { req.uneffect(effectId) }
+            }
+            is UneffectAction.HttpUneffect -> {
+                val req = uneffectRequest ?: return
+                kotlinx.coroutines.runBlocking { req.uneffect(effectId) }
+            }
+        }
     }
 
     internal fun uneffectAll() {

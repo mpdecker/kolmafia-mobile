@@ -24,8 +24,8 @@ import net.sourceforge.kolmafia.skill.SkillType
 class GameRuntimeLibraryAshP119Test {
 
     @Test
-    fun revision_phase170() {
-        assertEquals("phase333", GameRuntimeLibrary.REVISION)
+    fun revision_phase350() {
+        assertEquals("phase350", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -88,6 +88,27 @@ class GameRuntimeLibraryAshP119Test {
         )
         outputLib(lib, """mood_execute(0);""")
         assertEquals(listOf(200), cast)
+    }
+
+    @Test
+    fun moodExecute_forwardsMultiplicityToScaledCast() {
+        val cast = mutableListOf<Int>()
+        val skills = moodSkillManager(cast)
+        val mood = MoodManager(skills, prefs())
+        mood.activeMood = Mood(
+            "test",
+            listOf(MoodTrigger(10, "Effect 10", 200, "Skill 200", 1)),
+        )
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(mp = "500", mpmax = "500"))
+        }
+        val lib = GameRuntimeLibrary(
+            character = char,
+            moodManager = mood,
+            skillManager = skills,
+        )
+        outputLib(lib, """mood_execute(2);""")
+        assertEquals(listOf(200, 200), cast)
     }
 
     @Test

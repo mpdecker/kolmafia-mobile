@@ -24,9 +24,22 @@ object QuestItemRules {
     const val DOC_HERB_COUNT = 3
     const val SPORE_POD_COUNT = 6
 
-    fun applyItemsGained(itemsGained: List<String>, questDatabase: QuestDatabase): Boolean {
+    fun applyItemsGained(
+        itemsGained: List<String>,
+        questDatabase: QuestDatabase,
+        hasItemId: (Int) -> Boolean = { false },
+        consumeItem: (itemId: Int, quantity: Int) -> Unit = { _, _ -> },
+    ): Boolean {
         var advanced = false
         for (name in itemsGained) {
+            if (isGuildManualName(name)) {
+                QuestLogSync.consumeEgoBookTurnInItems(
+                    QuestLogSync.QuestSyncContext(
+                        hasItemId = hasItemId,
+                        consumeItem = consumeItem,
+                    ),
+                )
+            }
             if (isLegendaryWeaponName(name)) {
                 advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step8") || advanced
             }
@@ -181,6 +194,13 @@ object QuestItemRules {
             lower.contains("trousers") ||
             lower.contains("bellbottoms") ||
             lower.contains("lederhosen")
+    }
+
+    private fun isGuildManualName(name: String): Boolean {
+        val lower = name.lowercase()
+        return lower.contains("manual of labor") ||
+            lower.contains("manual of transmission") ||
+            lower.contains("manual of dexterity")
     }
 
     private fun setIfBetter(db: QuestDatabase, quest: Quest, step: String): Boolean {

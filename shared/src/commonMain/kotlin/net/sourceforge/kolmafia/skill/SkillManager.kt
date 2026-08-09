@@ -13,6 +13,7 @@ import kotlinx.serialization.Serializable
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.request.UneffectRemovableMaps
 import net.sourceforge.kolmafia.session.DreadScrollManager
 
 // Verify field names against live api.php?what=skills response before shipping.
@@ -62,6 +63,7 @@ open class SkillManager(
                 )
             }.sortedBy { it.name }
             _state.value = SkillState(skills = skills, isStale = false)
+            UneffectRemovableMaps.resetFromSession(preferences, this)
         } catch (e: Exception) {
             _state.value = _state.value.copy(isStale = true)
         }
@@ -86,5 +88,6 @@ open class SkillManager(
     open fun learnLocalSkill(skill: SkillData) {
         val skills = _state.value.skills.filterNot { it.id == skill.id } + skill
         _state.value = _state.value.copy(skills = skills.sortedBy { it.name }, isStale = false)
+        UneffectRemovableMaps.resetFromSession(preferences, this)
     }
 }

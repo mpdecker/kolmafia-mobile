@@ -117,8 +117,10 @@ class SessionManager(
                         effectManager.initialize(appScope)
                         scriptManager.initialize()
                         questLogRequest?.syncAll()
-                        moodManager?.loadMoodLibrary()
-                        moodManager?.loadActiveMood()
+                        moodManager?.updateFromPreferences(
+                            username = charState.name,
+                            activeMoodName = preferences.getString(Preferences.ACTIVE_MOOD_NAME),
+                        )
                         banishManager?.load()
                         if (ascended) {
                             banishManager?.clearAvatarBanishes()

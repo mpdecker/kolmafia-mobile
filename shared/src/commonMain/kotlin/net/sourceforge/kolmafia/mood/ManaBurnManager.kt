@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.mood
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.UneffectSkillEffectMap
 import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
@@ -28,6 +29,51 @@ class ManaBurnManager(
                 && skill.mpCost <= charState.currentMp
                 && (skill.dailyLimit == 0 || skill.timesCast < skill.dailyLimit)
 
+        /** Desktop `Preferences.getInteger("skillBurn" + skillId) + 100`. */
+        internal fun skillBurnPriority(skillId: Int, prefs: Preferences): Int =
+            prefs.getInt(Preferences.skillBurnPrefKey(skillId), 100) + 100
+
+        internal fun durationLimitForSkill(
+            skillId: Int,
+            charState: CharacterState,
+            prefs: Preferences,
+        ): Int {
+            val baseLimit = prefs.getInt(Preferences.MAX_MANA_BURN, 1000) + charState.adventuresLeft
+            val priority = skillBurnPriority(skillId, prefs)
+            return baseLimit * minOf(100, priority) / 100
+        }
+
+        /** Desktop active-effect scan in [ManaBurnManager.getNextBurnCast]. */
+        internal fun pickFromActiveEffects(
+            mood: Mood?,
+            effectState: EffectState,
+            skillState: SkillState,
+            charState: CharacterState,
+            moodLibrary: Map<String, Mood>,
+            prefs: Preferences,
+        ): SkillData? {
+            val onlyMood = !prefs.getBoolean(Preferences.ALLOW_NON_MOOD_BURNING, false)
+            for (effect in effectState.effects.sortedBy { it.duration }) {
+                if (EffectGainGate.cannotGainEffect(effect.id)) continue
+                if (onlyMood && !MoodManager.effectInMood(effect.id, mood, moodLibrary)) continue
+
+                val skillName = UneffectSkillEffectMap.effectToSkill(effect.name) ?: continue
+                val skill = skillState.skills.firstOrNull {
+                    it.name.equals(skillName, ignoreCase = true)
+                } ?: continue
+                if (!isEligible(skill, charState)) continue
+
+                val priority = skillBurnPriority(skill.id, prefs)
+                if (priority <= 0) continue
+
+                val durationLimit = durationLimitForSkill(skill.id, charState, prefs)
+                if (effect.duration >= durationLimit) continue
+
+                return skill
+            }
+            return null
+        }
+
         fun pickSkillToBurn(
             mood: Mood?,
             effectState: EffectState,
@@ -36,7 +82,13 @@ class ManaBurnManager(
             moodLibrary: Map<String, Mood> = emptyMap(),
             prefs: Preferences? = null,
         ): SkillData? {
-            // 1. Mood triggers — shortest active effect duration first
+            if (prefs != null) {
+                pickFromActiveEffects(
+                    mood, effectState, skillState, charState, moodLibrary, prefs,
+                )?.let { return it }
+            }
+
+            // Mood-trigger fallback for unmapped synthetic/test effects
             if (mood != null) {
                 val moodSkill = mood.effectiveTriggers(moodLibrary)
                     .sortedBy { trigger ->
@@ -52,7 +104,7 @@ class ManaBurnManager(
 
             if (prefs == null) return null
 
-            // 2. Explicit priority list from pref
+            // Explicit priority list from pref
             val priorityNames = prefs.getString(Preferences.MANA_BURN_SKILLS, "")
                 .split("|", ",")
                 .map { it.trim() }
@@ -64,7 +116,7 @@ class ManaBurnManager(
                 if (skill != null) return skill
             }
 
-            // 3. Summon skills when MP% meets summon threshold
+            // Summon skills when MP% meets summon threshold
             val summonThreshold = prefs.getInt(Preferences.MANA_BURN_SUMMON_THRESHOLD, 0)
             if (summonThreshold > 0 && mpPercent(charState) >= summonThreshold) {
                 val summon = skillState.skills
@@ -73,7 +125,7 @@ class ManaBurnManager(
                 if (summon != null) return summon
             }
 
-            // 4. Non-mood buff burning
+            // Non-mood buff burning by name match
             if (prefs.getBoolean(Preferences.ALLOW_NON_MOOD_BURNING, false)) {
                 return skillState.skills
                     .filter {

@@ -23,4 +23,7 @@ object BattleLearnSkillIds {
     const val EXPERIENCE_SAFARI = 180
     const val GENERATE_IRONY = 245
     const val TOGGLE_OPTIMALITY = 7254
+
+    /** Desktop [SkillPool.ADVENTURER_OF_LEISURE] — extends Disco Nap uneffect set. */
+    const val ADVENTURER_OF_LEISURE = 5011
 }

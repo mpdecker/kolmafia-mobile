@@ -91,6 +91,10 @@ object SkillDefinitionProxy {
 
     fun isBuff(skillId: Int): Boolean = hasTag(skillId, "other")
 
+    /** Desktop [SkillDatabase.isAccordionThiefSong]. */
+    fun isAccordionThiefSong(skillId: Int): Boolean =
+        skillId in 6001..6999 && isBuff(skillId)
+
     fun isCombat(skillId: Int): Boolean = hasTag(skillId, "combat")
 
     fun isSpell(skillId: Int): Boolean = hasTag(skillId, "spell")

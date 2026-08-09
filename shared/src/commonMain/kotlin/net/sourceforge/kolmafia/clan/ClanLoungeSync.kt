@@ -27,6 +27,7 @@ object ClanLoungeSync {
     const val FANCY_HOT_DOG_EATEN_PREF = "_fancyHotDogEaten"
     const val SPEAKEASY_DRINKS_DRUNK_PREF = "_speakeasyDrinksDrunk"
     const val MIME_ARMY_SHOTGLASS_USED_PREF = "_mimeArmyShotglassUsed"
+    const val HOT_TUB_SOAKS_PREF = "_hotTubSoaks"
     const val FLOUNDRY_CARP_LOCATION_PREF = "_floundryCarpLocation"
     const val FLOUNDRY_ITEM_USED_PREF = "_floundryItemUsed"
     const val CLAN_HOT_DOG_STAND_RESTRICTION = "Clan hot dog stand"
@@ -54,6 +55,15 @@ object ClanLoungeSync {
     private val FISH_LOCATION_PATTERN = Regex(
         """<br><b>(carp|cod|trout|bass|hatchetfish|tuna):</b> ([^<]+)""",
     )
+    private val HOTTUB_PATTERN = Regex("""hottub(\d)\.gif""", RegexOption.IGNORE_CASE)
+
+    /** Desktop ClanLoungeRequest.parseLounge — hottub(N).gif → _hotTubSoaks = 5 - N. */
+    fun syncHotTubSoaksFromHtml(html: String, prefs: Preferences?) {
+        if (prefs == null) return
+        val match = HOTTUB_PATTERN.find(html) ?: return
+        val digit = match.groupValues[1].toIntOrNull() ?: return
+        prefs.setInt(HOT_TUB_SOAKS_PREF, 5 - digit)
+    }
 
     fun hasFloundry(prefs: Preferences?): Boolean =
         prefs?.getBoolean(CLAN_HAS_FLOUNDRY_PREF, false) == true
@@ -154,6 +164,7 @@ object ClanLoungeSync {
     fun apply(preferences: Preferences?, html: String, url: String?) {
         if (url == null || !url.contains("clan_viplounge.php", ignoreCase = true)) return
         syncFromHtml(html, preferences)
+        syncHotTubSoaksFromHtml(html, preferences)
         val preaction = queryParam(url, "preaction")
         val action = queryParam(url, "action")
         if (action.equals("hotdogstand", ignoreCase = true)) {

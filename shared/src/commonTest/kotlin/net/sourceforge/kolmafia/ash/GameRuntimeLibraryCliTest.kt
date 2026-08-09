@@ -595,9 +595,53 @@ class GameRuntimeLibraryCliTest {
         val effectMgr = net.sourceforge.kolmafia.effect.EffectManager(client, GameEventBus())
         runBlocking { effectMgr.fetchEffects() }
         assertEquals(1, effectMgr.state.value.effects.size)
-        val lib = GameRuntimeLibrary(effectManager = effectMgr, uneffectRequest = uneffect)
+        val lib = GameRuntimeLibrary(effectManager = effectMgr, uneffectRequest = uneffect, preferences = prefs())
         runLib(lib, """cli_execute("uneffect Muscular");""")
         assertEquals(42, uneffectId)
+    }
+
+    @Test
+    fun cliExecute_uneffect_poisonWithAntidote_usesItemRequest() {
+        var uneffectCalled = false
+        var usedItemId = 0
+        val uneffect = object : net.sourceforge.kolmafia.request.UneffectRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun uneffect(effectId: Int): Result<Unit> {
+                uneffectCalled = true
+                return Result.success(Unit)
+            }
+        }
+        val useItem = object : net.sourceforge.kolmafia.request.UseItemRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> {
+                usedItemId = itemId
+                return Result.success("ok")
+            }
+        }
+        val effectsJson = """{"8":{"name":"Hardly Poisoned at All","duration":10}}"""
+        val client = HttpClient(MockEngine { respond(effectsJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json")) }) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val effectMgr = net.sourceforge.kolmafia.effect.EffectManager(client, GameEventBus())
+        runBlocking { effectMgr.fetchEffects() }
+        val inventory = object : InventoryManager(HttpClient(MockEngine { respond("") }), GameEventBus()) {
+            private val flow = kotlinx.coroutines.flow.MutableStateFlow(
+                InventoryState(
+                    items = mapOf(
+                        829 to InventoryItem(829, "antidote", 1, ItemType.OTHER),
+                    ),
+                ),
+            )
+            override val state = flow.asStateFlow()
+        }
+        val lib = GameRuntimeLibrary(
+            effectManager = effectMgr,
+            uneffectRequest = uneffect,
+            useItemRequest = useItem,
+            inventoryManager = inventory,
+            preferences = prefs(),
+        )
+        runLib(lib, """cli_execute("uneffect Hardly Poisoned at All");""")
+        assertEquals(829, usedItemId)
+        assertFalse(uneffectCalled)
     }
 
     @Test

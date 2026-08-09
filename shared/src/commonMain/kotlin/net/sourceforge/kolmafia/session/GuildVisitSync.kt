@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.GuildCreationSync
 import net.sourceforge.kolmafia.skill.SkillManager
 
@@ -39,8 +40,18 @@ object GuildVisitSync {
         preferences: Preferences? = null,
         skillManager: SkillManager? = null,
         inventoryManager: InventoryManager? = null,
+        questDatabase: QuestDatabase? = null,
     ) {
         if (!url.contains("guild.php", ignoreCase = true)) return
+        GuildQuestSync.applyPlaceVisit(
+            place = GuildQuestSync.placeFromUrl(url),
+            html = html,
+            character = character,
+            preferences = preferences,
+            questDatabase = questDatabase,
+            inventoryManager = inventoryManager,
+            sessionLogger = sessionLogger,
+        )
         when (actionFromUrl(url)) {
             "malussmash" -> GuildCreationSync.parseMalus(url, html, eventBus)
             "makestaff" -> GuildCreationSync.parseStaff(url, html, eventBus, sessionLogger)
