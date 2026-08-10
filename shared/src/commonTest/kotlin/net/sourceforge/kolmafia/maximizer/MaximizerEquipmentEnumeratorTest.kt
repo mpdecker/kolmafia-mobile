@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.maximizer
 
 import kotlinx.coroutines.runBlocking
 import com.russhwolf.settings.MapSettings
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionData
@@ -467,6 +468,83 @@ class MaximizerEquipmentEnumeratorTest {
             itemMeetsConstraints = { _, _ -> true },
         )
         assertEquals(listOf("mall hat"), buckets.allItems(MaximizerSlot.HAT).map { it.name })
+    }
+
+    @Test
+    fun enumerate_populatesPerFamiliarBucketsForCarryEligibleItems() {
+        ModifierDatabase.injectForTest("Item", "carry-hat", """Meat Drop: +1, Familiar Effect: "1xLep, cap 12"""")
+        val db = stubDb(
+            701 to ItemData(701, "carry-hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null),
+            modifiers = mapOf("carry-hat" to """Meat Drop: +1, Familiar Effect: "1xLep, cap 12""""),
+        )
+        val spec = MaximizeSpec(
+            primary = DoubleModifier.MEATDROP,
+            evaluator = Evaluator("meat"),
+            switchFamiliars = listOf(FamiliarCarryRules.HATRACK_RACE, "Miniature Donkey"),
+        )
+        val buckets = MaximizerEquipmentEnumerator.enumerate(
+            candidateIds = setOf(701),
+            spec = spec,
+            gameDatabase = db,
+            checkedItem = checkedAvailable(),
+            scoreItem = { name, ev ->
+                val entry = db.itemModifier(name) ?: return@enumerate 0.0
+                ev.getItemContribution(net.sourceforge.kolmafia.modifiers.ModifierParser.parse(entry.modifiers))
+            },
+            itemMeetsConstraints = { _, _ -> true },
+            switchFamiliars = spec.switchFamiliars,
+            familiarWeight = 10,
+        )
+        assertEquals(2, buckets.familiarCount())
+        assertEquals(listOf("carry-hat"), buckets.getFamiliar(0).map { it.name })
+        assertTrue(buckets.getFamiliar(0).first().score > 0.0)
+        assertTrue(buckets.getFamiliar(1).isEmpty())
+        assertEquals(listOf("carry-hat"), buckets.allItems(MaximizerSlot.HAT).map { it.name })
+    }
+
+    @Test
+    fun allRankedItems_excludesFamiliarOnlyBuckets() {
+        val buckets = SlotList<MaximizerRankedItem>(1)
+        buckets.getFamiliar(0).add(
+            MaximizerRankedItem(801, "fam-only", 12.0, MaximizerCheckedItem(801, "fam-only", initial = 1)),
+        )
+        assertTrue(MaximizerEquipmentEnumerator.allRankedItems(buckets).none { it.name == "fam-only" })
+    }
+
+    @Test
+    fun toCandidatesByEquipmentSlot_familiarBucketIndexUsesPerFamiliarOnly() {
+        val db = stubDb(
+            711 to ItemData(711, "carry-only", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null),
+            712 to ItemData(712, "native-fam", "", "", ItemPrimaryUse.FAMILIAR, emptySet(), setOf('t'), 0, null),
+            modifiers = mapOf(
+                "carry-only" to "Meat Drop: +50",
+                "native-fam" to "Meat Drop: +5",
+            ),
+        )
+        val spec = MaximizeSpec(
+            primary = DoubleModifier.MEATDROP,
+            evaluator = Evaluator("meat"),
+            switchFamiliars = listOf(FamiliarCarryRules.HATRACK_RACE),
+        )
+        val buckets = SlotList<MaximizerRankedItem>(1)
+        buckets.get(MaximizerSlot.FAMILIAR).add(
+            MaximizerRankedItem(712, "native-fam", 5.0, MaximizerCheckedItem(712, "native-fam", initial = 1)),
+        )
+        buckets.getFamiliar(0).add(
+            MaximizerRankedItem(711, "carry-only", 50.0, MaximizerCheckedItem(711, "carry-only", initial = 1)),
+        )
+        val ranked = MaximizerEquipmentEnumerator.toCandidatesByEquipmentSlot(
+            buckets = buckets,
+            spec = spec,
+            usedElsewhere = emptySet(),
+            perSlotLimit = 5,
+            gameDatabase = db,
+            scoreItem = { _, _ -> 0.0 },
+            itemMeetsConstraints = { _, _ -> true },
+            priceFor = { 0 },
+            familiarBucketIndex = 0,
+        )
+        assertEquals(listOf("carry-only"), ranked[EquipmentSlot.FAMILIAR]?.map { it.first })
     }
 
     private fun checkedAvailable(count: Int = 1): (Int) -> MaximizerCheckedItem = { itemId ->

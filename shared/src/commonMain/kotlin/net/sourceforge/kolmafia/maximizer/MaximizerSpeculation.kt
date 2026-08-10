@@ -3,8 +3,10 @@ package net.sourceforge.kolmafia.maximizer
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * Outfit-aware loadout scoring and recursive equipment speculation.
@@ -18,6 +20,7 @@ object MaximizerSpeculation {
         EquipmentSlot.OFFHAND,
         EquipmentSlot.SHIRT,
         EquipmentSlot.PANTS,
+        EquipmentSlot.CONTAINER,
         EquipmentSlot.ACC1,
         EquipmentSlot.ACC2,
         EquipmentSlot.ACC3,
@@ -30,6 +33,8 @@ object MaximizerSpeculation {
         evaluator: Evaluator,
         familiarBonus: Double = 0.0,
         thrallBonus: Double = 0.0,
+        modeOverrides: Map<Modeable, String> = emptyMap(),
+        preferences: Preferences? = null,
     ): Double {
         val equipment = buildMap {
             for (slot in searchSlots) {
@@ -38,13 +43,19 @@ object MaximizerSpeculation {
                 if (!name.isNullOrBlank()) put(slot, name)
             }
         }
-        val mods = CurrentModifiers(baseState.copy(equipment = equipment))
+        val mods = CurrentModifiers(
+            baseState.copy(equipment = equipment),
+            modeOverrides = modeOverrides,
+            preferences = preferences,
+        )
         return evaluator.getScore(mods) + familiarBonus + thrallBonus
     }
 
     fun tiebreakerScore(
         baseState: CharacterState,
         assignment: Map<EquipmentSlot, Pair<String, Double>>,
+        modeOverrides: Map<Modeable, String> = emptyMap(),
+        preferences: Preferences? = null,
     ): Double {
         val equipment = buildMap {
             for (slot in searchSlots) {
@@ -53,18 +64,22 @@ object MaximizerSpeculation {
                 if (!name.isNullOrBlank()) put(slot, name)
             }
         }
-        val mods = CurrentModifiers(baseState.copy(equipment = equipment))
+        val mods = CurrentModifiers(
+            baseState.copy(equipment = equipment),
+            modeOverrides = modeOverrides,
+            preferences = preferences,
+        )
         return Evaluator.tiebreaker().getScore(mods)
     }
 
-    private fun assignmentPrice(
+    internal fun assignmentPrice(
         assignment: Map<EquipmentSlot, Pair<String, Double>>,
         priceFor: (String) -> Int,
     ): Int = assignment.values.sumOf { (name, _) ->
         if (name.isBlank()) 0 else priceFor(name)
     }
 
-    private fun isBetterLoadout(
+    internal fun isBetterLoadout(
         score: Double,
         tie: Double,
         price: Int,
@@ -92,18 +107,27 @@ object MaximizerSpeculation {
         thrallBonus: Double = 0.0,
         seed: Map<EquipmentSlot, Pair<String, Double>> = emptyMap(),
         priceFor: ((String) -> Int)? = null,
+        modeOverrides: Map<Modeable, String> = emptyMap(),
+        preferences: Preferences? = null,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         var best = seed
         var bestScore: Double
         var bestFailed: Boolean
         if (seed.isNotEmpty()) {
-            bestScore = scoreLoadout(baseState, seed, spec.evaluator, familiarBonus, thrallBonus)
+            bestScore = scoreLoadout(
+                baseState, seed, spec.evaluator, familiarBonus, thrallBonus,
+                modeOverrides, preferences,
+            )
             bestFailed = spec.evaluator.failed
         } else {
             bestScore = Double.NEGATIVE_INFINITY
             bestFailed = true
         }
-        var bestTie = if (seed.isNotEmpty()) tiebreakerScore(baseState, seed) else Double.NEGATIVE_INFINITY
+        var bestTie = if (seed.isNotEmpty()) {
+            tiebreakerScore(baseState, seed, modeOverrides, preferences)
+        } else {
+            Double.NEGATIVE_INFINITY
+        }
         var bestPrice = if (seed.isNotEmpty() && priceFor != null) assignmentPrice(seed, priceFor) else Int.MAX_VALUE
         val preferLowerPrice = spec.maxPrice != null && priceFor != null
         var stopSearch = false
@@ -117,10 +141,11 @@ object MaximizerSpeculation {
             if (slotIndex >= searchSlots.size) {
                 val score = scoreLoadout(
                     baseState, current, spec.evaluator, familiarBonus, thrallBonus,
+                    modeOverrides, preferences,
                 )
                 val failed = spec.evaluator.failed
                 val exceeded = spec.evaluator.exceeded
-                val tie = tiebreakerScore(baseState, current)
+                val tie = tiebreakerScore(baseState, current, modeOverrides, preferences)
                 val price = priceFor?.let { assignmentPrice(current, it) } ?: Int.MAX_VALUE
                 if (!failed &&
                     isBetterLoadout(
@@ -170,6 +195,7 @@ object MaximizerSpeculation {
         priceFor: (String) -> Int = { gameDatabase.npcPrice(it) },
         familiarCarryRaces: List<String> = emptyList(),
         familiarCarryScorer: ((String, DoubleModifier) -> Double)? = null,
+        familiarBucketIndex: Int? = null,
     ): Map<EquipmentSlot, List<Pair<String, Double>>> =
         MaximizerEquipmentEnumerator.toCandidatesByEquipmentSlot(
             rankedBuckets,
@@ -182,6 +208,7 @@ object MaximizerSpeculation {
             priceFor,
             familiarCarryRaces,
             familiarCarryScorer,
+            familiarBucketIndex,
         )
 
     fun topCandidatesPerSlot(

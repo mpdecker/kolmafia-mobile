@@ -269,6 +269,9 @@ object ModifierDatabase {
 
     fun get(type: String, name: String): ModifierEntry? = _byTypeAndName[type]?.get(name)
 
+    /** Mode-specific equipment modifiers (UnbreakableUmbrella, JurassicParka, etc.). */
+    fun getModeable(type: String, mode: String): ModifierEntry? = get(type, mode)
+
     /** All known entity types present in modifiers.txt (e.g. "Item", "Effect", "Sign", "Path"). */
     fun types(): Set<String> = _byTypeAndName.keys
 

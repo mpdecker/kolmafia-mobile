@@ -31,6 +31,11 @@ import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
+import net.sourceforge.kolmafia.request.ModeableRequest
+import net.sourceforge.kolmafia.equipment.Modeable
+import net.sourceforge.kolmafia.adventure.ChoiceRequest
+import net.sourceforge.kolmafia.preferences.Preferences
+import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -499,6 +504,54 @@ class MaximizerManagerTest {
         assertTrue(result.success)
         assertEquals(4614, equippedId)
         assertEquals("Mosquito", result.enthronedSwitched)
+    }
+
+    @Test fun maximize_discoversEnthroneWhenCrownRanksWithoutGoal() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("Crown of Thrones")
+        }
+        ModifierDatabase.injectForTest("Familiar", "Miniature Donkey", "Mysticality: +5")
+        ModifierDatabase.injectForTest("Familiar", "Mosquito", "Mysticality: +1")
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    4614 to InventoryItem(4614, "Crown of Thrones", 1, ItemType.HAT),
+                ))
+            )
+        }
+        var enthroned: String? = null
+        val familiar = object : FamiliarManager(
+            HttpClient(MockEngine { respond("ok") }),
+            GameEventBus(),
+        ) {
+            override suspend fun setEnthroned(name: String): Result<Unit> {
+                enthroned = name
+                return Result.success(Unit)
+            }
+        }.also {
+            it.testSetState(
+                FamiliarState(
+                    activeFamiliar = FamiliarData(1, "Mosquito", "Mosquito", 5, 0, 0),
+                    ownedFamiliars = listOf(
+                        FamiliarData(1, "Mosquito", "Mosquito", 5, 0, 0),
+                        FamiliarData(2, "Donkey", "Miniature Donkey", 5, 0, 0),
+                    ),
+                ),
+            )
+        }
+        val equip = EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        )
+        val mgr = MaximizerManager(db, inv, equip, character, familiarManager = familiar)
+        val result = mgr.maximize("mysticality")
+        assertTrue(result.success)
+        assertEquals("Miniature Donkey", result.enthronedSwitched)
+        assertEquals("Miniature Donkey", enthroned)
     }
 
     @Test fun maximize_switchThrall_bindsSkill() = runBlocking {
@@ -1021,5 +1074,135 @@ class MaximizerManagerTest {
         )
         assertFalse(9001 in withoutSpec)
         assertTrue(9001 in withSpec)
+    }
+
+    @Test
+    fun maximize_itemGoal_prefersUmbrellaBucketStyle() = runBlocking {
+        runBlocking { ModifierDatabase.load() }
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    10899 to InventoryItem(10899, "unbreakable umbrella", 1, ItemType.OFFHAND),
+                    2 to InventoryItem(2, "plain hat", 1, ItemType.HAT),
+                )),
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = when (id) {
+                10899 -> ItemData(
+                    10899, "unbreakable umbrella", "", "", ItemPrimaryUse.OFFHAND,
+                    emptySet(), setOf('t'), 0, null,
+                )
+                2 -> ItemData(2, "plain hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String): ItemData? = when (name.lowercase()) {
+                "unbreakable umbrella" -> item(10899)
+                "plain hat" -> item(2)
+                else -> null
+            }
+            override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+                "plain hat" -> ModifierEntry("Item", "plain hat", "Mysticality: +1")
+                else -> null
+            }
+        }.also {
+            EquipmentDatabase.registerForTest(
+                10899, EquipmentData("unbreakable umbrella", 100, null, 0, "umbrella"),
+            )
+            it.syncTestItemModifiers("plain hat")
+        }
+        var offhandId: Int? = null
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                if (slot == EquipmentSlot.OFFHAND) offhandId = itemId
+                return Result.success(Unit)
+            }
+        }
+        val mgr = MaximizerManager(db, inv, equip, character)
+        val speculateLines = mgr.speculate("item")
+        assertTrue(
+            speculateLines.any { it.contains("unbreakable umbrella", ignoreCase = true) },
+            speculateLines.toString(),
+        )
+        val result = mgr.maximize("item")
+        assertTrue(result.success)
+        assertEquals(10899, offhandId)
+    }
+
+    @Test
+    fun maximize_switchesUmbrellaModeWhenPrefDiffers() = runBlocking {
+        runBlocking { ModifierDatabase.load() }
+        val preferences = Preferences(MapSettings()).apply {
+            setString("umbrellaState", "broken")
+        }
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    10899 to InventoryItem(10899, "unbreakable umbrella", 1, ItemType.OFFHAND),
+                )),
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = when (id) {
+                10899 -> ItemData(
+                    10899, "unbreakable umbrella", "", "", ItemPrimaryUse.OFFHAND,
+                    emptySet(), setOf('t'), 0, null,
+                )
+                else -> null
+            }
+            override fun item(name: String): ItemData? = when (name.lowercase()) {
+                "unbreakable umbrella" -> item(10899)
+                else -> null
+            }
+        }.also {
+            EquipmentDatabase.registerForTest(
+                10899, EquipmentData("unbreakable umbrella", 100, null, 0, "umbrella"),
+            )
+        }
+        var equipCount = 0
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                if (itemId == 10899 && slot == EquipmentSlot.OFFHAND) equipCount++
+                return Result.success(Unit)
+            }
+        }
+        val modeCalls = mutableListOf<Pair<Modeable, String>>()
+        val modeRequest = object : ModeableRequest(
+            client = HttpClient(MockEngine { respond("ok") }),
+            choiceRequest = ChoiceRequest(HttpClient(MockEngine { respond("ok") })),
+            preferences = preferences,
+        ) {
+            override suspend fun setMode(modeable: Modeable, mode: String): Result<Unit> {
+                modeCalls += modeable to mode
+                preferences.setString("umbrellaState", mode)
+                return Result.success(Unit)
+            }
+        }
+        val mgr = MaximizerManager(
+            db, inv, equip, character,
+            preferences = preferences,
+            modeableRequest = modeRequest,
+        )
+        val speculateLines = mgr.speculate("item")
+        assertTrue(speculateLines.any { it.contains("umbrella bucket style", ignoreCase = true) })
+        val result = mgr.maximize("item")
+        assertTrue(result.success)
+        assertEquals("bucket style", result.modeSwitched[Modeable.UMBRELLA])
+        assertEquals(listOf(Modeable.UMBRELLA to "bucket style"), modeCalls)
+        assertTrue(equipCount >= 2, "expected initial equip + mustEquipAfterChange re-equip")
     }
 }

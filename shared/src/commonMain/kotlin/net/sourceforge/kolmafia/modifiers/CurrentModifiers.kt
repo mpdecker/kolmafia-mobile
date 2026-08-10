@@ -7,8 +7,11 @@ import net.sourceforge.kolmafia.character.MainStat
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.modifiers.ClassModifiers
 import net.sourceforge.kolmafia.data.OutfitDatabase
+import net.sourceforge.kolmafia.equipment.Modeable
+import net.sourceforge.kolmafia.equipment.ModeableState
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.effect.EffectData
+import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -34,7 +37,9 @@ import kotlin.math.min
 class CurrentModifiers(
     private val state: CharacterState,
     private val activeEffects: List<EffectData> = emptyList(),
-    private val passiveSkillNames: Set<String> = emptySet()
+    private val passiveSkillNames: Set<String> = emptySet(),
+    private val modeOverrides: Map<Modeable, String> = emptyMap(),
+    private val preferences: Preferences? = null,
 ) {
     private val context: ExpressionContext by lazy {
         ExpressionContext.from(state, activeEffects, passiveSkillNames)
@@ -240,7 +245,14 @@ class CurrentModifiers(
 
         // 1. Equipped items
         for ((_, itemName) in state.equippedItems()) {
-            val raw = ModifierDatabase.getItem(itemName)?.modifiers ?: continue
+            val modeable = Modeable.find(itemName)
+            val raw = if (modeable != null) {
+                val mode = modeOverrides[modeable]
+                    ?: ModeableState.currentMode(preferences, modeable)
+                modeable.modifiersForMode(mode)?.modifiers
+            } else {
+                ModifierDatabase.getItem(itemName)?.modifiers
+            } ?: continue
             total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 

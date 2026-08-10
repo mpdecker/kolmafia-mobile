@@ -70,6 +70,18 @@ class MaximizerSlotTest {
     }
 
     @Test
+    fun slotList_familiarBuckets_isolatedByIndex() {
+        val list = SlotList<MaximizerRankedItem>(2)
+        val itemA = MaximizerRankedItem(1, "hat-a", 10.0, MaximizerCheckedItem(1, "hat-a", initial = 1))
+        val itemB = MaximizerRankedItem(2, "hat-b", 20.0, MaximizerCheckedItem(2, "hat-b", initial = 1))
+        list.getFamiliar(0).add(itemA)
+        list.getFamiliar(1).add(itemB)
+        assertEquals(2, list.familiarCount())
+        assertEquals(listOf(itemA), list.getFamiliar(0))
+        assertEquals(listOf(itemB), list.getFamiliar(1))
+    }
+
+    @Test
     fun slotList_getSetAndSort() {
         val list = SlotList<MaximizerRankedItem>()
         val low = MaximizerRankedItem(1, "low", 1.0, MaximizerCheckedItem(1, "low", initial = 1))

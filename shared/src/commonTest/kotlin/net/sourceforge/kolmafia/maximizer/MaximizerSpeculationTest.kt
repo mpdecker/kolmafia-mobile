@@ -104,7 +104,7 @@ class MaximizerSpeculationTest {
             EquipmentSlot.HAT to listOf("hat-a" to 1.0, "hat-b" to 2.0),
             EquipmentSlot.SHIRT to listOf("shirt-a" to 1.0),
         )
-        val budget = ComboBudget(10)
+        val budget = ComboBudget(25)
         val result = MaximizerSpeculation.speculate(spec, state, candidates, budget, seed = emptyMap())
         assertTrue(result.isNotEmpty())
     }
@@ -175,7 +175,7 @@ class MaximizerSpeculationTest {
         val candidates = mapOf(
             EquipmentSlot.HAT to listOf("cheap-hat" to 5.0, "dear-hat" to 5.0),
         )
-        val budget = ComboBudget(10)
+        val budget = ComboBudget(25)
         val result = MaximizerSpeculation.speculate(
             spec, state, candidates, budget,
             priceFor = { name -> if (name == "cheap-hat") 100 else 500 },
