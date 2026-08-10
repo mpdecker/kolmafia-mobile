@@ -173,6 +173,7 @@ class GameRuntimeLibrary(
     internal val familiarManager: FamiliarManager? = null,
     internal val goalManager: GoalManager? = null,
     internal val moodManager: MoodManager? = null,
+    internal val manaBurnManager: net.sourceforge.kolmafia.mood.ManaBurnManager? = null,
     internal val preferences: Preferences? = null,
     internal val gameDatabase: GameDatabase? = null,
     internal val useItemRequest: UseItemRequest? = null,
@@ -253,6 +254,15 @@ class GameRuntimeLibrary(
     init {
         preferences?.let { DynamicItemModifierSync.applyCachedOverrides(it) }
         moodManager?.cliExecutor = { cmd -> dispatchCli(cmd, moodCliContext) }
+        manaBurnManager?.cliExecutor = { cmd -> dispatchCli(cmd, moodCliContext) }
+        manaBurnManager?.accessibleCountProvider = { itemId ->
+            val name = gameDatabase?.item(itemId)?.name
+            if (name != null) physicalAccessibleCount(itemId, name) else 0
+        }
+        manaBurnManager?.manaCostAdjustmentProvider = {
+            CombatAdjustment.manaCostModifier(buildCurrentModifiers(), combat = false)
+        }
+        manaBurnManager?.gameDatabase = gameDatabase
     }
 
     companion object {
@@ -260,7 +270,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase350"
+        const val REVISION = "phase370"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -3063,6 +3073,24 @@ class GameRuntimeLibrary(
     }
 
     internal fun dispatchCli(cmd: String, rt: AshRuntimeContext) {
+        var remaining = cmd.trim()
+        while (remaining.isNotEmpty()) {
+            val splitIndex = remaining.indexOf(';')
+            val segment = if (splitIndex != -1) {
+                val part = remaining.substring(0, splitIndex).trim()
+                remaining = remaining.substring(splitIndex + 1).trim()
+                part
+            } else {
+                val part = remaining.trim()
+                remaining = ""
+                part
+            }
+            if (segment.isEmpty()) continue
+            dispatchCliSegment(segment, rt)
+        }
+    }
+
+    private fun dispatchCliSegment(cmd: String, rt: AshRuntimeContext) {
         val expanded = expandCliAlias(cmd.trim())
         val matched = cliDispatch.firstOrNull { (regex, _) -> regex.matches(expanded) }
         if (matched != null) {

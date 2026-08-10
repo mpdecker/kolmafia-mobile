@@ -60,6 +60,23 @@ class CurrentModifiers(
         MainStat.MOXIE       -> buffedMoxie()
     }
 
+    /** Character level for Evaluator experience scoring. */
+    internal fun characterLevel(): Int = state.level
+
+    /** Prime-stat experience modifier for Evaluator scoring. */
+    internal fun primeStatExperience(): Double = when (state.mainStat) {
+        MainStat.MUSCLE -> values.get(DoubleModifier.MUS_EXPERIENCE)
+        MainStat.MYSTICALITY -> values.get(DoubleModifier.MYS_EXPERIENCE)
+        MainStat.MOXIE -> values.get(DoubleModifier.MOX_EXPERIENCE)
+    }
+
+    /** Prime-stat experience percent for Evaluator scoring. */
+    internal fun primeStatExperiencePercent(): Double = when (state.mainStat) {
+        MainStat.MUSCLE -> values.get(DoubleModifier.MUS_EXPERIENCE_PCT)
+        MainStat.MYSTICALITY -> values.get(DoubleModifier.MYS_EXPERIENCE_PCT)
+        MainStat.MOXIE -> values.get(DoubleModifier.MOX_EXPERIENCE_PCT)
+    }
+
     // ── Convenience modifiers ─────────────────────────────────────────────────
 
     fun itemDropBonus(): Double =

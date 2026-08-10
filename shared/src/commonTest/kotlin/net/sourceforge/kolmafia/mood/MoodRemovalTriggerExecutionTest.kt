@@ -54,6 +54,10 @@ class MoodRemovalTriggerExecutionTest {
             action = action,
         )
 
+    private fun defaultCharState() = CharacterState()
+
+    private fun defaultPrefs() = Preferences(MapSettings())
+
     @Test fun shouldExecute_unconditional_alwaysTrue() {
         val trigger = MoodRemovalTrigger(
             type = MoodRemovalTriggerType.UNCONDITIONAL,
@@ -61,7 +65,11 @@ class MoodRemovalTriggerExecutionTest {
             effectName = "",
             action = "visit clan",
         )
-        assertTrue(MoodRemovalTriggerExecution.shouldExecute(trigger, effectState()))
+        assertTrue(
+            MoodRemovalTriggerExecution.shouldExecute(
+                trigger, effectState(), defaultCharState(), defaultPrefs(),
+            ),
+        )
     }
 
     @Test fun shouldExecute_gainEffect_requiresActiveEffect() {
@@ -71,11 +79,17 @@ class MoodRemovalTriggerExecutionTest {
             effectName = "Beaten Up",
             action = "use 1 [829]",
         )
-        assertFalse(MoodRemovalTriggerExecution.shouldExecute(trigger, effectState()))
+        assertFalse(
+            MoodRemovalTriggerExecution.shouldExecute(
+                trigger, effectState(), defaultCharState(), defaultPrefs(),
+            ),
+        )
         assertTrue(
             MoodRemovalTriggerExecution.shouldExecute(
                 trigger,
                 effectState(effect(4, "Beaten Up", 5)),
+                defaultCharState(),
+                defaultPrefs(),
             ),
         )
     }
@@ -86,23 +100,33 @@ class MoodRemovalTriggerExecutionTest {
             MoodRemovalTriggerExecution.shouldExecute(
                 trigger,
                 effectState(effect(100, "Mighty", 5)),
+                defaultCharState(),
+                defaultPrefs(),
             ),
         )
         assertFalse(
             MoodRemovalTriggerExecution.shouldExecute(
                 trigger,
                 effectState(effect(100, "Mighty", 6)),
+                defaultCharState(),
+                defaultPrefs(),
             ),
         )
     }
 
     @Test fun shouldExecute_loseEffect_unstackableAction_requiresAbsentEffect() {
         val trigger = loseTrigger(200, "Absinthe Minded", "use 1 absinthe")
-        assertTrue(MoodRemovalTriggerExecution.shouldExecute(trigger, effectState()))
+        assertTrue(
+            MoodRemovalTriggerExecution.shouldExecute(
+                trigger, effectState(), defaultCharState(), defaultPrefs(),
+            ),
+        )
         assertFalse(
             MoodRemovalTriggerExecution.shouldExecute(
                 trigger,
                 effectState(effect(200, "Absinthe Minded", 3)),
+                defaultCharState(),
+                defaultPrefs(),
             ),
         )
     }
@@ -113,6 +137,8 @@ class MoodRemovalTriggerExecutionTest {
             MoodRemovalTriggerExecution.shouldExecute(
                 trigger,
                 effectState(effect(100, "Mighty", 50)),
+                defaultCharState(),
+                defaultPrefs(),
                 multiplicity = 1,
             ),
         )

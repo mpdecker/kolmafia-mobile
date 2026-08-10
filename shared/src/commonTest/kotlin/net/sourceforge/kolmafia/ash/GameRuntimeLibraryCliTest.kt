@@ -188,6 +188,26 @@ class GameRuntimeLibraryCliTest {
         assertEquals("", out)
     }
 
+    @Test
+    fun cliExecute_semicolonChain_executesBothSegments() {
+        val castCalls = mutableListOf<Pair<String, Int>>()
+        val fakeSkillMgr = fakeSkillManager(
+            skills = listOf(
+                SkillData(id = 7219, name = "Summon Candy Heart", type = SkillType.SUMMON,
+                    mpCost = 1, dailyLimit = 0, timesCast = 0),
+                SkillData(id = 7220, name = "Summon Party Favor", type = SkillType.SUMMON,
+                    mpCost = 1, dailyLimit = 0, timesCast = 0),
+            ),
+            castCalls = castCalls,
+        )
+        val lib = GameRuntimeLibrary(skillManager = fakeSkillMgr)
+        runLib(lib, """cli_execute("cast 2 Summon Party Favor;cast 1 Summon Candy Heart;");""")
+        assertEquals(
+            listOf("Summon Party Favor" to 2, "Summon Candy Heart" to 1),
+            castCalls,
+        )
+    }
+
     // ── familiar dispatch test ───────────────────────────────────────────────
 
     @Test

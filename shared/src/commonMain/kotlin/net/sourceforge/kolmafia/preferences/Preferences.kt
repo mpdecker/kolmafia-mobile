@@ -115,8 +115,17 @@ class Preferences(private val settings: Settings) {
         const val ALLOW_SUMMON_BURNING     = "allowSummonBurning"    // breakfast/libram burn path; Phase 351
         const val MANA_BURN_SUMMON_THRESHOLD = "manaBurnSummonThreshold" // MP% to prefer summons; 0=off
         const val MANA_BURN_SKILLS         = "manaBurnSkills"        // pipe-separated skill priority list
+        const val PETE_MOTORBIKE_MUFFLER   = "peteMotorbikeMuffler"
+        const val LIBRAM_SUMMONS           = "libramSummons"         // daily libram cast count for MP cost
+        const val LIBRAM_SKILLS_HARDCORE   = "libramSkillsHardcore"
+        const val LIBRAM_SKILLS_SOFTCORE   = "libramSkillsSoftcore"
+        const val LAST_CHANCE_BURN         = "lastChanceBurn"        // CLI when no other burn target
+        const val LAST_CHANCE_THRESHOLD    = "lastChanceThreshold"   // min available MP to use lastChanceBurn; default 100
 
         fun skillBurnPrefKey(skillId: Int): String = "skillBurn$skillId"
+
+        fun libramSkillsPrefKey(isHardcore: Boolean): String =
+            if (isHardcore) LIBRAM_SKILLS_HARDCORE else LIBRAM_SKILLS_SOFTCORE
 
         // Adventure location tracking
         const val ADVENTURE_SPENT_TURNS    = "adventureSpentTurns"

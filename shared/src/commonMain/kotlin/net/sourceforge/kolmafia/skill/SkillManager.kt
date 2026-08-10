@@ -13,6 +13,8 @@ import kotlinx.serialization.Serializable
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.data.SkillDefinitionProxy
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.UneffectRemovableMaps
 import net.sourceforge.kolmafia.session.DreadScrollManager
 
@@ -80,6 +82,12 @@ open class SkillManager(
             }
             _state.value = _state.value.copy(skills = updatedSkills)
             eventBus.tryEmit(GameEvent.SkillCast(skill.id, skill.name, quantity))
+            if (SkillDefinitionProxy.isLibram(skill.id)) {
+                preferences?.let { prefs ->
+                    val current = prefs.getInt(Preferences.LIBRAM_SUMMONS, 0)
+                    prefs.setInt(Preferences.LIBRAM_SUMMONS, current + quantity)
+                }
+            }
         }
         return result.map { Unit }
     }

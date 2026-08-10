@@ -33,6 +33,9 @@ object ItemDatabase {
     }
     fun all(): Collection<ItemData> = byId.values
 
+    /** Desktop ItemDatabase.maxItemId — highest bundled item id, or 0 if empty. */
+    fun maxItemId(): Int = byId.keys.maxOrNull() ?: 0
+
     fun isTradeable(itemId: Int): Boolean = getById(itemId)?.isTradeable ?: false
 
     fun isGiftable(itemId: Int): Boolean = getById(itemId)?.isGiftable ?: false

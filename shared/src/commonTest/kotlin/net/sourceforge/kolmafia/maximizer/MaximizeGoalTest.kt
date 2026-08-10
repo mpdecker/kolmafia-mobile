@@ -77,4 +77,13 @@ class MaximizeGoalTest {
         assertNotNull(spec)
         assertEquals(4, spec.maxBeeosity)
     }
+
+    @Test fun parseSpec_multiWeightGoalWithHandsConstraint() {
+        val spec = MaximizeGoal.parseSpec("2 item, 1 meat, +hands")
+        assertNotNull(spec)
+        assertEquals(2.0, spec.evaluator.weightOf(DoubleModifier.ITEMDROP))
+        assertEquals(1.0, spec.evaluator.weightOf(DoubleModifier.MEATDROP))
+        assertEquals(DoubleModifier.ITEMDROP, spec.primary)
+        assertTrue(spec.requireHands)
+    }
 }

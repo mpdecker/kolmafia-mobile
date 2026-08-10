@@ -18,6 +18,7 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierEntry
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
@@ -30,12 +31,32 @@ import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.EquipmentDatabase
+import net.sourceforge.kolmafia.data.EquipmentData
+import net.sourceforge.kolmafia.data.ItemDatabase
 
 class MaximizerManagerTest {
+
+    @AfterTest
+    fun cleanupCreatableFixtures() {
+        ItemDatabase.resetForTest()
+        ConcoctionDatabase.resetForTest()
+    }
+
+    private fun GameDatabase.syncTestItemModifiers(vararg names: String) {
+        runBlocking { ModifierDatabase.load() }
+        for (name in names) {
+            itemModifier(name)?.let { entry ->
+                ModifierDatabase.overrideModifier("Item", entry.name, entry.modifiers)
+            }
+        }
+    }
 
     private class StubDb : GameDatabase() {
         override fun item(id: Int): ItemData? = when (id) {
@@ -59,6 +80,9 @@ class MaximizerManagerTest {
     }
 
     @Test fun maximize_equipsBestItem() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat", "plain hat")
+        }
         val character = KoLCharacter()
         character.updateEquipment(EquipmentSlot.HAT, "plain hat")
         val inv = object : InventoryManager(
@@ -82,13 +106,16 @@ class MaximizerManagerTest {
                 return Result.success(Unit)
             }
         }
-        val mgr = MaximizerManager(StubDb(), inv, equip, character)
+        val mgr = MaximizerManager(db, inv, equip, character)
         val result = mgr.maximize("mysticality")
         assertTrue(result.success)
         assertEquals(1, equippedId)
     }
 
     @Test fun maximize_noImprovement_returnsFalse() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat", "plain hat")
+        }
         val character = KoLCharacter()
         character.updateEquipment(EquipmentSlot.HAT, "myst hat")
         val inv = object : InventoryManager(
@@ -105,11 +132,39 @@ class MaximizerManagerTest {
             HttpClient(MockEngine { respond("ok") }),
             character = character,
         )
-        val mgr = MaximizerManager(StubDb(), inv, equip, character)
+        val mgr = MaximizerManager(db, inv, equip, character)
         assertFalse(mgr.maximize("mysticality").success)
     }
 
+    @Test fun maximize_rejectsFailedConstraintGoal() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat", "plain hat")
+        }
+        val character = KoLCharacter()
+        character.updateEquipment(EquipmentSlot.HAT, "myst hat")
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    1 to InventoryItem(1, "myst hat", 1, ItemType.HAT),
+                    2 to InventoryItem(2, "plain hat", 1, ItemType.HAT),
+                ))
+            )
+        }
+        val equip = EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        )
+        val mgr = MaximizerManager(db, inv, equip, character)
+        assertFalse(mgr.maximize("500 min, mysticality").success)
+    }
+
     @Test fun maximize_retrievesFromCloset_whenBestNotInInventory() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat", "plain hat")
+        }
         val character = KoLCharacter()
         character.updateEquipment(EquipmentSlot.HAT, "plain hat")
         var fetchCount = 0
@@ -139,13 +194,16 @@ class MaximizerManagerTest {
                 return Result.success(Unit)
             }
         }
-        val mgr = MaximizerManager(StubDb(), inv, equip, character, closet)
+        val mgr = MaximizerManager(db, inv, equip, character, closet)
         assertTrue(mgr.maximize("mysticality").success)
         assertEquals(1, equippedId)
         assertTrue(fetchCount >= 1)
     }
 
     @Test fun maximize_retrievesFromDisplayCase_whenBestNotInInventory() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat", "plain hat")
+        }
         val character = KoLCharacter()
         val inv = object : InventoryManager(
             client = HttpClient(MockEngine { respond("ok") }),
@@ -172,12 +230,15 @@ class MaximizerManagerTest {
                 return Result.success(Unit)
             }
         }
-        val mgr = MaximizerManager(StubDb(), inv, equip, character, displayCaseRequest = display)
+        val mgr = MaximizerManager(db, inv, equip, character, displayCaseRequest = display)
         assertTrue(mgr.maximize("mysticality").success)
         assertEquals(1, equippedId)
     }
 
     @Test fun maximize_retrievesFromClanStash_whenBestNotInInventory() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat", "plain hat")
+        }
         val character = KoLCharacter()
         val inv = object : InventoryManager(
             client = HttpClient(MockEngine { respond("ok") }),
@@ -204,12 +265,15 @@ class MaximizerManagerTest {
                 return Result.success(Unit)
             }
         }
-        val mgr = MaximizerManager(StubDb(), inv, equip, character, clanStashRequest = stash)
+        val mgr = MaximizerManager(db, inv, equip, character, clanStashRequest = stash)
         assertTrue(mgr.maximize("mysticality").success)
         assertEquals(1, equippedId)
     }
 
     @Test fun maximize_switchFamiliar_beforeEquip() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat")
+        }
         val character = KoLCharacter()
         val inv = object : InventoryManager(
             client = HttpClient(MockEngine { respond("ok") }),
@@ -243,7 +307,7 @@ class MaximizerManagerTest {
             HttpClient(MockEngine { respond("ok") }),
             character = character,
         )
-        val mgr = MaximizerManager(StubDb(), inv, equip, character, familiarManager = familiar)
+        val mgr = MaximizerManager(db, inv, equip, character, familiarManager = familiar)
         val result = mgr.maximize("mysticality, switch Miniature Donkey")
         assertTrue(result.success)
         assertEquals("Miniature Donkey", result.familiarSwitched)
@@ -251,6 +315,9 @@ class MaximizerManagerTest {
     }
 
     @Test fun maximize_switchFamiliar_picksFirstOwnedWhenScoresTied() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat")
+        }
         val character = KoLCharacter()
         val inv = object : InventoryManager(
             client = HttpClient(MockEngine { respond("ok") }),
@@ -285,7 +352,7 @@ class MaximizerManagerTest {
             HttpClient(MockEngine { respond("ok") }),
             character = character,
         )
-        val mgr = MaximizerManager(StubDb(), inv, equip, character, familiarManager = familiar)
+        val mgr = MaximizerManager(db, inv, equip, character, familiarManager = familiar)
         val result = mgr.maximize("mysticality, switch He-Boulder, Piano Cat")
         assertTrue(result.success)
         assertEquals("He-Boulder", result.familiarSwitched)
@@ -293,6 +360,9 @@ class MaximizerManagerTest {
     }
 
     @Test fun maximize_switchFamiliar_skipsUnusableBeeRaceOnBeecore() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat")
+        }
         val character = KoLCharacter()
         character.updateFromApiResponse(
             CharacterApiResponse(path = "Bees Hate You", kingliberated = "0"),
@@ -330,7 +400,7 @@ class MaximizerManagerTest {
             HttpClient(MockEngine { respond("ok") }),
             character = character,
         )
-        val mgr = MaximizerManager(StubDb(), inv, equip, character, familiarManager = familiar)
+        val mgr = MaximizerManager(db, inv, equip, character, familiarManager = familiar)
         val result = mgr.maximize("mysticality, switch Barrrnacle, switch Miniature Donkey")
         assertTrue(result.success)
         assertEquals("Miniature Donkey", result.familiarSwitched)
@@ -338,6 +408,9 @@ class MaximizerManagerTest {
     }
 
     @Test fun maximize_enthroneSkipsUnusableBeeRaceOnBeecore() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("Crown of Thrones")
+        }
         val character = KoLCharacter()
         character.updateFromApiResponse(
             CharacterApiResponse(path = "Bees Hate You", kingliberated = "0"),
@@ -375,7 +448,7 @@ class MaximizerManagerTest {
             HttpClient(MockEngine { respond("ok") }),
             character = character,
         )
-        val mgr = MaximizerManager(StubDb(), inv, equip, character, familiarManager = familiar)
+        val mgr = MaximizerManager(db, inv, equip, character, familiarManager = familiar)
         val result = mgr.maximize("mysticality, enthrone Barrrnacle, enthrone Miniature Donkey")
         assertTrue(result.success)
         assertEquals("Miniature Donkey", result.enthronedSwitched)
@@ -383,6 +456,9 @@ class MaximizerManagerTest {
     }
 
     @Test fun maximize_enthroneCarriesCrownOfThrones() = runBlocking {
+        val db = StubDb().also {
+            it.syncTestItemModifiers("Crown of Thrones")
+        }
         val character = KoLCharacter()
         val inv = object : InventoryManager(
             client = HttpClient(MockEngine { respond("ok") }),
@@ -418,7 +494,7 @@ class MaximizerManagerTest {
                 ),
             )
         }
-        val mgr = MaximizerManager(StubDb(), inv, equip, character, familiarManager = familiar)
+        val mgr = MaximizerManager(db, inv, equip, character, familiarManager = familiar)
         val result = mgr.maximize("mysticality, enthrone Mosquito")
         assertTrue(result.success)
         assertEquals(4614, equippedId)
@@ -465,8 +541,10 @@ class MaximizerManagerTest {
             HttpClient(MockEngine { respond("ok") }),
             character = character,
         )
+        val db = StubDb()
+        db.syncTestItemModifiers("myst hat", "plain hat")
         val mgr = MaximizerManager(
-            StubDb(), inv, equip, character,
+            db, inv, equip, character,
             preferences = preferences,
             skillManager = skills,
         )
@@ -513,6 +591,8 @@ class MaximizerManagerTest {
                 "acc delta" -> ModifierEntry("Item", "acc delta", "Mysticality: +2")
                 else -> null
             }
+        }.also {
+            it.syncTestItemModifiers("acc alpha", "acc beta", "acc gamma", "acc delta")
         }
         var equippedCount = 0
         val equip = object : EquipmentRequest(
@@ -570,6 +650,8 @@ class MaximizerManagerTest {
                 "big shield" -> ModifierEntry("Item", "big shield", "Mysticality: +4")
                 else -> null
             }
+        }.also {
+            it.syncTestItemModifiers("big sword", "better sword", "small shield", "big shield")
         }
         var weaponEquipped = false
         var offhandEquipped = false
@@ -638,6 +720,10 @@ class MaximizerManagerTest {
                 "best pants" -> ModifierEntry("Item", "best pants", "Mysticality: +4")
                 else -> null
             }
+        }.also {
+            it.syncTestItemModifiers(
+                "good hat", "best hat", "good shirt", "best shirt", "good pants", "best pants",
+            )
         }
         var hatEquipped = false
         var shirtEquipped = false
@@ -686,6 +772,9 @@ class MaximizerManagerTest {
     }
 
     @Test fun maximize_beecore_skipsHighBeeosityItem() = runBlocking {
+        val db = BeeosityStubDb().also {
+            it.syncTestItemModifiers("plain hat", "babbling book")
+        }
         val character = KoLCharacter()
         character.updateFromApiResponse(
             CharacterApiResponse(path = "Bees Hate You", kingliberated = "0"),
@@ -711,9 +800,226 @@ class MaximizerManagerTest {
                 return Result.success(Unit)
             }
         }
-        val mgr = MaximizerManager(BeeosityStubDb(), inv, equip, character)
+        val mgr = MaximizerManager(db, inv, equip, character)
         val result = mgr.maximize("mysticality, beeosity")
         assertTrue(result.success)
         assertEquals(1, equippedId)
+    }
+
+    @Test fun maximize_multiWeightGoal_prefersItemDropHat() = runBlocking {
+        val character = KoLCharacter()
+        character.updateEquipment(EquipmentSlot.HAT, "plain hat")
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    10 to InventoryItem(10, "item drop hat", 1, ItemType.HAT),
+                    11 to InventoryItem(11, "meat drop hat", 1, ItemType.HAT),
+                    2 to InventoryItem(2, "plain hat", 1, ItemType.HAT),
+                ))
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = when (id) {
+                10 -> ItemData(10, "item drop hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+                11 -> ItemData(11, "meat drop hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+                2 -> ItemData(2, "plain hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String): ItemData? = when (name.lowercase()) {
+                "item drop hat" -> item(10)
+                "meat drop hat" -> item(11)
+                "plain hat" -> item(2)
+                else -> null
+            }
+            override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+                "item drop hat" -> ModifierEntry("Item", "item drop hat", "Item Drop: +20")
+                "meat drop hat" -> ModifierEntry("Item", "meat drop hat", "Meat Drop: +20")
+                "plain hat" -> ModifierEntry("Item", "plain hat", "Mysticality: +1")
+                else -> null
+            }
+        }.also {
+            it.syncTestItemModifiers("item drop hat", "meat drop hat", "plain hat")
+        }
+        var equippedId: Int? = null
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                equippedId = itemId
+                return Result.success(Unit)
+            }
+        }
+        val mgr = MaximizerManager(db, inv, equip, character)
+        val result = mgr.maximize("2 item, 1 meat")
+        assertTrue(result.success)
+        assertEquals(10, equippedId)
+    }
+
+    @Test fun maximize_handsGoal_prefersDualWieldOneHanders() = runBlocking {
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    702 to InventoryItem(702, "sharp knife", 1, ItemType.WEAPON),
+                    703 to InventoryItem(703, "rusty dagger", 1, ItemType.WEAPON),
+                ))
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = when (id) {
+                702 -> ItemData(702, "sharp knife", "", "", ItemPrimaryUse.WEAPON, emptySet(), setOf('t'), 0, null)
+                703 -> ItemData(703, "rusty dagger", "", "", ItemPrimaryUse.WEAPON, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String): ItemData? = when (name.lowercase()) {
+                "sharp knife" -> item(702)
+                "rusty dagger" -> item(703)
+                else -> null
+            }
+            override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+                "sharp knife" -> ModifierEntry("Item", "sharp knife", "Mysticality: +6")
+                "rusty dagger" -> ModifierEntry("Item", "rusty dagger", "Mysticality: +5")
+                else -> null
+            }
+        }.also {
+            net.sourceforge.kolmafia.data.EquipmentDatabase.registerForTest(
+                702, net.sourceforge.kolmafia.data.EquipmentData("sharp knife", 100, null, 1, "knife"),
+            )
+            net.sourceforge.kolmafia.data.EquipmentDatabase.registerForTest(
+                703, net.sourceforge.kolmafia.data.EquipmentData("rusty dagger", 100, null, 1, "knife"),
+            )
+            it.syncTestItemModifiers("sharp knife", "rusty dagger")
+        }
+        var weaponId: Int? = null
+        var offhandId: Int? = null
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                when (slot) {
+                    EquipmentSlot.WEAPON -> weaponId = itemId
+                    EquipmentSlot.OFFHAND -> offhandId = itemId
+                    else -> Unit
+                }
+                return Result.success(Unit)
+            }
+        }
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        preferences.setInt(MaximizerManager.COMBINATION_LIMIT_PREF, 64)
+        val mgr = MaximizerManager(db, inv, equip, character, preferences = preferences)
+        val result = mgr.maximize("mysticality, +hands")
+        assertTrue(result.success)
+        assertEquals(702, weaponId)
+        assertEquals(703, offhandId)
+    }
+
+    @Test fun maximize_creatableGoal_ranksItemWithZeroPhysicalCopies() = runBlocking {
+        net.sourceforge.kolmafia.data.ItemDatabase.registerForTest(
+            ItemData(801, "craft hat", "d801", "img", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null),
+        )
+        net.sourceforge.kolmafia.data.ItemDatabase.registerForTest(
+            ItemData(802, "paste", "d802", "img", ItemPrimaryUse.USABLE, emptySet(), setOf('t'), 0, null),
+        )
+        net.sourceforge.kolmafia.data.ConcoctionDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConcoctionData(
+                result = "craft hat",
+                resultQuantity = 1,
+                methods = setOf("COMBINE"),
+                ingredients = listOf(net.sourceforge.kolmafia.data.ConcoctionIngredient("paste", 1)),
+            ),
+        )
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    802 to InventoryItem(802, "paste", 3, ItemType.USABLE),
+                ))
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = net.sourceforge.kolmafia.data.ItemDatabase.getById(id)
+            override fun item(name: String): ItemData? = net.sourceforge.kolmafia.data.ItemDatabase.getByName(name)
+            override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+                "craft hat" -> ModifierEntry("Item", "craft hat", "Mysticality: +12")
+                else -> null
+            }
+        }.also { it.syncTestItemModifiers("craft hat") }
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(db, inv, equip, character)
+        val speculateLines = mgr.speculate("mysticality, creatable")
+        assertFalse(
+            speculateLines.any { it.contains("No improvement", ignoreCase = true) },
+            speculateLines.joinToString("\n"),
+        )
+        assertTrue(
+            speculateLines.any { it.contains("craft hat", ignoreCase = true) },
+            speculateLines.joinToString("\n"),
+        )
+    }
+
+    @Test
+    fun buildCandidateIds_includesUnownedEquipmentWhenSpecPresent() {
+        ItemDatabase.registerForTest(
+            ItemData(
+                9001, "scanned hat", "d9001", "img", ItemPrimaryUse.HAT,
+                emptySet(), setOf('t'), 0, null,
+            ),
+        )
+        EquipmentDatabase.registerForTest(
+            9001,
+            EquipmentData("scanned hat", 100, null, 0, "hat"),
+        )
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = ItemDatabase.getById(id)
+            override fun item(name: String): ItemData? = ItemDatabase.getByName(name)
+        }
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(InventoryState())
+        }
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(db, inv, equip, character)
+        val withoutSpec = mgr.buildCandidateIds(
+            inv.state.value,
+            emptyMap(), emptyMap(), emptyMap(), emptyMap(),
+            spec = null,
+        )
+        val withSpec = mgr.buildCandidateIds(
+            inv.state.value,
+            emptyMap(), emptyMap(), emptyMap(), emptyMap(),
+            spec = MaximizeSpec(
+                primary = net.sourceforge.kolmafia.modifiers.DoubleModifier.MYS,
+                evaluator = Evaluator("mysticality"),
+            ),
+        )
+        assertFalse(9001 in withoutSpec)
+        assertTrue(9001 in withSpec)
     }
 }

@@ -43,6 +43,31 @@ object EquipmentDatabase {
     fun getByItemId(itemId: Int): EquipmentData? = byItemId[itemId]
     fun all(): Collection<EquipmentData> = byName.values
 
+    fun contains(itemId: Int): Boolean = byItemId.containsKey(itemId)
+
+    /** Desktop [EquipmentDatabase.nextEquipmentItemId] — next equipment/familiar/sixgun item id. */
+    fun nextEquipmentItemId(prevId: Int): Int {
+        var id = prevId
+        val limit = ItemDatabase.maxItemId()
+        while (++id <= limit) {
+            if (byItemId.containsKey(id)) return id
+            val item = ItemDatabase.getById(id) ?: continue
+            if (item.primaryUse == ItemPrimaryUse.FAMILIAR || item.primaryUse == ItemPrimaryUse.SIXGUN) {
+                return id
+            }
+        }
+        return -1
+    }
+
+    fun allEquipmentItemIds(): Sequence<Int> = sequence {
+        var id = 0
+        while (true) {
+            id = nextEquipmentItemId(id)
+            if (id == -1) break
+            yield(id)
+        }
+    }
+
     fun getPower(itemId: Int): Int = byItemId[itemId]?.power ?: 0
 
     fun getHands(itemId: Int): Int = byItemId[itemId]?.hands ?: 0

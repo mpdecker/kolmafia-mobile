@@ -24,8 +24,8 @@ import net.sourceforge.kolmafia.skill.SkillType
 class GameRuntimeLibraryAshP119Test {
 
     @Test
-    fun revision_phase350() {
-        assertEquals("phase350", GameRuntimeLibrary.REVISION)
+    fun revision_phase364() {
+        assertEquals("phase370", GameRuntimeLibrary.REVISION)
     }
 
     @Test

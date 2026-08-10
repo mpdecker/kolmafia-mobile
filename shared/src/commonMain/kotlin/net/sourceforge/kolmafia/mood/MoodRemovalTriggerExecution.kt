@@ -21,9 +21,13 @@ object MoodRemovalTriggerExecution {
     fun shouldExecute(
         trigger: MoodRemovalTrigger,
         effectState: EffectState,
+        charState: CharacterState,
+        prefs: Preferences,
         multiplicity: Int = 0,
     ): Boolean {
-        if (trigger.effectId > 0 && EffectGainGate.cannotGainEffect(trigger.effectId)) {
+        if (trigger.effectId > 0 &&
+            EffectGainGate.cannotGainEffect(trigger.effectId, charState, effectState, prefs)
+        ) {
             return false
         }
         when (trigger.type) {
@@ -90,8 +94,14 @@ object MoodRemovalTriggerExecution {
         multiplicity: Int = 0,
     ) {
         val ordered = sortedForExecution(triggers)
-        val skillMapped = ordered.filter { isEffectMappedSkillTrigger(it) && shouldExecute(it, effectState, multiplicity) }
-        val other = ordered.filter { !isEffectMappedSkillTrigger(it) && shouldExecute(it, effectState, multiplicity) }
+        val skillMapped = ordered.filter {
+            isEffectMappedSkillTrigger(it) &&
+                shouldExecute(it, effectState, charState, preferences, multiplicity)
+        }
+        val other = ordered.filter {
+            !isEffectMappedSkillTrigger(it) &&
+                shouldExecute(it, effectState, charState, preferences, multiplicity)
+        }
 
         for (trigger in skillMapped + other) {
             executeOne(

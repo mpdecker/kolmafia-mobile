@@ -39,12 +39,56 @@ object ItemAvailability {
         prefs: Preferences,
     ): Boolean {
         val item = db.item(itemName) ?: ItemDatabase.getById(itemId) ?: return false
-        if (!item.isTradeable) return false
         if (!context.canInteract) return false
+        return canUseMall(itemId, item, prefs, context.limitMode)
+    }
+
+    fun canUseMall(
+        itemId: Int,
+        itemName: String,
+        db: GameDatabase,
+        prefs: Preferences,
+        limitMode: String,
+        canInteract: Boolean = true,
+    ): Boolean {
+        val item = db.item(itemName) ?: ItemDatabase.getById(itemId) ?: return false
+        if (!canInteract) return false
+        return canUseMall(itemId, item, prefs, limitMode)
+    }
+
+    private fun canUseMall(
+        itemId: Int,
+        item: net.sourceforge.kolmafia.data.ItemData,
+        prefs: Preferences,
+        limitMode: String,
+    ): Boolean {
+        if (!item.isTradeable) return false
         if (!prefs.getBoolean("autoSatisfyWithMall", false)) return false
-        if (LimitModeGates.limitMall(context.limitMode)) return false
+        if (LimitModeGates.limitMall(limitMode)) return false
         return true
     }
+
+    fun canUseMallToStorage(
+        itemId: Int,
+        db: GameDatabase,
+        prefs: Preferences,
+        limitMode: String,
+    ): Boolean {
+        val item = db.item(itemId) ?: ItemDatabase.getById(itemId) ?: return false
+        return item.isTradeable && canUseMallToStorage(prefs, limitMode)
+    }
+
+    fun canUseMallToStorage(
+        itemId: Int,
+        context: DynamicItemModifierSync.CheckContext,
+        prefs: Preferences,
+    ): Boolean {
+        val item = ItemDatabase.getById(itemId) ?: return false
+        return item.isTradeable && canUseMallToStorage(prefs, context.limitMode)
+    }
+
+    fun canUseMallToStorage(prefs: Preferences, limitMode: String): Boolean =
+        prefs.getBoolean("autoSatisfyWithMall", false) && !LimitModeGates.limitMall(limitMode)
 
     fun canUseNPCStores(
         itemId: Int,

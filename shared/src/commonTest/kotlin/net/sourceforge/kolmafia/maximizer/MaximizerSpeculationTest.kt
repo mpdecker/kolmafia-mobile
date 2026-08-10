@@ -24,10 +24,24 @@ class MaximizerSpeculationTest {
             EquipmentSlot.HAT to ("bugbear beanie" to 0.0),
             EquipmentSlot.PANTS to ("bugbear bungguard" to 0.0),
         )
-        val hatScore = MaximizerSpeculation.scoreLoadout(state, hatOnly, DoubleModifier.MYS)
-        val outfitScore = MaximizerSpeculation.scoreLoadout(state, fullOutfit, DoubleModifier.MYS)
+        val eval = Evaluator("mysticality")
+        val hatScore = MaximizerSpeculation.scoreLoadout(state, hatOnly, eval)
+        val outfitScore = MaximizerSpeculation.scoreLoadout(state, fullOutfit, eval)
         assertTrue(outfitScore > hatScore, "outfit bonus expected: hat=$hatScore outfit=$outfitScore")
         assertEquals(3.0, outfitScore, 0.01)
+    }
+
+    @Test
+    fun scoreLoadout_multiWeightGoal_prefersItemHeavyAssignment() = runBlocking {
+        ModifierDatabase.load()
+        OutfitDatabase.load()
+        val state = CharacterState()
+        val eval = Evaluator("2 item, 1 meat")
+        val itemHeavy = mapOf(EquipmentSlot.HAT to ("bounty-hunting helmet" to 0.0))
+        val meatHeavy = mapOf(EquipmentSlot.HAT to ("gold crown" to 0.0))
+        val itemScore = MaximizerSpeculation.scoreLoadout(state, itemHeavy, eval)
+        val meatScore = MaximizerSpeculation.scoreLoadout(state, meatHeavy, eval)
+        assertTrue(itemScore > meatScore, "2 item / 1 meat should prefer item drop: item=$itemScore meat=$meatScore")
     }
 
     @Test
@@ -37,6 +51,49 @@ class MaximizerSpeculationTest {
         assertEquals(false, budget.tick())
         assertEquals(true, budget.tick())
         assertTrue(budget.exhausted())
+    }
+
+    @Test
+    fun speculate_prefersNonFailedLoadout() = runBlocking {
+        ModifierDatabase.load()
+        OutfitDatabase.load()
+        val state = CharacterState()
+        val spec = MaximizeSpec(
+            primary = DoubleModifier.MUS,
+            evaluator = Evaluator("100 meat, 1 muscle, 2 min"),
+        )
+        val candidates = mapOf(
+            EquipmentSlot.WEAPON to listOf(
+                "flamingo mallet" to 999.0,
+                "muculent machete" to 1.0,
+            ),
+        )
+        val budget = ComboBudget(100)
+        val result = MaximizerSpeculation.speculate(spec, state, candidates, budget)
+        assertEquals("muculent machete", result[EquipmentSlot.WEAPON]?.first)
+    }
+
+    @Test
+    fun speculate_stopsEarlyWhenExceeded() = runBlocking {
+        ModifierDatabase.load()
+        OutfitDatabase.load()
+        val state = CharacterState()
+        val spec = MaximizeSpec(
+            primary = DoubleModifier.MYS,
+            evaluator = Evaluator("1 max, 1 mysticality"),
+        )
+        val candidates = mapOf(
+            EquipmentSlot.HAT to listOf(
+                "chef's hat" to 1.0,
+                "papier-mitre" to 2.0,
+                "crumpled felt fedora" to 3.0,
+                "bounty-hunting helmet" to 4.0,
+                "bugbear beanie" to 5.0,
+            ),
+        )
+        val budget = ComboBudget(100)
+        MaximizerSpeculation.speculate(spec, state, candidates, budget)
+        assertTrue(budget.remaining() > 85, "exceeded should stop search before exhausting budget")
     }
 
     @Test
@@ -127,13 +184,15 @@ class MaximizerSpeculationTest {
     }
 
     @Test
-    fun tiebreakerScore_prefersHigherSecondaryModifiers() {
+    fun tiebreakerScore_prefersHigherFamiliarWeight() = runBlocking {
+        ModifierDatabase.load()
+        OutfitDatabase.load()
         val state = CharacterState()
-        val low = mapOf(EquipmentSlot.HAT to ("hat-a" to 0.0))
-        val high = mapOf(EquipmentSlot.HAT to ("hat-b" to 0.0))
-        val lowTie = MaximizerSpeculation.tiebreakerScore(state, low)
-        val highTie = MaximizerSpeculation.tiebreakerScore(state, high)
-        assertEquals(lowTie, highTie)
+        val light = mapOf(EquipmentSlot.HAT to ("papier-mitre" to 0.0))
+        val heavy = mapOf(EquipmentSlot.HAT to ("crumpled felt fedora" to 0.0))
+        val lightTie = MaximizerSpeculation.tiebreakerScore(state, light)
+        val heavyTie = MaximizerSpeculation.tiebreakerScore(state, heavy)
+        assertTrue(heavyTie > lightTie, "desktop tiebreaker: heavy=$heavyTie light=$lightTie")
     }
 
     @Test
@@ -230,23 +289,5 @@ class MaximizerSpeculationTest {
         )
         val familiar = ranked[EquipmentSlot.FAMILIAR] ?: emptyList()
         assertEquals(listOf("allowed-offhand"), familiar.map { it.first })
-    }
-
-    @Test
-    fun scoreLoadout_usesFamiliarCarryScorerForCarriedItems() {
-        val state = CharacterState()
-        val assignment = mapOf(EquipmentSlot.FAMILIAR to ("carried-hat" to 0.0))
-        val normal = MaximizerSpeculation.scoreLoadout(
-            state, assignment, DoubleModifier.SLIME_HATES_IT,
-            itemScorer = { _, _ -> 10.0 },
-        )
-        val carried = MaximizerSpeculation.scoreLoadout(
-            state, assignment, DoubleModifier.SLIME_HATES_IT,
-            itemScorer = { _, _ -> 10.0 },
-            isFamiliarCarriedItem = { it == "carried-hat" },
-            familiarCarryScorer = { _, _ -> 0.0 },
-        )
-        assertEquals(10.0, normal)
-        assertEquals(0.0, carried)
     }
 }
