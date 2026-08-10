@@ -4,14 +4,18 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.data.FoldGroup
+import net.sourceforge.kolmafia.data.FoldGroupDatabase
+import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ItemData
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
-import net.sourceforge.kolmafia.preferences.Preferences
-import com.russhwolf.settings.MapSettings
 
 class MaximizerModeSelectionTest {
 
@@ -88,10 +92,66 @@ class MaximizerModeSelectionTest {
             charState = charState,
             rankedBuckets = ranked,
             bestPerSlot = emptyMap(),
-            preferences = Preferences(MapSettings()).apply {
-                setString("edPiece", "bear")
-            },
+            preferences = null,
         )
         assertEquals("fish", modes[Modeable.EDPIECE])
+    }
+
+    @Test
+    fun backupSlots_includeFamiliarForOffhandModeableWhenCarryFamiliarPresent() {
+        val slots = MaximizerModeSelection.modeableBackupSlots(
+            Modeable.UMBRELLA,
+            carryFamiliars = listOf(FamiliarCarryRules.HAND_RACE),
+            gameDatabase = stubDb(),
+        )
+        assertTrue(EquipmentSlot.OFFHAND in slots)
+        assertTrue(EquipmentSlot.FAMILIAR in slots)
+    }
+
+    @Test
+    fun assignmentModeOverrides_appliesOnlyWhenModeableEquipped() {
+        val bestModes = mapOf(Modeable.UMBRELLA to "bucket style")
+        val without = MaximizerModeSelection.assignmentModeOverrides(
+            mapOf(EquipmentSlot.WEAPON to ("knife" to 1.0)),
+            bestModes,
+        )
+        assertTrue(without.isEmpty())
+
+        val withUmbrella = MaximizerModeSelection.assignmentModeOverrides(
+            mapOf(EquipmentSlot.FAMILIAR to ("unbreakable umbrella" to 1.0)),
+            bestModes,
+            carryFamiliars = listOf(FamiliarCarryRules.HAND_RACE),
+            gameDatabase = stubDb(),
+        )
+        assertEquals("bucket style", withUmbrella[Modeable.UMBRELLA])
+    }
+
+    @Test
+    fun backupCamera_spansAccessorySlots() {
+        val slots = MaximizerModeSelection.modeableBackupSlots(Modeable.BACKUPCAMERA)
+        assertEquals(
+            setOf(EquipmentSlot.ACC1, EquipmentSlot.ACC2, EquipmentSlot.ACC3),
+            slots,
+        )
+    }
+
+    private fun stubDb(): GameDatabase = object : GameDatabase() {
+        override fun item(id: Int): ItemData? = when (id) {
+            10899 -> ItemData(
+                10899,
+                "unbreakable umbrella",
+                "",
+                "",
+                ItemPrimaryUse.OFFHAND,
+                emptySet(),
+                setOf('t'),
+                0,
+                null,
+            )
+            else -> null
+        }
+        override fun item(name: String): ItemData? = item(10899)?.takeIf {
+            it.name.equals(name, ignoreCase = true)
+        }
     }
 }

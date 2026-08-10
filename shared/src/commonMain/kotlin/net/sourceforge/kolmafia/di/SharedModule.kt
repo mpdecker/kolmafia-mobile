@@ -87,6 +87,10 @@ import net.sourceforge.kolmafia.request.BarrelCreateRequest
 import net.sourceforge.kolmafia.request.JewelCreateRequest
 import net.sourceforge.kolmafia.request.MalusCreateRequest
 import net.sourceforge.kolmafia.request.ModeableRequest
+import net.sourceforge.kolmafia.request.HorseryRequest
+import net.sourceforge.kolmafia.request.BoomBoxRequest
+import net.sourceforge.kolmafia.request.AbsorbRequest
+import net.sourceforge.kolmafia.request.MindControlRequest
 import net.sourceforge.kolmafia.request.StaffCreateRequest
 import net.sourceforge.kolmafia.request.GnomeTinkerCreateRequest
 import net.sourceforge.kolmafia.request.SushiCreateRequest
@@ -443,6 +447,35 @@ val sharedModule = module {
         )
     }
     single {
+        HorseryRequest(
+            client = get(),
+            choiceRequest = get(),
+            preferences = get(),
+        )
+    }
+    single {
+        BoomBoxRequest(
+            useItemRequest = get(),
+            preferences = get(),
+        )
+    }
+    single {
+        AbsorbRequest(
+            client = get(),
+            character = get(),
+            gameDatabase = get(),
+            retrieveItemService = get(),
+        )
+    }
+    single {
+        MindControlRequest(
+            client = get(),
+            character = get(),
+            preferences = get(),
+            retrieveItemService = get(),
+        )
+    }
+    single {
         MaximizerManager(
             gameDatabase = get(),
             inventoryManager = get(),
@@ -462,6 +495,7 @@ val sharedModule = module {
             mallPriceManager = get(),
             mallManager = get(),
             modeableRequest = get(),
+            effectManager = get(),
         )
     }
     singleOf(::SessionLogger)
@@ -680,6 +714,10 @@ val sharedModule = module {
             concoctionQueueRunner = get(),
             concoctionCreateRequest = get(),
             modeableRequest = get(),
+            horseryRequest = get(),
+            boomBoxRequest = get(),
+            mindControlRequest = get(),
+            absorbRequest = get(),
         )
     }
     singleOf(::ScriptManager)

@@ -39,6 +39,7 @@ import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPriceManager
+import net.sourceforge.kolmafia.effect.EffectManager
 
 open class MaximizerManager(
     private val gameDatabase: GameDatabase,
@@ -59,6 +60,7 @@ open class MaximizerManager(
     private val mallPriceManager: MallPriceManager? = null,
     private val mallManager: MallManager? = null,
     private val modeableRequest: ModeableRequest? = null,
+    private val effectManager: EffectManager? = null,
 ) {
     companion object {
         const val CROWN_OF_THRONES = "Crown of Thrones"
@@ -110,39 +112,13 @@ open class MaximizerManager(
             return MaximizeResult(false, plan.goal, plan.scoreBefore, plan.scoreBefore)
         }
 
-        val effectiveSpec = plan.spec
         val charState = character.state.value
         val checkpoint = OutfitCheckpoint.snapshot(character, equipmentRequest, gameDatabase)
-        val equipped = mutableMapOf<EquipmentSlot, String>()
+        val boosts = buildBoosts(plan, MaximizerEquipScope.EQUIP_NOW)
+        val executor = boostExecutor()
         var anyFailure = false
-        var familiarSwitched: String? = null
-        var enthronedSwitched: String? = null
-        var bjornifiedSwitched: String? = null
         var thrallSwitched: String? = null
-        val (targetThrall, _) = resolveTargetThrall(effectiveSpec)
-        val familiarRace = plan.familiarSwitch ?: resolveFamiliarSwitch(effectiveSpec)
-        val enthronedRace = plan.enthronedRace?.takeIf {
-            plan.bestPerSlot[EquipmentSlot.HAT]?.first.equals(CROWN_OF_THRONES, ignoreCase = true)
-        }
-        val bjornifiedRace = plan.bjornifiedRace?.takeIf {
-            plan.bestPerSlot[EquipmentSlot.CONTAINER]?.first.equals(BUDDY_BJORN, ignoreCase = true)
-        }
-
-        if (familiarRace != null) {
-            familiarManager?.setFamiliar(familiarRace)?.onSuccess {
-                familiarSwitched = familiarRace
-            }?.onFailure { anyFailure = true }
-        }
-        enthronedRace?.let { race ->
-            familiarManager?.setEnthroned(race)?.onSuccess {
-                enthronedSwitched = race
-            }?.onFailure { anyFailure = true }
-        }
-        bjornifiedRace?.let { race ->
-            familiarManager?.setBjornified(race)?.onSuccess {
-                bjornifiedSwitched = race
-            }?.onFailure { anyFailure = true }
-        }
+        val (targetThrall, _) = resolveTargetThrall(plan.spec)
         if (targetThrall != null &&
             !targetThrall.equals(preferences?.getString("_currentThrall", ""), ignoreCase = true)
         ) {
@@ -151,38 +127,49 @@ open class MaximizerManager(
             }?.onFailure { anyFailure = true }
         }
 
-        for ((slot, pair) in plan.bestPerSlot) {
-            val (name, _) = pair
-            val itemId = gameDatabase.item(name)?.id ?: continue
-            if (!ensureInInventory(itemId)) {
+        val equipped = mutableMapOf<EquipmentSlot, String>()
+        var familiarSwitched: String? = null
+        var enthronedSwitched: String? = null
+        var bjornifiedSwitched: String? = null
+        val modeSwitched = mutableMapOf<Modeable, String>()
+
+        for (boost in boosts) {
+            if (!boost.isEquipment) continue
+            if (boost.cmd.isBlank()) continue
+            if (!executor.execute(boost.cmd)) {
                 anyFailure = true
-                continue
+                break
             }
-            if (equipmentRequest.equipItem(itemId, slot).isFailure) {
-                anyFailure = true
-            } else {
-                equipped[slot] = name
+            boost.familiarRace?.let { familiarSwitched = it }
+            boost.slot?.let { slot ->
+                if (boost.itemName.isNotBlank()) {
+                    equipped[slot] = boost.itemName
+                }
+            }
+            for (segment in boost.cmd.split(';')) {
+                val trimmed = segment.trim()
+                when {
+                    trimmed.startsWith("familiar ", ignoreCase = true) ->
+                        familiarSwitched = trimmed.removePrefix("familiar ").trim()
+                    trimmed.startsWith("enthrone ", ignoreCase = true) ->
+                        enthronedSwitched = trimmed.removePrefix("enthrone ").trim()
+                    trimmed.startsWith("bjornify ", ignoreCase = true) ->
+                        bjornifiedSwitched = trimmed.removePrefix("bjornify ").trim()
+                    else -> {
+                        val space = trimmed.indexOf(' ')
+                        if (space > 0) {
+                            val command = trimmed.substring(0, space)
+                            val mode = trimmed.substring(space + 1).trim()
+                            val modeable = Modeable.entries.find { it.command.equals(command, ignoreCase = true) }
+                            if (modeable != null) {
+                                modeSwitched[modeable] = plan.modeSelections[modeable] ?: mode
+                            }
+                        }
+                    }
+                }
             }
         }
         inventoryManager.syncCharacterEquipment()
-
-        val modeSwitched = mutableMapOf<Modeable, String>()
-        for ((modeable, targetMode) in plan.modeSelections) {
-            val liveMode = ModeableState.currentMode(preferences, modeable)
-            if (liveMode.equals(targetMode, ignoreCase = true)) continue
-            val request = modeableRequest ?: continue
-            request.setMode(modeable, targetMode).onSuccess {
-                modeSwitched[modeable] = targetMode
-                if (modeable.mustEquipAfterChange) {
-                    equipmentRequest.equipItem(modeable.itemId, modeable.slot).onFailure {
-                        anyFailure = true
-                    }
-                }
-            }.onFailure { anyFailure = true }
-        }
-        if (modeSwitched.isNotEmpty()) {
-            inventoryManager.syncCharacterEquipment()
-        }
 
         val madeChange = equipped.isNotEmpty() ||
             familiarSwitched != null ||
@@ -206,6 +193,7 @@ open class MaximizerManager(
             bjornifiedSwitched = bjornifiedSwitched,
             thrallSwitched = thrallSwitched,
             modeSwitched = modeSwitched,
+            boosts = boosts,
         )
     }
 
@@ -217,40 +205,109 @@ open class MaximizerManager(
             return listOf("No improvement for ${plan.goal}")
         }
         val lines = mutableListOf<String>()
-        for ((slot, pair) in plan.bestPerSlot) {
-            val (name, score) = pair
-            if (name.isNotBlank()) {
-                lines += "${slot.name}: $name ($score)"
-            }
+        for (boost in buildBoosts(plan, MaximizerEquipScope.SPECULATE)) {
+            lines += boost.text
         }
-        for ((modeable, targetMode) in plan.modeSelections) {
-            val liveMode = ModeableState.currentMode(preferences, modeable)
-            if (!liveMode.equals(targetMode, ignoreCase = true)) {
-                lines += "${modeable.command} $targetMode"
-            }
+        val card = MaximizerCardSelection.cardForOffhand(
+            plan.bestPerSlot[EquipmentSlot.OFFHAND]?.first,
+            plan.cardInSleeve,
+            character.state.value,
+        )
+        if (card != null) {
+            lines += "# card $card"
         }
         lines += "Score: ${plan.scoreBefore} -> ${plan.scoreAfter}"
         return lines
     }
 
+    private suspend fun buildBoosts(plan: MaximizePlan, equipScope: MaximizerEquipScope): List<MaximizerBoost> {
+        val charState = character.state.value
+        val carryFamiliars = FamiliarCarryRules.carryRaces(
+            plan.spec,
+            charState.familiarName.takeIf { it.isNotBlank() },
+        )
+        val (_, thrallBonus) = resolveTargetThrall(plan.spec)
+        val familiarSwitch = plan.familiarSwitch ?: resolveFamiliarSwitch(plan.spec)
+        val emitPlan = plan.toEmitPlan(familiarSwitch)
+        val equipmentBoosts = MaximizerEmitSlot.buildBoosts(
+            MaximizerEmitSlot.Context(
+                plan = emitPlan,
+                charState = charState,
+                inventory = plan.inventorySnapshot,
+                inventoryCount = ::inventoryCount,
+                gameDatabase = gameDatabase,
+                preferences = preferences,
+                mallPriceManager = mallPriceManager,
+                priceLevel = maximizerPriceLevel(),
+                equipScope = equipScope,
+                carryFamiliars = carryFamiliars,
+                thrallBonus = thrallBonus,
+            ),
+        )
+        val nonEquipmentBoosts = MaximizerNonEquipmentBoosts.build(
+            MaximizerNonEquipmentBoosts.Context(
+                plan = emitPlan,
+                charState = charState,
+                activeEffects = effectManager?.state?.value?.effects.orEmpty(),
+                inventory = plan.inventorySnapshot,
+                inventoryCount = ::inventoryCount,
+                gameDatabase = gameDatabase,
+                preferences = preferences,
+                mallPriceManager = mallPriceManager,
+                priceLevel = maximizerPriceLevel(),
+                carryFamiliars = carryFamiliars,
+                thrallBonus = thrallBonus,
+                skillManager = skillManager,
+                standardRequest = standardRequest,
+            ),
+        )
+        return equipmentBoosts + nonEquipmentBoosts.sorted()
+    }
+
+    private fun boostExecutor(): MaximizerBoostExecutor =
+        MaximizerBoostExecutor(
+            gameDatabase = gameDatabase,
+            inventoryManager = inventoryManager,
+            equipmentRequest = equipmentRequest,
+            closetRequest = closetRequest,
+            storageRequest = storageRequest,
+            displayCaseRequest = displayCaseRequest,
+            clanStashRequest = clanStashRequest,
+            familiarManager = familiarManager,
+            modeableRequest = modeableRequest,
+            retrieveItemService = retrieveItemService,
+            mallManager = mallManager,
+        )
+
     private suspend fun buildMaximizePlan(goalText: String): MaximizePlan? {
         activeModeSelections = emptyMap()
         val goal = goalText.trim()
         val spec = MaximizeGoal.parseSpec(goal) ?: return null
-        val effectiveSpec = spec.withCarryEquipment()
-
         val charState = character.state.value
         val invState = inventoryManager.state.value
         val closetContents = closetRequest?.fetchContents().orEmpty()
         val storageContents = storageRequest?.fetchContents().orEmpty()
         val displayContents = displayCaseRequest?.fetchContents().orEmpty()
         val stashContents = clanStashRequest?.fetchContents().orEmpty()
+        val accessibleCount: (Int) -> Int = { itemId ->
+            inventoryCount(itemId) +
+                (closetContents[itemId] ?: 0) +
+                (storageContents[itemId] ?: 0) +
+                (displayContents[itemId] ?: 0) +
+                (stashContents[itemId] ?: 0)
+        }
+        if (!spec.evaluator.resolvePlumberTools(charState, accessibleCount, gameDatabase)) {
+            return null
+        }
+        val effectiveSpec = spec.withCarryEquipment()
+
         val scoreBefore = MaximizerSpeculation.scoreLoadout(
             charState, charState.equipment.mapValues { (_, name) -> name to 0.0 },
             effectiveSpec.evaluator,
             scoreFamiliarBonuses(charState, effectiveSpec.primary),
             scoreCurrentThrall(effectiveSpec.primary),
             preferences = preferences,
+            maxBeeosity = effectiveSpec.maxBeeosity,
         )
 
         val candidateIds = buildCandidateIds(
@@ -268,6 +325,10 @@ open class MaximizerManager(
         val comboBudget = ComboBudget(
             preferences?.getInt(COMBINATION_LIMIT_PREF, DEFAULT_COMBO_LIMIT) ?: DEFAULT_COMBO_LIMIT,
         )
+        val carryFamiliars = FamiliarCarryRules.carryRaces(
+            effectiveSpec,
+            charState.familiarName.takeIf { it.isNotBlank() },
+        )
         val modeSelections = MaximizerModeSelection.selectBestModes(
             spec = effectiveSpec,
             charState = charState,
@@ -276,20 +337,22 @@ open class MaximizerManager(
             preferences = preferences,
             familiarBonus = 0.0,
             thrallBonus = 0.0,
+            carryFamiliars = carryFamiliars,
+            gameDatabase = gameDatabase,
         )
         activeModeSelections = modeSelections
         bestPerSlot = seedModeableBestPerSlot(bestPerSlot, effectiveSpec, modeSelections)
         bestPerSlot = refineAccessoryCombinations(
             effectiveSpec, charState, rankedBuckets,
-            bestPerSlot, comboBudget, modeSelections,
+            bestPerSlot, comboBudget, modeSelections, carryFamiliars,
         )
         bestPerSlot = refineWeaponOffhandCombinations(
             effectiveSpec, charState, rankedBuckets,
-            bestPerSlot, comboBudget, modeSelections,
+            bestPerSlot, comboBudget, modeSelections, carryFamiliars,
         )
         bestPerSlot = refineArmorCombinations(
             effectiveSpec, charState, rankedBuckets,
-            bestPerSlot, comboBudget, modeSelections,
+            bestPerSlot, comboBudget, modeSelections, carryFamiliars,
         )
         val (targetThrall, thrallBonus) = resolveTargetThrall(effectiveSpec)
         val usableSwitch = usableSwitchFamiliars(effectiveSpec)
@@ -326,6 +389,26 @@ open class MaximizerManager(
         val survivingOutfits = MaximizerOutfitSpeculation.survivingUsefulOutfits(
             rankedBuckets,
             autoContext.usefulOutfits,
+        )
+        val countForByName = buildCountLookup(rankedBuckets)
+        val countForById = buildCountLookupById(rankedBuckets)
+        val bestCard = MaximizerCardSelection.selectBestCard(
+            spec = effectiveSpec,
+            charState = charState,
+            rankedBuckets = rankedBuckets,
+            countFor = countForById,
+            modeOverrides = modeSelections,
+            preferences = preferences,
+            carryFamiliars = carryFamiliars,
+            gameDatabase = gameDatabase,
+        )
+        val scoringOptions = MaximizerScoringOptions(
+            bestModes = modeSelections,
+            carryFamiliars = carryFamiliars,
+            gameDatabase = gameDatabase,
+            cardInSleeve = bestCard,
+            countFor = countForByName,
+            foldablesEnabled = foldablesEnabled(),
         )
         val tryAllResult = MaximizerFamiliarSpeculation.tryAll(
             spec = effectiveSpec,
@@ -376,8 +459,7 @@ open class MaximizerManager(
             },
             scoreFamiliar = scoreFamiliarFn,
             priceFor = ::effectivePrice,
-            foldablesEnabled = foldablesEnabled(),
-            modeOverrides = modeSelections,
+            scoring = scoringOptions,
             preferences = preferences,
         )
         bestPerSlot = tryAllResult.bestPerSlot
@@ -404,29 +486,77 @@ open class MaximizerManager(
                 scoreFamiliarFn,
             ),
             thrallBonus,
-            modeOverrides = modeSelections,
+            bestModes = modeSelections,
+            carryFamiliars = carryFamiliars,
+            gameDatabase = gameDatabase,
+            cardInSleeve = MaximizerCardSelection.cardForOffhand(
+                bestPerSlot[EquipmentSlot.OFFHAND]?.first, bestCard, charState,
+            ),
             preferences = preferences,
+            maxBeeosity = effectiveSpec.maxBeeosity,
         )
         if (charState.inBeecore &&
             loadoutBeeosity(charState.equipment, bestPerSlot) > effectiveSpec.maxBeeosity
         ) {
-            return MaximizePlan(goal, effectiveSpec, scoreBefore, scoreBefore, emptyMap())
+            return MaximizePlan(
+                goal, effectiveSpec, scoreBefore, scoreBefore, emptyMap(),
+                inventorySnapshot = inventorySnapshot(
+                    closetContents, storageContents, displayContents, stashContents,
+                ),
+            )
         }
         if (effectiveSpec.evaluator.failed) {
-            return MaximizePlan(goal, effectiveSpec, scoreBefore, scoreBefore, emptyMap())
+            return MaximizePlan(
+                goal, effectiveSpec, scoreBefore, scoreBefore, emptyMap(),
+                inventorySnapshot = inventorySnapshot(
+                    closetContents, storageContents, displayContents, stashContents,
+                ),
+            )
         }
         return MaximizePlan(
             goal = goal,
             spec = effectiveSpec,
             scoreBefore = scoreBefore,
             scoreAfter = scoreAfter,
-            bestPerSlot = bestPerSlot,
+            bestPerSlot = withEmitSubSlots(bestPerSlot, charState, bestCard),
             familiarSwitch = familiarSwitch,
             enthronedRace = enthronedRace,
             bjornifiedRace = bjornifiedRace,
             modeSelections = modeSelections,
+            cardInSleeve = bestCard,
+            inventorySnapshot = inventorySnapshot(
+                closetContents, storageContents, displayContents, stashContents,
+            ),
         )
     }
+
+    private fun withEmitSubSlots(
+        bestPerSlot: Map<EquipmentSlot, Pair<String, Double>>,
+        charState: CharacterState,
+        cardInSleeve: String?,
+    ): Map<EquipmentSlot, Pair<String, Double>> {
+        val updated = bestPerSlot.toMutableMap()
+        for (slot in EquipmentSlot.SUB_SLOTS) {
+            charState.equipment[slot]?.takeIf { it.isNotBlank() }?.let { updated[slot] = it to 0.0 }
+        }
+        cardInSleeve?.takeIf { it.isNotBlank() }?.let {
+            updated[EquipmentSlot.CARDSLEEVE] = it to 0.0
+        }
+        return updated
+    }
+
+    private fun inventorySnapshot(
+        closetContents: Map<Int, Int>,
+        storageContents: Map<Int, Int>,
+        displayContents: Map<Int, Int>,
+        stashContents: Map<Int, Int>,
+    ): MaximizerEmitSlot.InventorySnapshot =
+        MaximizerEmitSlot.InventorySnapshot(
+            closetContents = closetContents,
+            storageContents = storageContents,
+            displayContents = displayContents,
+            stashContents = stashContents,
+        )
 
     private fun loadoutBeeosity(
         base: Map<EquipmentSlot, String>,
@@ -449,7 +579,23 @@ open class MaximizerManager(
         val enthronedRace: String? = null,
         val bjornifiedRace: String? = null,
         val modeSelections: Map<Modeable, String> = emptyMap(),
-    )
+        val cardInSleeve: String? = null,
+        val inventorySnapshot: MaximizerEmitSlot.InventorySnapshot = MaximizerEmitSlot.InventorySnapshot(),
+    ) {
+        fun toEmitPlan(familiarSwitchOverride: String? = familiarSwitch): MaximizerEmitSlot.Plan =
+            MaximizerEmitSlot.Plan(
+            goal = goal,
+            spec = spec,
+            scoreBefore = scoreBefore,
+            scoreAfter = scoreAfter,
+            bestPerSlot = bestPerSlot,
+            familiarSwitch = familiarSwitchOverride,
+            enthronedRace = enthronedRace,
+            bjornifiedRace = bjornifiedRace,
+            modeSelections = modeSelections,
+            cardInSleeve = cardInSleeve,
+        )
+    }
 
     private fun resolveTargetThrall(spec: MaximizeSpec): Pair<String?, Double> {
         val prefs = preferences ?: return null to 0.0
@@ -730,7 +876,8 @@ open class MaximizerManager(
         rankedBuckets: SlotList<MaximizerRankedItem>,
         greedy: Map<EquipmentSlot, Pair<String, Double>>,
         budget: ComboBudget,
-        modeOverrides: Map<Modeable, String> = emptyMap(),
+        bestModes: Map<Modeable, String> = emptyMap(),
+        carryFamiliars: List<String> = emptyList(),
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val nonAccessory = greedy.filterKeys { it !in accessorySlots }
         val usedElsewhere = nonAccessory.values.map { it.first }.toSet()
@@ -743,7 +890,7 @@ open class MaximizerManager(
         if (top.size < 2) return greedy
 
         var bestAssignment = greedy
-        var bestScore = scoreAssignment(greedy, spec.evaluator, charState, modeOverrides)
+        var bestScore = scoreAssignment(greedy, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity)
         for (a in top) {
             for (b in top) {
                 for (c in top) {
@@ -754,7 +901,7 @@ open class MaximizerManager(
                         EquipmentSlot.ACC2 to (b.first to b.second),
                         EquipmentSlot.ACC3 to (c.first to c.second),
                     )
-                    val score = scoreAssignment(combo, spec.evaluator, charState, modeOverrides)
+                    val score = scoreAssignment(combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity)
                     if (score > bestScore) {
                         bestScore = score
                         bestAssignment = combo
@@ -771,7 +918,8 @@ open class MaximizerManager(
         rankedBuckets: SlotList<MaximizerRankedItem>,
         greedy: Map<EquipmentSlot, Pair<String, Double>>,
         budget: ComboBudget,
-        modeOverrides: Map<Modeable, String> = emptyMap(),
+        bestModes: Map<Modeable, String> = emptyMap(),
+        carryFamiliars: List<String> = emptyList(),
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val nonWeaponOffhand = greedy.filterKeys { it !in weaponOffhandSlots }
         val usedElsewhere = nonWeaponOffhand.values.map { it.first }.toSet()
@@ -790,14 +938,14 @@ open class MaximizerManager(
         if (topOffhands.isEmpty()) return greedy
 
         var bestAssignment = greedy
-        var bestScore = scoreAssignment(greedy, spec.evaluator, charState, modeOverrides)
+        var bestScore = scoreAssignment(greedy, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity)
         if (topWeapons.isEmpty()) {
             for (offhand in topOffhands) {
                 if (budget.tick()) return bestAssignment
                 val combo = nonWeaponOffhand + mapOf(
                     EquipmentSlot.OFFHAND to (offhand.first to offhand.second),
                 )
-                val score = scoreAssignment(combo, spec.evaluator, charState, modeOverrides)
+                val score = scoreAssignment(combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity)
                 if (score > bestScore) {
                     bestScore = score
                     bestAssignment = combo
@@ -814,7 +962,7 @@ open class MaximizerManager(
                     EquipmentSlot.WEAPON to (weapon.first to weapon.second),
                     EquipmentSlot.OFFHAND to (offhand.first to offhand.second),
                 )
-                val score = scoreAssignment(combo, spec.evaluator, charState, modeOverrides)
+                val score = scoreAssignment(combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity)
                 if (score > bestScore) {
                     bestScore = score
                     bestAssignment = combo
@@ -830,7 +978,8 @@ open class MaximizerManager(
         rankedBuckets: SlotList<MaximizerRankedItem>,
         greedy: Map<EquipmentSlot, Pair<String, Double>>,
         budget: ComboBudget,
-        modeOverrides: Map<Modeable, String> = emptyMap(),
+        bestModes: Map<Modeable, String> = emptyMap(),
+        carryFamiliars: List<String> = emptyList(),
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val nonArmor = greedy.filterKeys { it !in armorSlots }
         val usedElsewhere = nonArmor.values.map { it.first }.toSet()
@@ -846,7 +995,7 @@ open class MaximizerManager(
         if (topHats.isEmpty() || topShirts.isEmpty() || topPants.isEmpty()) return greedy
 
         var bestAssignment = greedy
-        var bestScore = scoreAssignment(greedy, spec.evaluator, charState, modeOverrides)
+        var bestScore = scoreAssignment(greedy, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity)
         for (hat in topHats) {
             for (shirt in topShirts) {
                 for (pants in topPants) {
@@ -859,7 +1008,7 @@ open class MaximizerManager(
                         EquipmentSlot.SHIRT to (shirt.first to shirt.second),
                         EquipmentSlot.PANTS to (pants.first to pants.second),
                     )
-                    val score = scoreAssignment(combo, spec.evaluator, charState, modeOverrides)
+                    val score = scoreAssignment(combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity)
                     if (score > bestScore) {
                         bestScore = score
                         bestAssignment = combo
@@ -917,6 +1066,8 @@ open class MaximizerManager(
             autoContext = autoContext,
             switchFamiliars = spec.switchFamiliars,
             familiarWeight = charState.familiarWeight,
+            charState = charState,
+            preferences = preferences,
         )
         MaximizerSynergyAdjustments.apply(buckets, spec, charState, gameDatabase)
         MaximizerOutfitAdjustments.apply(buckets, autoContext.usefulOutfits, spec, charState, gameDatabase)
@@ -989,14 +1140,32 @@ open class MaximizerManager(
         assignment: Map<EquipmentSlot, Pair<String, Double>>,
         evaluator: Evaluator,
         baseState: CharacterState,
-        modeOverrides: Map<Modeable, String> = emptyMap(),
+        bestModes: Map<Modeable, String> = emptyMap(),
+        carryFamiliars: List<String> = emptyList(),
+        maxBeeosity: Int = 2,
     ): Double = MaximizerSpeculation.scoreLoadout(
         baseState, assignment, evaluator,
-        modeOverrides = modeOverrides,
+        bestModes = bestModes,
+        carryFamiliars = carryFamiliars,
+        gameDatabase = gameDatabase,
         preferences = preferences,
+        maxBeeosity = maxBeeosity,
     )
 
+    private fun buildCountLookup(rankedBuckets: SlotList<MaximizerRankedItem>): (String) -> Int {
+        val byName = MaximizerEquipmentEnumerator.allRankedItems(rankedBuckets)
+            .associate { it.name.lowercase() to it.accessibleCount }
+        return { name -> byName[name.lowercase()] ?: 1 }
+    }
+
+    private fun buildCountLookupById(rankedBuckets: SlotList<MaximizerRankedItem>): (Int) -> Int {
+        val byId = MaximizerEquipmentEnumerator.allRankedItems(rankedBuckets)
+            .associate { it.itemId to it.accessibleCount }
+        return { id -> byId[id] ?: 0 }
+    }
+
     private fun itemMeetsConstraints(itemName: String, spec: MaximizeSpec): Boolean {
+        if (spec.evaluator.isNegEquip(itemName)) return false
         if (character.state.value.inBeecore &&
             Beeosity.itemBeeosity(itemName) > spec.maxBeeosity
         ) {
@@ -1032,6 +1201,35 @@ open class MaximizerManager(
 
     private fun maximizerPriceLevel(): MaximizerPriceLevel =
         MaximizerPriceLevel.byIndex(preferences?.getInt("maximizerPriceLevel", 0) ?: 0)
+
+    private fun passesEmitMallCheck(itemId: Int, itemName: String, spec: MaximizeSpec): Boolean {
+        val priceLevel = maximizerPriceLevel()
+        val maxPrice = spec.maxPrice?.toLong() ?: return true
+        val charState = character.state.value
+        val checkedContext = MaximizerCheckedItemBuilder.Context(
+            spec = spec,
+            gameDatabase = gameDatabase,
+            characterState = charState,
+            preferences = preferences,
+            mallPriceManager = mallPriceManager,
+            inventoryCount = ::inventoryCount,
+            closetContents = emptyMap(),
+            storageContents = emptyMap(),
+            displayContents = emptyMap(),
+            stashContents = emptyMap(),
+            priceLevel = priceLevel,
+        )
+        val checked = MaximizerCheckedItemBuilder.build(itemId, itemName, checkedContext)
+        val mallPrice = mallPriceManager?.getMallPrice(itemId) ?: 0L
+        val historicalPrice = mallPriceManager?.getHistoricalPrice(itemId) ?: 0L
+        return checked.passesEmitMallCheck(
+            priceLevel = priceLevel,
+            maxPrice = maxPrice,
+            mallPrice = mallPrice,
+            historicalPrice = historicalPrice,
+            tradeable = net.sourceforge.kolmafia.data.ItemDatabase.isTradeable(itemId),
+        )
+    }
 
     private suspend fun prefetchMallPrices(
         candidateIds: Set<Int>,
@@ -1120,6 +1318,24 @@ open class MaximizerManager(
         bestModes: Map<Modeable, String> = emptyMap(),
     ): Double {
         if (itemName.isNullOrBlank()) return 0.0
+        val itemData = gameDatabase.item(itemName) ?: return 0.0
+        if (MaximizerSubSlotItems.needsSubSlotPreservation(itemData.id)) {
+            val slot = slotForItem(itemData) ?: return 0.0
+            val charState = character.state.value
+            val assignment = mutableMapOf<EquipmentSlot, Pair<String, Double>>()
+            assignment[slot] = itemName to 0.0
+            MaximizerSubSlotPreservation.applyParentPreservation(itemData.id, charState, assignment)
+            return MaximizerSpeculation.scoreLoadout(
+                baseState = charState,
+                assignment = assignment,
+                evaluator = evaluator,
+                bestModes = bestModes.ifEmpty { activeModeSelections },
+                carryFamiliars = emptyList(),
+                gameDatabase = gameDatabase,
+                preferences = preferences,
+                validateEquipment = false,
+            )
+        }
         val modes = bestModes.ifEmpty { activeModeSelections }
         val modeable = Modeable.find(itemName)
         val raw = if (modeable != null) {
@@ -1129,7 +1345,8 @@ open class MaximizerManager(
         } else {
             gameDatabase.itemModifier(itemName)?.modifiers
         } ?: return 0.0
-        return evaluator.getItemContribution(ModifierParser.parse(raw))
+        return evaluator.getItemContribution(ModifierParser.parse(raw)) +
+            evaluator.itemBonus(itemName)
     }
 
     private fun scoreFamiliarCarriedItem(
@@ -1172,6 +1389,12 @@ open class MaximizerManager(
         EquipmentSlot.CODPIECE1, EquipmentSlot.CODPIECE2, EquipmentSlot.CODPIECE3,
         EquipmentSlot.CODPIECE4, EquipmentSlot.CODPIECE5 ->
             ModifierDatabase.isCodpieceGem(item.id)
+        EquipmentSlot.CARDSLEEVE -> item.primaryUse == ItemPrimaryUse.CARD
+        EquipmentSlot.STICKER1, EquipmentSlot.STICKER2, EquipmentSlot.STICKER3,
+        EquipmentSlot.FOLDER1, EquipmentSlot.FOLDER2, EquipmentSlot.FOLDER3,
+        EquipmentSlot.FOLDER4, EquipmentSlot.FOLDER5,
+        EquipmentSlot.BOOTSKIN, EquipmentSlot.BOOTSPUR,
+        -> false
     }
 
     private fun scoreFamiliarBonuses(

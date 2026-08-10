@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.maximizer
 
+import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.character.Beeosity
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.modifiers.BooleanModifier
@@ -90,6 +91,9 @@ object MaximizeGoal {
         val required = mutableSetOf<BooleanModifier>()
         val forbidden = mutableSetOf<BooleanModifier>()
         val equip = mutableListOf<String>()
+        val negEquip = mutableListOf<String>()
+        val posOutfits = mutableListOf<String>()
+        val negOutfits = mutableListOf<String>()
         val switches = mutableListOf<String>()
         val switchThralls = mutableListOf<String>()
         val enthrones = mutableListOf<String>()
@@ -108,7 +112,7 @@ object MaximizeGoal {
             val t = term.trim()
             if (t.isBlank()) continue
             if (!applyConstraintTerm(
-                    t, required, forbidden, equip, switches, switchThralls,
+                    t, required, forbidden, equip, negEquip, posOutfits, negOutfits, switches, switchThralls,
                     enthrones, bjorns, forcedModeables,
                     { requireMelee = true },
                     { requireHands = true },
@@ -127,6 +131,10 @@ object MaximizeGoal {
 
         val evaluator = Evaluator(statTerms.joinToString(", "))
         evaluator.applyBooleanConstraints(required, forbidden)
+        equip.forEach { evaluator.addPosEquip(it) }
+        negEquip.forEach { evaluator.addNegEquip(it) }
+        posOutfits.forEach { evaluator.addPosOutfit(it) }
+        negOutfits.forEach { evaluator.addNegOutfit(it) }
         val primary = evaluator.highestWeightedStat() ?: DoubleModifier.MUS
         return applyEquipBeeosityFloor(
             MaximizeSpec(
@@ -185,6 +193,9 @@ object MaximizeGoal {
         required: MutableSet<BooleanModifier>,
         forbidden: MutableSet<BooleanModifier>,
         equip: MutableList<String>,
+        negEquip: MutableList<String>,
+        posOutfits: MutableList<String>,
+        negOutfits: MutableList<String>,
         switches: MutableList<String>,
         switchThralls: MutableList<String>,
         enthrones: MutableList<String>,
@@ -219,6 +230,18 @@ object MaximizeGoal {
         }
         t.startsWith("equip ", ignoreCase = true) -> {
             equip.add(unquote(t.substring(6).trim()))
+            true
+        }
+        t.startsWith("-equip ", ignoreCase = true) -> {
+            negEquip.add(unquote(t.substring(7).trim()))
+            true
+        }
+        t.startsWith("+outfit ", ignoreCase = true) -> {
+            resolveOutfitName(unquote(t.substring(8).trim()))?.let { posOutfits.add(it) }
+            true
+        }
+        t.startsWith("-outfit ", ignoreCase = true) -> {
+            resolveOutfitName(unquote(t.substring(8).trim()))?.let { negOutfits.add(it) }
             true
         }
         t.startsWith("switch thrall ", ignoreCase = true) -> {
@@ -280,6 +303,17 @@ object MaximizeGoal {
             }
         }
         else -> BooleanModifier.byTag(t)?.let { required.add(it) } != null
+    }
+
+    private fun resolveOutfitName(keyword: String): String? {
+        val trimmed = keyword.trim()
+        if (trimmed.isBlank()) return null
+        return OutfitDatabase.getByName(trimmed)?.name
+            ?: OutfitDatabase.allOutfits().firstOrNull {
+                val lower = trimmed.lowercase()
+                val name = it.name.lowercase()
+                name.contains(lower) || lower.contains(name)
+            }?.name
     }
 
     private fun splitTerms(goal: String): List<String> {

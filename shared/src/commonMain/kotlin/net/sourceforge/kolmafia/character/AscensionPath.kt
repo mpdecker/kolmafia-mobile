@@ -153,6 +153,7 @@ enum class AscensionPath(
         pathImage = "twocrazydice.gif",
         pointsPreference = "twoCRSPoints",
     ),
+    KOLHS("KOLHS", pathId = 15, pathImage = "kolhsicon"),
     COMMUNITY_SERVICE("Community Service", pathId = 25, pathImage = "csplaquesmall.gif"),
     AVATAR_OF_WEST_OF_LOATHING(
         "Avatar of West of Loathing",

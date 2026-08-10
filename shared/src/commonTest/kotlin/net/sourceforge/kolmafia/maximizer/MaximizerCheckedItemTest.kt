@@ -4,6 +4,7 @@ import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
@@ -336,6 +337,63 @@ class MaximizerCheckedItemTest {
         )
         val checked = MaximizerCheckedItemBuilder.build(5602, "mall hat", ctx)
         assertEquals(0, checked.mallBuyable)
+    }
+
+    @Test
+    fun passesEmitMallCheck_allLevelBlocksExpensiveTradeableWithClosetCopy() {
+        val checked = MaximizerCheckedItem(
+            itemId = 6001,
+            name = "trade hat",
+            initial = 1,
+            mallBuyable = 5,
+        )
+        assertFalse(
+            checked.passesEmitMallCheck(
+                priceLevel = MaximizerPriceLevel.ALL,
+                maxPrice = 1000L,
+                mallPrice = 5000L,
+                historicalPrice = 5000L,
+                tradeable = true,
+            ),
+        )
+    }
+
+    @Test
+    fun passesEmitMallCheck_allLevelAllowsWhenOnlyMallChannel() {
+        val checked = MaximizerCheckedItem(
+            itemId = 6002,
+            name = "mall hat",
+            initial =  0,
+            mallBuyable = 5,
+        )
+        assertTrue(
+            checked.passesEmitMallCheck(
+                priceLevel = MaximizerPriceLevel.ALL,
+                maxPrice = 1000L,
+                mallPrice = 5000L,
+                historicalPrice = 5000L,
+                tradeable = true,
+            ),
+        )
+    }
+
+    @Test
+    fun passesEmitMallCheck_buyableOnlyChannelUnchangedByEmitCheck() {
+        val checked = MaximizerCheckedItem(
+            itemId = 6003,
+            name = "closet hat",
+            initial = 1,
+            mallBuyable = 5,
+        )
+        assertTrue(
+            checked.passesEmitMallCheck(
+                priceLevel = MaximizerPriceLevel.BUYABLE_ONLY,
+                maxPrice = 1000L,
+                mallPrice = 5000L,
+                historicalPrice = 5000L,
+                tradeable = true,
+            ),
+        )
     }
 
     private fun context(

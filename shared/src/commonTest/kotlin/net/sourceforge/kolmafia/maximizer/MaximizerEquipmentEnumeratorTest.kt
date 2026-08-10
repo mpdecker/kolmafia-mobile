@@ -547,6 +547,76 @@ class MaximizerEquipmentEnumeratorTest {
         assertEquals(listOf("carry-only"), ranked[EquipmentSlot.FAMILIAR]?.map { it.first })
     }
 
+    @Test
+    fun passesZeroDeltaGate_keepsEquippedItemWhenConsiderCurrent() {
+        val evaluator = Evaluator("mus, -tie")
+        val charState = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "flat hat"),
+        )
+        assertTrue(
+            MaximizerEquipmentEnumerator.passesZeroDeltaGate(
+                score = 0.0,
+                itemName = "flat hat",
+                checked = MaximizerCheckedItem(1, "flat hat", initial = 1),
+                automatic = false,
+                evaluator = evaluator,
+                charState = charState,
+            ),
+        )
+    }
+
+    @Test
+    fun passesZeroDeltaGate_skipsUnequippedZeroScoreWithoutInventory() {
+        val evaluator = Evaluator("mus")
+        val charState = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "other hat"),
+        )
+        assertFalse(
+            MaximizerEquipmentEnumerator.passesZeroDeltaGate(
+                score = 0.0,
+                itemName = "flat hat",
+                checked = MaximizerCheckedItem(1, "flat hat", initial = 0),
+                automatic = false,
+                evaluator = evaluator,
+                charState = charState,
+            ),
+        )
+    }
+
+    @Test
+    fun passesZeroDeltaGate_excludesWithExplicitMinusCurrent() {
+        val evaluator = Evaluator("mus, -current")
+        val charState = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "flat hat"),
+        )
+        assertFalse(
+            MaximizerEquipmentEnumerator.passesZeroDeltaGate(
+                score = 0.0,
+                itemName = "flat hat",
+                checked = MaximizerCheckedItem(1, "flat hat", initial = 1),
+                automatic = false,
+                evaluator = evaluator,
+                charState = charState,
+            ),
+        )
+    }
+
+    @Test
+    fun mergeBuckets_requiredItemsSurviveLimit() {
+        val buckets = SlotList<MaximizerRankedItem>(0)
+        buckets.get(MaximizerSlot.HAT).addAll(
+            listOf(
+                MaximizerRankedItem(1, "low", 1.0, MaximizerCheckedItem(1, "low", initial = 1)),
+                MaximizerRankedItem(2, "required pin", 0.0, MaximizerCheckedItem(2, "required pin", initial = 1))
+                    .also { it.required = true },
+            ),
+        )
+        val merged = MaximizerEquipmentEnumerator.mergeBuckets(
+            buckets, listOf(MaximizerSlot.HAT), limit = 1,
+        )
+        assertEquals(listOf("required pin", "low"), merged.map { it.first })
+    }
+
     private fun checkedAvailable(count: Int = 1): (Int) -> MaximizerCheckedItem = { itemId ->
         MaximizerCheckedItem(itemId, "item", initial = count)
     }

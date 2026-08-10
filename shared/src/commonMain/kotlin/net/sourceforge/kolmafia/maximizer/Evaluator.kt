@@ -1,5 +1,13 @@
 package net.sourceforge.kolmafia.maximizer
 
+import net.sourceforge.kolmafia.character.AscensionPath
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.character.MainStat
+import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.OutfitDatabase
+import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.modifiers.BooleanModifier
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
@@ -11,6 +19,8 @@ import kotlin.math.round
  * Desktop Evaluator scoring subset: weighted goal parsing + [getScore] special cases.
  * Phase 364: addFudge + boolean constraint flags ([checkConstraints], [failed]).
  * Phase 367: global loadout gates ([totalMin], [totalMax], [exceeded]).
+ * Phase 382: +current/-current, outfit/equip gates ([checkEquipment]).
+ * Phase 383: bonus/letter/number, plumber/cold plumber, neg equip.
  */
 class Evaluator private constructor(
     private val weights: MutableMap<DoubleModifier, Double>,
@@ -21,6 +31,16 @@ class Evaluator private constructor(
     private var totalMax: Double = Double.POSITIVE_INFINITY,
     private val booleanMask: MutableSet<BooleanModifier> = mutableSetOf(),
     private val booleanValue: MutableSet<BooleanModifier> = mutableSetOf(),
+    private var current: Boolean = false,
+    private var noTiebreaker: Boolean = false,
+    val posOutfits: MutableSet<String> = mutableSetOf(),
+    val negOutfits: MutableSet<String> = mutableSetOf(),
+    val posEquip: MutableSet<String> = mutableSetOf(),
+    val negEquip: MutableSet<String> = mutableSetOf(),
+    private val bonuses: MutableMap<String, Double> = mutableMapOf(),
+    private val bonusFuncs: MutableList<Pair<(String) -> Double, Double>> = mutableListOf(),
+    private var plumberRequested: Boolean = false,
+    private var coldPlumberRequested: Boolean = false,
 ) {
     enum class Constraint {
         /** Item violates a constraint, don't use it */
@@ -47,6 +67,122 @@ class Evaluator private constructor(
     ) {
         parse(expr)
     }
+
+    /** Desktop Evaluator.current — keep zero-delta equipped items during enumeration. */
+    fun considerCurrent(): Boolean = current
+
+    /** Desktop Evaluator.isUsingTiebreaker — false when `-tie` or `ocrs` disables tiebreak. */
+    fun usesTiebreaker(): Boolean = !noTiebreaker
+
+    fun addPosOutfit(name: String) {
+        posOutfits.add(name)
+    }
+
+    fun addNegOutfit(name: String) {
+        negOutfits.add(name)
+    }
+
+    fun addPosEquip(name: String) {
+        posEquip.add(name)
+    }
+
+    fun addNegEquip(name: String) {
+        negEquip.add(name)
+    }
+
+    fun isNegEquip(itemName: String): Boolean =
+        negEquip.any { it.equals(itemName, ignoreCase = true) }
+
+    /** Flat + functional bonuses for one equipment piece (enumeration delta). */
+    fun itemBonus(itemName: String): Double {
+        if (bonuses.isEmpty() && bonusFuncs.isEmpty()) return 0.0
+        var score = 0.0
+        for ((name, weight) in bonuses) {
+            if (name.equals(itemName, ignoreCase = true)) {
+                score += weight
+            }
+        }
+        for ((func, weight) in bonusFuncs) {
+            score += func(itemName) * weight
+        }
+        return score
+    }
+
+    /** Sum of [itemBonus] over a worn loadout (desktop getScore equipment bonuses). */
+    fun equipmentBonus(equipmentNames: Collection<String>): Double {
+        if (bonuses.isEmpty() && bonusFuncs.isEmpty()) return 0.0
+        return equipmentNames.sumOf { itemBonus(it) }
+    }
+
+    /**
+     * Resolve deferred `plumber` / `cold plumber` goal terms once inventory is known.
+     * Returns false when path or tools are unavailable (desktop aborts maximize).
+     */
+    fun resolvePlumberTools(
+        charState: CharacterState,
+        accessibleCount: (Int) -> Int,
+        gameDatabase: GameDatabase,
+    ): Boolean {
+        if (!plumberRequested && !coldPlumberRequested) return true
+        if (charState.ascensionPath != AscensionPath.PLUMBER) return false
+
+        if (coldPlumberRequested) {
+            val flower = pickPlumberTool(1, accessibleCount, gameDatabase)
+                ?: return false
+            posEquip.add(flower)
+            resolveEquipName(FROSTY_BUTTON, gameDatabase)?.let { posEquip.add(it) }
+                ?: posEquip.add(FROSTY_BUTTON)
+        } else if (plumberRequested) {
+            val primeIndex = when (charState.mainStat) {
+                MainStat.MUSCLE -> 0
+                MainStat.MYSTICALITY -> 1
+                MainStat.MOXIE -> 2
+            }
+            val tool = pickPlumberTool(primeIndex, accessibleCount, gameDatabase)
+                ?: pickPlumberTool(-1, accessibleCount, gameDatabase)
+                ?: return false
+            posEquip.add(tool)
+        }
+        return true
+    }
+
+    /**
+     * Desktop Evaluator.checkEquipment — final loadout outfit/equip/beeosity gates.
+     */
+    fun checkEquipment(
+        equipment: Map<EquipmentSlot, String>,
+        beeosity: Int,
+        maxBeeosity: Int,
+        inBeecore: Boolean = false,
+    ) {
+        if (failed) return
+        var outfitSatisfied = posOutfits.isEmpty()
+        var equipSatisfied = posEquip.isEmpty()
+        if (posEquip.isNotEmpty()) {
+            equipSatisfied = posEquip.all { required ->
+                equipment.values.any { it.equals(required, ignoreCase = true) }
+            }
+        }
+        val outfitName = detectOutfitName(equipment)
+        if (outfitName != null && negOutfits.any { it.equals(outfitName, ignoreCase = true) }) {
+            failed = true
+            return
+        }
+        if (posOutfits.isNotEmpty()) {
+            outfitSatisfied = outfitName != null &&
+                posOutfits.any { it.equals(outfitName, ignoreCase = true) }
+        }
+        if (!outfitSatisfied || !equipSatisfied) {
+            failed = true
+        }
+        if (inBeecore && beeosity > maxBeeosity) {
+            failed = true
+        }
+    }
+
+    /** Tiebreaker score honoring [usesTiebreaker]. */
+    fun tiebreakerScore(mods: CurrentModifiers): Double =
+        if (noTiebreaker) 0.0 else tiebreaker().getScore(mods)
 
     /** Parsed weight for [mod] (test / Phase 362 multi-stat goals). */
     internal fun weightOf(mod: DoubleModifier): Double = weights[mod] ?: 0.0
@@ -214,6 +350,7 @@ class Evaluator private constructor(
     private fun parse(expr: String) {
         var remaining = expr.trim().lowercase()
         var lastIndex: DoubleModifier? = null
+        var forceCurrent = false
 
         while (remaining.isNotEmpty()) {
             val match = TERM_PATTERN.matchAt(remaining, 0) ?: break
@@ -245,6 +382,57 @@ class Evaluator private constructor(
                     }
                     continue
                 }
+            }
+
+            if (keyword.startsWith("tie")) {
+                noTiebreaker = weight < 0.0
+                continue
+            }
+
+            if (keyword.startsWith("current")) {
+                current = weight > 0.0
+                forceCurrent = true
+                continue
+            }
+
+            if (keyword.startsWith("equip ")) {
+                resolveEquipName(keyword.substring(6).trim())?.let { resolved ->
+                    if (weight > 0.0) posEquip.add(resolved) else negEquip.add(resolved)
+                }
+                continue
+            }
+
+            if (keyword.startsWith("bonus ")) {
+                resolveEquipName(keyword.substring(6).trim())?.let { resolved ->
+                    bonuses[resolved] = weight
+                }
+                continue
+            }
+
+            if (keyword.startsWith("letter")) {
+                val letterKey = keyword.substring(6).trim()
+                if (letterKey.isEmpty()) {
+                    bonusFuncs.add({ name: String -> MaximizerLetterBonus.letterBonus(name) } to weight)
+                } else {
+                    val letter = letterKey
+                    bonusFuncs.add({ name: String -> MaximizerLetterBonus.letterBonus(name, letter) } to weight)
+                }
+                continue
+            }
+
+            if (keyword == "number") {
+                bonusFuncs.add({ name: String -> MaximizerLetterBonus.numberBonus(name) } to weight)
+                continue
+            }
+
+            if (keyword == "plumber") {
+                plumberRequested = true
+                continue
+            }
+
+            if (keyword == "cold plumber") {
+                coldPlumberRequested = true
+                continue
             }
 
             keyword = normalizeKeyword(keyword)
@@ -279,10 +467,19 @@ class Evaluator private constructor(
             val indices = resolveKeyword(keyword)
             if (indices.isEmpty()) continue
 
+            if (indices.singleOrNull() == DoubleModifier.RANDOM_MONSTER_MODIFIERS && keyword == "ocrs") {
+                noTiebreaker = true
+            }
+
             for (index in indices) {
                 weights[index] = (weights[index] ?: 0.0) + weight
                 lastIndex = index
             }
+        }
+
+        // If no tiebreaker, consider current unless -current specified
+        if (!forceCurrent && noTiebreaker) {
+            current = true
         }
 
         applyFudgeGroups()
@@ -389,6 +586,7 @@ class Evaluator private constructor(
         "item", "item drop" -> listOf(DoubleModifier.ITEMDROP)
         "meat", "meat drop" -> listOf(DoubleModifier.MEATDROP)
         "exp", "experience" -> listOf(DoubleModifier.EXPERIENCE)
+        "ocrs" -> listOf(DoubleModifier.RANDOM_MONSTER_MODIFIERS)
         else -> {
             val fromGoal = MaximizeGoal.parseSingleModifier(keyword)
             if (fromGoal != null) listOf(fromGoal)
@@ -466,5 +664,77 @@ class Evaluator private constructor(
             val bonusStats = if (monsterLevel > 0) monsterLevel / 3.0 else monsterLevel / 4.0
             return round((baseStats + bonusStats) * 100.0) / 100.0
         }
+
+        internal fun detectOutfitName(equipment: Map<EquipmentSlot, String>): String? {
+            for (outfit in OutfitDatabase.allOutfits()) {
+                if (outfit.equipment.isEmpty()) continue
+                if (OutfitManager.isWearingPieces(outfit.equipment, equipment)) {
+                    return outfit.name
+                }
+            }
+            return null
+        }
+
+        private const val FROSTY_BUTTON = "frosty button"
+
+        internal fun resolveEquipName(query: String, gameDatabase: GameDatabase? = null): String? {
+            if (query.isBlank()) return null
+            ItemDatabase.getByName(query)?.name?.let { return it }
+            gameDatabase?.item(query)?.name?.let { return it }
+            return query
+        }
+
+        private fun pickPlumberTool(
+            primeIndex: Int,
+            accessibleCount: (Int) -> Int,
+            gameDatabase: GameDatabase,
+        ): String? {
+            fun have(name: String): Boolean {
+                val id = resolveEquipName(name, gameDatabase)?.let { gameDatabase.item(it)?.id }
+                    ?: gameDatabase.item(name)?.id
+                return id != null && accessibleCount(id) > 0
+            }
+
+            val heavyHammer = HEAVY_HAMMER
+            val hammer = HAMMER
+            val bonfireFlower = BONFIRE_FLOWER
+            val fireFlower = FIRE_FLOWER
+            val fancyBoots = FANCY_BOOTS
+            val workBoots = WORK_BOOTS
+
+            return when (primeIndex) {
+                0 -> when {
+                    have(heavyHammer) -> heavyHammer
+                    have(hammer) -> hammer
+                    else -> null
+                }
+                1 -> when {
+                    have(bonfireFlower) -> bonfireFlower
+                    have(fireFlower) -> fireFlower
+                    else -> null
+                }
+                2 -> when {
+                    have(fancyBoots) -> fancyBoots
+                    have(workBoots) -> workBoots
+                    else -> null
+                }
+                else -> when {
+                    have(heavyHammer) -> heavyHammer
+                    have(bonfireFlower) -> bonfireFlower
+                    have(fancyBoots) -> fancyBoots
+                    have(hammer) -> hammer
+                    have(fireFlower) -> fireFlower
+                    have(workBoots) -> workBoots
+                    else -> null
+                }
+            }
+        }
+
+        private const val HEAVY_HAMMER = "heavy hammer"
+        private const val HAMMER = "hammer"
+        private const val BONFIRE_FLOWER = "bonfire flower"
+        private const val FIRE_FLOWER = "[10462]fire flower"
+        private const val FANCY_BOOTS = "fancy boots"
+        private const val WORK_BOOTS = "work boots"
     }
 }

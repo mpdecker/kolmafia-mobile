@@ -15,6 +15,7 @@ object ItemDatabase {
     private val byPlural = mutableMapOf<String, ItemData>()
     private val byDescId = mutableMapOf<String, ItemData>()
     private val noobSkillIdByItemId = mutableMapOf<Int, Int>()
+    private val itemIdsByNoobSkillId = mutableMapOf<Int, MutableList<Int>>()
     private var loaded = false
 
     suspend fun load() {
@@ -164,6 +165,10 @@ object ItemDatabase {
     /** Desktop ItemDatabase.getNoobSkillId — noobcore skill granted by absorbing this item. */
     fun getNoobSkillId(itemId: Int): Int = noobSkillIdByItemId[itemId] ?: 0
 
+    /** Desktop ItemDatabase.getItemListByNoobSkillId — items that grant a noobcore skill when absorbed. */
+    fun getItemListByNoobSkillId(skillId: Int): IntArray =
+        itemIdsByNoobSkillId[skillId]?.toIntArray() ?: IntArray(0)
+
     /** Virtual items exist in KoL data but cannot live in inventory (desktop ItemDatabase.isVirtualItem). */
     fun isVirtualItem(itemId: Int): Boolean = itemId in VIRTUAL_ITEM_IDS
 
@@ -180,6 +185,7 @@ object ItemDatabase {
         byName[item.name.lowercase()] = item
         byDescId[item.descId] = item
         item.plural?.let { byPlural[it.lowercase()] = item }
+        registerNoobSkillId(item)
     }
 
     internal fun resetForTest() {
@@ -188,6 +194,7 @@ object ItemDatabase {
         byPlural.clear()
         byDescId.clear()
         noobSkillIdByItemId.clear()
+        itemIdsByNoobSkillId.clear()
         loaded = false
     }
 
@@ -228,6 +235,7 @@ object ItemDatabase {
         val skillId = robortenderNoobSkillId(item.id)
             ?: ((item.descId.toIntOrNull() ?: 0) % 125 + 23001)
         noobSkillIdByItemId[item.id] = skillId
+        itemIdsByNoobSkillId.getOrPut(skillId) { mutableListOf() }.add(item.id)
     }
 
     private fun qualifiesForNoobSkill(item: ItemData): Boolean {

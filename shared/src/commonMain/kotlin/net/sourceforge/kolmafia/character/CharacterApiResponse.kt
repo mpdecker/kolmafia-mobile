@@ -127,4 +127,8 @@ data class CharacterApiResponse(
     val eternitycod: List<Int> = emptyList(),
     /** Hat Trick path — extra hat item ids from status API. */
     val hats: List<String> = emptyList(),
+    /** Sticker weapon sub-slots; 0 = empty. */
+    val stickers: List<Int> = emptyList(),
+    /** Folder holder sub-slots; folder index (1-based), 0 = empty. */
+    val folder_holder: List<Int> = emptyList(),
 )

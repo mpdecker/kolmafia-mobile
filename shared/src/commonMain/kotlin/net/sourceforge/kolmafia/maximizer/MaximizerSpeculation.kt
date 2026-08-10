@@ -1,12 +1,24 @@
 package net.sourceforge.kolmafia.maximizer
 
+import net.sourceforge.kolmafia.character.Beeosity
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.effect.EffectData
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.preferences.Preferences
+
+/** Shared scoring options for maximizer speculation passes (Phase 381). */
+data class MaximizerScoringOptions(
+    val bestModes: Map<Modeable, String> = emptyMap(),
+    val carryFamiliars: List<String> = emptyList(),
+    val gameDatabase: GameDatabase? = null,
+    val cardInSleeve: String? = null,
+    val countFor: ((String) -> Int)? = null,
+    val foldablesEnabled: Boolean = true,
+)
 
 /**
  * Outfit-aware loadout scoring and recursive equipment speculation.
@@ -14,18 +26,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
  */
 object MaximizerSpeculation {
 
-    internal val searchSlots = listOf(
-        EquipmentSlot.HAT,
-        EquipmentSlot.WEAPON,
-        EquipmentSlot.OFFHAND,
-        EquipmentSlot.SHIRT,
-        EquipmentSlot.PANTS,
-        EquipmentSlot.CONTAINER,
-        EquipmentSlot.ACC1,
-        EquipmentSlot.ACC2,
-        EquipmentSlot.ACC3,
-        EquipmentSlot.FAMILIAR,
-    )
+    internal val searchSlots = EquipmentSlot.SEARCH_SLOTS
 
     fun scoreLoadout(
         baseState: CharacterState,
@@ -34,42 +35,163 @@ object MaximizerSpeculation {
         familiarBonus: Double = 0.0,
         thrallBonus: Double = 0.0,
         modeOverrides: Map<Modeable, String> = emptyMap(),
+        bestModes: Map<Modeable, String>? = null,
+        carryFamiliars: List<String> = emptyList(),
+        gameDatabase: GameDatabase? = null,
+        cardInSleeve: String? = null,
         preferences: Preferences? = null,
+        maxBeeosity: Int = 2,
+        validateEquipment: Boolean = true,
+        activeEffects: List<EffectData> = emptyList(),
+        horseryOverride: String? = null,
+        boomBoxOverride: String? = null,
+        mindControlOverride: Int? = null,
+        customModifierOverlay: String? = null,
     ): Double {
-        val equipment = buildMap {
-            for (slot in searchSlots) {
-                val name = assignment[slot]?.first?.takeIf { it.isNotBlank() }
-                    ?: baseState.equipment[slot]?.takeIf { it.isNotBlank() }
-                if (!name.isNullOrBlank()) put(slot, name)
-            }
-        }
+        val effectiveModes = bestModes?.let {
+            MaximizerModeSelection.assignmentModeOverrides(
+                assignment, it, carryFamiliars, gameDatabase,
+            )
+        } ?: modeOverrides
+        val resolvedCard = cardInSleeve ?: MaximizerCardSelection.cardForOffhand(
+            assignment[EquipmentSlot.OFFHAND]?.first
+                ?: baseState.equipment[EquipmentSlot.OFFHAND],
+            null,
+            baseState,
+        )
+        val equipment = buildEquipmentMap(baseState, assignment, resolvedCard)
         val mods = CurrentModifiers(
             baseState.copy(equipment = equipment),
-            modeOverrides = modeOverrides,
+            activeEffects = activeEffects,
+            modeOverrides = effectiveModes,
             preferences = preferences,
+            horseryOverride = horseryOverride,
+            boomBoxOverride = boomBoxOverride,
+            mindControlOverride = mindControlOverride,
+            customModifierOverlay = customModifierOverlay,
         )
-        return evaluator.getScore(mods) + familiarBonus + thrallBonus
+        val score = evaluator.getScore(mods) +
+            evaluator.equipmentBonus(equipment.values) +
+            familiarBonus + thrallBonus
+        if (validateEquipment) {
+            evaluator.checkEquipment(
+                equipment = equipment,
+                beeosity = Beeosity.equipmentBeeosity(equipment),
+                maxBeeosity = maxBeeosity,
+                inBeecore = baseState.inBeecore,
+            )
+        }
+        return score
     }
+
+    /** Post-equipment baseline score for non-equipment boost deltas (Phase 386). */
+    fun scorePostEquipmentPlan(
+        plan: MaximizerEmitSlot.Plan,
+        charState: CharacterState,
+        activeEffects: List<EffectData> = emptyList(),
+        horseryOverride: String? = null,
+        boomBoxOverride: String? = null,
+        mindControlOverride: Int? = null,
+        customModifierOverlay: String? = null,
+        carryFamiliars: List<String> = emptyList(),
+        gameDatabase: GameDatabase? = null,
+        preferences: Preferences? = null,
+        thrallBonus: Double = 0.0,
+    ): Double = scoreLoadout(
+        baseState = charState,
+        assignment = plan.bestPerSlot,
+        evaluator = plan.spec.evaluator,
+        familiarBonus = 0.0,
+        thrallBonus = thrallBonus,
+        bestModes = plan.modeSelections,
+        carryFamiliars = carryFamiliars,
+        gameDatabase = gameDatabase,
+        cardInSleeve = plan.cardInSleeve,
+        preferences = preferences,
+        maxBeeosity = plan.spec.maxBeeosity,
+        activeEffects = activeEffects,
+        horseryOverride = horseryOverride,
+        boomBoxOverride = boomBoxOverride,
+        mindControlOverride = mindControlOverride,
+        customModifierOverlay = customModifierOverlay,
+    )
 
     fun tiebreakerScore(
         baseState: CharacterState,
         assignment: Map<EquipmentSlot, Pair<String, Double>>,
+        goalEvaluator: Evaluator? = null,
         modeOverrides: Map<Modeable, String> = emptyMap(),
+        bestModes: Map<Modeable, String>? = null,
+        carryFamiliars: List<String> = emptyList(),
+        gameDatabase: GameDatabase? = null,
+        cardInSleeve: String? = null,
         preferences: Preferences? = null,
     ): Double {
-        val equipment = buildMap {
-            for (slot in searchSlots) {
-                val name = assignment[slot]?.first?.takeIf { it.isNotBlank() }
-                    ?: baseState.equipment[slot]?.takeIf { it.isNotBlank() }
-                if (!name.isNullOrBlank()) put(slot, name)
-            }
-        }
+        val effectiveModes = bestModes?.let {
+            MaximizerModeSelection.assignmentModeOverrides(
+                assignment, it, carryFamiliars, gameDatabase,
+            )
+        } ?: modeOverrides
+        val resolvedCard = cardInSleeve ?: MaximizerCardSelection.cardForOffhand(
+            assignment[EquipmentSlot.OFFHAND]?.first
+                ?: baseState.equipment[EquipmentSlot.OFFHAND],
+            null,
+            baseState,
+        )
+        val equipment = buildEquipmentMap(baseState, assignment, resolvedCard)
         val mods = CurrentModifiers(
             baseState.copy(equipment = equipment),
-            modeOverrides = modeOverrides,
+            modeOverrides = effectiveModes,
             preferences = preferences,
         )
-        return Evaluator.tiebreaker().getScore(mods)
+        return goalEvaluator?.tiebreakerScore(mods) ?: Evaluator.tiebreaker().getScore(mods)
+    }
+
+    internal fun buildEquipmentMap(
+        baseState: CharacterState,
+        assignment: Map<EquipmentSlot, Pair<String, Double>>,
+        cardInSleeve: String? = null,
+    ): Map<EquipmentSlot, String> = buildMap {
+        for (slot in searchSlots) {
+            val name = assignment[slot]?.first?.takeIf { it.isNotBlank() }
+                ?: baseState.equipment[slot]?.takeIf { it.isNotBlank() }
+            if (!name.isNullOrBlank()) put(slot, name)
+        }
+        for (slot in EquipmentSlot.SUB_SLOTS) {
+            val name = assignment[slot]?.first?.takeIf { it.isNotBlank() }
+                ?: baseState.equipment[slot]?.takeIf { it.isNotBlank() }
+            if (!name.isNullOrBlank()) put(slot, name)
+        }
+        for (slot in EquipmentSlot.CODPIECE_SLOTS) {
+            baseState.equipment[slot]?.takeIf { it.isNotBlank() }?.let { put(slot, it) }
+        }
+        if (!cardInSleeve.isNullOrBlank()) {
+            put(EquipmentSlot.CARDSLEEVE, cardInSleeve)
+        } else {
+            baseState.equipment[EquipmentSlot.CARDSLEEVE]?.takeIf { it.isNotBlank() }?.let {
+                put(EquipmentSlot.CARDSLEEVE, it)
+            }
+        }
+    }
+
+    internal fun crossSlotDedupSlots(slot: EquipmentSlot): Set<EquipmentSlot> = when (slot) {
+        EquipmentSlot.FAMILIAR -> setOf(
+            EquipmentSlot.WEAPON,
+            EquipmentSlot.OFFHAND,
+            EquipmentSlot.HAT,
+            EquipmentSlot.PANTS,
+        )
+        EquipmentSlot.OFFHAND -> setOf(
+            EquipmentSlot.WEAPON,
+            EquipmentSlot.FAMILIAR,
+        )
+        EquipmentSlot.WEAPON -> setOf(
+            EquipmentSlot.OFFHAND,
+            EquipmentSlot.FAMILIAR,
+        )
+        EquipmentSlot.HAT -> setOf(EquipmentSlot.FAMILIAR)
+        EquipmentSlot.PANTS -> setOf(EquipmentSlot.FAMILIAR)
+        else -> emptySet()
     }
 
     internal fun assignmentPrice(
@@ -108,15 +230,23 @@ object MaximizerSpeculation {
         seed: Map<EquipmentSlot, Pair<String, Double>> = emptyMap(),
         priceFor: ((String) -> Int)? = null,
         modeOverrides: Map<Modeable, String> = emptyMap(),
+        bestModes: Map<Modeable, String>? = null,
+        carryFamiliars: List<String> = emptyList(),
+        gameDatabase: GameDatabase? = null,
+        cardInSleeve: String? = null,
+        foldablesEnabled: Boolean = true,
+        countFor: ((String) -> Int)? = null,
         preferences: Preferences? = null,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         var best = seed
+        val resolvedCard = cardInSleeve
         var bestScore: Double
         var bestFailed: Boolean
         if (seed.isNotEmpty()) {
             bestScore = scoreLoadout(
                 baseState, seed, spec.evaluator, familiarBonus, thrallBonus,
-                modeOverrides, preferences,
+                modeOverrides, bestModes, carryFamiliars, gameDatabase, resolvedCard, preferences,
+                maxBeeosity = spec.maxBeeosity,
             )
             bestFailed = spec.evaluator.failed
         } else {
@@ -124,28 +254,39 @@ object MaximizerSpeculation {
             bestFailed = true
         }
         var bestTie = if (seed.isNotEmpty()) {
-            tiebreakerScore(baseState, seed, modeOverrides, preferences)
+            tiebreakerScore(
+                baseState, seed, spec.evaluator, modeOverrides, bestModes, carryFamiliars,
+                gameDatabase, resolvedCard, preferences,
+            )
         } else {
             Double.NEGATIVE_INFINITY
         }
         var bestPrice = if (seed.isNotEmpty() && priceFor != null) assignmentPrice(seed, priceFor) else Int.MAX_VALUE
         val preferLowerPrice = spec.maxPrice != null && priceFor != null
         var stopSearch = false
+        val db = gameDatabase
+        val countLookup = countFor ?: { 1 }
 
         fun search(
             slotIndex: Int,
             current: MutableMap<EquipmentSlot, Pair<String, Double>>,
-            usedItems: MutableSet<String>,
         ) {
             if (stopSearch || budget.tick()) return
             if (slotIndex >= searchSlots.size) {
+                val card = MaximizerCardSelection.cardForOffhand(
+                    current[EquipmentSlot.OFFHAND]?.first, resolvedCard, baseState,
+                )
                 val score = scoreLoadout(
                     baseState, current, spec.evaluator, familiarBonus, thrallBonus,
-                    modeOverrides, preferences,
+                    modeOverrides, bestModes, carryFamiliars, gameDatabase, card, preferences,
+                    maxBeeosity = spec.maxBeeosity,
                 )
                 val failed = spec.evaluator.failed
                 val exceeded = spec.evaluator.exceeded
-                val tie = tiebreakerScore(baseState, current, modeOverrides, preferences)
+                val tie = tiebreakerScore(
+                    baseState, current, spec.evaluator, modeOverrides, bestModes, carryFamiliars,
+                    gameDatabase, card, preferences,
+                )
                 val price = priceFor?.let { assignmentPrice(current, it) } ?: Int.MAX_VALUE
                 if (!failed &&
                     isBetterLoadout(
@@ -165,22 +306,31 @@ object MaximizerSpeculation {
             val slot = searchSlots[slotIndex]
             val candidates = candidatesBySlot[slot].orEmpty()
             if (candidates.isEmpty()) {
-                search(slotIndex + 1, current, usedItems)
+                search(slotIndex + 1, current)
                 return
             }
             for ((name, _) in candidates) {
                 if (stopSearch) return
-                if (name in usedItems) continue
+                if (db != null) {
+                    val available = MaximizerFoldDedup.availableCount(
+                        itemName = name,
+                        assignment = current,
+                        baseCount = countLookup(name),
+                        foldablesEnabled = foldablesEnabled,
+                        gameDatabase = db,
+                        excludeSlot = slot,
+                        excludeSlotsForSameItem = crossSlotDedupSlots(slot),
+                    )
+                    if (available <= 0) continue
+                }
                 current[slot] = name to 0.0
-                usedItems.add(name)
-                search(slotIndex + 1, current, usedItems)
-                usedItems.remove(name)
+                search(slotIndex + 1, current)
                 current.remove(slot)
                 if (budget.exhausted() || stopSearch) return
             }
         }
 
-        search(0, seed.toMutableMap(), seed.values.map { it.first }.toMutableSet())
+        search(0, seed.toMutableMap())
         return best
     }
 

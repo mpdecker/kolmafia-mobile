@@ -173,6 +173,8 @@ data class CharacterState(
         get() = ascensionPath == AscensionPath.HAT_TRICK
     val inLegacyOfLoathing: Boolean
         get() = ascensionPath == AscensionPath.LEGACY_OF_LOATHING
+    val inKoLHS: Boolean
+        get() = ascensionPath == AscensionPath.KOLHS
     val inSeaPath: Boolean
         get() = ascensionPath == AscensionPath.UNDER_THE_SEA
     val isThrifty: Boolean
@@ -279,7 +281,11 @@ data class CharacterState(
     fun equippedItem(slot: EquipmentSlot): String? = equipment[slot]?.takeIf { it.isNotBlank() }
     fun isEquipped(slot: EquipmentSlot): Boolean   = equippedItem(slot) != null
     fun equippedItems(): List<Pair<EquipmentSlot, String>> =
-        equipment.entries.filter { it.value.isNotBlank() }.map { it.toPair() }
+        equipment.entries.filter {
+            it.value.isNotBlank() &&
+                it.key !in EquipmentSlot.SUB_SLOTS &&
+                it.key !in EquipmentSlot.CODPIECE_SLOTS
+        }.map { it.toPair() }
     val isUnarmed: Boolean get() = !isEquipped(EquipmentSlot.WEAPON) && !isEquipped(EquipmentSlot.OFFHAND)
 
     // ── Private helpers ───────────────────────────────────────────────────────

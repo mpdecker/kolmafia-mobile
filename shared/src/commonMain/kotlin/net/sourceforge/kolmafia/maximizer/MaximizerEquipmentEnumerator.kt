@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.maximizer
 
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
@@ -7,6 +8,7 @@ import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.equipment.Modeable
+import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * Builds desktop-style ranked equipment buckets from accessible candidate item IDs.
@@ -26,16 +28,22 @@ object MaximizerEquipmentEnumerator {
         autoContext: MaximizerAutoContext? = null,
         switchFamiliars: List<String> = emptyList(),
         familiarWeight: Int = 10,
+        charState: CharacterState? = null,
+        preferences: Preferences? = null,
     ): SlotList<MaximizerRankedItem> {
         val buckets = SlotList<MaximizerRankedItem>(switchFamiliars.size)
         val dualWield = spec.requireHands
 
         for (itemId in candidateIds) {
             val itemData = gameDatabase.item(itemId) ?: continue
+            if (charState != null && MaximizerSubSlotItems.skipFolderHolderEnumeration(charState, itemId)) {
+                continue
+            }
             if (!itemData.isEquipment) continue
             val checked = checkedItem(itemId)
             if (checked.totalCount() <= 0) continue
             if (!itemMeetsConstraints(itemData.name, spec)) continue
+            if (spec.evaluator.isNegEquip(itemData.name)) continue
             val entry = gameDatabase.itemModifier(itemData.name)
             val itemMods = if (entry != null) {
                 net.sourceforge.kolmafia.modifiers.ModifierParser.parse(entry.modifiers)
@@ -49,9 +57,23 @@ object MaximizerEquipmentEnumerator {
             }
 
             val score = scoreItem(itemData.name, spec.evaluator)
+            if (!passesZeroDeltaGate(
+                    score = score,
+                    itemName = itemData.name,
+                    checked = checked,
+                    automatic = false,
+                    evaluator = spec.evaluator,
+                    charState = charState,
+                )
+            ) {
+                continue
+            }
             val automatic = autoContext?.shouldPinAutomatic(itemData.name, itemMods) == true ||
                 Modeable.find(itemId) != null
-            val ranked = MaximizerRankedItem(itemId, itemData.name, score, checked, automatic)
+            var ranked = MaximizerRankedItem(itemId, itemData.name, score, checked, automatic)
+            ranked = MaximizerGarbageAuto.pinIfGarbage(
+                ranked, itemId, spec.evaluator, preferences,
+            )
 
             when (itemData.primaryUse) {
                 ItemPrimaryUse.WEAPON, ItemPrimaryUse.SIXGUN -> {
@@ -193,8 +215,8 @@ object MaximizerEquipmentEnumerator {
                 merged.add(item)
             }
         }
-        val pinned = merged.filter { it.automatic }
-        val scored = merged.filterNot { it.automatic }.take(limit)
+        val pinned = merged.filter { it.automatic || it.required }
+        val scored = merged.filterNot { it.automatic || it.required }.take(limit)
         return (pinned + scored).map { it.name to it.score }
     }
 
@@ -209,9 +231,29 @@ object MaximizerEquipmentEnumerator {
         val scored = mutableListOf<MaximizerRankedItem>()
         for (item in buckets.getFamiliar(familiarIndex)) {
             if (item.name in usedElsewhere) continue
-            if (item.automatic) pinned.add(item) else scored.add(item)
+            if (item.automatic || item.required) pinned.add(item) else scored.add(item)
         }
         return (pinned + scored.take(limit)).map { it.name to it.score }
+    }
+
+    private fun isCurrentlyEquipped(name: String, charState: CharacterState?): Boolean =
+        charState?.equipment?.values?.any { it.equals(name, ignoreCase = true) } == true
+
+    /** Desktop enumerateEquipment zero-delta filter (Phase 382). */
+    internal fun passesZeroDeltaGate(
+        score: Double,
+        itemName: String,
+        checked: MaximizerCheckedItem,
+        automatic: Boolean,
+        evaluator: Evaluator,
+        charState: CharacterState?,
+    ): Boolean {
+        if (score < 0.0) return false
+        if (score > 0.0) return true
+        val equipped = isCurrentlyEquipped(itemName, charState)
+        if (equipped) return evaluator.considerCurrent()
+        if (checked.initial == 0 && !automatic) return false
+        return !automatic
     }
 
     /** Update [MaximizerRankedItem.automatic] for every bucket entry matching [name]. */

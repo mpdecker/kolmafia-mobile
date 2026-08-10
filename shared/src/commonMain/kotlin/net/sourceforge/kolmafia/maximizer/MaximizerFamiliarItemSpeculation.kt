@@ -3,7 +3,6 @@ package net.sourceforge.kolmafia.maximizer
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.GameDatabase
-import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
@@ -33,7 +32,7 @@ object MaximizerFamiliarItemSpeculation {
         currentBest: Map<EquipmentSlot, Pair<String, Double>>,
         gameDatabase: GameDatabase,
         priceFor: ((String) -> Int)? = null,
-        modeOverrides: Map<Modeable, String> = emptyMap(),
+        scoring: MaximizerScoringOptions = MaximizerScoringOptions(),
         preferences: Preferences? = null,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         if (currentBest[EquipmentSlot.FAMILIAR]?.first?.isNotBlank() == true) return currentBest
@@ -41,13 +40,10 @@ object MaximizerFamiliarItemSpeculation {
         if (familiarCandidates.isEmpty() || budget.exhausted()) return currentBest
 
         var best = currentBest
-        var bestScore = MaximizerSpeculation.scoreLoadout(
-            baseState, best, spec.evaluator, familiarBonus, thrallBonus,
-            modeOverrides, preferences,
-        )
+        var bestScore = scoreAssignment(baseState, best, spec, familiarBonus, thrallBonus, scoring, preferences)
         var bestFailed = spec.evaluator.failed
         var bestTie = if (best.isNotEmpty()) {
-            MaximizerSpeculation.tiebreakerScore(baseState, best, modeOverrides, preferences)
+            tieAssignment(baseState, best, spec, scoring, preferences)
         } else {
             Double.NEGATIVE_INFINITY
         }
@@ -69,18 +65,20 @@ object MaximizerFamiliarItemSpeculation {
                 thrallBonus = thrallBonus,
                 seed = seed,
                 priceFor = priceFor,
-                modeOverrides = modeOverrides,
+                bestModes = scoring.bestModes,
+                carryFamiliars = scoring.carryFamiliars,
+                gameDatabase = gameDatabase,
+                cardInSleeve = scoring.cardInSleeve,
+                foldablesEnabled = scoring.foldablesEnabled,
+                countFor = scoring.countFor,
                 preferences = preferences,
             )
             if (result.isEmpty()) continue
 
-            val resultScore = MaximizerSpeculation.scoreLoadout(
-                baseState, result, spec.evaluator, familiarBonus, thrallBonus,
-                modeOverrides, preferences,
-            )
+            val resultScore = scoreAssignment(baseState, result, spec, familiarBonus, thrallBonus, scoring, preferences)
             val failed = spec.evaluator.failed
             if (failed) continue
-            val tie = MaximizerSpeculation.tiebreakerScore(baseState, result, modeOverrides, preferences)
+            val tie = tieAssignment(baseState, result, spec, scoring, preferences)
             val price = priceFor?.let { MaximizerSpeculation.assignmentPrice(result, it) } ?: Int.MAX_VALUE
             if (MaximizerSpeculation.isBetterLoadout(
                     resultScore, tie, price, failed,
@@ -115,5 +113,48 @@ object MaximizerFamiliarItemSpeculation {
             }
         }
         return count
+    }
+
+    private fun scoreAssignment(
+        baseState: CharacterState,
+        assignment: Map<EquipmentSlot, Pair<String, Double>>,
+        spec: MaximizeSpec,
+        familiarBonus: Double,
+        thrallBonus: Double,
+        scoring: MaximizerScoringOptions,
+        preferences: Preferences?,
+    ): Double {
+        val card = MaximizerCardSelection.cardForOffhand(
+            assignment[EquipmentSlot.OFFHAND]?.first, scoring.cardInSleeve, baseState,
+        )
+        return MaximizerSpeculation.scoreLoadout(
+            baseState, assignment, spec.evaluator, familiarBonus, thrallBonus,
+            bestModes = scoring.bestModes,
+            carryFamiliars = scoring.carryFamiliars,
+            gameDatabase = scoring.gameDatabase,
+            cardInSleeve = card,
+            preferences = preferences,
+            maxBeeosity = spec.maxBeeosity,
+        )
+    }
+
+    private fun tieAssignment(
+        baseState: CharacterState,
+        assignment: Map<EquipmentSlot, Pair<String, Double>>,
+        spec: MaximizeSpec,
+        scoring: MaximizerScoringOptions,
+        preferences: Preferences?,
+    ): Double {
+        val card = MaximizerCardSelection.cardForOffhand(
+            assignment[EquipmentSlot.OFFHAND]?.first, scoring.cardInSleeve, baseState,
+        )
+        return MaximizerSpeculation.tiebreakerScore(
+            baseState, assignment, spec.evaluator,
+            bestModes = scoring.bestModes,
+            carryFamiliars = scoring.carryFamiliars,
+            gameDatabase = scoring.gameDatabase,
+            cardInSleeve = card,
+            preferences = preferences,
+        )
     }
 }

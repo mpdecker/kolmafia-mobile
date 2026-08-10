@@ -1203,6 +1203,51 @@ class MaximizerManagerTest {
         assertTrue(result.success)
         assertEquals("bucket style", result.modeSwitched[Modeable.UMBRELLA])
         assertEquals(listOf(Modeable.UMBRELLA to "bucket style"), modeCalls)
-        assertTrue(equipCount >= 2, "expected initial equip + mustEquipAfterChange re-equip")
+        assertTrue(equipCount >= 1, "expected mode switch re-equip")
+    }
+
+    @Test
+    fun speculate_closetItemShowsUnclosetRetrieveChain() = runBlocking {
+        runBlocking { ModifierDatabase.load() }
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = when (id) {
+                1 -> ItemData(1, "myst hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String): ItemData? = when (name.lowercase()) {
+                "myst hat" -> item(1)
+                else -> null
+            }
+            override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+                "myst hat" -> ModifierEntry("Item", "myst hat", "Mysticality: +5")
+                else -> null
+            }
+        }.also {
+            EquipmentDatabase.registerForTest(1, EquipmentData("myst hat", 100, null, 0, "hat"))
+            it.syncTestItemModifiers("myst hat")
+        }
+        val closet = object : ClosetRequest(HttpClient(MockEngine { respond("ok") })) {
+            override suspend fun fetchContents(): Map<Int, Int> = mapOf(1 to 1)
+        }
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(db, inv, equip, character, closetRequest = closet)
+        val lines = mgr.speculate("mys")
+        assertTrue(
+            lines.any { it.contains("uncloset & equip HAT myst hat", ignoreCase = true) },
+            lines.toString(),
+        )
     }
 }

@@ -247,6 +247,7 @@ data class ExpressionContext(
             characterMaxHp = state.maxHp,
             characterMaxMp = state.maxMp,
             characterCurrentHp = state.currentHp,
+            mindControlLevel = state.mindControlLevel,
             equippedItemNames = state.equippedItems()
                 .map { it.second.lowercase() }
                 .filter { it.isNotBlank() }
