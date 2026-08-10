@@ -80,6 +80,14 @@ object LimitModeGates {
             -> false
         }
 
+    fun limitFamiliars(limitMode: String): Boolean =
+        when (normalize(limitMode)) {
+            Mode.SPELUNKY, Mode.BATMAN -> true
+            Mode.NONE, Mode.ED, Mode.UNKNOWN,
+            Mode.BIRD, Mode.ROACH, Mode.MOLE, Mode.ASTRAL,
+            -> false
+        }
+
     fun limitStorage(limitMode: String): Boolean =
         when (normalize(limitMode)) {
             Mode.SPELUNKY, Mode.BATMAN -> true

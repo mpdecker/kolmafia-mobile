@@ -42,9 +42,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.EffectDatabase
+import net.sourceforge.kolmafia.data.EffectData as StaticEffectData
+import net.sourceforge.kolmafia.data.EffectQuality
 import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.data.EquipmentData
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.SkillDefinition
+import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
+import net.sourceforge.kolmafia.effect.EffectManager
+import net.sourceforge.kolmafia.request.UneffectSkillEffectMap
+import net.sourceforge.kolmafia.skill.SkillCastRequest
+import net.sourceforge.kolmafia.skill.SkillData
+import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.skill.SkillType
 
 class MaximizerManagerTest {
 
@@ -52,6 +63,10 @@ class MaximizerManagerTest {
     fun cleanupCreatableFixtures() {
         ItemDatabase.resetForTest()
         ConcoctionDatabase.resetForTest()
+        EffectDatabase.resetForTest()
+        SkillDefinitionDatabase.resetForTest()
+        ModifierDatabase.resetForTest()
+        UneffectSkillEffectMap.rebuild()
     }
 
     private fun GameDatabase.syncTestItemModifiers(vararg names: String) {
@@ -1249,5 +1264,348 @@ class MaximizerManagerTest {
             lines.any { it.contains("uncloset & equip HAT myst hat", ignoreCase = true) },
             lines.toString(),
         )
+    }
+
+    @Test
+    fun speculate_equipOnlyFilter_omitsEffectBoosts() = runBlocking {
+        EffectDatabase.registerForTest(
+            StaticEffectData(
+                id = 93001,
+                name = "Manager Filter Food Buff",
+                image = "food.gif",
+                descId = "d93001",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "eat 1 manager filter food",
+            ),
+        )
+        ModifierDatabase.injectForTest("Effect", "Manager Filter Food Buff", "Muscle: +100")
+        ItemDatabase.registerForTest(
+            ItemData(
+                id = 9301,
+                name = "manager filter food",
+                descId = "d9301",
+                image = "food.gif",
+                primaryUse = ItemPrimaryUse.USABLE,
+                secondaryUses = emptySet(),
+                access = setOf('t'),
+                autosellPrice = 1,
+                plural = null,
+            ),
+        )
+        net.sourceforge.kolmafia.data.ConsumableDatabase.injectForTest(
+            net.sourceforge.kolmafia.data.ConsumableData(
+                name = "manager filter food",
+                type = net.sourceforge.kolmafia.data.ConsumableType.FOOD,
+                amount = 2,
+                levelReq = 1,
+                quality = net.sourceforge.kolmafia.data.ConsumableQuality.GOOD,
+                advMin = 1,
+                advMax = 1,
+                muscMin = 0,
+                muscMax = 0,
+                mystMin = 0,
+                mystMax = 0,
+                moxieMin = 0,
+                moxieMax = 0,
+                notes = "",
+            ),
+        )
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(9301 to InventoryItem(9301, "manager filter food", 1, ItemType.USABLE))),
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = ItemDatabase.getById(id)
+            override fun item(name: String): ItemData? = ItemDatabase.getByName(name)
+        }
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(
+            db,
+            inv,
+            equip,
+            character,
+        )
+        val lines = mgr.speculate("mus", filters = setOf(MaximizerFilterType.EQUIP))
+        assertFalse(
+            lines.any { it.contains("eat 1 manager filter food", ignoreCase = true) },
+            lines.joinToString("\n"),
+        )
+    }
+
+    @Test
+    fun speculate_castOnlyFilter_skipsEquipmentEnumeration() = runBlocking {
+        runBlocking { ModifierDatabase.load() }
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = StubDb().also {
+            it.syncTestItemModifiers("myst hat", "plain hat")
+        }
+        val closet = object : ClosetRequest(HttpClient(MockEngine { respond("ok") })) {
+            override suspend fun fetchContents(): Map<Int, Int> = mapOf(1 to 1)
+        }
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(db, inv, equip, character, closetRequest = closet)
+        val lines = mgr.speculate("mys", filters = setOf(MaximizerFilterType.CAST))
+        assertFalse(
+            lines.any { it.contains("uncloset & equip", ignoreCase = true) },
+            lines.joinToString("\n"),
+        )
+    }
+
+    @Test
+    fun speculate_maximizerIncludeAllPref_propagatesToNonEquipmentBoosts() = runBlocking {
+        ModifierDatabase.injectForTest("Horsery", "normal horse", "Initiative: +10")
+        val preferences = Preferences(MapSettings()).apply {
+            setBoolean("maximizerIncludeAll", true)
+        }
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = null
+            override fun item(name: String): ItemData? = null
+        }
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(
+            db,
+            inv,
+            equip,
+            character,
+            preferences = preferences,
+        )
+        val lines = mgr.speculate("init")
+        assertTrue(
+            lines.any { it.contains("get a horsery", ignoreCase = true) },
+            lines.joinToString("\n"),
+        )
+    }
+
+    @Test
+    fun maximize_castOnlyFilter_executesViaCliExecutor() = runBlocking {
+        EffectDatabase.registerForTest(
+            StaticEffectData(
+                id = 94001,
+                name = "Exec Cast Buff",
+                image = "cast.gif",
+                descId = "d94001",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "cast 1 Exec Cast Buff",
+            ),
+        )
+        ModifierDatabase.injectForTest("Effect", "Exec Cast Buff", "Muscle: +100")
+        SkillDefinitionDatabase.registerForTest(
+            SkillDefinition(
+                id = 94001,
+                name = "Exec Cast Buff",
+                image = "cast.gif",
+                tags = setOf("nc", "effect"),
+                mpCost = 10,
+                duration = 5,
+                isPassive = false,
+                isCombat = false,
+                isNonCombat = true,
+                isSong = false,
+            ),
+        )
+        UneffectSkillEffectMap.rebuild()
+        val client = HttpClient(MockEngine { respond("{}", HttpStatusCode.OK) })
+        val skills = SkillManager(client, SkillCastRequest(client), GameEventBus())
+        skills.learnLocalSkill(
+            SkillData(
+                id = 94001,
+                name = "Exec Cast Buff",
+                type = SkillType.NONCOMBAT,
+                mpCost = 10,
+                dailyLimit = 0,
+                timesCast = 0,
+            ),
+        )
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = ItemDatabase.getById(id)
+            override fun item(name: String): ItemData? = ItemDatabase.getByName(name)
+        }
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val commands = mutableListOf<String>()
+        val prefs = Preferences(MapSettings())
+        val mgr = MaximizerManager(
+            db,
+            inv,
+            equip,
+            character,
+            preferences = prefs,
+            skillManager = skills,
+            effectManager = EffectManager(client, GameEventBus()),
+        )
+        mgr.cliExecutor = { cmd ->
+            commands += cmd
+            true
+        }
+        val result = mgr.maximize("mus", filters = setOf(MaximizerFilterType.CAST))
+        assertTrue(result.success, "expected cast-only maximize success")
+        assertTrue(
+            commands.any { it.startsWith("cast 1 Exec Cast Buff") },
+            commands.joinToString(),
+        )
+    }
+
+    @Test
+    fun maximize_castOnlyFilter_succeedsWithoutEquipmentChange() = runBlocking {
+        EffectDatabase.registerForTest(
+            StaticEffectData(
+                id = 94002,
+                name = "Exec Cast Buff Two",
+                image = "cast.gif",
+                descId = "d94002",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "cast 1 Exec Cast Buff Two",
+            ),
+        )
+        ModifierDatabase.injectForTest("Effect", "Exec Cast Buff Two", "Muscle: +100")
+        SkillDefinitionDatabase.registerForTest(
+            SkillDefinition(
+                id = 94002,
+                name = "Exec Cast Buff Two",
+                image = "cast.gif",
+                tags = setOf("nc", "effect"),
+                mpCost = 10,
+                duration = 5,
+                isPassive = false,
+                isCombat = false,
+                isNonCombat = true,
+                isSong = false,
+            ),
+        )
+        UneffectSkillEffectMap.rebuild()
+        val client = HttpClient(MockEngine { respond("{}", HttpStatusCode.OK) })
+        val skills = SkillManager(client, SkillCastRequest(client), GameEventBus())
+        skills.learnLocalSkill(
+            SkillData(
+                id = 94002,
+                name = "Exec Cast Buff Two",
+                type = SkillType.NONCOMBAT,
+                mpCost = 10,
+                dailyLimit = 0,
+                timesCast = 0,
+            ),
+        )
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = ItemDatabase.getById(id)
+            override fun item(name: String): ItemData? = ItemDatabase.getByName(name)
+        }
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(
+            db,
+            inv,
+            equip,
+            character,
+            preferences = Preferences(MapSettings()),
+            skillManager = skills,
+            effectManager = EffectManager(client, GameEventBus()),
+        )
+        mgr.cliExecutor = { true }
+        val result = mgr.maximize("mus", filters = setOf(MaximizerFilterType.CAST))
+        assertTrue(result.success)
+        assertTrue(result.equipped.isEmpty())
+    }
+
+    @Test
+    fun maximize_includeAllHintBoost_skipsBlankCmd() = runBlocking {
+        ModifierDatabase.injectForTest("Horsery", "normal horse", "Initiative: +10")
+        val preferences = Preferences(MapSettings()).apply {
+            setBoolean("maximizerIncludeAll", true)
+        }
+        val character = KoLCharacter()
+        val inv = object : InventoryManager(
+            client = HttpClient(MockEngine { respond("ok") }),
+            eventBus = GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = null
+            override fun item(name: String): ItemData? = null
+        }
+        val equip = object : EquipmentRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            character = character,
+        ) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val commands = mutableListOf<String>()
+        val mgr = MaximizerManager(
+            db,
+            inv,
+            equip,
+            character,
+            preferences = preferences,
+        )
+        mgr.cliExecutor = { cmd ->
+            commands += cmd
+            true
+        }
+        mgr.maximize("init", filters = setOf(MaximizerFilterType.OTHER))
+        assertTrue(commands.isEmpty(), "hint-only boosts must not dispatch CLI")
     }
 }

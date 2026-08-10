@@ -266,6 +266,10 @@ class GameRuntimeLibrary(
         preferences?.let { DynamicItemModifierSync.applyCachedOverrides(it) }
         moodManager?.cliExecutor = { cmd -> dispatchCli(cmd, moodCliContext) }
         manaBurnManager?.cliExecutor = { cmd -> dispatchCli(cmd, moodCliContext) }
+        maximizerManager?.cliExecutor = { cmd ->
+            dispatchCli(cmd, moodCliContext)
+            true
+        }
         manaBurnManager?.accessibleCountProvider = { itemId ->
             val name = gameDatabase?.item(itemId)?.name
             if (name != null) physicalAccessibleCount(itemId, name) else 0
@@ -281,7 +285,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase390"
+        const val REVISION = "phase400"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 

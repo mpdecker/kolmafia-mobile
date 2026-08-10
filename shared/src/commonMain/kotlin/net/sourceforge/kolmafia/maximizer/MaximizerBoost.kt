@@ -23,4 +23,13 @@ data class MaximizerBoost(
 enum class MaximizerEquipScope {
     SPECULATE,
     EQUIP_NOW,
+    ;
+
+    companion object {
+        /** Desktop EquipScope.byIndex mapping for ASH 5-arg maximize. */
+        fun byIndex(index: Int): MaximizerEquipScope = when (index) {
+            -1 -> EQUIP_NOW
+            else -> SPECULATE
+        }
+    }
 }

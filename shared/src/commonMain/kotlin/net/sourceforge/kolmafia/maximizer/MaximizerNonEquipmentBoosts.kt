@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.data.ConsumableDatabase
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.data.EffectDefinitionProxy
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.RestrictedItemType
 import net.sourceforge.kolmafia.data.SkillDefinitionProxy
@@ -19,12 +20,22 @@ import net.sourceforge.kolmafia.mood.EffectGainGate
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.StandardRequest
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.skill.SkillManager
 
 /** Desktop Maximizer non-equipment boost pass (Phase 386–388: horsery/boombox/mcd/effects + noobcore absorb). */
 object MaximizerNonEquipmentBoosts {
 
     const val BOOMBOX_ITEM_ID = 9919
+    private const val DECK_OF_EVERY_CARD_ID = 8382
+    private const val REPLICA_DECK_ID = 11230
+    private const val SKELETON_ID = 5881
+    private const val GREAT_PANTS_ID = 4696
+    private const val REPLICA_GREAT_PANTS_ID = 11209
+    private const val SPACEGATE_BADGE_ID = 9404
+    private const val APRILING_BAND_HELMET_ID = 11565
+    private const val MAYAM_CALENDAR_ID = 11572
+    private val LOATHING_IDOL_MICROPHONE_IDS = listOf(11279, 11278, 11277, 11263)
 
     data class Context(
         val plan: MaximizerEmitSlot.Plan,
@@ -39,8 +50,10 @@ object MaximizerNonEquipmentBoosts {
         val carryFamiliars: List<String> = emptyList(),
         val thrallBonus: Double = 0.0,
         val skillManager: SkillManager? = null,
+        val familiarManager: FamiliarManager? = null,
         val standardRequest: StandardRequest? = null,
         val includeAll: Boolean = false,
+        val filters: Set<MaximizerFilterType> = MaximizerFilters.allEnabled(),
     )
 
     fun build(ctx: Context): List<MaximizerBoost> {
@@ -48,9 +61,11 @@ object MaximizerNonEquipmentBoosts {
         if (ctx.charState.inNoobcore) {
             boosts += MaximizerNoobcoreAbsorbBoosts.build(ctx)
         }
-        boosts += buildHorseryBoosts(ctx)
-        boosts += buildBoomBoxBoosts(ctx)
-        boosts += buildMcdBoosts(ctx)
+        if (MaximizerFilterType.OTHER in ctx.filters) {
+            boosts += buildHorseryBoosts(ctx)
+            boosts += buildBoomBoxBoosts(ctx)
+            boosts += buildMcdBoosts(ctx)
+        }
         boosts += buildEffectBoosts(ctx)
         return boosts.sorted()
     }
@@ -206,7 +221,7 @@ object MaximizerNonEquipmentBoosts {
                     Evaluator.Constraint.IRRELEVANT -> if (delta <= 0.0) continue
                     Evaluator.Constraint.MEETS -> Unit
                 }
-                val sources = EffectDefinitionProxy.getAllActions(effectDef.id)
+                val sources = effectSourcesForGain(ctx, effectDef)
                 if (sources.isEmpty()) {
                     if (!ctx.includeAll) continue
                     boosts += effectBoost(
@@ -217,6 +232,8 @@ object MaximizerNonEquipmentBoosts {
                     continue
                 }
                 for (source in sources) {
+                    if (source.startsWith("#") && !ctx.includeAll) continue
+                    if (!MaximizerFilters.allowsSource(source, ctx.filters)) continue
                     val boost = buildSourceBoost(
                         source,
                         effectDef.id,
@@ -250,6 +267,8 @@ object MaximizerNonEquipmentBoosts {
                     )
                     continue
                 }
+                if (source.startsWith("#") && !ctx.includeAll) continue
+                if (!MaximizerFilters.allowsSource(source, ctx.filters)) continue
                 buildSourceBoost(
                     source,
                     effectDef.id,
@@ -261,6 +280,20 @@ object MaximizerNonEquipmentBoosts {
             }
         }
         return boosts
+    }
+
+    private fun effectSourcesForGain(
+        ctx: Context,
+        effectDef: net.sourceforge.kolmafia.data.EffectData,
+    ): List<String> {
+        val sources = EffectDefinitionProxy.getAllActions(effectDef.id).toMutableList()
+        if (MaximizerFilterType.WISH in ctx.filters &&
+            !effectDef.attributes.any { it.equals("nohookah", ignoreCase = true) }
+        ) {
+            sources += "monkeypaw effect ${effectDef.name}"
+            sources += "genie effect ${effectDef.name}"
+        }
+        return sources
     }
 
     private fun buildSourceBoost(
@@ -442,7 +475,33 @@ object MaximizerNonEquipmentBoosts {
         )
 
     private fun itemIdFromSource(source: String, ctx: Context): Int? {
-        val parts = source.trim().split(Regex("\\s+"))
+        val trimmed = source.trim()
+        when {
+            trimmed.startsWith("gong ", ignoreCase = true) -> return ItemDatabase.GONG
+            trimmed.startsWith("skeleton ", ignoreCase = true) -> return SKELETON_ID
+            trimmed.startsWith("play", ignoreCase = true) -> {
+                if (ctx.inventoryCount(DECK_OF_EVERY_CARD_ID) > 0) return DECK_OF_EVERY_CARD_ID
+                if (ctx.charState.inLegacyOfLoathing && ctx.inventoryCount(REPLICA_DECK_ID) > 0) {
+                    return REPLICA_DECK_ID
+                }
+                return DECK_OF_EVERY_CARD_ID
+            }
+            trimmed.startsWith("gap ", ignoreCase = true) -> {
+                if (ctx.inventoryCount(GREAT_PANTS_ID) > 0) return GREAT_PANTS_ID
+                if (ctx.charState.inLegacyOfLoathing && ctx.inventoryCount(REPLICA_GREAT_PANTS_ID) > 0) {
+                    return REPLICA_GREAT_PANTS_ID
+                }
+                return GREAT_PANTS_ID
+            }
+            trimmed.startsWith("spacegate", ignoreCase = true) -> return SPACEGATE_BADGE_ID
+            trimmed.startsWith("aprilband ", ignoreCase = true) -> return APRILING_BAND_HELMET_ID
+            trimmed.startsWith("loathingidol ", ignoreCase = true) -> {
+                LOATHING_IDOL_MICROPHONE_IDS.firstOrNull { ctx.inventoryCount(it) > 0 }
+                    ?: LOATHING_IDOL_MICROPHONE_IDS.last()
+            }
+            trimmed.startsWith("mayam ", ignoreCase = true) -> return MAYAM_CALENDAR_ID
+        }
+        val parts = trimmed.split(Regex("\\s+"))
         if (parts.size < 2) return null
         val target = parts.drop(1).joinToString(" ")
         return itemIdFromTarget(target, ctx)
@@ -460,7 +519,8 @@ object MaximizerNonEquipmentBoosts {
         val token = qtyMatch?.groupValues?.get(2) ?: trimmed
         token.removePrefix("\u00B6").toIntOrNull()?.let { return it }
         token.removePrefix("[").removeSuffix("]").toIntOrNull()?.let { return it }
-        return ctx.gameDatabase.item(token)?.id
+        ctx.gameDatabase.item(token)?.id?.let { return it }
+        return BangPotionResolver.resolveItemId(token, ctx.preferences)
     }
 
     private fun itemNameFromTarget(target: String, ctx: Context): String? {

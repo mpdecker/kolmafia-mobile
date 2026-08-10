@@ -1080,7 +1080,10 @@ class GameRuntimeLibraryCliTest {
             ),
             character = character,
         ) {
-            override suspend fun speculate(goalText: String): List<String> =
+            override suspend fun speculate(
+                goalText: String,
+                filters: Set<net.sourceforge.kolmafia.maximizer.MaximizerFilterType>,
+            ): List<String> =
                 listOf("Hat: myst hat (5.0)", "Score: 0.0 -> 5.0")
         }
         val lib = GameRuntimeLibrary(maximizerManager = stubMaximizer)
