@@ -56,7 +56,11 @@ enum class MaximizerSlot {
             EquipmentSlot.FAMILIAR -> FAMILIAR
             EquipmentSlot.CONTAINER -> CONTAINER
             EquipmentSlot.CODPIECE1, EquipmentSlot.CODPIECE2, EquipmentSlot.CODPIECE3,
-            EquipmentSlot.CODPIECE4, EquipmentSlot.CODPIECE5,
+            EquipmentSlot.CODPIECE4, EquipmentSlot.CODPIECE5, EquipmentSlot.CARDSLEEVE,
+            EquipmentSlot.STICKER1, EquipmentSlot.STICKER2, EquipmentSlot.STICKER3,
+            EquipmentSlot.FOLDER1, EquipmentSlot.FOLDER2, EquipmentSlot.FOLDER3,
+            EquipmentSlot.FOLDER4, EquipmentSlot.FOLDER5,
+            EquipmentSlot.BOOTSKIN, EquipmentSlot.BOOTSPUR,
             -> null
         }
 

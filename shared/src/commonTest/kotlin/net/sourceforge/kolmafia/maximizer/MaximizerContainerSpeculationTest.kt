@@ -141,7 +141,7 @@ class MaximizerContainerSpeculationTest {
             budget = ComboBudget(20),
             currentBest = preset,
             gameDatabase = db,
-            foldablesEnabled = true,
+            scoring = MaximizerScoringOptions(foldablesEnabled = true),
         )
 
         assertNull(result.bestPerSlot[EquipmentSlot.CONTAINER])

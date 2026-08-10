@@ -10,6 +10,7 @@ import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.equipment.ModeableState
 import net.sourceforge.kolmafia.equipment.OutfitManager
+import net.sourceforge.kolmafia.maximizer.MaximizerSubSlotItems
 import net.sourceforge.kolmafia.effect.EffectData
 import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.math.ceil
@@ -40,6 +41,10 @@ class CurrentModifiers(
     private val passiveSkillNames: Set<String> = emptySet(),
     private val modeOverrides: Map<Modeable, String> = emptyMap(),
     private val preferences: Preferences? = null,
+    private val horseryOverride: String? = null,
+    private val boomBoxOverride: String? = null,
+    private val mindControlOverride: Int? = null,
+    private val customModifierOverlay: String? = null,
 ) {
     private val context: ExpressionContext by lazy {
         ExpressionContext.from(state, activeEffects, passiveSkillNames)
@@ -265,12 +270,39 @@ class CurrentModifiers(
             }
         }
 
-        // 1c. Crown of Thrones — enthroned familiar modifiers when crown is worn
+        // 1c. Folder holder folders (when folder holder is worn)
+        if (MaximizerSubSlotItems.hasFolderHolderEquipped(state)) {
+            for (slot in EquipmentSlot.folderSlotsFor(state.inKoLHS)) {
+                val folderName = state.equipment[slot]?.takeIf { it.isNotBlank() } ?: continue
+                val raw = ModifierDatabase.getItem(folderName)?.modifiers ?: continue
+                total = total + ModifierParser.parse(raw, ctxWithAccumulated())
+            }
+        }
+
+        // 1d. Sticker weapon stickers (when sticker weapon is in weapon slot)
+        if (MaximizerSubSlotItems.hasStickerWeaponEquipped(state)) {
+            for (slot in EquipmentSlot.STICKER_SLOTS) {
+                val stickerName = state.equipment[slot]?.takeIf { it.isNotBlank() } ?: continue
+                val raw = ModifierDatabase.getItem(stickerName)?.modifiers ?: continue
+                total = total + ModifierParser.parse(raw, ctxWithAccumulated())
+            }
+        }
+
+        // 1e. Cowboy boot attachments (when cowboy boots are worn)
+        if (MaximizerSubSlotItems.hasCowboyBootsEquipped(state)) {
+            for (slot in EquipmentSlot.BOOT_SLOTS) {
+                val attachmentName = state.equipment[slot]?.takeIf { it.isNotBlank() } ?: continue
+                val raw = ModifierDatabase.getItem(attachmentName)?.modifiers ?: continue
+                total = total + ModifierParser.parse(raw, ctxWithAccumulated())
+            }
+        }
+
+        // 1f. Crown of Thrones — enthroned familiar modifiers when crown is worn
         if (state.equippedItem(EquipmentSlot.HAT)?.equals(CROWN_OF_THRONES, ignoreCase = true) == true) {
             addThroneModifiers(state.enthronedFamiliarName, total, ctxWithAccumulated())?.let { total = it }
         }
 
-        // 1d. Buddy Bjorn — bjorned familiar modifiers when bjorn is worn
+        // 1g. Buddy Bjorn — bjorned familiar modifiers when bjorn is worn
         if (state.equippedItem(EquipmentSlot.CONTAINER)?.equals(BUDDY_BJORN, ignoreCase = true) == true) {
             addThroneModifiers(state.bjornedFamiliarName, total, ctxWithAccumulated())?.let { total = it }
         }
@@ -326,6 +358,34 @@ class CurrentModifiers(
             if (parts.isNotEmpty() && parts.all { part -> part in equippedLower }) {
                 total = total + ModifierParser.parse(synergy.modifiers, ctxWithAccumulated())
             }
+        }
+
+        // 9. Horsery (desktop Speculation.horsery)
+        val horseryName = horseryOverride?.takeIf { it.isNotBlank() }
+            ?: preferences?.getString("_horsery", "")?.takeIf { it.isNotBlank() }
+        if (!horseryName.isNullOrBlank()) {
+            val raw = ModifierDatabase.get("Horsery", horseryName)?.modifiers
+            if (raw != null) total = total + ModifierParser.parse(raw, ctxWithAccumulated())
+        }
+
+        // 10. BoomBox (desktop Speculation.boomBox)
+        val boomBoxSong = boomBoxOverride?.takeIf { it.isNotBlank() }
+            ?: preferences?.getString("boomBoxSong", "")?.takeIf { it.isNotBlank() }
+        if (!boomBoxSong.isNullOrBlank()) {
+            val raw = ModifierDatabase.get("BoomBox", boomBoxSong)?.modifiers
+            if (raw != null) total = total + ModifierParser.parse(raw, ctxWithAccumulated())
+        }
+
+        // 11. MCD (desktop addDouble MONSTER_LEVEL, MCD level)
+        val mcdLevel = mindControlOverride ?: state.mindControlLevel
+        total = total + ModifierValues(
+            doubles = mapOf(DoubleModifier.MONSTER_LEVEL to mcdLevel.toDouble()),
+        )
+
+        // 12. Custom overlay (desktop MaximizerSpeculation.setCustom — noobcore absorb)
+        val overlay = customModifierOverlay?.takeIf { it.isNotBlank() }
+        if (overlay != null) {
+            total = total + ModifierParser.parse(overlay, ctxWithAccumulated())
         }
 
         return total

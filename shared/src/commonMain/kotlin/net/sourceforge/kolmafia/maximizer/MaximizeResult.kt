@@ -14,4 +14,5 @@ data class MaximizeResult(
     val bjornifiedSwitched: String? = null,
     val thrallSwitched: String? = null,
     val modeSwitched: Map<Modeable, String> = emptyMap(),
+    val boosts: List<MaximizerBoost> = emptyList(),
 )

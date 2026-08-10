@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.maximizer.MaximizerSubSlotItems
 
 class KoLCharacter {
     private val _state = MutableStateFlow(CharacterState())
@@ -126,7 +127,7 @@ class KoLCharacter {
             moonDay = response.moonday.toIntOrNull() ?: 0,
 
             // Equipment
-            equipment = buildEquipmentMap(response),
+            equipment = buildEquipmentMap(response, prev.equipment),
             hatTrickHatIds = response.hats.mapNotNull { it.toIntOrNull() },
 
             isLoggedIn = true
@@ -258,7 +259,10 @@ class KoLCharacter {
         _state.value = CharacterState()
     }
 
-    private fun buildEquipmentMap(r: CharacterApiResponse): Map<EquipmentSlot, String> {
+    private fun buildEquipmentMap(
+        r: CharacterApiResponse,
+        prevEquipment: Map<EquipmentSlot, String>,
+    ): Map<EquipmentSlot, String> {
         val map = mutableMapOf<EquipmentSlot, String>()
         if (r.hat.isNotBlank())           map[EquipmentSlot.HAT]       = r.hat
         if (r.weapon.isNotBlank())        map[EquipmentSlot.WEAPON]    = r.weapon
@@ -275,6 +279,21 @@ class KoLCharacter {
             if (id <= 0) return@forEachIndexed
             val name = ItemDatabase.getById(id)?.name ?: return@forEachIndexed
             map[slot] = name
+        }
+        EquipmentSlot.STICKER_SLOTS.forEachIndexed { index, slot ->
+            val id = r.stickers.getOrNull(index) ?: 0
+            if (id <= 0) return@forEachIndexed
+            val name = ItemDatabase.getById(id)?.name ?: return@forEachIndexed
+            map[slot] = name
+        }
+        EquipmentSlot.FOLDER_SLOTS.forEachIndexed { index, slot ->
+            val folderIndex = r.folder_holder.getOrNull(index) ?: 0
+            val id = MaximizerSubSlotItems.folderItemIdFromIndex(folderIndex) ?: return@forEachIndexed
+            val name = ItemDatabase.getById(id)?.name ?: return@forEachIndexed
+            map[slot] = name
+        }
+        for (slot in EquipmentSlot.BOOT_SLOTS) {
+            prevEquipment[slot]?.takeIf { it.isNotBlank() }?.let { map[slot] = it }
         }
         return map
     }

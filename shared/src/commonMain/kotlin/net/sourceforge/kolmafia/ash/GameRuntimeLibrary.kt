@@ -105,6 +105,10 @@ import net.sourceforge.kolmafia.request.UneffectRemovableMaps
 import net.sourceforge.kolmafia.request.UntinkerRequest
 import net.sourceforge.kolmafia.request.ItemUseLimitsContext
 import net.sourceforge.kolmafia.request.ModeableRequest
+import net.sourceforge.kolmafia.request.HorseryRequest
+import net.sourceforge.kolmafia.request.BoomBoxRequest
+import net.sourceforge.kolmafia.request.MindControlRequest
+import net.sourceforge.kolmafia.request.AbsorbRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.PirateRealmSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
@@ -246,6 +250,10 @@ class GameRuntimeLibrary(
     internal val concoctionQueueRunner: net.sourceforge.kolmafia.session.ConcoctionQueueRunner? = null,
     internal val concoctionCreateRequest: net.sourceforge.kolmafia.request.ConcoctionCreateRequest? = null,
     internal val modeableRequest: ModeableRequest? = null,
+    internal val horseryRequest: HorseryRequest? = null,
+    internal val boomBoxRequest: BoomBoxRequest? = null,
+    internal val mindControlRequest: MindControlRequest? = null,
+    internal val absorbRequest: AbsorbRequest? = null,
 ) : RuntimeLibrary() {
 
     private val moodCliContext = object : AshRuntimeContext {
@@ -273,7 +281,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase380"
+        const val REVISION = "phase390"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -569,6 +577,30 @@ class GameRuntimeLibrary(
                 kotlinx.coroutines.runBlocking {
                     resolveUsableFamiliarRace(name)?.let { familiarManager?.setBjornified(it.race) }
                 }
+            }
+        },
+
+        // "horsery <horse>" — ride a horsery horse
+        Regex("^horsery\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val horse = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking {
+                horseryRequest?.ride(horse)?.onFailure { rt.print(it.message ?: "horsery failed") }
+            }
+        },
+
+        // "boombox <song>" — play a SongBoom track
+        Regex("^boombox\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val song = m.groupValues[1].trim()
+            kotlinx.coroutines.runBlocking {
+                boomBoxRequest?.play(song)?.onFailure { rt.print(it.message ?: "boombox failed") }
+            }
+        },
+
+        // "mcd <level>" — set mind control device level
+        Regex("^mcd\\s+(\\d+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val level = m.groupValues[1].toIntOrNull() ?: return@to
+            kotlinx.coroutines.runBlocking {
+                mindControlRequest?.setLevel(level)?.onFailure { rt.print(it.message ?: "mcd failed") }
             }
         },
 
@@ -1362,15 +1394,24 @@ class GameRuntimeLibrary(
             preferences?.setString(Preferences.USER_NOTE, m.groupValues[1])
         },
 
-        // absorb — refresh character state (Grey path sync)
-        Regex("^absorb$", RegexOption.IGNORE_CASE) to { _, rt ->
-            visitKolPage("charpane.php")
+        // absorb [item] — Gelatinous Noob absorb (no args: refresh count)
+        Regex("^absorb(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val params = m.groupValues[1].trim()
             kotlinx.coroutines.runBlocking {
-                characterRequest?.fetchCharacterState()?.onSuccess { resp ->
-                    character?.updateFromApiResponse(resp)
+                if (params.isEmpty()) {
+                    val request = absorbRequest
+                    if (request != null) {
+                        request.refreshAbsorbs()
+                            .onSuccess { rt.print(it.toString()) }
+                            .onFailure { rt.print(it.message ?: "absorb failed") }
+                    } else {
+                        rt.print((character?.state?.value?.absorbs ?: 0).toString())
+                    }
+                } else {
+                    absorbRequest?.absorb(params)
+                        ?.onFailure { rt.print(it.message ?: "absorb failed") }
                 }
             }
-            rt.print((character?.state?.value?.absorbs ?: 0).toString())
         },
 
         // version / cli — print mobile version string

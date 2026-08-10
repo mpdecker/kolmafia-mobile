@@ -49,4 +49,25 @@ data class MaximizerCheckedItem(
         if (price > storageMeat) newPullBuyable = 0
         return copy(mallBuyable = newMallBuyable, pullBuyable = newPullBuyable)
     }
+
+    /**
+     * Desktop Maximizer emit-time mall re-check for [MaximizerPriceLevel.ALL] when non-mall
+     * acquisition channels exist (initial/creatable/pull/NPC).
+     */
+    fun passesEmitMallCheck(
+        priceLevel: MaximizerPriceLevel,
+        maxPrice: Long?,
+        mallPrice: Long,
+        historicalPrice: Long,
+        tradeable: Boolean,
+    ): Boolean {
+        if (priceLevel != MaximizerPriceLevel.ALL || maxPrice == null) return true
+        val hasNonMallChannel = initial > 0 || creatable > 0 || pullable > 0 || npcBuyable > 0
+        if (!hasNonMallChannel) return true
+        if (!tradeable) return true
+        if (historicalPrice > maxPrice * 2) return false
+        if (mallPrice <= 0L) return true
+        return mallPrice <= maxPrice
+    }
 }
+

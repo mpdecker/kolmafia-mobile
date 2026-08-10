@@ -35,8 +35,7 @@ object MaximizerFamiliarSpeculation {
         buildCandidates: (familiarRace: String?, isSwitchPass: Boolean) -> Map<EquipmentSlot, List<Pair<String, Double>>>,
         scoreFamiliar: (String?) -> Double,
         priceFor: ((String) -> Int)? = null,
-        foldablesEnabled: Boolean = true,
-        modeOverrides: Map<Modeable, String> = emptyMap(),
+        scoring: MaximizerScoringOptions = MaximizerScoringOptions(),
         preferences: Preferences? = null,
     ): TryAllResult {
         val preferLowerPrice = spec.maxPrice != null && priceFor != null
@@ -57,10 +56,9 @@ object MaximizerFamiliarSpeculation {
                 scoreFamiliar = scoreFamiliar,
                 priceFor = priceFor,
                 preferLowerPrice = preferLowerPrice,
-                foldablesEnabled = foldablesEnabled,
                 usableEnthroneFamiliars = usableEnthroneFamiliars,
                 usableBjornFamiliars = usableBjornFamiliars,
-                modeOverrides = modeOverrides,
+                scoring = scoring,
                 preferences = preferences,
             )
         }
@@ -90,19 +88,16 @@ object MaximizerFamiliarSpeculation {
             scoreFamiliar = scoreFamiliar,
             priceFor = priceFor,
             preferLowerPrice = preferLowerPrice,
-            foldablesEnabled = foldablesEnabled,
             usableEnthroneFamiliars = usableEnthroneFamiliars,
             usableBjornFamiliars = usableBjornFamiliars,
-            modeOverrides = modeOverrides,
+            scoring = scoring,
             preferences = preferences,
         )
         var bestScore = scoreResult(
-            charState, spec, bestResult, thrallBonus, scoreFamiliar, modeOverrides, preferences,
+            charState, spec, bestResult, thrallBonus, scoreFamiliar, scoring, preferences,
         )
         var bestFailed = spec.evaluator.failed
-        var bestTie = MaximizerSpeculation.tiebreakerScore(
-            charState, bestResult.bestPerSlot, modeOverrides, preferences,
-        )
+        var bestTie = tieResult(charState, bestResult, spec, scoring, preferences)
         var bestPrice = priceFor?.let { MaximizerSpeculation.assignmentPrice(bestResult.bestPerSlot, it) } ?: Int.MAX_VALUE
 
         for ((familiarRace, isSwitchPass) in passes.drop(1)) {
@@ -122,20 +117,17 @@ object MaximizerFamiliarSpeculation {
                 scoreFamiliar = scoreFamiliar,
                 priceFor = priceFor,
                 preferLowerPrice = preferLowerPrice,
-                foldablesEnabled = foldablesEnabled,
                 usableEnthroneFamiliars = usableEnthroneFamiliars,
                 usableBjornFamiliars = usableBjornFamiliars,
-                modeOverrides = modeOverrides,
+                scoring = scoring,
                 preferences = preferences,
             )
             val score = scoreResult(
-                charState, spec, passResult, thrallBonus, scoreFamiliar, modeOverrides, preferences,
+                charState, spec, passResult, thrallBonus, scoreFamiliar, scoring, preferences,
             )
             val failed = spec.evaluator.failed
             if (failed) continue
-            val tie = MaximizerSpeculation.tiebreakerScore(
-                charState, passResult.bestPerSlot, modeOverrides, preferences,
-            )
+            val tie = tieResult(charState, passResult, spec, scoring, preferences)
             val price = priceFor?.let { MaximizerSpeculation.assignmentPrice(passResult.bestPerSlot, it) } ?: Int.MAX_VALUE
             if (MaximizerSpeculation.isBetterLoadout(
                     score, tie, price, failed,
@@ -159,13 +151,40 @@ object MaximizerFamiliarSpeculation {
         result: TryAllResult,
         thrallBonus: Double,
         scoreFamiliar: (String?) -> Double,
-        modeOverrides: Map<Modeable, String> = emptyMap(),
+        scoring: MaximizerScoringOptions,
         preferences: Preferences? = null,
     ): Double {
         val bonus = totalFamiliarBonus(result, scoreFamiliar)
+        val card = MaximizerCardSelection.cardForOffhand(
+            result.bestPerSlot[EquipmentSlot.OFFHAND]?.first, scoring.cardInSleeve, charState,
+        )
         return MaximizerSpeculation.scoreLoadout(
             charState, result.bestPerSlot, spec.evaluator, bonus, thrallBonus,
-            modeOverrides, preferences,
+            bestModes = scoring.bestModes,
+            carryFamiliars = scoring.carryFamiliars,
+            gameDatabase = scoring.gameDatabase,
+            cardInSleeve = card,
+            preferences = preferences,
+        )
+    }
+
+    private fun tieResult(
+        charState: CharacterState,
+        result: TryAllResult,
+        spec: MaximizeSpec,
+        scoring: MaximizerScoringOptions,
+        preferences: Preferences?,
+    ): Double {
+        val card = MaximizerCardSelection.cardForOffhand(
+            result.bestPerSlot[EquipmentSlot.OFFHAND]?.first, scoring.cardInSleeve, charState,
+        )
+        return MaximizerSpeculation.tiebreakerScore(
+            charState, result.bestPerSlot, spec.evaluator,
+            bestModes = scoring.bestModes,
+            carryFamiliars = scoring.carryFamiliars,
+            gameDatabase = scoring.gameDatabase,
+            cardInSleeve = card,
+            preferences = preferences,
         )
     }
 
@@ -194,10 +213,9 @@ object MaximizerFamiliarSpeculation {
         scoreFamiliar: (String?) -> Double,
         priceFor: ((String) -> Int)?,
         preferLowerPrice: Boolean,
-        foldablesEnabled: Boolean,
         usableEnthroneFamiliars: List<String>,
         usableBjornFamiliars: List<String>,
-        modeOverrides: Map<Modeable, String> = emptyMap(),
+        scoring: MaximizerScoringOptions,
         preferences: Preferences? = null,
     ): TryAllResult {
         val familiarBonus = scoreFamiliar(familiarRace)
@@ -214,7 +232,7 @@ object MaximizerFamiliarSpeculation {
             familiarBonus = familiarBonus,
             thrallBonus = thrallBonus,
             priceFor = priceFor,
-            modeOverrides = modeOverrides,
+            scoring = scoring,
             preferences = preferences,
         )
         bestPerSlot = MaximizerFamiliarItemSpeculation.tryFamiliarItems(
@@ -228,7 +246,7 @@ object MaximizerFamiliarSpeculation {
             currentBest = bestPerSlot,
             gameDatabase = gameDatabase,
             priceFor = priceFor,
-            modeOverrides = modeOverrides,
+            scoring = scoring,
             preferences = preferences,
         )
         val containerResult = MaximizerContainerSpeculation.tryContainers(
@@ -242,10 +260,9 @@ object MaximizerFamiliarSpeculation {
             currentBest = bestPerSlot,
             gameDatabase = gameDatabase,
             priceFor = priceFor,
-            foldablesEnabled = foldablesEnabled,
             usableBjornFamiliars = usableBjornFamiliars,
             scoreFamiliar = scoreFamiliar,
-            modeOverrides = modeOverrides,
+            scoring = scoring,
             preferences = preferences,
         )
         bestPerSlot = containerResult.bestPerSlot
@@ -260,11 +277,10 @@ object MaximizerFamiliarSpeculation {
             currentBest = bestPerSlot,
             gameDatabase = gameDatabase,
             priceFor = priceFor,
-            foldablesEnabled = foldablesEnabled,
             usableEnthroneFamiliars = usableEnthroneFamiliars,
             activeBjornRace = containerResult.bjornifiedRace,
             scoreFamiliar = scoreFamiliar,
-            modeOverrides = modeOverrides,
+            scoring = scoring,
             preferences = preferences,
         )
         bestPerSlot = hatResult.bestPerSlot
@@ -277,8 +293,13 @@ object MaximizerFamiliarSpeculation {
             thrallBonus,
             bestPerSlot,
             priceFor,
-            modeOverrides,
-            preferences,
+            bestModes = scoring.bestModes,
+            carryFamiliars = scoring.carryFamiliars,
+            gameDatabase = gameDatabase,
+            cardInSleeve = scoring.cardInSleeve,
+            foldablesEnabled = scoring.foldablesEnabled,
+            countFor = scoring.countFor,
+            preferences = preferences,
         )
         if (speculated.isNotEmpty()) {
             bestPerSlot = speculated

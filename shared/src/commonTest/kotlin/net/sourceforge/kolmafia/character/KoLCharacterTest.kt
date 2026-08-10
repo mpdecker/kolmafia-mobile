@@ -159,4 +159,60 @@ class KoLCharacterTest {
             ItemDatabase.resetForTest()
         }
     }
+
+    @Test
+    fun updateFromApiResponse_mapsStickerAndFolderSubSlots() {
+        val sticker = ItemData(
+            id = 9001,
+            name = "test sticker",
+            descId = "desc9001",
+            image = "sticker.gif",
+            primaryUse = ItemPrimaryUse.ACCESSORY,
+            secondaryUses = emptySet(),
+            access = emptySet(),
+            autosellPrice = 0,
+            plural = null,
+        )
+        val folder = ItemData(
+            id = 6618,
+            name = "folder (0)",
+            descId = "desc6618",
+            image = "folder.gif",
+            primaryUse = ItemPrimaryUse.ACCESSORY,
+            secondaryUses = emptySet(),
+            access = emptySet(),
+            autosellPrice = 0,
+            plural = null,
+        )
+        ItemDatabase.registerForTest(sticker)
+        ItemDatabase.registerForTest(folder)
+        try {
+            val character = KoLCharacter()
+            character.updateFromApiResponse(
+                CharacterApiResponse(
+                    name = "SubSlotPlayer",
+                    stickers = listOf(9001, 0, 0),
+                    folder_holder = listOf(1, 0, 0, 0, 0),
+                ),
+            )
+            val equipment = character.state.value.equipment
+            assertEquals(sticker.name, equipment[EquipmentSlot.STICKER1])
+            assertEquals(folder.name, equipment[EquipmentSlot.FOLDER1])
+        } finally {
+            ItemDatabase.resetForTest()
+        }
+    }
+
+    @Test
+    fun updateFromApiResponse_preservesBootSubSlotsOnRefresh() {
+        val character = KoLCharacter()
+        character.updateFromApiResponse(
+            CharacterApiResponse(name = "BootPlayer", acc1 = "cowboy boots"),
+        )
+        character.updateEquipment(EquipmentSlot.BOOTSKIN, "snakeskin bootskin")
+        character.updateFromApiResponse(
+            CharacterApiResponse(name = "BootPlayer", acc1 = "cowboy boots"),
+        )
+        assertEquals("snakeskin bootskin", character.state.value.equipment[EquipmentSlot.BOOTSKIN])
+    }
 }
