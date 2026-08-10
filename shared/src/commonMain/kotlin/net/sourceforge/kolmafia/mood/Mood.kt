@@ -5,6 +5,7 @@ data class Mood(
     val name: String,
     val triggers: List<MoodTrigger> = emptyList(),
     val parentNames: List<String> = emptyList(),
+    val removalTriggers: List<MoodRemovalTrigger> = emptyList(),
 ) {
     /** Desktop-compatible display string, e.g. `"run extends default"`. */
     fun displayName(): String {
@@ -45,6 +46,39 @@ data class Mood(
     ) {
         val effectIds = replacements.map { it.effectId }.toSet()
         merged.removeAll { it.effectId in effectIds }
+    }
+
+    /**
+     * Merged removal trigger list: parent moods first, child overrides same type+effectName.
+     */
+    fun effectiveRemovalTriggers(
+        library: Map<String, Mood>,
+        visiting: MutableSet<String> = mutableSetOf(),
+    ): List<MoodRemovalTrigger> {
+        if (name.isNotEmpty() && name in visiting) return emptyList()
+        val nextVisiting = visiting.toMutableSet()
+        if (name.isNotEmpty()) nextVisiting += name
+
+        val merged = mutableListOf<MoodRemovalTrigger>()
+        for (parentName in parentNames) {
+            if (parentName in nextVisiting) continue
+            val parentMood = library[parentName]
+            val parentTriggers = parentMood?.effectiveRemovalTriggers(library, nextVisiting)
+                ?: emptyList()
+            removeRemovalTriggersForEffects(merged, parentTriggers)
+            merged.addAll(parentTriggers)
+        }
+        removeRemovalTriggersForEffects(merged, removalTriggers)
+        merged.addAll(removalTriggers)
+        return merged
+    }
+
+    private fun removeRemovalTriggersForEffects(
+        merged: MutableList<MoodRemovalTrigger>,
+        replacements: List<MoodRemovalTrigger>,
+    ) {
+        val keys = replacements.map { it.type to it.effectName.lowercase() }.toSet()
+        merged.removeAll { (it.type to it.effectName.lowercase()) in keys }
     }
 
     companion object {

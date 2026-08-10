@@ -10,11 +10,12 @@ import net.sourceforge.kolmafia.skill.SkillState
  * ASH-P119 behavioral batch — mood_execute + zodiac sign booleans.
  */
 internal fun GameRuntimeLibrary.registerAshP119Batch(scope: AshScope) {
-    regFn(scope, "mood_execute", AshType.VOID, listOf("multiplicity" to AshType.INT)) { _, _ ->
+    regFn(scope, "mood_execute", AshType.VOID, listOf("multiplicity" to AshType.INT)) { _, args ->
         if (recoveryManager?.isRecoveryActive == true || moodManager?.isExecuting() == true) {
             return@regFn AshValue.VOID
         }
         val mood = moodManager ?: return@regFn AshValue.VOID
+        val multiplicity = args[0].toLong().toInt()
         runBlocking {
             mood.checkpointedExecute(
                 effectState = effectManager?.state?.value ?: EffectState(),
@@ -23,6 +24,7 @@ internal fun GameRuntimeLibrary.registerAshP119Batch(scope: AshScope) {
                 character = character,
                 equipmentRequest = equipmentRequest,
                 gameDatabase = gameDatabase,
+                multiplicity = multiplicity,
             )
         }
         AshValue.VOID

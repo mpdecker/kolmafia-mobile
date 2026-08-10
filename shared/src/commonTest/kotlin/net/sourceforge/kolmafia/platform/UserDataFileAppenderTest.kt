@@ -5,6 +5,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class UserDataFileAppenderTest {
@@ -33,5 +34,17 @@ class UserDataFileAppenderTest {
         val file = File(tempDir, "nested/test.txt")
         assertTrue(file.exists())
         assertEquals("line-one\nline-two\n", file.readText())
+    }
+
+    @Test
+    fun readText_returnsNullWhenMissing() {
+        assertNull(UserDataFileIO.readText("missing.txt"))
+    }
+
+    @Test
+    fun writeText_overwritesExistingContent() {
+        UserDataFileIO.writeText("moods/testuser_moods.txt", "[ default ]\n")
+        UserDataFileIO.writeText("moods/testuser_moods.txt", "updated\n")
+        assertEquals("updated\n", UserDataFileIO.readText("moods/testuser_moods.txt"))
     }
 }

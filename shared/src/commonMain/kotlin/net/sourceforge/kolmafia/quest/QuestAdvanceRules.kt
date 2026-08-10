@@ -87,6 +87,8 @@ object QuestAdvanceRules {
         Rule(Quest.EGO.prefKey, "step5", "trapdoor to Fernswarthy's basement"),
         Rule(Quest.EGO.prefKey, "step6", "dusty old book"),
         Rule(Quest.EGO.prefKey, QuestDatabase.FINISHED, "turned in the old book"),
+        Rule(Quest.EGO.prefKey, QuestDatabase.FINISHED, "Manual of Labor"),
+        Rule(Quest.EGO.prefKey, QuestDatabase.FINISHED, "Manual of Transmission"),
         Rule(Quest.EGO.prefKey, QuestDatabase.FINISHED, "Manual of Dexterity"),
         Rule(Quest.NEMESIS.prefKey, QuestDatabase.STARTED, "The Tomb is within the Misspelled"),
         Rule(Quest.NEMESIS.prefKey, QuestDatabase.STARTED, "not recovered the Epic Weapon yet"),

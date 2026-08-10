@@ -10,8 +10,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import com.russhwolf.settings.MapSettings
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -30,7 +32,8 @@ class SkillManagerTest {
 
     private fun makeManager(
         skillsResponse: String = skillsJson,
-        castResponseBody: String = "<html>You cast the skill!</html>"
+        castResponseBody: String = "<html>You cast the skill!</html>",
+        preferences: Preferences? = null,
     ): Pair<SkillManager, GameEventBus> {
         val engine = MockEngine { request ->
             when {
@@ -47,7 +50,7 @@ class SkillManagerTest {
             install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
         }
         val bus = GameEventBus()
-        return SkillManager(client, SkillCastRequest(client), bus) to bus
+        return SkillManager(client, SkillCastRequest(client), bus, preferences) to bus
     }
 
     @Test
@@ -119,5 +122,23 @@ class SkillManagerTest {
     fun initialState_isEmpty() {
         val (manager, _) = makeManager()
         assertTrue(manager.state.value.skills.isEmpty())
+    }
+
+    @Test
+    fun castLibramSkill_incrementsLibramSummonsPref() = runTest {
+        val p = MapSettings()
+        p.putInt(Preferences.LIBRAM_SUMMONS, 2)
+        val prefs = Preferences(p)
+        val libramJson = """
+            {
+              "7219": {"name": "Summon Candy Heart", "type": 5, "dailylimit": 0, "timescast": 0, "mpcost": 1}
+            }
+        """.trimIndent()
+        val (manager, _) = makeManager(skillsResponse = libramJson, preferences = prefs)
+        manager.fetchSkills()
+        val skill = manager.state.value.skills.first { it.id == 7219 }
+        val result = manager.cast(skill, 3)
+        assertTrue(result.isSuccess)
+        assertEquals(5, prefs.getInt(Preferences.LIBRAM_SUMMONS, 0))
     }
 }

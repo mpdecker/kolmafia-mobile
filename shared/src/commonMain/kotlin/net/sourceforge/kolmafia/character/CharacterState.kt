@@ -141,6 +141,13 @@ data class CharacterState(
     val className: String                  get() = characterClassEnum.displayName
     val mainStat: MainStat                 get() = characterClassEnum.mainStat
 
+    val isSealClubber: Boolean get() = characterClassEnum == CharacterClass.SEAL_CLUBBER
+    val isTurtleTamer: Boolean get() = characterClassEnum == CharacterClass.TURTLE_TAMER
+    val isPastamancer: Boolean get() = characterClassEnum == CharacterClass.PASTAMANCER
+    val isSauceror: Boolean get() = characterClassEnum == CharacterClass.SAUCEROR
+    val isDiscoBandit: Boolean get() = characterClassEnum == CharacterClass.DISCO_BANDIT
+    val isAccordionThief: Boolean get() = characterClassEnum == CharacterClass.ACCORDION_THIEF
+
     // ── Computed: ascension path ──────────────────────────────────────────────
     val ascensionPath: AscensionPath get() = AscensionPath.fromApiString(challengePath)
 

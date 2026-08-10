@@ -94,6 +94,14 @@ object OutfitDatabase {
         _customByName.clear()
     }
 
+    internal fun resetForTest() {
+        _byId.clear()
+        _byName.clear()
+        _customById.clear()
+        _customByName.clear()
+        loaded = false
+    }
+
     /** Registers a static outfit entry (for tests). */
     fun registerStatic(outfit: OutfitData) {
         require(outfit.id > 0) { "Static outfit ids must be positive" }

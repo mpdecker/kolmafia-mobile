@@ -38,6 +38,9 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
 
     fun getHistoricalPrice(itemId: Int): Long = getCachedPrice(itemId)?.price ?: 0L
 
+    /** Desktop MallPriceManager.getMallPrice — cached mall listing price after prefetch. */
+    fun getMallPrice(itemId: Int): Long = getHistoricalPrice(itemId)
+
     /** Seconds since the cached price was recorded; -1 if unknown or expired. */
     fun getHistoricalAge(itemId: Int): Long {
         val entry = cache[itemId] ?: return -1L

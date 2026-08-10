@@ -598,6 +598,7 @@ val sharedModule = module {
             familiarManager  = get(),
             goalManager      = get(),
             moodManager      = get(),
+            manaBurnManager  = get(),
             preferences      = get(),
             gameDatabase     = get(),
             useItemRequest   = get(),

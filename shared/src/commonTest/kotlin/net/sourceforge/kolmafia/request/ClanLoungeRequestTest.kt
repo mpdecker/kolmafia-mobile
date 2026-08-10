@@ -167,4 +167,22 @@ class ClanLoungeRequestTest {
         val client = HttpClient(MockEngine { respond("err", HttpStatusCode.InternalServerError) })
         assertTrue(ClanLoungeRequest(client).visitHotDogStand().isFailure)
     }
+
+    @Test fun useHotTub_sendsHottubAction() = runTest {
+        var url = ""
+        val client = HttpClient(MockEngine { req ->
+            url = req.url.toString()
+            respond("tub html")
+        })
+        val result = ClanLoungeRequest(client).useHotTub()
+        assertTrue(result.isSuccess)
+        assertTrue(url.contains("clan_viplounge.php"), "url=$url")
+    }
+
+    @Test fun useHotTub_parsesHotTubSoaksPref() = runTest {
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+        val client = HttpClient(MockEngine { respond("""<img src="hottub3.gif">""") })
+        ClanLoungeRequest(client).useHotTub(preferences = prefs)
+        assertEquals(2, prefs.getInt(net.sourceforge.kolmafia.clan.ClanLoungeSync.HOT_TUB_SOAKS_PREF, -1))
+    }
 }

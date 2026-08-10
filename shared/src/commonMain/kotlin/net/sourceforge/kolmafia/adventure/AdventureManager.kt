@@ -420,7 +420,14 @@ class AdventureManager(
                 it, result.monster, result.won, result.itemsGained, itemIdsGained,
                 preferences, location.id,
             )
-            QuestItemRules.applyItemsGained(result.itemsGained, it)
+            QuestItemRules.applyItemsGained(
+                result.itemsGained,
+                it,
+                hasItemId = { id -> inventory?.state?.value?.items?.containsKey(id) == true },
+                consumeItem = { itemId, quantity ->
+                    inventory?.consumeItemLocally(itemId, quantity)
+                },
+            )
         }
         emitItemEvents(result.itemsGained)
         if (preferences.getString(Preferences.LAST_LOCATION, "").contains("Shadow Rift", ignoreCase = true)) {

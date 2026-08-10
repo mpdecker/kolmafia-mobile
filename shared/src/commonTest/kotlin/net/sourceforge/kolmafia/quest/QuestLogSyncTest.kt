@@ -132,15 +132,164 @@ class QuestLogSyncTest {
     }
 
     @Test
+    fun applyFactoryTurnIn_consumesEnvelopeViaCallback() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.FACTORY, QuestDatabase.STARTED)
+        var consumed: Pair<Int, Int>? = null
+        QuestLogSync.applyFactoryTurnIn(
+            db,
+            QuestLogSync.QuestSyncContext(
+                hasItemId = { it == QuestLogSync.FACTORY_ENVELOPE_ID },
+                consumeItem = { itemId, quantity -> consumed = itemId to quantity },
+            ),
+        )
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.FACTORY))
+        assertEquals(QuestLogSync.FACTORY_ENVELOPE_ID to 1, consumed)
+    }
+
+    @Test
+    fun applyDerivedQuestStatus_meatcarFinished_setsLastDesertUnlock() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.MEATCAR, QuestDatabase.FINISHED)
+        QuestLogSync.applyDerivedQuestStatus(db, prefs, ascensionNumber = 9)
+        assertEquals(9, prefs.getInt("lastDesertUnlock", -1))
+    }
+
+    @Test
     fun applyPlaceHooks_egoKeyTurnInAtGuild() {
         val db = QuestDatabase(Preferences(MapSettings()))
         db.setProgress(Quest.EGO, QuestDatabase.STARTED)
+        var consumed: Pair<Int, Int>? = null
         val context = QuestLogSync.QuestSyncContext(
             hasItemId = { it == QuestLogSync.FERNSWARTHY_KEY_ID },
             place = "ocg",
+            consumeItem = { itemId, quantity -> consumed = itemId to quantity },
         )
-        QuestLogSync.applyPlaceHooks("ocg", db, context)
+        QuestLogSync.applyPlaceHooks(
+            "ocg",
+            db,
+            context,
+            html = "looks surprised as you hand over Fernswarthy's key.",
+        )
         assertEquals("step1", db.getProgress(Quest.EGO))
+        assertEquals(QuestLogSync.FERNSWARTHY_KEY_ID to 1, consumed)
+    }
+
+    @Test
+    fun applyEgoKeyTurnIn_withoutTurnInHtml_doesNotAdvanceOrConsume() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.EGO, QuestDatabase.STARTED)
+        var consumed = false
+        QuestLogSync.applyEgoKeyTurnIn(
+            db,
+            QuestLogSync.QuestSyncContext(
+                hasItemId = { it == QuestLogSync.FERNSWARTHY_KEY_ID },
+                place = "ocg",
+                consumeItem = { _, _ -> consumed = true },
+            ),
+            html = "Welcome to the guild.",
+        )
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.EGO))
+        assertEquals(false, consumed)
+    }
+
+    @Test
+    fun applyEgoBookTurnIn_step6WithManualHtml_finishesAndConsumes() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.EGO, "step6")
+        val consumed = mutableListOf<Pair<Int, Int>>()
+        QuestLogSync.applyEgoBookTurnIn(
+            db,
+            QuestLogSync.QuestSyncContext(
+                hasItemId = {
+                    it == QuestLogSync.DUSTY_BOOK_ID || it == QuestLogSync.FERNSWARTHY_KEY_ID
+                },
+                place = "ocg",
+                consumeItem = { itemId, quantity -> consumed += itemId to quantity },
+            ),
+            html = "You receive a Manual of Dexterity.",
+        )
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.EGO))
+        assertEquals(
+            listOf(
+                QuestLogSync.DUSTY_BOOK_ID to 1,
+                QuestLogSync.FERNSWARTHY_KEY_ID to 1,
+            ),
+            consumed,
+        )
+    }
+
+    @Test
+    fun applyEgoBookTurnIn_wrongStep_doesNotConsume() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.EGO, "step5")
+        var consumed = false
+        QuestLogSync.applyEgoBookTurnIn(
+            db,
+            QuestLogSync.QuestSyncContext(
+                hasItemId = { it == QuestLogSync.DUSTY_BOOK_ID },
+                place = "ocg",
+                consumeItem = { _, _ -> consumed = true },
+            ),
+            html = "Manual of Labor for you.",
+        )
+        assertEquals("step5", db.getProgress(Quest.EGO))
+        assertEquals(false, consumed)
+    }
+
+    @Test
+    fun applyEgoBookTurnIn_withoutManualHtml_doesNotConsume() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.EGO, "step6")
+        var consumed = false
+        QuestLogSync.applyEgoBookTurnIn(
+            db,
+            QuestLogSync.QuestSyncContext(
+                hasItemId = { it == QuestLogSync.DUSTY_BOOK_ID },
+                place = "ocg",
+                consumeItem = { _, _ -> consumed = true },
+            ),
+            html = "Welcome to the Other Class Guild.",
+        )
+        assertEquals("step6", db.getProgress(Quest.EGO))
+        assertEquals(false, consumed)
+    }
+
+    @Test
+    fun applyGuildChallengeTurnIn_sausage_finishesMuscleAndConsumes() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.MUSCLE, QuestDatabase.STARTED)
+        var consumed: Pair<Int, Int>? = null
+        QuestLogSync.applyGuildChallengeTurnIn(
+            db,
+            QuestLogSync.QuestSyncContext(
+                hasItemId = { it == QuestItemRules.BIG_KNOB_SAUSAGE_ID },
+                place = "challenge",
+                consumeItem = { itemId, quantity -> consumed = itemId to quantity },
+            ),
+            html = "\"Eleven inches!\" he exclaims.",
+        )
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.MUSCLE))
+        assertEquals(QuestItemRules.BIG_KNOB_SAUSAGE_ID to 1, consumed)
+    }
+
+    @Test
+    fun applyGuildChallengeTurnIn_sandwich_finishesMystAndConsumes() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        db.setProgress(Quest.MYST, QuestDatabase.STARTED)
+        var consumed: Pair<Int, Int>? = null
+        QuestLogSync.applyGuildChallengeTurnIn(
+            db,
+            QuestLogSync.QuestSyncContext(
+                hasItemId = { it == QuestItemRules.EXORCISED_SANDWICH_ID },
+                place = "challenge",
+                consumeItem = { itemId, quantity -> consumed = itemId to quantity },
+            ),
+            html = "You show him the captured poltersandwich.",
+        )
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.MYST))
+        assertEquals(QuestItemRules.EXORCISED_SANDWICH_ID to 1, consumed)
     }
 
     @Test

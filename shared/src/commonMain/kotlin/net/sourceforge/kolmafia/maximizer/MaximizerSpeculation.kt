@@ -3,8 +3,6 @@ package net.sourceforge.kolmafia.maximizer
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.GameDatabase
-import net.sourceforge.kolmafia.data.ItemData
-import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 
@@ -14,7 +12,7 @@ import net.sourceforge.kolmafia.modifiers.DoubleModifier
  */
 object MaximizerSpeculation {
 
-    private val searchSlots = listOf(
+    internal val searchSlots = listOf(
         EquipmentSlot.HAT,
         EquipmentSlot.WEAPON,
         EquipmentSlot.OFFHAND,
@@ -29,12 +27,9 @@ object MaximizerSpeculation {
     fun scoreLoadout(
         baseState: CharacterState,
         assignment: Map<EquipmentSlot, Pair<String, Double>>,
-        modifier: DoubleModifier,
+        evaluator: Evaluator,
         familiarBonus: Double = 0.0,
         thrallBonus: Double = 0.0,
-        itemScorer: ((String, DoubleModifier) -> Double)? = null,
-        isFamiliarCarriedItem: (String) -> Boolean = { false },
-        familiarCarryScorer: ((String, DoubleModifier) -> Double)? = null,
     ): Double {
         val equipment = buildMap {
             for (slot in searchSlots) {
@@ -43,35 +38,8 @@ object MaximizerSpeculation {
                 if (!name.isNullOrBlank()) put(slot, name)
             }
         }
-        val state = baseState.copy(equipment = equipment)
-        var equipmentScore = CurrentModifiers(state).values.get(modifier)
-        if (equipmentScore == 0.0 && itemScorer != null) {
-            equipmentScore = assignment.entries.sumOf { (slot, pair) ->
-                val name = pair.first
-                if (name.isBlank()) 0.0
-                else scoreAssignmentItem(
-                    slot, name, modifier, itemScorer, isFamiliarCarriedItem, familiarCarryScorer,
-                )
-            }
-        }
-        return equipmentScore + familiarBonus + thrallBonus
-    }
-
-    private fun scoreAssignmentItem(
-        slot: EquipmentSlot,
-        name: String,
-        modifier: DoubleModifier,
-        itemScorer: (String, DoubleModifier) -> Double,
-        isFamiliarCarriedItem: (String) -> Boolean,
-        familiarCarryScorer: ((String, DoubleModifier) -> Double)?,
-    ): Double {
-        if (slot == EquipmentSlot.FAMILIAR &&
-            familiarCarryScorer != null &&
-            isFamiliarCarriedItem(name)
-        ) {
-            return familiarCarryScorer(name, modifier)
-        }
-        return itemScorer(name, modifier)
+        val mods = CurrentModifiers(baseState.copy(equipment = equipment))
+        return evaluator.getScore(mods) + familiarBonus + thrallBonus
     }
 
     fun tiebreakerScore(
@@ -85,13 +53,8 @@ object MaximizerSpeculation {
                 if (!name.isNullOrBlank()) put(slot, name)
             }
         }
-        val mods = CurrentModifiers(baseState.copy(equipment = equipment)).values
-        return mods.get(DoubleModifier.INITIATIVE) +
-            mods.get(DoubleModifier.ITEMDROP) +
-            mods.get(DoubleModifier.MUS) +
-            mods.get(DoubleModifier.MYS) +
-            mods.get(DoubleModifier.MOX) +
-            mods.get(DoubleModifier.MEATDROP)
+        val mods = CurrentModifiers(baseState.copy(equipment = equipment))
+        return Evaluator.tiebreaker().getScore(mods)
     }
 
     private fun assignmentPrice(
@@ -105,11 +68,14 @@ object MaximizerSpeculation {
         score: Double,
         tie: Double,
         price: Int,
+        failed: Boolean,
         bestScore: Double,
         bestTie: Double,
         bestPrice: Int,
+        bestFailed: Boolean,
         preferLowerPrice: Boolean,
     ): Boolean {
+        if (failed != bestFailed) return !failed
         if (score > bestScore + 1e-9) return true
         if (score < bestScore - 1e-9) return false
         if (tie > bestTie + 1e-9) return true
@@ -125,43 +91,50 @@ object MaximizerSpeculation {
         familiarBonus: Double = 0.0,
         thrallBonus: Double = 0.0,
         seed: Map<EquipmentSlot, Pair<String, Double>> = emptyMap(),
-        itemScorer: ((String, DoubleModifier) -> Double)? = null,
         priceFor: ((String) -> Int)? = null,
-        isFamiliarCarriedItem: (String) -> Boolean = { false },
-        familiarCarryScorer: ((String, DoubleModifier) -> Double)? = null,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         var best = seed
-        var bestScore = if (seed.isNotEmpty()) {
-            scoreLoadout(
-                baseState, seed, spec.primary, familiarBonus, thrallBonus, itemScorer,
-                isFamiliarCarriedItem, familiarCarryScorer,
-            )
+        var bestScore: Double
+        var bestFailed: Boolean
+        if (seed.isNotEmpty()) {
+            bestScore = scoreLoadout(baseState, seed, spec.evaluator, familiarBonus, thrallBonus)
+            bestFailed = spec.evaluator.failed
         } else {
-            Double.NEGATIVE_INFINITY
+            bestScore = Double.NEGATIVE_INFINITY
+            bestFailed = true
         }
         var bestTie = if (seed.isNotEmpty()) tiebreakerScore(baseState, seed) else Double.NEGATIVE_INFINITY
         var bestPrice = if (seed.isNotEmpty() && priceFor != null) assignmentPrice(seed, priceFor) else Int.MAX_VALUE
         val preferLowerPrice = spec.maxPrice != null && priceFor != null
+        var stopSearch = false
 
         fun search(
             slotIndex: Int,
             current: MutableMap<EquipmentSlot, Pair<String, Double>>,
             usedItems: MutableSet<String>,
         ) {
-            if (budget.tick()) return
+            if (stopSearch || budget.tick()) return
             if (slotIndex >= searchSlots.size) {
                 val score = scoreLoadout(
-                    baseState, current, spec.primary, familiarBonus, thrallBonus, itemScorer,
-                    isFamiliarCarriedItem, familiarCarryScorer,
+                    baseState, current, spec.evaluator, familiarBonus, thrallBonus,
                 )
+                val failed = spec.evaluator.failed
+                val exceeded = spec.evaluator.exceeded
                 val tie = tiebreakerScore(baseState, current)
                 val price = priceFor?.let { assignmentPrice(current, it) } ?: Int.MAX_VALUE
-                if (isBetterLoadout(score, tie, price, bestScore, bestTie, bestPrice, preferLowerPrice)) {
+                if (!failed &&
+                    isBetterLoadout(
+                        score, tie, price, failed,
+                        bestScore, bestTie, bestPrice, bestFailed, preferLowerPrice,
+                    )
+                ) {
                     bestScore = score
                     bestTie = tie
                     bestPrice = price
+                    bestFailed = false
                     best = current.toMap()
                 }
+                if (exceeded) stopSearch = true
                 return
             }
             val slot = searchSlots[slotIndex]
@@ -171,13 +144,14 @@ object MaximizerSpeculation {
                 return
             }
             for ((name, _) in candidates) {
+                if (stopSearch) return
                 if (name in usedItems) continue
                 current[slot] = name to 0.0
                 usedItems.add(name)
                 search(slotIndex + 1, current, usedItems)
                 usedItems.remove(name)
                 current.remove(slot)
-                if (budget.exhausted()) return
+                if (budget.exhausted() || stopSearch) return
             }
         }
 
@@ -187,72 +161,70 @@ object MaximizerSpeculation {
 
     fun topCandidatesPerSlot(
         spec: MaximizeSpec,
-        gameDatabase: GameDatabase,
-        candidateIds: Set<Int>,
+        rankedBuckets: SlotList<MaximizerRankedItem>,
         usedElsewhere: Set<String>,
         perSlotLimit: Int,
-        scoreItem: (String, DoubleModifier) -> Double,
+        gameDatabase: GameDatabase,
+        scoreItem: (String, Evaluator) -> Double,
         itemMeetsConstraints: (String, MaximizeSpec) -> Boolean,
         priceFor: (String) -> Int = { gameDatabase.npcPrice(it) },
         familiarCarryRaces: List<String> = emptyList(),
         familiarCarryScorer: ((String, DoubleModifier) -> Double)? = null,
-    ): Map<EquipmentSlot, List<Pair<String, Double>>> {
-        val carryScorer = familiarCarryScorer ?: scoreItem
-        val result = mutableMapOf<EquipmentSlot, List<Pair<String, Double>>>()
-        for (slot in searchSlots) {
-            val ranked = mutableListOf<Pair<String, Double>>()
-            for (itemId in candidateIds) {
-                val itemData = gameDatabase.item(itemId) ?: continue
-                if (!fitsSlot(itemData, slot) || itemData.name in usedElsewhere) continue
-                if (spec.requireMelee && slot == EquipmentSlot.WEAPON &&
-                    itemData.primaryUse == ItemPrimaryUse.SIXGUN
-                ) continue
-                if (spec.requireHands && slot == EquipmentSlot.OFFHAND &&
-                    itemData.primaryUse != ItemPrimaryUse.OFFHAND
-                ) continue
-                if (!itemMeetsConstraints(itemData.name, spec)) continue
-                ranked.add(itemData.name to scoreItem(itemData.name, spec.primary))
-            }
-            if (slot == EquipmentSlot.FAMILIAR) {
-                for (race in familiarCarryRaces) {
-                    for (itemId in candidateIds) {
-                        val itemData = gameDatabase.item(itemId) ?: continue
-                        if (itemData.name in usedElsewhere) continue
-                        if (!FamiliarCarryRules.canCarryItem(race, itemData)) continue
-                        if (spec.requireMelee && itemData.primaryUse == ItemPrimaryUse.SIXGUN) continue
-                        if (spec.requireHands && itemData.primaryUse != ItemPrimaryUse.OFFHAND &&
-                            race == FamiliarCarryRules.LEFT_HAND_RACE
-                        ) continue
-                        if (!itemMeetsConstraints(itemData.name, spec)) continue
-                        ranked.add(itemData.name to carryScorer(itemData.name, spec.primary))
-                    }
-                }
-            }
-            result[slot] = when {
-                spec.maxPrice != null -> ranked.sortedWith(
-                    compareBy<Pair<String, Double>> { priceFor(it.first) }
-                        .thenByDescending { it.second },
-                ).take(perSlotLimit)
-                spec.minPrice != null -> ranked.sortedWith(
-                    compareByDescending<Pair<String, Double>> { priceFor(it.first) }
-                        .thenByDescending { it.second },
-                ).take(perSlotLimit)
-                else -> ranked.sortedByDescending { it.second }.take(perSlotLimit)
-            }
-        }
-        return result
-    }
+    ): Map<EquipmentSlot, List<Pair<String, Double>>> =
+        MaximizerEquipmentEnumerator.toCandidatesByEquipmentSlot(
+            rankedBuckets,
+            spec,
+            usedElsewhere,
+            perSlotLimit,
+            gameDatabase,
+            scoreItem,
+            itemMeetsConstraints,
+            priceFor,
+            familiarCarryRaces,
+            familiarCarryScorer,
+        )
 
-    private fun fitsSlot(item: ItemData, slot: EquipmentSlot): Boolean = when (slot) {
-        EquipmentSlot.HAT -> item.primaryUse == ItemPrimaryUse.HAT
-        EquipmentSlot.WEAPON -> item.primaryUse in setOf(ItemPrimaryUse.WEAPON, ItemPrimaryUse.SIXGUN)
-        EquipmentSlot.OFFHAND -> item.primaryUse == ItemPrimaryUse.OFFHAND
-        EquipmentSlot.SHIRT -> item.primaryUse == ItemPrimaryUse.SHIRT
-        EquipmentSlot.PANTS -> item.primaryUse == ItemPrimaryUse.PANTS
-        EquipmentSlot.ACC1, EquipmentSlot.ACC2, EquipmentSlot.ACC3 ->
-            item.primaryUse == ItemPrimaryUse.ACCESSORY
-        EquipmentSlot.FAMILIAR -> item.primaryUse == ItemPrimaryUse.FAMILIAR
-        else -> false
+    fun topCandidatesPerSlot(
+        spec: MaximizeSpec,
+        gameDatabase: GameDatabase,
+        candidateIds: Set<Int>,
+        usedElsewhere: Set<String>,
+        perSlotLimit: Int,
+        scoreItem: (String, Evaluator) -> Double,
+        itemMeetsConstraints: (String, MaximizeSpec) -> Boolean,
+        priceFor: (String) -> Int = { gameDatabase.npcPrice(it) },
+        familiarCarryRaces: List<String> = emptyList(),
+        familiarCarryScorer: ((String, DoubleModifier) -> Double)? = null,
+        checkedItem: (Int) -> MaximizerCheckedItem = { itemId ->
+            if (itemId in candidateIds) {
+                val name = gameDatabase.item(itemId)?.name ?: ""
+                MaximizerCheckedItem(itemId, name, initial = 1)
+            } else {
+                MaximizerCheckedItem(itemId, gameDatabase.item(itemId)?.name ?: "", initial = 0)
+            }
+        },
+    ): Map<EquipmentSlot, List<Pair<String, Double>>> {
+        val buckets = MaximizerEquipmentEnumerator.enumerate(
+            candidateIds = candidateIds,
+            spec = spec,
+            gameDatabase = gameDatabase,
+            checkedItem = checkedItem,
+            scoreItem = scoreItem,
+            itemMeetsConstraints = itemMeetsConstraints,
+            priceFor = priceFor,
+        )
+        return topCandidatesPerSlot(
+            spec,
+            buckets,
+            usedElsewhere,
+            perSlotLimit,
+            gameDatabase,
+            scoreItem,
+            itemMeetsConstraints,
+            priceFor,
+            familiarCarryRaces,
+            familiarCarryScorer,
+        )
     }
 }
 

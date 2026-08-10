@@ -13,6 +13,8 @@ import net.sourceforge.kolmafia.data.SkillDefinition
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.data.SkillDefinitionProxy
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.UneffectRemovableMaps
+import net.sourceforge.kolmafia.skill.BattleLearnSkillIds
 
 class GuildSkillSyncTest {
 
@@ -36,11 +38,13 @@ class GuildSkillSyncTest {
         SkillDefinitionDatabase.resetForTest()
         registerEntanglingNoodles()
         registerLungeSmack()
+        UneffectRemovableMaps.reset { false }
     }
 
     @AfterTest
     fun tearDown() {
         SkillDefinitionDatabase.resetForTest()
+        UneffectRemovableMaps.reset { false }
     }
 
     @Test
@@ -130,6 +134,37 @@ class GuildSkillSyncTest {
         assertTrue(prefs.getInt("skillLevel$ENTANGLING_NOODLES_ID", 0) > 0)
     }
 
+    @Test
+    fun parseBuyskill_adventurerOfLeisure_expandsDiscoNapRemovables() {
+        UneffectRemovableMaps.reset { false }
+        assertEquals(6, UneffectRemovableMaps.removableEffectCountForSkill("Disco Nap"))
+
+        registerAdventurerOfLeisure()
+        val prefs = prefs()
+        val char = character(
+            characterClass = CharacterClass.DISCO_BANDIT.id,
+            meat = 20_000,
+        )
+
+        GuildSkillSync.parseBuyskill(
+            url = "guild.php?action=buyskill&skillid=11",
+            html = "You learn a new skill: <b>Adventurer of Leisure</b>",
+            character = char,
+            preferences = prefs,
+            skillManager = null,
+            inventoryManager = null,
+        )
+
+        assertTrue(prefs.getInt("skillLevel${BattleLearnSkillIds.ADVENTURER_OF_LEISURE}", 0) > 0)
+        assertEquals(21, UneffectRemovableMaps.removableEffectCountForSkill("Disco Nap"))
+        assertEquals(
+            "Disco Nap",
+            UneffectRemovableMaps.getUneffectSkill(388) {
+                it.equals("Disco Nap", ignoreCase = true)
+            },
+        )
+    }
+
     private fun registerEntanglingNoodles() {
         SkillDefinitionDatabase.registerForTest(
             SkillDefinition(
@@ -160,6 +195,24 @@ class GuildSkillSyncTest {
                 guildLevel = 1,
                 isPassive = false,
                 isCombat = true,
+                isNonCombat = false,
+                isSong = false,
+            ),
+        )
+    }
+
+    private fun registerAdventurerOfLeisure() {
+        SkillDefinitionDatabase.registerForTest(
+            SkillDefinition(
+                id = BattleLearnSkillIds.ADVENTURER_OF_LEISURE,
+                name = "Adventurer of Leisure",
+                image = "aol.gif",
+                tags = setOf("passive"),
+                mpCost = 0,
+                duration = 0,
+                guildLevel = 11,
+                isPassive = true,
+                isCombat = false,
                 isNonCombat = false,
                 isSong = false,
             ),

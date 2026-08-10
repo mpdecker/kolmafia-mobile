@@ -5,6 +5,8 @@ import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.SkillDefinitionProxy
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.UneffectRemovableMaps
+import net.sourceforge.kolmafia.skill.BattleLearnSkillIds
 import net.sourceforge.kolmafia.skill.SkillLearner
 import net.sourceforge.kolmafia.skill.SkillManager
 
@@ -37,6 +39,9 @@ object GuildSkillSync {
 
         SkillLearner.learnSkill(skillId, preferences, skillManager, inventoryManager)
         ConcoctionDatabase.refreshConcoctionsNowFromLastContext()
+        if (skillId == BattleLearnSkillIds.ADVENTURER_OF_LEISURE) {
+            UneffectRemovableMaps.resetFromSession(preferences, skillManager)
+        }
     }
 
     private fun actionFromUrl(url: String): String? =

@@ -233,4 +233,94 @@ class MoodManagerAtSongTest {
         assertTrue(4 in evictedIds, "Song D (id=4) should be evicted second")
         assertFalse(evictedIds.distinct().size < evictedIds.size, "No song should be evicted twice")
     }
+
+    @Test fun prePassEvictsOrphanSongNotInMood() = runBlocking {
+        val evictedIds = mutableListOf<Int>()
+        val songNames = setOf(
+            "Song Orphan A",
+            "Song Orphan B",
+            "Song Orphan C",
+            "Song D",
+        )
+        val mgr = songMoodManager(songNames, onUneffect = { evictedIds.add(it) })
+
+        mgr.activeMood = Mood("test", listOf(
+            MoodTrigger(67, "Song D", 6010, "Song D", 5),
+        ))
+
+        val charState = CharacterState(characterClass = CharacterClass.ACCORDION_THIEF.id)
+        val skillState = skillStateFor(6010 to "Song D")
+        val activeEffects = listOf(
+            net.sourceforge.kolmafia.effect.EffectData(10, "Song Orphan A", 10),
+            net.sourceforge.kolmafia.effect.EffectData(11, "Song Orphan B", 10),
+            net.sourceforge.kolmafia.effect.EffectData(12, "Song Orphan C", 10),
+        )
+        mgr.executeActiveMood(EffectState(effects = activeEffects), skillState, charState)
+
+        assertEquals(listOf(10), evictedIds, "Pre-pass should evict first orphan before casting mood song")
+    }
+
+    @Test fun prePassDoesNothingWhenNoThiefNeed() = runBlocking {
+        var uneffectCalled = false
+        val songNames = setOf("Song A", "Song B", "Song C")
+        val mgr = songMoodManager(songNames, onUneffect = {
+            uneffectCalled = true
+        })
+
+        mgr.activeMood = Mood("test", listOf(
+            MoodTrigger(60, "Song A", 6003, "Song A", 5),
+            MoodTrigger(61, "Song B", 6004, "Song B", 5),
+            MoodTrigger(63, "Song C", 6006, "Song C", 5),
+        ))
+
+        val charState = CharacterState(characterClass = CharacterClass.ACCORDION_THIEF.id)
+        val activeEffects = listOf(
+            net.sourceforge.kolmafia.effect.EffectData(60, "Song A", 10),
+            net.sourceforge.kolmafia.effect.EffectData(61, "Song B", 10),
+            net.sourceforge.kolmafia.effect.EffectData(63, "Song C", 10),
+        )
+        mgr.executeActiveMood(
+            EffectState(effects = activeEffects),
+            SkillState(),
+            charState,
+        )
+        assertFalse(uneffectCalled, "Pre-pass should not uneffect when all mood thief songs are active")
+    }
+
+    @Test fun removalCastSharesEvictionStateWithBuffLoop() = runBlocking {
+        val evictedIds = mutableListOf<Int>()
+        val songNames = setOf("Song A", "Song B", "Song C", "Song D", "Song E", "Song F")
+        val mgr = songMoodManager(songNames, onUneffect = { evictedIds.add(it) })
+
+        mgr.activeMood = Mood(
+            name = "test",
+            triggers = listOf(
+                MoodTrigger(1, "Song A", 6001, "Skill A", 5),
+                MoodTrigger(2, "Song B", 6002, "Skill B", 5),
+            ),
+            removalTriggers = listOf(
+                MoodRemovalTrigger(
+                    type = MoodRemovalTriggerType.LOSE_EFFECT,
+                    effectId = 3,
+                    effectName = "Song C",
+                    action = "cast Skill C",
+                ),
+            ),
+        )
+
+        val charState = CharacterState(characterClass = CharacterClass.ACCORDION_THIEF.id)
+        val skillState = skillStateFor(
+            6001 to "Skill A",
+            6002 to "Skill B",
+            6003 to "Skill C",
+        )
+        val activeEffects = listOf(
+            net.sourceforge.kolmafia.effect.EffectData(4, "Song D", 10),
+            net.sourceforge.kolmafia.effect.EffectData(5, "Song E", 10),
+            net.sourceforge.kolmafia.effect.EffectData(6, "Song F", 10),
+        )
+        mgr.executeActiveMood(EffectState(effects = activeEffects), skillState, charState)
+
+        assertEquals(listOf(4, 5, 6), evictedIds, "Pre-pass evicts orphans D/E; removal cast evicts F via shared tracker")
+    }
 }

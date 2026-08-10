@@ -144,4 +144,26 @@ class QuestItemRulesTest {
         assertTrue(QuestItemRules.applyItemsGained(listOf("Holy MacGuffin"), db))
         assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.WAREHOUSE))
     }
+
+    @Test
+    fun applyItemsGained_guildManual_consumesDustyBookAndKey() {
+        val consumed = mutableListOf<Pair<Int, Int>>()
+        val hasItems = setOf(
+            QuestLogSync.DUSTY_BOOK_ID,
+            QuestLogSync.FERNSWARTHY_KEY_ID,
+        )
+        QuestItemRules.applyItemsGained(
+            itemsGained = listOf("Manual of Transmission"),
+            questDatabase = QuestDatabase(Preferences(MapSettings())),
+            hasItemId = { it in hasItems },
+            consumeItem = { itemId, quantity -> consumed += itemId to quantity },
+        )
+        assertEquals(
+            listOf(
+                QuestLogSync.DUSTY_BOOK_ID to 1,
+                QuestLogSync.FERNSWARTHY_KEY_ID to 1,
+            ),
+            consumed,
+        )
+    }
 }

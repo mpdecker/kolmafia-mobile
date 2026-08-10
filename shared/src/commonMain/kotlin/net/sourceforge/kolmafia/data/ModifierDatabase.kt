@@ -14,6 +14,7 @@ object ModifierDatabase {
     private val _bundledByTypeAndName = mutableMapOf<String, MutableMap<String, ModifierEntry>>()
     private val _allByName = mutableMapOf<String, MutableList<ModifierEntry>>()
     private val _synergies = mutableListOf<ModifierEntry>()
+    private val _synergyMaskByName = mutableMapOf<String, Int>()
     private val _inventorySkillProviderNames = mutableSetOf<String>()
     private var loaded = false
 
@@ -53,6 +54,9 @@ object ModifierDatabase {
     val allByName: Map<String, List<ModifierEntry>> get() = _allByName
     fun synergies(): List<ModifierEntry> = _synergies
 
+    /** Desktop [ModifierDatabase.getSynergies] bitmask keyed by synergy pair name. */
+    fun synergyMaskByName(): Map<String, Int> = _synergyMaskByName
+
     suspend fun load() {
         if (loaded) return
         val text = Res.readBytes("files/data/modifiers.txt").decodeToString()
@@ -76,7 +80,30 @@ object ModifierDatabase {
             }
         }
         rebuildInventorySkillProviders()
+        rebuildSynergyMasks()
         loaded = true
+    }
+
+    private fun rebuildSynergyMasks() {
+        _synergyMaskByName.clear()
+        for (entry in _synergies) {
+            var mask = 0
+            for (piece in entry.name.split('/')) {
+                val pieceName = piece.trim()
+                if (pieceName.isEmpty()) continue
+                val itemEntry = getItem(pieceName)
+                    ?: _byTypeAndName["Item"]?.entries
+                        ?.firstOrNull { it.key.equals(pieceName, ignoreCase = true) }
+                        ?.value
+                if (itemEntry != null) {
+                    mask = mask or ModifierParser.parse(itemEntry.modifiers)
+                        .get(BitmapModifier.SYNERGETIC)
+                }
+            }
+            if (mask != 0) {
+                _synergyMaskByName[entry.name] = mask
+            }
+        }
     }
 
     /** Desktop [ModifierDatabase.getInventorySkillProviders] item names. */
@@ -142,8 +169,16 @@ object ModifierDatabase {
         val entry = ModifierEntry(entityType, name, modifiers)
         _byTypeAndName.getOrPut(entityType) { mutableMapOf() }[name] = entry
         _bundledByTypeAndName.getOrPut(entityType) { mutableMapOf() }[name] = entry
-        if (entityType == "Item" && isInventorySkillProvider(modifiers)) {
-            _inventorySkillProviderNames += name
+        if (entityType == "Synergy") {
+            _synergies += entry
+            rebuildSynergyMasks()
+        } else if (entityType == "Item") {
+            if (isInventorySkillProvider(modifiers)) {
+                _inventorySkillProviderNames += name
+            }
+            if (_synergies.isNotEmpty()) {
+                rebuildSynergyMasks()
+            }
         }
     }
 
@@ -152,6 +187,7 @@ object ModifierDatabase {
         _bundledByTypeAndName.clear()
         _allByName.clear()
         _synergies.clear()
+        _synergyMaskByName.clear()
         _inventorySkillProviderNames.clear()
         loaded = false
     }
@@ -220,6 +256,7 @@ object ModifierDatabase {
         return map[race] ?: map.entries.firstOrNull { it.key.equals(race, ignoreCase = true) }?.value
     }
     fun getBjorn(race: String): ModifierEntry? = getThrone(race)
+    fun getMaxCat(name: String): ModifierEntry? = get("MaxCat", name)
     fun getOutfit(name: String): ModifierEntry?   = get("Outfit",  name)
     fun getZone(name: String): ModifierEntry?     = get("Zone",    name)
     fun getLocation(name: String): ModifierEntry? = get("Loc",     name)

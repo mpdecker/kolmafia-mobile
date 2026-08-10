@@ -32,6 +32,10 @@ object ModifierParser {
 
             val colonIdx = findColonOutsideQuotes(t)
             if (colonIdx < 0) {
+                BitmapModifier.byTag(t)?.let { mod ->
+                    bitmaps[mod] = (bitmaps[mod] ?: 0) or 1
+                    continue
+                }
                 BooleanModifier.byTag(t)?.let { booleans[it] = true }
                 continue
             }

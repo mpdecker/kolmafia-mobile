@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.data.QuestCouncilDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.TurnCounter
+import net.sourceforge.kolmafia.shop.DesertBeachUnlockSync
 
 /** Shared quest-log sync triggers from KoL page/adventure response text. */
 object QuestLogSync {
@@ -16,6 +17,7 @@ object QuestLogSync {
         val preferences: Preferences? = null,
         val currentRun: Int = 0,
         val gameDatabase: GameDatabase? = null,
+        val consumeItem: (itemId: Int, quantity: Int) -> Unit = { _, _ -> },
     )
 
     val SYNC_SIGNALS = listOf(
@@ -46,6 +48,8 @@ object QuestLogSync {
         "Fernswarthy's key",
         "unlocked Fernswarthy's tower",
         "dusty old book",
+        "Manual of Labor",
+        "Manual of Transmission",
         "Manual of Dexterity",
         "The Tomb is within the Misspelled",
         "Clownlord Beelzebozo",
@@ -77,7 +81,7 @@ object QuestLogSync {
             QuestCouncilDatabase.handleCouncilText(responseText, questDatabase)
         }
         applyFantasyRealmHooks(responseText, context)
-        applyPlaceHooks(context.place, questDatabase, context)
+        applyPlaceHooks(context.place, questDatabase, context, responseText)
         if (shouldSync(responseText)) {
             questLogRequest?.syncAll()
         }
@@ -176,17 +180,27 @@ object QuestLogSync {
             preferences.setInt("lastTempleButtonsUnlock", ascensionNumber)
             preferences.setInt("lastTempleUnlock", ascensionNumber)
         }
+        if (questDatabase.isQuestLaterThan(Quest.MACGUFFIN, "step1") ||
+            questDatabase.isQuestFinished(Quest.MEATCAR)
+        ) {
+            DesertBeachUnlockSync.setAvailable(ascensionNumber, preferences)
+        }
     }
 
     internal fun applyPlaceHooks(
         place: String?,
         questDatabase: QuestDatabase,
         context: QuestSyncContext,
+        html: String = "",
     ) {
-        applyEgoKeyTurnIn(questDatabase, context)
         when (place?.lowercase()) {
             "fern", "fernruin" -> applyFernTowerUnlock(questDatabase, context)
-            "paco" -> applyFactoryFinish(questDatabase, context)
+            "paco" -> applyFactoryTurnIn(questDatabase, context)
+            "ocg" -> {
+                applyEgoKeyTurnIn(questDatabase, context, html)
+                applyEgoBookTurnIn(questDatabase, context, html)
+            }
+            "challenge" -> applyGuildChallengeTurnIn(questDatabase, context, html)
             "scg" -> applyNemesisVisitSteps(questDatabase, context)
             "bigisland" -> {
                 if (questDatabase.getProgress(Quest.ISLAND_WAR) == QuestDatabase.UNSTARTED) {
@@ -223,22 +237,90 @@ object QuestLogSync {
         }
     }
 
-    private fun applyEgoKeyTurnIn(questDatabase: QuestDatabase, context: QuestSyncContext) {
+    internal fun applyEgoBookTurnIn(
+        questDatabase: QuestDatabase,
+        context: QuestSyncContext,
+        html: String = "",
+    ) {
         val place = context.place?.lowercase() ?: return
-        if (place !in GUILD_PLACES) return
-        if (!context.hasItemId(FERNSWARTHY_KEY_ID)) return
+        if (place != "ocg") return
+        if (!context.hasItemId(DUSTY_BOOK_ID)) return
         val current = questDatabase.getProgress(Quest.EGO)
-        if (current != QuestDatabase.STARTED) return
-        if (QuestDatabase.stepOrdinal("step1") > QuestDatabase.stepOrdinal(current)) {
-            questDatabase.setProgress(Quest.EGO, "step1")
+        if (current != "step6" && current != QuestDatabase.FINISHED) return
+        val hasTurnInHtml = html.contains("Manual of Labor", ignoreCase = true) ||
+            html.contains("Manual of Transmission", ignoreCase = true) ||
+            html.contains("Manual of Dexterity", ignoreCase = true)
+        if (!hasTurnInHtml) return
+        if (QuestDatabase.stepOrdinal(QuestDatabase.FINISHED) > QuestDatabase.stepOrdinal(current)) {
+            questDatabase.setProgress(Quest.EGO, QuestDatabase.FINISHED)
+        }
+        consumeEgoBookTurnInItems(context)
+    }
+
+    internal fun consumeEgoBookTurnInItems(context: QuestSyncContext) {
+        if (context.hasItemId(DUSTY_BOOK_ID)) {
+            context.consumeItem(DUSTY_BOOK_ID, 1)
+        }
+        if (context.hasItemId(FERNSWARTHY_KEY_ID)) {
+            context.consumeItem(FERNSWARTHY_KEY_ID, 1)
         }
     }
 
-    private fun applyFactoryFinish(questDatabase: QuestDatabase, context: QuestSyncContext) {
+    internal fun applyEgoKeyTurnIn(
+        questDatabase: QuestDatabase,
+        context: QuestSyncContext,
+        html: String = "",
+    ) {
+        val place = context.place?.lowercase() ?: return
+        if (place != "ocg") return
+        if (!context.hasItemId(FERNSWARTHY_KEY_ID)) return
+        val current = questDatabase.getProgress(Quest.EGO)
+        if (current != QuestDatabase.STARTED) return
+        val hasTurnInHtml = html.contains("hand over Fernswarthy's key", ignoreCase = true) ||
+            html.contains("returned with Fernswarthy's key", ignoreCase = true) ||
+            html.contains("takes Fernswarthy's key", ignoreCase = true)
+        if (!hasTurnInHtml) return
+        if (QuestDatabase.stepOrdinal("step1") > QuestDatabase.stepOrdinal(current)) {
+            questDatabase.setProgress(Quest.EGO, "step1")
+            context.consumeItem(FERNSWARTHY_KEY_ID, 1)
+        }
+    }
+
+    internal fun applyGuildChallengeTurnIn(
+        questDatabase: QuestDatabase,
+        context: QuestSyncContext,
+        html: String = "",
+    ) {
+        val place = context.place?.lowercase() ?: return
+        if (place != "challenge") return
+
+        if (html.contains("Eleven inches", ignoreCase = true) &&
+            context.hasItemId(QuestItemRules.BIG_KNOB_SAUSAGE_ID)
+        ) {
+            val current = questDatabase.getProgress(Quest.MUSCLE)
+            if (QuestDatabase.stepOrdinal(QuestDatabase.FINISHED) > QuestDatabase.stepOrdinal(current)) {
+                questDatabase.setProgress(Quest.MUSCLE, QuestDatabase.FINISHED)
+                context.consumeItem(QuestItemRules.BIG_KNOB_SAUSAGE_ID, 1)
+            }
+        }
+
+        if (html.contains("captured poltersandwich", ignoreCase = true) &&
+            context.hasItemId(QuestItemRules.EXORCISED_SANDWICH_ID)
+        ) {
+            val current = questDatabase.getProgress(Quest.MYST)
+            if (QuestDatabase.stepOrdinal(QuestDatabase.FINISHED) > QuestDatabase.stepOrdinal(current)) {
+                questDatabase.setProgress(Quest.MYST, QuestDatabase.FINISHED)
+                context.consumeItem(QuestItemRules.EXORCISED_SANDWICH_ID, 1)
+            }
+        }
+    }
+
+    internal fun applyFactoryTurnIn(questDatabase: QuestDatabase, context: QuestSyncContext) {
         if (!context.hasItemId(FACTORY_ENVELOPE_ID)) return
         val current = questDatabase.getProgress(Quest.FACTORY)
         if (QuestDatabase.stepOrdinal(QuestDatabase.FINISHED) > QuestDatabase.stepOrdinal(current)) {
             questDatabase.setProgress(Quest.FACTORY, QuestDatabase.FINISHED)
+            context.consumeItem(FACTORY_ENVELOPE_ID, 1)
         }
     }
 
@@ -260,6 +342,14 @@ object QuestLogSync {
 
     /** Fernswarthy's key — guild EGO turn-in item */
     const val FERNSWARTHY_KEY_ID = 2277
+
+    /** dusty old book — guild EGO finish turn-in item */
+    const val DUSTY_BOOK_ID = 2279
+
+    /** Guild class manuals — desktop ItemPool MUS/MYS/MOX_MANUAL */
+    const val MUS_MANUAL_ID = 2280
+    const val MYS_MANUAL_ID = 2281
+    const val MOX_MANUAL_ID = 2282
 
     val GUILD_PLACES = setOf("paco", "ocg", "scg", "challenge")
 
