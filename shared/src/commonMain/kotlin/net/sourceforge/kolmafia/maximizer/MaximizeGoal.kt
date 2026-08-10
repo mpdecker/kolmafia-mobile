@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.maximizer
 
 import net.sourceforge.kolmafia.character.Beeosity
+import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.modifiers.BooleanModifier
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 
@@ -23,6 +24,8 @@ data class MaximizeSpec(
     val forbidCreatable: Boolean = false,
     /** Desktop Evaluator beeosity limit (default 2). */
     val maxBeeosity: Int = 2,
+    /** Goal-forced modeable modes (desktop Evaluator.forcedModeables). */
+    val forcedModeables: Map<Modeable, String> = emptyMap(),
 ) {
     /** Test helper — builds a single-stat evaluator from [primary]. */
     constructor(
@@ -98,6 +101,7 @@ object MaximizeGoal {
         var allowCreatable = false
         var forbidCreatable = false
         var maxBeeosity = 2
+        val forcedModeables = mutableMapOf<Modeable, String>()
 
         val terms = if (trimmed.contains(',')) splitTerms(trimmed) else listOf(trimmed)
         for (term in terms) {
@@ -105,7 +109,7 @@ object MaximizeGoal {
             if (t.isBlank()) continue
             if (!applyConstraintTerm(
                     t, required, forbidden, equip, switches, switchThralls,
-                    enthrones, bjorns,
+                    enthrones, bjorns, forcedModeables,
                     { requireMelee = true },
                     { requireHands = true },
                     { maxPrice = it },
@@ -142,6 +146,7 @@ object MaximizeGoal {
                 allowCreatable = allowCreatable,
                 forbidCreatable = forbidCreatable,
                 maxBeeosity = maxBeeosity,
+                forcedModeables = forcedModeables,
             ),
         )
     }
@@ -184,6 +189,7 @@ object MaximizeGoal {
         switchThralls: MutableList<String>,
         enthrones: MutableList<String>,
         bjorns: MutableList<String>,
+        forcedModeables: MutableMap<Modeable, String>,
         setRequireMelee: () -> Unit,
         setRequireHands: () -> Unit,
         setMaxPrice: (Int?) -> Unit,
@@ -192,6 +198,17 @@ object MaximizeGoal {
         setForbidCreatable: () -> Unit,
         setMaxBeeosity: (Int) -> Unit,
     ): Boolean = when {
+        t.equals("+shield", ignoreCase = true) || t.equals("shield", ignoreCase = true) -> {
+            setRequireHands()
+            forcedModeables[Modeable.UMBRELLA] = "forward-facing"
+            true
+        }
+        t.equals("sea", ignoreCase = true) || t.equals("+sea", ignoreCase = true) -> {
+            required.add(BooleanModifier.ADVENTURE_UNDERWATER)
+            required.add(BooleanModifier.UNDERWATER_FAMILIAR)
+            forcedModeables[Modeable.EDPIECE] = "fish"
+            true
+        }
         t.equals("beeosity", ignoreCase = true) -> {
             setMaxBeeosity(1)
             true

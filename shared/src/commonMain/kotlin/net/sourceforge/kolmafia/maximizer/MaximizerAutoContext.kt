@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.maximizer
 
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.data.OutfitData
 import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.modifiers.BitmapModifier
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
@@ -20,6 +21,7 @@ class MaximizerAutoContext private constructor(
     private val usefulSynergyMask: Int,
     val usefulSynergyItemNames: Set<String>,
     val usefulOutfitPieceNames: Set<String>,
+    val usefulOutfits: List<OutfitData>,
 ) {
     fun isCatUseful(catName: String): Boolean = catUseful[catName] == true
 
@@ -99,6 +101,7 @@ class MaximizerAutoContext private constructor(
             }
 
             val usefulOutfitPieceNames = mutableSetOf<String>()
+            val usefulOutfits = mutableListOf<OutfitData>()
             for (outfit in OutfitDatabase.all()) {
                 val outfitEntry = ModifierDatabase.getOutfit(outfit.name) ?: continue
                 val outfitMods = ModifierParser.parse(outfitEntry.modifiers)
@@ -109,6 +112,7 @@ class MaximizerAutoContext private constructor(
                         evaluator.getItemContribution(outfitMods) > 0.0
                 }
                 if (useful) {
+                    usefulOutfits += outfit
                     for (piece in outfit.equipment) {
                         usefulOutfitPieceNames += piece.lowercase()
                     }
@@ -122,6 +126,7 @@ class MaximizerAutoContext private constructor(
                 usefulSynergyMask = usefulSynergyMask,
                 usefulSynergyItemNames = usefulSynergyItemNames,
                 usefulOutfitPieceNames = usefulOutfitPieceNames,
+                usefulOutfits = usefulOutfits,
             )
         }
 

@@ -41,6 +41,7 @@ import net.sourceforge.kolmafia.character.ClassResourceCombatSync
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.request.CraftRequest
@@ -103,6 +104,7 @@ import net.sourceforge.kolmafia.request.UneffectItemAcquisition
 import net.sourceforge.kolmafia.request.UneffectRemovableMaps
 import net.sourceforge.kolmafia.request.UntinkerRequest
 import net.sourceforge.kolmafia.request.ItemUseLimitsContext
+import net.sourceforge.kolmafia.request.ModeableRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.PirateRealmSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
@@ -243,6 +245,7 @@ class GameRuntimeLibrary(
     internal val researchBenchRequest: net.sourceforge.kolmafia.request.ResearchBenchRequest? = null,
     internal val concoctionQueueRunner: net.sourceforge.kolmafia.session.ConcoctionQueueRunner? = null,
     internal val concoctionCreateRequest: net.sourceforge.kolmafia.request.ConcoctionCreateRequest? = null,
+    internal val modeableRequest: ModeableRequest? = null,
 ) : RuntimeLibrary() {
 
     private val moodCliContext = object : AshRuntimeContext {
@@ -270,7 +273,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase370"
+        const val REVISION = "phase380"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1406,6 +1409,33 @@ class GameRuntimeLibrary(
             }
             val lines = kotlinx.coroutines.runBlocking { mgr.speculate(goal) }
             lines.forEach { rt.print(it) }
+        },
+
+        Regex("^umbrella\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            dispatchModeableCli(Modeable.UMBRELLA, ModeableRequest.normalizeUmbrellaParameter(m.groupValues[1]), rt)
+        },
+        Regex("^parka\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val mode = ModeableRequest.normalizeParkaParameter(m.groupValues[1])
+            dispatchModeableCli(Modeable.PARKA, mode, rt)
+        },
+        Regex("^backupcamera\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            dispatchModeableCli(Modeable.BACKUPCAMERA, m.groupValues[1].trim(), rt)
+        },
+        Regex("^edpiece\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            dispatchModeableCli(Modeable.EDPIECE, m.groupValues[1].trim(), rt)
+        },
+        Regex("^retrocape\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            dispatchModeableCli(Modeable.RETROCAPE, m.groupValues[1].trim(), rt)
+        },
+        Regex("^snowsuit\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            dispatchModeableCli(Modeable.SNOWSUIT, m.groupValues[1].trim(), rt)
+        },
+        Regex("^ledcandle\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            dispatchModeableCli(
+                Modeable.LED_CANDLE,
+                ModeableRequest.normalizeLedCandleParameter(m.groupValues[1]),
+                rt,
+            )
         },
 
         Regex("^guzzlr\\s+abandon$", RegexOption.IGNORE_CASE) to { _, rt ->
@@ -2656,6 +2686,23 @@ class GameRuntimeLibrary(
             return
         }
         runTowerDoor { message -> rt.print(message) }
+    }
+
+    internal fun dispatchModeableCli(modeable: Modeable, mode: String, rt: AshRuntimeContext) {
+        val request = modeableRequest
+        if (request == null) {
+            rt.print("Mode command unavailable")
+            return
+        }
+        if (mode.isBlank()) {
+            rt.print("Usage: ${modeable.command} <mode>")
+            return
+        }
+        kotlinx.coroutines.runBlocking {
+            request.setMode(modeable, mode)
+                .onSuccess { rt.print("${modeable.command} $mode") }
+                .onFailure { rt.print("Mode change failed: ${it.message}") }
+        }
     }
 
     internal fun cliEquip(rest: String) {

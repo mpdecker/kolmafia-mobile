@@ -86,6 +86,7 @@ import net.sourceforge.kolmafia.request.PhineasCreateRequest
 import net.sourceforge.kolmafia.request.BarrelCreateRequest
 import net.sourceforge.kolmafia.request.JewelCreateRequest
 import net.sourceforge.kolmafia.request.MalusCreateRequest
+import net.sourceforge.kolmafia.request.ModeableRequest
 import net.sourceforge.kolmafia.request.StaffCreateRequest
 import net.sourceforge.kolmafia.request.GnomeTinkerCreateRequest
 import net.sourceforge.kolmafia.request.SushiCreateRequest
@@ -433,6 +434,15 @@ val sharedModule = module {
     }
     singleOf(::FamiliarRequest)
     single {
+        ModeableRequest(
+            client = get(),
+            choiceRequest = get(),
+            equipmentRequest = get(),
+            character = get(),
+            preferences = get(),
+        )
+    }
+    single {
         MaximizerManager(
             gameDatabase = get(),
             inventoryManager = get(),
@@ -451,6 +461,7 @@ val sharedModule = module {
             retrieveItemService = get(),
             mallPriceManager = get(),
             mallManager = get(),
+            modeableRequest = get(),
         )
     }
     singleOf(::SessionLogger)
@@ -668,6 +679,7 @@ val sharedModule = module {
             researchBenchRequest = get(),
             concoctionQueueRunner = get(),
             concoctionCreateRequest = get(),
+            modeableRequest = get(),
         )
     }
     singleOf(::ScriptManager)

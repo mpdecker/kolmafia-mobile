@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.maximizer
 
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.equipment.Modeable
 
 data class MaximizeResult(
     val success: Boolean,
@@ -12,4 +13,5 @@ data class MaximizeResult(
     val enthronedSwitched: String? = null,
     val bjornifiedSwitched: String? = null,
     val thrallSwitched: String? = null,
+    val modeSwitched: Map<Modeable, String> = emptyMap(),
 )

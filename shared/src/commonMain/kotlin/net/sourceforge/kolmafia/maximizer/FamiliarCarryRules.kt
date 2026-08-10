@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.maximizer
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.data.ModifierDatabase
 
 /**
  * Familiars that wear or wield player equipment in the familiar slot.
@@ -29,6 +30,12 @@ object FamiliarCarryRules {
         resolvedFamiliar?.let { add(it) }
         addAll(spec.switchFamiliars)
     }.filter { carriedEquipmentSlots(it).isNotEmpty() }.distinct()
+
+    /** Desktop [FamiliarData.canCarry]: Throne line absent/unspaded or not literally "none". */
+    fun canCarry(race: String): Boolean {
+        val raw = ModifierDatabase.getThrone(race)?.modifiers?.trim()
+        return raw.isNullOrEmpty() || !raw.equals("none", ignoreCase = true)
+    }
 
     fun canCarryItem(race: String, item: ItemData): Boolean {
         if (race == LEFT_HAND_RACE && item.id in LEFT_HAND_BLOCKED_ITEM_IDS) return false

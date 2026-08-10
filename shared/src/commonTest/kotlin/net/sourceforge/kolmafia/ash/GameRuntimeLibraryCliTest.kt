@@ -33,6 +33,8 @@ import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillType
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.ModeableRequest
+import com.russhwolf.settings.MapSettings
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import kotlin.test.Test
@@ -1045,6 +1047,22 @@ class GameRuntimeLibraryCliTest {
         val lib = GameRuntimeLibrary.forTesting()
         val out = outputLib(lib, """cli_execute("maximizer");""")
         assertTrue(out.contains("maximize"))
+    }
+
+    @Test
+    fun cliExecute_umbrella_setsMode() {
+        val prefs = Preferences(MapSettings())
+        val engine = MockEngine { respond("ok", HttpStatusCode.OK) }
+        val lib = GameRuntimeLibrary(
+            modeableRequest = ModeableRequest(
+                client = HttpClient(engine),
+                choiceRequest = net.sourceforge.kolmafia.adventure.ChoiceRequest(HttpClient(engine)),
+                preferences = prefs,
+            ),
+        )
+        val out = outputLib(lib, """cli_execute("umbrella bucket");""")
+        assertTrue(out.contains("umbrella bucket style"))
+        assertEquals("bucket style", prefs.getString("umbrellaState", ""))
     }
 
     @Test

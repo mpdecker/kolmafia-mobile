@@ -6,10 +6,12 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.equipment.Modeable
 
 /**
  * Builds desktop-style ranked equipment buckets from accessible candidate item IDs.
  * Phase 365: [MaximizerCheckedItem] acquisition channels (creatable/fold/pull/buy).
+ * Phase 375: per-switch-familiar carry buckets via [SlotList.getFamiliar].
  */
 object MaximizerEquipmentEnumerator {
 
@@ -22,8 +24,10 @@ object MaximizerEquipmentEnumerator {
         itemMeetsConstraints: (String, MaximizeSpec) -> Boolean,
         priceFor: (String) -> Int = { gameDatabase.npcPrice(it) },
         autoContext: MaximizerAutoContext? = null,
+        switchFamiliars: List<String> = emptyList(),
+        familiarWeight: Int = 10,
     ): SlotList<MaximizerRankedItem> {
-        val buckets = SlotList<MaximizerRankedItem>()
+        val buckets = SlotList<MaximizerRankedItem>(switchFamiliars.size)
         val dualWield = spec.requireHands
 
         for (itemId in candidateIds) {
@@ -45,7 +49,8 @@ object MaximizerEquipmentEnumerator {
             }
 
             val score = scoreItem(itemData.name, spec.evaluator)
-            val automatic = autoContext?.shouldPinAutomatic(itemData.name, itemMods) == true
+            val automatic = autoContext?.shouldPinAutomatic(itemData.name, itemMods) == true ||
+                Modeable.find(itemId) != null
             val ranked = MaximizerRankedItem(itemId, itemData.name, score, checked, automatic)
 
             when (itemData.primaryUse) {
@@ -70,10 +75,52 @@ object MaximizerEquipmentEnumerator {
                 ItemPrimaryUse.CONTAINER -> buckets.get(MaximizerSlot.CONTAINER).add(ranked)
                 else -> Unit
             }
+
+            routeToFamiliarBuckets(
+                ranked = ranked,
+                itemData = itemData,
+                spec = spec,
+                buckets = buckets,
+                switchFamiliars = switchFamiliars,
+                familiarWeight = familiarWeight,
+                gameDatabase = gameDatabase,
+                automatic = automatic,
+            )
         }
 
         sortAllBuckets(buckets, spec, priceFor)
         return buckets
+    }
+
+    private fun routeToFamiliarBuckets(
+        ranked: MaximizerRankedItem,
+        itemData: ItemData,
+        spec: MaximizeSpec,
+        buckets: SlotList<MaximizerRankedItem>,
+        switchFamiliars: List<String>,
+        familiarWeight: Int,
+        gameDatabase: GameDatabase,
+        automatic: Boolean,
+    ) {
+        if (switchFamiliars.isEmpty()) return
+        for ((index, race) in switchFamiliars.withIndex()) {
+            if (!FamiliarCarryRules.canCarryItem(race, itemData)) continue
+            if (spec.requireMelee && itemData.primaryUse == ItemPrimaryUse.SIXGUN) continue
+            if (spec.requireHands && itemData.primaryUse != ItemPrimaryUse.OFFHAND &&
+                race == FamiliarCarryRules.LEFT_HAND_RACE
+            ) continue
+            val famScore = FamiliarCarriedScoring.score(
+                race = race,
+                itemName = itemData.name,
+                modifier = spec.primary,
+                gameDatabase = gameDatabase,
+                familiarWeight = familiarWeight,
+            )
+            if (famScore <= 0.0 && !automatic) continue
+            buckets.getFamiliar(index).add(
+                ranked.copy(score = famScore, automatic = automatic || ranked.automatic),
+            )
+        }
     }
 
     private fun routeWeapon(
@@ -109,9 +156,13 @@ object MaximizerEquipmentEnumerator {
         priceFor: (String) -> Int,
     ) {
         val comparator = rankedComparator(spec, priceFor)
-        for ((slot, _) in buckets.entries()) {
+        for ((slot, _) in buckets.slotEntries()) {
             val sorted = buckets.get(slot).sortedWith(comparator)
             buckets.set(slot, sorted)
+        }
+        for (index in 0 until buckets.familiarCount()) {
+            val sorted = buckets.getFamiliar(index).sortedWith(comparator)
+            buckets.setFamiliar(index, sorted)
         }
     }
 
@@ -147,14 +198,37 @@ object MaximizerEquipmentEnumerator {
         return (pinned + scored).map { it.name to it.score }
     }
 
+    fun mergeFamiliarBucket(
+        buckets: SlotList<MaximizerRankedItem>,
+        familiarIndex: Int,
+        usedElsewhere: Set<String> = emptySet(),
+        limit: Int = Int.MAX_VALUE,
+    ): List<Pair<String, Double>> {
+        if (familiarIndex !in 0 until buckets.familiarCount()) return emptyList()
+        val pinned = mutableListOf<MaximizerRankedItem>()
+        val scored = mutableListOf<MaximizerRankedItem>()
+        for (item in buckets.getFamiliar(familiarIndex)) {
+            if (item.name in usedElsewhere) continue
+            if (item.automatic) pinned.add(item) else scored.add(item)
+        }
+        return (pinned + scored.take(limit)).map { it.name to it.score }
+    }
+
     /** Update [MaximizerRankedItem.automatic] for every bucket entry matching [name]. */
     fun setAutomaticByName(
         buckets: SlotList<MaximizerRankedItem>,
         name: String,
         automatic: Boolean,
     ) {
-        for ((slot, _) in buckets.entries()) {
+        for ((slot, _) in buckets.slotEntries()) {
             for (item in buckets.get(slot)) {
+                if (item.name.equals(name, ignoreCase = true)) {
+                    item.automatic = automatic
+                }
+            }
+        }
+        for (index in 0 until buckets.familiarCount()) {
+            for (item in buckets.getFamiliar(index)) {
                 if (item.name.equals(name, ignoreCase = true)) {
                     item.automatic = automatic
                 }
@@ -165,7 +239,7 @@ object MaximizerEquipmentEnumerator {
     fun allRankedItems(buckets: SlotList<MaximizerRankedItem>): List<MaximizerRankedItem> {
         val seen = mutableSetOf<String>()
         val merged = mutableListOf<MaximizerRankedItem>()
-        for ((_, items) in buckets.entries()) {
+        for ((_, items) in buckets.slotEntries()) {
             for (item in items) {
                 if (item.name in seen) continue
                 seen.add(item.name)
@@ -187,6 +261,7 @@ object MaximizerEquipmentEnumerator {
         priceFor: (String) -> Int,
         familiarCarryRaces: List<String> = emptyList(),
         familiarCarryScorer: ((String, net.sourceforge.kolmafia.modifiers.DoubleModifier) -> Double)? = null,
+        familiarBucketIndex: Int? = null,
     ): Map<EquipmentSlot, List<Pair<String, Double>>> {
         val result = mutableMapOf<EquipmentSlot, List<Pair<String, Double>>>()
         for (equipSlot in MaximizerSpeculation.searchSlots) {
@@ -197,8 +272,15 @@ object MaximizerEquipmentEnumerator {
                     listOf(MaximizerSlot.ACC1)
                 else -> MaximizerSlot.fromEquipmentSlot(equipSlot)?.let { listOf(it) }.orEmpty()
             }
-            var ranked = mergeBuckets(buckets, maximizerSlots, usedElsewhere, perSlotLimit)
-            if (equipSlot == EquipmentSlot.FAMILIAR && familiarCarryRaces.isNotEmpty()) {
+            var ranked = if (equipSlot == EquipmentSlot.FAMILIAR && familiarBucketIndex != null) {
+                mergeFamiliarBucket(buckets, familiarBucketIndex, usedElsewhere, perSlotLimit)
+            } else {
+                mergeBuckets(buckets, maximizerSlots, usedElsewhere, perSlotLimit)
+            }
+            if (equipSlot == EquipmentSlot.FAMILIAR &&
+                familiarBucketIndex == null &&
+                familiarCarryRaces.isNotEmpty()
+            ) {
                 val extra = mutableListOf<Pair<String, Double>>()
                 for (race in familiarCarryRaces) {
                     for (item in allRankedItems(buckets)) {
