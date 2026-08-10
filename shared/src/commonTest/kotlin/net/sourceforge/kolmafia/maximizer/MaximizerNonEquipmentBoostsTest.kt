@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.maximizer
 import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
@@ -13,6 +14,9 @@ import net.sourceforge.kolmafia.data.ConsumableType
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.data.EffectData as StaticEffectData
 import net.sourceforge.kolmafia.data.EffectQuality
+import net.sourceforge.kolmafia.data.SkillDefinition
+import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
+import net.sourceforge.kolmafia.request.UneffectSkillEffectMap
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemDatabase
@@ -34,6 +38,8 @@ class MaximizerNonEquipmentBoostsTest {
         ConsumableDatabase.resetForTest()
         EffectDatabase.resetForTest()
         ModifierDatabase.resetForTest()
+        SkillDefinitionDatabase.resetForTest()
+        UneffectSkillEffectMap.rebuild()
     }
 
     @Test
@@ -51,6 +57,151 @@ class MaximizerNonEquipmentBoostsTest {
         )
         assertTrue(
             boosts.any { !it.isEquipment && it.text.contains("horsery normal horse", ignoreCase = true) },
+            boosts.joinToString { it.text },
+        )
+    }
+
+    @Test
+    fun build_foodFilterOff_suppressesEatBoost() {
+        registerFood(8201, "test food", fullness = 2)
+        EffectDatabase.registerForTest(
+            StaticEffectData(
+                id = 82001,
+                name = "Test Muscle Buff",
+                image = "buff.gif",
+                descId = "d82001",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "eat 1 test food",
+            ),
+        )
+        ModifierDatabase.injectForTest("Effect", "Test Muscle Buff", "Muscle: +100")
+        val boosts = MaximizerNonEquipmentBoosts.build(
+            nonEquipmentContext(
+                spec = MaximizeSpec(DoubleModifier.MUS, Evaluator("mus")),
+                preferences = Preferences(MapSettings()),
+                inventoryCount = { id -> if (id == 8201) 1 else 0 },
+                filters = setOf(MaximizerFilterType.CAST),
+            ),
+        )
+        assertFalse(
+            boosts.any { it.text.contains("eat 1 test food", ignoreCase = true) },
+            boosts.joinToString { it.text },
+        )
+    }
+
+    @Test
+    fun build_otherFilterOff_suppressesHorseryBoost() {
+        ModifierDatabase.injectForTest("Horsery", "normal horse", "Initiative: +10")
+        val prefs = Preferences(MapSettings()).apply {
+            setBoolean("horseryAvailable", true)
+            setString("_horsery", "")
+        }
+        val boosts = MaximizerNonEquipmentBoosts.build(
+            nonEquipmentContext(
+                spec = MaximizeSpec(DoubleModifier.INITIATIVE, Evaluator("init")),
+                preferences = prefs,
+                filters = setOf(MaximizerFilterType.CAST, MaximizerFilterType.FOOD),
+            ),
+        )
+        assertFalse(
+            boosts.any { it.text.contains("horsery", ignoreCase = true) },
+            boosts.joinToString { it.text },
+        )
+    }
+
+    @Test
+    fun build_includeAll_emitsUnavailableHorseryHint() {
+        ModifierDatabase.injectForTest("Horsery", "normal horse", "Initiative: +10")
+        val prefs = Preferences(MapSettings())
+        val withoutIncludeAll = MaximizerNonEquipmentBoosts.build(
+            nonEquipmentContext(
+                spec = MaximizeSpec(DoubleModifier.INITIATIVE, Evaluator("init")),
+                preferences = prefs,
+            ),
+        )
+        assertFalse(
+            withoutIncludeAll.any { it.text.contains("get a horsery", ignoreCase = true) },
+            withoutIncludeAll.joinToString { it.text },
+        )
+        val withIncludeAll = MaximizerNonEquipmentBoosts.build(
+            nonEquipmentContext(
+                spec = MaximizeSpec(DoubleModifier.INITIATIVE, Evaluator("init")),
+                preferences = prefs,
+                includeAll = true,
+            ),
+        )
+        assertTrue(
+            withIncludeAll.any { it.text.contains("get a horsery", ignoreCase = true) },
+            withIncludeAll.joinToString { it.text },
+        )
+    }
+
+    @Test
+    fun build_wishFilterOff_suppressesGenieSource() {
+        EffectDatabase.registerForTest(
+            StaticEffectData(
+                id = 82003,
+                name = "Filtered Wish Buff",
+                image = "wish.gif",
+                descId = "d82003",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "genie effect Filtered Wish Buff",
+            ),
+        )
+        ModifierDatabase.injectForTest("Effect", "Filtered Wish Buff", "Muscle: +50")
+        val boosts = MaximizerNonEquipmentBoosts.build(
+            nonEquipmentContext(
+                spec = MaximizeSpec(DoubleModifier.MUS, Evaluator("mus")),
+                preferences = Preferences(MapSettings()),
+                filters = setOf(MaximizerFilterType.CAST),
+            ),
+        )
+        assertFalse(
+            boosts.any { it.text.contains("genie", ignoreCase = true) },
+            boosts.joinToString { it.text },
+        )
+    }
+
+    @Test
+    fun build_castFilterOff_suppressesCastBoost() {
+        EffectDatabase.registerForTest(
+            StaticEffectData(
+                id = 82004,
+                name = "Filtered Cast Buff",
+                image = "cast.gif",
+                descId = "d82004",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "cast 1 Filtered Cast Buff",
+            ),
+        )
+        ModifierDatabase.injectForTest("Effect", "Filtered Cast Buff", "Muscle: +50")
+        SkillDefinitionDatabase.registerForTest(
+            SkillDefinition(
+                id = 82004,
+                name = "Filtered Cast Buff",
+                image = "cast.gif",
+                tags = setOf("nc", "effect"),
+                mpCost = 10,
+                duration = 5,
+                isPassive = false,
+                isCombat = false,
+                isNonCombat = true,
+                isSong = false,
+            ),
+        )
+        UneffectSkillEffectMap.rebuild()
+        val boosts = MaximizerNonEquipmentBoosts.build(
+            nonEquipmentContext(
+                spec = MaximizeSpec(DoubleModifier.MUS, Evaluator("mus")),
+                preferences = Preferences(MapSettings()),
+                filters = setOf(MaximizerFilterType.FOOD),
+            ),
+        )
+        assertFalse(
+            boosts.any { it.text.contains("cast 1 Filtered Cast Buff", ignoreCase = true) },
             boosts.joinToString { it.text },
         )
     }
@@ -197,6 +348,8 @@ class MaximizerNonEquipmentBoostsTest {
             equipment = mapOf(EquipmentSlot.HAT to "plain hat"),
             level = 15,
         ),
+        filters: Set<MaximizerFilterType> = MaximizerFilters.allEnabled(),
+        includeAll: Boolean = false,
     ): MaximizerNonEquipmentBoosts.Context {
         val plan = MaximizerEmitSlot.Plan(
             goal = "init",
@@ -217,6 +370,8 @@ class MaximizerNonEquipmentBoostsTest {
             preferences = preferences,
             mallPriceManager = null,
             priceLevel = MaximizerPriceLevel.DONT_CHECK,
+            filters = filters,
+            includeAll = includeAll,
         )
     }
 

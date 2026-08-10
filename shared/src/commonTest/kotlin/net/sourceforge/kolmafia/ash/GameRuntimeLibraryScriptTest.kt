@@ -79,8 +79,10 @@ class GameRuntimeLibraryScriptTest {
             net.sourceforge.kolmafia.request.EquipmentRequest(client),
             net.sourceforge.kolmafia.character.KoLCharacter(),
         ) {
-            override suspend fun maximize(goalText: String) =
-                net.sourceforge.kolmafia.maximizer.MaximizeResult(true, goalText, 1.0, 5.0)
+            override suspend fun maximize(
+                goalText: String,
+                filters: Set<net.sourceforge.kolmafia.maximizer.MaximizerFilterType>,
+            ) = net.sourceforge.kolmafia.maximizer.MaximizeResult(true, goalText, 1.0, 5.0)
         }
         val lib = GameRuntimeLibrary(maximizerManager = mgr)
         assertEquals("true", outputLib(lib, """print(to_string(maximize("mysticality")));"""))

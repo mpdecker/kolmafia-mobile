@@ -1,6 +1,9 @@
 package net.sourceforge.kolmafia.ash
 
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.maximizer.MaximizerEquipScope
+import net.sourceforge.kolmafia.maximizer.MaximizerFilters
 
 internal fun GameRuntimeLibrary.registerScriptFunctions(scope: AshScope) {
     regFn(scope, "runscript", AshType.BOOLEAN, listOf("name" to AshType.STRING)) { ctx, args ->
@@ -21,8 +24,57 @@ internal fun GameRuntimeLibrary.registerScriptFunctions(scope: AshScope) {
 
     regFn(scope, "maximize", AshType.BOOLEAN, listOf("goal" to AshType.STRING)) { _, args ->
         val mgr = maximizerManager ?: return@regFn AshValue.of(false)
-        val result = kotlinx.coroutines.runBlocking { mgr.maximize(args[0].toString()) }
+        val result = runBlocking { mgr.maximize(args[0].toString()) }
         AshValue.of(result.success)
+    }
+
+    regFn(
+        scope,
+        "maximize",
+        AshType.BOOLEAN,
+        listOf(
+            "goal" to AshType.STRING,
+            "maxPrice" to AshType.INT,
+            "priceLevel" to AshType.INT,
+        ),
+    ) { _, args ->
+        val mgr = maximizerManager ?: return@regFn AshValue.of(false)
+        val result = runBlocking {
+            mgr.maximize(args[0].toString(), MaximizerFilters.allEnabled())
+        }
+        AshValue.of(result.success)
+    }
+
+    regFn(
+        scope,
+        "maximize",
+        AshType.BOOLEAN,
+        listOf(
+            "goal" to AshType.STRING,
+            "maxPrice" to AshType.INT,
+            "priceLevel" to AshType.INT,
+            "equipScope" to AshType.INT,
+            "filters" to AshType.STRING,
+        ),
+    ) { _, args ->
+        val mgr = maximizerManager ?: return@regFn AshValue.of(false)
+        val filters = MaximizerFilters.parseFromString(args[4].toString())
+        if (filters.isEmpty()) return@regFn AshValue.of(false)
+        val goal = args[0].toString()
+        val equipScope = MaximizerEquipScope.byIndex(args[3].toLong().toInt())
+        val success = runBlocking {
+            when (equipScope) {
+                MaximizerEquipScope.EQUIP_NOW -> mgr.maximize(goal, filters).success
+                MaximizerEquipScope.SPECULATE -> {
+                    val lines = mgr.speculate(goal, filters)
+                    lines.none {
+                        it.startsWith("No improvement", ignoreCase = true) ||
+                            it.startsWith("Invalid goal", ignoreCase = true)
+                    }
+                }
+            }
+        }
+        AshValue.of(success)
     }
 }
 

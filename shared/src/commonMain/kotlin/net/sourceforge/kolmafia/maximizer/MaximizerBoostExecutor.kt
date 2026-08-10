@@ -27,6 +27,7 @@ class MaximizerBoostExecutor(
     private val modeableRequest: ModeableRequest?,
     private val retrieveItemService: RetrieveItemService?,
     private val mallManager: MallManager?,
+    private val cliExecutor: (suspend (String) -> Boolean)? = null,
 ) {
     suspend fun execute(cmd: String): Boolean {
         if (cmd.isBlank()) return true
@@ -157,13 +158,16 @@ class MaximizerBoostExecutor(
     }
 
     private suspend fun executeModeable(segment: String): Boolean {
-        val request = modeableRequest ?: return true
         val space = segment.indexOf(' ')
-        if (space <= 0) return false
-        val command = segment.substring(0, space)
-        val mode = segment.substring(space + 1).trim()
-        val modeable = Modeable.entries.find { it.command.equals(command, ignoreCase = true) }
-            ?: return false
-        return request.setMode(modeable, mode).isSuccess
+        if (space > 0) {
+            val command = segment.substring(0, space)
+            val modeable = Modeable.entries.find { it.command.equals(command, ignoreCase = true) }
+            if (modeable != null) {
+                val request = modeableRequest ?: return true
+                val mode = segment.substring(space + 1).trim()
+                return request.setMode(modeable, mode).isSuccess
+            }
+        }
+        return cliExecutor?.invoke(segment) ?: false
     }
 }

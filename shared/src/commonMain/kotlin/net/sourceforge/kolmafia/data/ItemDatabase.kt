@@ -151,6 +151,17 @@ object ItemDatabase {
     const val ENCRYPTION_KEY = 2441
     const val ENCHANTED_BEAN = 186
     const val GONG = 3353
+    const val BOX_OF_SUNSHINE = 1265
+    const val WHAT_CARD = 5511
+    const val WHEN_CARD = 5512
+    const val WHO_CARD = 5513
+    const val WHERE_CARD = 5514
+    const val DIETING_PILL = 9707
+    const val FIRST_BANG_POTION = 819
+    const val LAST_BANG_POTION = 827
+    const val FIRST_SLIME_VIAL = 3885
+    const val LAST_SLIME_VIAL = 3897
+    const val VAMPIRE_VINTNER_WINE = 10800
     const val ASTRAL_MUSHROOM = 1622
 
     fun getImage(itemId: Int): String = getById(itemId)?.image ?: ""
