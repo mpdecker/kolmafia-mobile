@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.shop
 
 import kotlin.test.*
+import kotlinx.coroutines.runBlocking
 
 class CoinmasterRegistryTest {
 
@@ -33,6 +34,19 @@ class CoinmasterRegistryTest {
     fun dimemaster_hasBuyItems() {
         val dmt = CoinmasterRegistry.findByNickname("dmt")!!
         assertTrue(dmt.buyItems.isNotEmpty())
+    }
+
+    @Test
+    fun dimemasterAndQuartersmaster_useCampActions() = kotlinx.coroutines.runBlocking {
+        net.sourceforge.kolmafia.data.GameDatabase().load()
+        val dimemaster = CoinmasterRegistry.findByNickname("dimemaster")!!
+        val quartersmaster = CoinmasterRegistry.findByNickname("quartersmaster")!!
+        assertEquals("getgear", dimemaster.buyAction)
+        assertEquals("turnin", dimemaster.sellAction)
+        assertTrue(dimemaster.useItemField)
+        assertEquals("getgear", quartersmaster.buyAction)
+        assertEquals("turnin", quartersmaster.sellAction)
+        assertTrue(quartersmaster.useItemField)
     }
 
     @Test

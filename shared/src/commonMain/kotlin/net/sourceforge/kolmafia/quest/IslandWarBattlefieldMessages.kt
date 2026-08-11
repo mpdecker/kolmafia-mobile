@@ -31,4 +31,85 @@ object IslandWarBattlefieldMessages {
         }
         return 1
     }
+
+    private val AREA_UNLOCK = intArrayOf(64, 192, 458)
+
+    private val HIPPY_AREA_UNLOCK = arrayOf("Lighthouse", "Junkyard", "Arena")
+
+    private val FRATBOY_AREA_UNLOCK = arrayOf("Orchard", "Nunnery", "Farm")
+
+    private val HERO_UNLOCK = intArrayOf(501, 601, 701, 801, 901)
+
+    private val HIPPY_HERO = arrayOf(
+        "Slow Talkin' Elliot",
+        "Neil",
+        "Zim Merman",
+        "the C.A.R.N.I.V.O.R.E. Operative",
+        "the Glass of Orange Juice",
+    )
+
+    private val FRATBOY_HERO = arrayOf(
+        "the Next-Generation Frat Boy",
+        "Monty Basingstoke-Pratt, IV",
+        "Brutus, the toga-clad lout",
+        "Danglin' Chad",
+        "the War Frat Streaker",
+    )
+
+    fun victoryMessage(
+        defeatingFratSide: Boolean,
+        last: Int,
+        current: Int,
+        isKingdomOfExploathing: Boolean,
+    ): String {
+        val delta = current - last
+        val side = if (defeatingFratSide) {
+            if (delta == 1) "frat boy" else "frat boys"
+        } else {
+            if (delta == 1) "hippy" else "hippies"
+        }
+        val total = if (isKingdomOfExploathing) 333 else 1000
+        return "$delta $side defeated; $current down, ${total - current} left."
+    }
+
+    fun areaMessage(
+        defeatingFratSide: Boolean,
+        last: Int,
+        current: Int,
+        isKingdomOfExploathing: Boolean,
+    ): String? {
+        if (isKingdomOfExploathing) return null
+        val areas = if (defeatingFratSide) HIPPY_AREA_UNLOCK else FRATBOY_AREA_UNLOCK
+        for (i in AREA_UNLOCK.indices) {
+            val threshold = AREA_UNLOCK[i]
+            if (last < threshold && current >= threshold) {
+                return "The ${areas[i]} is now accessible in this uniform!"
+            }
+        }
+        return null
+    }
+
+    fun heroMessage(
+        defeatingFratSide: Boolean,
+        last: Int,
+        current: Int,
+        isKingdomOfExploathing: Boolean,
+    ): String? {
+        if (isKingdomOfExploathing) return null
+        val heroes = if (defeatingFratSide) FRATBOY_HERO else HIPPY_HERO
+        for (i in HERO_UNLOCK.indices) {
+            val threshold = HERO_UNLOCK[i]
+            if (last < threshold && current >= threshold) {
+                return "Keep your eyes open for ${heroes[i]}!"
+            }
+        }
+        return null
+    }
+
+    fun finishWarMessage(loser: String): String = when (loser) {
+        "fratboys" -> "War finished: fratboys defeated"
+        "hippies" -> "War finished: hippies defeated"
+        "both" -> "War finished: both sides defeated"
+        else -> "War finished: $loser defeated"
+    }
 }

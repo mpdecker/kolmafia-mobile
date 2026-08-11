@@ -42,6 +42,21 @@ class LocationDatabaseTest {
     }
 
     @Test
+    fun findBySnarfblat_islandWarBattlefields_matchAdventuresTxt() {
+        val frat = LocationDatabase.findBySnarfblat("132")
+        assertNotNull(frat)
+        assertTrue(frat.name.contains("Frat Uniform", ignoreCase = true))
+
+        val hippy = LocationDatabase.findBySnarfblat("140")
+        assertNotNull(hippy)
+        assertTrue(hippy.name.contains("Hippy Uniform", ignoreCase = true))
+
+        val aboo = LocationDatabase.findBySnarfblat("296")
+        assertNotNull(aboo)
+        assertTrue(aboo.name.contains("A-Boo Peak", ignoreCase = true))
+    }
+
+    @Test
     fun allLocations_haveUniqueSnarfblats() {
         val ids = LocationDatabase.ALL_LOCATIONS.map { it.snarfblat }
         assertEquals(ids.size, ids.toSet().size)

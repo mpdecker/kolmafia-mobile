@@ -767,6 +767,7 @@ val sharedModule = module {
             client = get(),
             character = get(),
             preferences = get(),
+            sessionLogger = get(),
         )
     }
     single {
