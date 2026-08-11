@@ -16,6 +16,7 @@ import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.ModifierEntry
 import net.sourceforge.kolmafia.mall.MallPriceManager
+import net.sourceforge.kolmafia.effect.EffectData
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.AfterTest
@@ -598,6 +599,66 @@ class MaximizerEquipmentEnumeratorTest {
                 evaluator = evaluator,
                 charState = charState,
             ),
+        )
+    }
+
+    @Test
+    fun enumerate_activeEffects_scoreDiffersFromRawItemContribution() {
+        ModifierDatabase.injectForTest("Effect", "Enum ScoreItem Myst Buff", "Mysticality: +100")
+        val db = stubDb(
+            1 to ItemData(1, "small myst hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null),
+            2 to ItemData(2, "big myst hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null),
+            modifiers = mapOf(
+                "small myst hat" to "Mysticality: +1",
+                "big myst hat" to "Mysticality: +5",
+            ),
+        ).also {
+            EquipmentDatabase.registerForTest(1, EquipmentData("small myst hat", 100, null, 0, "hat"))
+            EquipmentDatabase.registerForTest(2, EquipmentData("big myst hat", 100, null, 0, "hat"))
+            it.syncTestItemModifiers("small myst hat", "big myst hat")
+        }
+        val spec = MaximizeSpec(
+            primary = DoubleModifier.MYS,
+            evaluator = Evaluator("mysticality"),
+        )
+        val charState = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "small myst hat"),
+        )
+        val activeEffects = listOf(EffectData(id = 501, name = "Enum ScoreItem Myst Buff", duration = 10))
+        fun effectAwareScore(name: String, ev: Evaluator): Double {
+            val baseline = charState.equipment.mapValues { (_, n) -> n to 0.0 }
+            val slot = EquipmentSlot.HAT
+            val withItem = baseline.toMutableMap().apply { put(slot, name to 0.0) }
+            val baseScore = MaximizerSpeculation.scoreLoadout(
+                charState, baseline, ev, activeEffects = activeEffects, validateEquipment = false,
+            )
+            val withScore = MaximizerSpeculation.scoreLoadout(
+                charState, withItem, ev, activeEffects = activeEffects, validateEquipment = false,
+            )
+            return withScore - baseScore
+        }
+        val rawContribution = spec.evaluator.getItemContribution(
+            net.sourceforge.kolmafia.modifiers.ModifierParser.parse("Mysticality: +5"),
+        )
+        val effectScore = effectAwareScore("big myst hat", spec.evaluator)
+        assertEquals(5.0, rawContribution, 0.01)
+        assertEquals(4.0, effectScore, 0.01)
+        assertTrue(rawContribution != effectScore, "marginal effect-aware score should differ from isolated contribution")
+        val buckets = MaximizerEquipmentEnumerator.enumerate(
+            candidateIds = setOf(1, 2),
+            spec = spec,
+            gameDatabase = db,
+            checkedItem = checkedAvailable(),
+            scoreItem = ::effectAwareScore,
+            itemMeetsConstraints = { _, _ -> true },
+            charState = charState,
+        )
+        val hatScores = buckets.allItems(MaximizerSlot.HAT).associate { it.name to it.score }
+        assertEquals(4.0, hatScores["big myst hat"] ?: 0.0, 0.01)
+        assertEquals(0.0, hatScores["small myst hat"] ?: 0.0, 0.01)
+        assertTrue(
+            (hatScores["big myst hat"] ?: 0.0) > (hatScores["small myst hat"] ?: 0.0),
+            "effect-aware bucket ranking: $hatScores",
         )
     }
 

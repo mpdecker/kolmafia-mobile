@@ -6,6 +6,7 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 object FamiliarDefinitionDatabase {
     private val _byId = mutableMapOf<Int, FamiliarDefinition>()
     private val _byName = mutableMapOf<String, FamiliarDefinition>()
+    private val _byImage = mutableMapOf<String, FamiliarDefinition>()
     private var loaded = false
 
     val byId: Map<Int, FamiliarDefinition> get() = _byId
@@ -71,6 +72,9 @@ object FamiliarDefinitionDatabase {
 
             _byId[id] = familiar
             _byName[name.lowercase()] = familiar
+            if (image.isNotEmpty()) {
+                _byImage[image.lowercase()] = familiar
+            }
         }
 
         loaded = true
@@ -79,6 +83,8 @@ object FamiliarDefinitionDatabase {
     fun getById(id: Int): FamiliarDefinition? = _byId[id]
 
     fun getByName(name: String): FamiliarDefinition? = _byName[name.lowercase()]
+
+    fun getByImage(image: String): FamiliarDefinition? = _byImage[image.lowercase()]
 
     fun all(): Collection<FamiliarDefinition> = _byId.values
 

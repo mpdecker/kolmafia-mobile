@@ -14,6 +14,7 @@ object MaximizerSpecWriteBack {
         plan: MaximizerEmitSlot.Plan,
         charState: CharacterState,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
         carryFamiliars: List<String> = emptyList(),
         gameDatabase: GameDatabase? = null,
         preferences: Preferences? = null,
@@ -22,6 +23,7 @@ object MaximizerSpecWriteBack {
             plan = plan,
             charState = charState,
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
             carryFamiliars = carryFamiliars,
             gameDatabase = gameDatabase,
             preferences = preferences,
@@ -33,12 +35,14 @@ object MaximizerSpecWriteBack {
     fun writeFromLiveState(
         charState: CharacterState,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
         gameDatabase: GameDatabase? = null,
         preferences: Preferences? = null,
     ) {
         val values = MaximizerSpeculation.modifierValuesForPostEquipmentLive(
             charState = charState,
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
             gameDatabase = gameDatabase,
             preferences = preferences,
         )

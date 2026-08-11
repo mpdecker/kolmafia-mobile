@@ -67,4 +67,9 @@ class EffectManager(
         _state.value = EffectState(effects = effects, isStale = false)
         eventBus.tryEmit(GameEvent.EffectsRefreshed)
     }
+
+    fun clearEffects() {
+        _state.value = EffectState(effects = emptyList(), isStale = false)
+        eventBus.tryEmit(GameEvent.EffectsRefreshed)
+    }
 }

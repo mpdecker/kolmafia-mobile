@@ -19,6 +19,7 @@ data class MaximizerScoringOptions(
     val countFor: ((String) -> Int)? = null,
     val foldablesEnabled: Boolean = true,
     val activeEffects: List<EffectData> = emptyList(),
+    val passiveSkillNames: Set<String> = emptySet(),
 )
 
 /**
@@ -44,6 +45,7 @@ object MaximizerSpeculation {
         maxBeeosity: Int = 2,
         validateEquipment: Boolean = true,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
         horseryOverride: String? = null,
         boomBoxOverride: String? = null,
         mindControlOverride: Int? = null,
@@ -64,6 +66,7 @@ object MaximizerSpeculation {
         val baselineMods = CurrentModifiers(
             baseState,
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
             modeOverrides = modeOverrides,
             preferences = preferences,
             horseryOverride = horseryOverride,
@@ -74,6 +77,7 @@ object MaximizerSpeculation {
         val mods = CurrentModifiers(
             baseState.copy(equipment = equipment),
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
             modeOverrides = effectiveModes,
             preferences = preferences,
             horseryOverride = horseryOverride,
@@ -103,6 +107,7 @@ object MaximizerSpeculation {
         plan: MaximizerEmitSlot.Plan,
         charState: CharacterState,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
         horseryOverride: String? = null,
         boomBoxOverride: String? = null,
         mindControlOverride: Int? = null,
@@ -124,6 +129,7 @@ object MaximizerSpeculation {
         preferences = preferences,
         maxBeeosity = plan.spec.maxBeeosity,
         activeEffects = activeEffects,
+        passiveSkillNames = passiveSkillNames,
         horseryOverride = horseryOverride,
         boomBoxOverride = boomBoxOverride,
         mindControlOverride = mindControlOverride,
@@ -135,6 +141,7 @@ object MaximizerSpeculation {
         plan: MaximizerEmitSlot.Plan,
         charState: CharacterState,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
         horseryOverride: String? = null,
         boomBoxOverride: String? = null,
         mindControlOverride: Int? = null,
@@ -151,6 +158,7 @@ object MaximizerSpeculation {
         cardInSleeve = plan.cardInSleeve,
         preferences = preferences,
         activeEffects = activeEffects,
+        passiveSkillNames = passiveSkillNames,
         horseryOverride = horseryOverride,
         boomBoxOverride = boomBoxOverride,
         mindControlOverride = mindControlOverride,
@@ -162,6 +170,7 @@ object MaximizerSpeculation {
         charState: CharacterState,
         evaluator: Evaluator,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
         horseryOverride: String? = null,
         boomBoxOverride: String? = null,
         mindControlOverride: Int? = null,
@@ -179,6 +188,7 @@ object MaximizerSpeculation {
         preferences = preferences,
         maxBeeosity = maxBeeosity,
         activeEffects = activeEffects,
+        passiveSkillNames = passiveSkillNames,
         horseryOverride = horseryOverride,
         boomBoxOverride = boomBoxOverride,
         mindControlOverride = mindControlOverride,
@@ -189,6 +199,7 @@ object MaximizerSpeculation {
     fun modifierValuesForPostEquipmentLive(
         charState: CharacterState,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
         horseryOverride: String? = null,
         boomBoxOverride: String? = null,
         mindControlOverride: Int? = null,
@@ -201,6 +212,7 @@ object MaximizerSpeculation {
         gameDatabase = gameDatabase,
         preferences = preferences,
         activeEffects = activeEffects,
+        passiveSkillNames = passiveSkillNames,
         horseryOverride = horseryOverride,
         boomBoxOverride = boomBoxOverride,
         mindControlOverride = mindControlOverride,
@@ -217,6 +229,7 @@ object MaximizerSpeculation {
         cardInSleeve: String? = null,
         preferences: Preferences? = null,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
         horseryOverride: String? = null,
         boomBoxOverride: String? = null,
         mindControlOverride: Int? = null,
@@ -237,6 +250,7 @@ object MaximizerSpeculation {
         return CurrentModifiers(
             baseState.copy(equipment = equipment),
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
             modeOverrides = effectiveModes,
             preferences = preferences,
             horseryOverride = horseryOverride,
@@ -257,6 +271,7 @@ object MaximizerSpeculation {
         cardInSleeve: String? = null,
         preferences: Preferences? = null,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
     ): Double {
         val effectiveModes = bestModes?.let {
             MaximizerModeSelection.assignmentModeOverrides(
@@ -273,6 +288,7 @@ object MaximizerSpeculation {
         val mods = CurrentModifiers(
             baseState.copy(equipment = equipment),
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
             modeOverrides = effectiveModes,
             preferences = preferences,
         )
@@ -370,6 +386,7 @@ object MaximizerSpeculation {
         countFor: ((String) -> Int)? = null,
         preferences: Preferences? = null,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
     ): Map<EquipmentSlot, Pair<String, Double>> {
         var best = seed
         val resolvedCard = cardInSleeve
@@ -381,6 +398,7 @@ object MaximizerSpeculation {
                 modeOverrides, bestModes, carryFamiliars, gameDatabase, resolvedCard, preferences,
                 maxBeeosity = spec.maxBeeosity,
                 activeEffects = activeEffects,
+                passiveSkillNames = passiveSkillNames,
             )
             bestFailed = spec.evaluator.failed
         } else {
@@ -390,7 +408,7 @@ object MaximizerSpeculation {
         var bestTie = if (seed.isNotEmpty()) {
             tiebreakerScore(
                 baseState, seed, spec.evaluator, modeOverrides, bestModes, carryFamiliars,
-                gameDatabase, resolvedCard, preferences, activeEffects,
+                gameDatabase, resolvedCard, preferences, activeEffects, passiveSkillNames,
             )
         } else {
             Double.NEGATIVE_INFINITY
@@ -415,12 +433,13 @@ object MaximizerSpeculation {
                     modeOverrides, bestModes, carryFamiliars, gameDatabase, card, preferences,
                     maxBeeosity = spec.maxBeeosity,
                     activeEffects = activeEffects,
+                    passiveSkillNames = passiveSkillNames,
                 )
                 val failed = spec.evaluator.failed
                 val exceeded = spec.evaluator.exceeded
                 val tie = tiebreakerScore(
                     baseState, current, spec.evaluator, modeOverrides, bestModes, carryFamiliars,
-                    gameDatabase, card, preferences, activeEffects,
+                    gameDatabase, card, preferences, activeEffects, passiveSkillNames,
                 )
                 val price = priceFor?.let { assignmentPrice(current, it) } ?: Int.MAX_VALUE
                 if (!failed &&

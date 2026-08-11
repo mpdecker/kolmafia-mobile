@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.character.PokefamTeamSlot
 import net.sourceforge.kolmafia.data.FamiliarDefinitionProxy
 import net.sourceforge.kolmafia.data.FamiliarDailyStats
 import net.sourceforge.kolmafia.data.GameDatabase
@@ -23,6 +24,7 @@ internal object FamiliarEntityFields {
         gameDatabase: GameDatabase?,
         familiarManager: FamiliarManager?,
         preferences: Preferences?,
+        pokeTeam: List<PokefamTeamSlot> = emptyList(),
     ): AshValue {
         val definition = FamiliarDefinitionProxy.getByIdOrName(familiarRef)
             ?: gameDatabase?.familiar(familiarRef)
@@ -60,7 +62,7 @@ internal object FamiliarEntityFields {
             "variable" -> AshValue.of(definition?.isVariableType() ?: false)
             "feasted" -> AshValue.of(false)
             "attributes" -> AshValue.of(FamiliarDefinitionProxy.getAttributesString(familiarId))
-            "poke_level" -> AshValue.of(0L)
+            "poke_level" -> AshValue.of(pokeLevelValue(familiarId, owned, pokeTeam))
             "poke_level_2_power" -> AshValue.of((PokefamDatabase.getById(familiarId)?.power2 ?: 0).toLong())
             "poke_level_2_hp" -> AshValue.of((PokefamDatabase.getById(familiarId)?.hp2 ?: 0).toLong())
             "poke_level_3_power" -> AshValue.of((PokefamDatabase.getById(familiarId)?.power3 ?: 0).toLong())
@@ -71,10 +73,20 @@ internal object FamiliarEntityFields {
             "poke_move_2" -> AshValue.of(PokefamDatabase.getById(familiarId)?.move2 ?: "")
             "poke_move_3" -> AshValue.of(PokefamDatabase.getById(familiarId)?.move3 ?: "")
             "poke_attribute" -> AshValue.of(PokefamDatabase.getById(familiarId)?.attribute ?: "")
-            "soup_weight" -> AshValue.of(0L)
-            "soup_attributes" -> stringListAggregate(emptyList())
+            "soup_weight" -> AshValue.of((owned?.soupWeight ?: 0).toLong())
+            "soup_attributes" -> stringListAggregate(owned?.soupAttributes?.sorted() ?: emptyList())
             else -> throw ScriptException("familiar has no field '$fieldName'")
         }
+    }
+
+    private fun pokeLevelValue(
+        familiarId: Int,
+        owned: FamiliarData?,
+        pokeTeam: List<PokefamTeamSlot>,
+    ): Long {
+        pokeTeam.firstOrNull { it.familiarId == familiarId && !it.isEmpty }
+            ?.let { return it.level.toLong() }
+        return (owned?.pokeLevel ?: 0).toLong()
     }
 
     private fun ownedFamiliar(

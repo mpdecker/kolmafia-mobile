@@ -31,6 +31,7 @@ object MaximizerCardSelection {
         carryFamiliars: List<String> = emptyList(),
         gameDatabase: net.sourceforge.kolmafia.data.GameDatabase? = null,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
     ): String? {
         if (!cardNeeded(rankedBuckets)) return null
 
@@ -59,6 +60,7 @@ object MaximizerCardSelection {
                 preferences = preferences,
                 cardInSleeve = cardName,
                 activeEffects = activeEffects,
+                passiveSkillNames = passiveSkillNames,
             )
             if (spec.evaluator.failed) continue
             if (score > bestScore) {

@@ -59,7 +59,10 @@ class MaximizerPostEquipRefreshTest {
             client = HttpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
             eventBus = GameEventBus(),
         ) {
-            override suspend fun refreshCharacterStatus(effectManager: EffectManager?): Boolean {
+            override suspend fun refreshCharacterStatus(
+                effectManager: EffectManager?,
+                familiarManager: net.sourceforge.kolmafia.familiar.FamiliarManager?,
+            ): Boolean {
                 syncCalled = true
                 return true
             }
@@ -83,7 +86,10 @@ class MaximizerPostEquipRefreshTest {
             client = HttpClient(MockEngine { respond("{}", HttpStatusCode.OK) }),
             eventBus = GameEventBus(),
         ) {
-            override suspend fun refreshCharacterStatus(effectManager: EffectManager?): Boolean {
+            override suspend fun refreshCharacterStatus(
+                effectManager: EffectManager?,
+                familiarManager: net.sourceforge.kolmafia.familiar.FamiliarManager?,
+            ): Boolean {
                 syncCalled = effectManager == null
                 return true
             }
@@ -187,9 +193,12 @@ class MaximizerPostEquipRefreshTest {
                     2 to InventoryItem(2, "myst hat", 1, ItemType.HAT),
                 )),
             )
-            override suspend fun refreshCharacterStatus(effectManager: EffectManager?): Boolean {
+            override suspend fun refreshCharacterStatus(
+                effectManager: EffectManager?,
+                familiarManager: net.sourceforge.kolmafia.familiar.FamiliarManager?,
+            ): Boolean {
                 refreshCount++
-                return super.refreshCharacterStatus(effectManager)
+                return super.refreshCharacterStatus(effectManager, familiarManager)
             }
         }
         val db = object : GameDatabase() {

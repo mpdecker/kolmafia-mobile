@@ -8,6 +8,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import com.russhwolf.settings.MapSettings
+import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.character.PokefamTeamSlot
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.familiar.FamiliarData
@@ -16,6 +18,45 @@ import net.sourceforge.kolmafia.familiar.FamiliarState
 import net.sourceforge.kolmafia.preferences.Preferences
 
 class GameRuntimeLibraryAshP254Test {
+
+    @Test
+    fun familiarBracket_pokeLevelFromTeamAndOwned() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val character = KoLCharacter()
+        character.updatePokeTeam(
+            listOf(
+                PokefamTeamSlot(familiarId = 215, name = "Globmule", level = 12),
+                PokefamTeamSlot.EMPTY,
+                PokefamTeamSlot.EMPTY,
+            ),
+        )
+        val client = HttpClient(MockEngine { respond("ok") })
+        val famMgr = FamiliarManager(client, GameEventBus())
+        famMgr.testSetState(
+            FamiliarState(
+                ownedFamiliars = listOf(
+                    FamiliarData(
+                        id = 216,
+                        name = "Bluzzard",
+                        race = "Bluzzard",
+                        weight = 5,
+                        experience = 0,
+                        kills = 0,
+                        pokeLevel = 7,
+                    ),
+                ),
+            ),
+        )
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            familiarManager = famMgr,
+            character = character,
+        )
+        assertEquals("12", outputLib(lib, """print(to_familiar("Globmule")["poke_level"]);""").trim())
+        assertEquals("7", outputLib(lib, """print(to_familiar("Bluzzard")["poke_level"]);""").trim())
+        assertEquals("0", outputLib(lib, """print(to_familiar("Angry Goat")["poke_level"]);""").trim())
+    }
 
     @Test
     fun familiarBracket_pokefamAndDailyCaps() = runBlocking {
@@ -66,5 +107,33 @@ class GameRuntimeLibraryAshP254Test {
         val lib = GameRuntimeLibrary(gameDatabase = db, preferences = prefs)
         assertEquals("4", outputLib(lib, """print(to_familiar("Mini-Hipster")["fights_today"]);""").trim())
         assertEquals("7", outputLib(lib, """print(to_familiar("Mini-Hipster")["fights_limit"]);""").trim())
+    }
+
+    @Test
+    fun familiarBracket_soupFieldsFromOwned() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val client = HttpClient(MockEngine { respond("ok") })
+        val famMgr = FamiliarManager(client, GameEventBus())
+        famMgr.testSetState(
+            FamiliarState(
+                ownedFamiliars = listOf(
+                    FamiliarData(
+                        id = 1,
+                        name = "Mosquito",
+                        race = "Mosquito",
+                        weight = 5,
+                        experience = 0,
+                        kills = 0,
+                        soupWeight = 4,
+                        soupAttributes = setOf("damage", "mp"),
+                    ),
+                ),
+            ),
+        )
+        val lib = GameRuntimeLibrary(gameDatabase = db, familiarManager = famMgr)
+        assertEquals("4", outputLib(lib, """print(to_familiar("Mosquito")["soup_weight"]);""").trim())
+        assertEquals("damage", outputLib(lib, """print(to_familiar("Mosquito")["soup_attributes"][0]);""").trim())
+        assertEquals("mp", outputLib(lib, """print(to_familiar("Mosquito")["soup_attributes"][1]);""").trim())
     }
 }

@@ -13,11 +13,12 @@ internal fun GameRuntimeLibrary.registerAshP118Batch(scope: AshScope) {
     regFn(scope, "refresh_status", AshType.BOOLEAN, emptyList()) { _, _ ->
         runBlocking {
             val char = character ?: return@runBlocking AshValue.FALSE
-            val ok = CharacterStatusRefresh.refresh(
+            val ok = CharacterStatusRefresh.refreshWithQuantumPreflight(
                 characterRequest = characterRequest,
                 character = char,
                 effectManager = null,
                 preferences = preferences,
+                familiarManager = familiarManager,
             )
             AshValue.of(ok)
         }
@@ -56,11 +57,12 @@ internal fun GameRuntimeLibrary.registerAshP118Batch(scope: AshScope) {
 internal suspend fun GameRuntimeLibrary.refreshCharacterStates(): Triple<CharacterState, InventoryState, SkillState> {
     val char = character
     if (char != null) {
-        CharacterStatusRefresh.refresh(
+        CharacterStatusRefresh.refreshWithQuantumPreflight(
             characterRequest = characterRequest,
             character = char,
             effectManager = effectManager,
             preferences = preferences,
+            familiarManager = familiarManager,
         )
     }
     return Triple(

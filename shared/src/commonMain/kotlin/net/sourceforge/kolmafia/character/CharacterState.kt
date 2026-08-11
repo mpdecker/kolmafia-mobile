@@ -119,6 +119,8 @@ data class CharacterState(
     val enthronedFamiliarName: String = "",
     val bjornedFamiliarId: Int = 0,        // Buddy Bjorn familiar
     val bjornedFamiliarName: String = "",
+    /** Pokefam path active team (3 slots); populated from charpane parse (Phase 417). */
+    val pokeTeam: List<PokefamTeamSlot> = emptyList(),
 
     // ── Moon / KoL calendar ──────────────────────────────────────────────────
     val moonPhase: Int = 0,

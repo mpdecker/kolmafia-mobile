@@ -46,6 +46,7 @@ object MaximizerNonEquipmentBoosts {
         val plan: MaximizerEmitSlot.Plan,
         val charState: CharacterState,
         val activeEffects: List<EffectData>,
+        val passiveSkillNames: Set<String> = emptySet(),
         val inventory: MaximizerEmitSlot.InventorySnapshot,
         val inventoryCount: (Int) -> Int,
         val gameDatabase: GameDatabase,
@@ -196,7 +197,7 @@ object MaximizerNonEquipmentBoosts {
         val effectState = EffectState(ctx.activeEffects)
         val boosts = mutableListOf<MaximizerBoost>()
         val baseline = postEquipmentScore(ctx)
-        val exprCtx = ExpressionContext.from(ctx.charState, ctx.activeEffects, emptySet())
+        val exprCtx = ExpressionContext.from(ctx.charState, ctx.activeEffects, ctx.passiveSkillNames)
 
         for (effectDef in EffectDatabase.all()) {
             if (!MaximizerContinuation.permitsContinue()) break
@@ -434,7 +435,7 @@ object MaximizerNonEquipmentBoosts {
         val limitsCtx = net.sourceforge.kolmafia.request.ItemUseLimitsContext(
             character = ctx.charState,
             preferences = ctx.preferences,
-            expressionContext = ExpressionContext.from(ctx.charState, ctx.activeEffects, emptySet()),
+            expressionContext = ExpressionContext.from(ctx.charState, ctx.activeEffects, ctx.passiveSkillNames),
             accessibleCount = ctx.inventoryCount,
         )
         return net.sourceforge.kolmafia.request.maximumUses(itemId, name, limitsCtx)
@@ -466,6 +467,7 @@ object MaximizerNonEquipmentBoosts {
             plan = ctx.plan,
             charState = ctx.charState,
             activeEffects = activeEffects,
+            passiveSkillNames = ctx.passiveSkillNames,
             horseryOverride = horseryOverride,
             boomBoxOverride = boomBoxOverride,
             mindControlOverride = mindControlOverride,
@@ -477,6 +479,7 @@ object MaximizerNonEquipmentBoosts {
         NonEquipmentBaseline.LIVE_EQUIPPED -> MaximizerSpeculation.modifierValuesForPostEquipmentLive(
             charState = ctx.charState,
             activeEffects = activeEffects,
+            passiveSkillNames = ctx.passiveSkillNames,
             horseryOverride = horseryOverride,
             boomBoxOverride = boomBoxOverride,
             mindControlOverride = mindControlOverride,
@@ -498,6 +501,7 @@ object MaximizerNonEquipmentBoosts {
             plan = ctx.plan,
             charState = ctx.charState,
             activeEffects = activeEffects,
+            passiveSkillNames = ctx.passiveSkillNames,
             horseryOverride = horseryOverride,
             boomBoxOverride = boomBoxOverride,
             mindControlOverride = mindControlOverride,
@@ -511,6 +515,7 @@ object MaximizerNonEquipmentBoosts {
             charState = ctx.charState,
             evaluator = ctx.plan.spec.evaluator,
             activeEffects = activeEffects,
+            passiveSkillNames = ctx.passiveSkillNames,
             horseryOverride = horseryOverride,
             boomBoxOverride = boomBoxOverride,
             mindControlOverride = mindControlOverride,

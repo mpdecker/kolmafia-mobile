@@ -255,6 +255,31 @@ class KoLCharacter {
         _state.value = _state.value.copy(currentRun = run)
     }
 
+    /** Desktop [CharPaneRequest.processValhallaCharacterPane] spirit stat reset (Phase 412). */
+    fun applyValhallaState() {
+        val prev = _state.value
+        _state.value = prev.copy(
+            baseMusc = 1,
+            muscSubpoints = 0L,
+            baseMyst = 1,
+            mystSubpoints = 0L,
+            baseMoxie = 1,
+            moxieSubpoints = 0L,
+            buffedMusc = 1,
+            buffedMyst = 1,
+            buffedMoxie = 1,
+            currentHp = 1,
+            maxHp = 1,
+            baseMaxHp = 1,
+            currentMp = 1,
+            maxMp = 1,
+            baseMaxMp = 1,
+            meat = 0,
+            adventuresLeft = 0,
+            mindControlLevel = 0,
+        )
+    }
+
     fun updateFromCharpane(parsed: CharpaneStatusSync.ParsedStatus) {
         val prev = _state.value
         _state.value = prev.copy(
@@ -277,6 +302,16 @@ class KoLCharacter {
             lightning = parsed.lightning ?: prev.lightning,
             wildfireWater = parsed.wildfireWater ?: prev.wildfireWater,
         )
+    }
+
+    fun updatePokeTeam(slots: List<PokefamTeamSlot>) {
+        _state.value = _state.value.copy(pokeTeam = slots)
+    }
+
+    /** Desktop `KoLCharacter.getPokeFam(slot)` — 0-based slots 0–2. */
+    fun pokeFamSlot(slot: Int): PokefamTeamSlot {
+        if (slot !in 0..2) return PokefamTeamSlot.EMPTY
+        return _state.value.pokeTeam.getOrElse(slot) { PokefamTeamSlot.EMPTY }
     }
 
     fun reset() {

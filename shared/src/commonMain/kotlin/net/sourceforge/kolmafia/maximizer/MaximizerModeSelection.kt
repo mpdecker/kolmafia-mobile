@@ -26,6 +26,7 @@ object MaximizerModeSelection {
         carryFamiliars: List<String> = emptyList(),
         gameDatabase: GameDatabase? = null,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = emptySet(),
     ): Map<Modeable, String> {
         val needed = modeablesNeeded(rankedBuckets, bestPerSlot, carryFamiliars, gameDatabase)
         if (needed.isEmpty()) return emptyMap()
@@ -53,6 +54,7 @@ object MaximizerModeSelection {
                     maxBeeosity = spec.maxBeeosity,
                     validateEquipment = false,
                     activeEffects = activeEffects,
+                    passiveSkillNames = passiveSkillNames,
                 )
                 if (spec.evaluator.failed) continue
                 if (score > bestScore) {

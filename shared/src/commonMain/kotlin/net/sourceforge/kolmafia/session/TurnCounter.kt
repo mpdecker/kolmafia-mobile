@@ -124,6 +124,52 @@ object TurnCounter {
                 it.label.contains(label, ignoreCase = true)
         }
 
+    /** Desktop [TurnCounter.isCounting] — active counter with parsed label and turn >= currentRun. */
+    fun isCounting(preferences: Preferences, label: String, currentRun: Int): Boolean =
+        load(preferences).any { entry ->
+            entry.parsedLabel().equals(label, ignoreCase = true) &&
+                entry.absoluteTurn >= currentRun
+        }
+
+    /** Desktop [TurnCounter.isCounting] range overload — absolute turn in [currentRun+start, currentRun+stop]. */
+    fun isCounting(
+        preferences: Preferences,
+        label: String,
+        currentRun: Int,
+        start: Int,
+        stop: Int,
+    ): Boolean {
+        val begin = currentRun + start
+        val end = currentRun + stop
+        return load(preferences).any { entry ->
+            entry.parsedLabel().equals(label, ignoreCase = true) &&
+                entry.absoluteTurn in begin..end
+        }
+    }
+
+    /**
+     * Desktop [TurnCounter.getCounters] — parsed labels whose absolute turn falls in the offset window.
+     * Returns distinct parsed labels matching [label] (case-insensitive substring when non-blank).
+     */
+    fun getCounterLabels(
+        preferences: Preferences,
+        label: String,
+        currentRun: Int,
+        minTurns: Int,
+        maxTurns: Int,
+    ): List<String> {
+        val minTurn = currentRun + minTurns
+        val maxTurn = currentRun + maxTurns
+        val needle = label.lowercase()
+        return load(preferences)
+            .filter { entry ->
+                entry.absoluteTurn in minTurn..maxTurn &&
+                    (needle.isBlank() || entry.parsedLabel().lowercase().contains(needle))
+            }
+            .map { it.parsedLabel() }
+            .distinct()
+    }
+
     fun formatRelayCounters(preferences: Preferences, currentRun: Int): String {
         val entries = load(preferences)
         if (entries.isEmpty()) return ""

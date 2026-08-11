@@ -10,6 +10,7 @@ import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.faxbot.FaxBotDatabase
 import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.banish.BanishManager
+import net.sourceforge.kolmafia.character.CharpaneValhallaSync
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.clan.ClanHotdogMenuCache
@@ -193,6 +194,7 @@ class SessionManager(
 
     fun logout() {
         ClanManager.clearCache(newCharacter = true)
+        CharpaneValhallaSync.reset()
         character.reset()
     }
 

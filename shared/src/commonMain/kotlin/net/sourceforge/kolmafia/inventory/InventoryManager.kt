@@ -18,6 +18,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.character.CharacterStatusRefresh
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.shop.StandardRewardCurrencySync
 
 open class InventoryManager(
@@ -106,13 +107,17 @@ open class InventoryManager(
         refreshCharacterStatus(null)
     }
 
-    open suspend fun refreshCharacterStatus(effectManager: net.sourceforge.kolmafia.effect.EffectManager? = null): Boolean {
+    open suspend fun refreshCharacterStatus(
+        effectManager: net.sourceforge.kolmafia.effect.EffectManager? = null,
+        familiarManager: FamiliarManager? = null,
+    ): Boolean {
         val char = character ?: return false
-        return CharacterStatusRefresh.refresh(
+        return CharacterStatusRefresh.refreshWithQuantumPreflight(
             characterRequest = characterRequest,
             character = char,
             effectManager = effectManager,
             preferences = preferences,
+            familiarManager = familiarManager,
         )
     }
 

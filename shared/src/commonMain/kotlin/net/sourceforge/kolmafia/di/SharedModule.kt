@@ -496,6 +496,7 @@ val sharedModule = module {
             mallManager = get(),
             modeableRequest = get(),
             effectManager = get(),
+            characterRequest = get(),
         )
     }
     singleOf(::SessionLogger)

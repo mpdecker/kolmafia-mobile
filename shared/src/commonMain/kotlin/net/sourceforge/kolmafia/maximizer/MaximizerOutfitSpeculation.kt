@@ -69,6 +69,7 @@ object MaximizerOutfitSpeculation {
                 countFor = scoring.countFor,
                 preferences = preferences,
                 activeEffects = scoring.activeEffects,
+                passiveSkillNames = scoring.passiveSkillNames,
             )
             if (result.isEmpty()) continue
 
@@ -114,6 +115,7 @@ object MaximizerOutfitSpeculation {
             preferences = preferences,
             maxBeeosity = spec.maxBeeosity,
             activeEffects = scoring.activeEffects,
+            passiveSkillNames = scoring.passiveSkillNames,
         )
     }
 
@@ -135,6 +137,7 @@ object MaximizerOutfitSpeculation {
             cardInSleeve = card,
             preferences = preferences,
             activeEffects = scoring.activeEffects,
+            passiveSkillNames = scoring.passiveSkillNames,
         )
     }
 }

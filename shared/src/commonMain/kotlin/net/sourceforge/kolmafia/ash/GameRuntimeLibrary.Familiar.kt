@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
 import net.sourceforge.kolmafia.familiar.FamiliarUsability
 
 internal fun GameRuntimeLibrary.registerFamiliarQueries(scope: AshScope) {
@@ -41,6 +42,19 @@ internal fun GameRuntimeLibrary.registerFamiliarQueries(scope: AshScope) {
 
     regFn(scope, "my_bjornified_familiar", AshType.FAMILIAR, emptyList()) { _, _ ->
         val name = character?.state?.value?.bjornedFamiliarName?.takeIf { it.isNotBlank() }
+            ?: "none"
+        AshValue.familiar(name)
+    }
+
+    regFn(scope, "my_poke_fam", AshType.FAMILIAR,
+        listOf("slot" to AshType.INT)) { _, args ->
+        val slot = args[0].toLong().toInt()
+        val char = character ?: return@regFn AshValue.familiar("none")
+        if (slot !in 0..2) return@regFn AshValue.familiar("none")
+        val teamSlot = char.pokeFamSlot(slot)
+        if (teamSlot.isEmpty) return@regFn AshValue.familiar("none")
+        val name = teamSlot.name.takeIf { it.isNotBlank() }
+            ?: FamiliarDefinitionDatabase.getById(teamSlot.familiarId)?.name
             ?: "none"
         AshValue.familiar(name)
     }

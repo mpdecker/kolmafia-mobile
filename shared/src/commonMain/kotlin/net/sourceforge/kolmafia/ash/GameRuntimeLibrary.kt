@@ -39,6 +39,9 @@ import net.sourceforge.kolmafia.character.ClassResourceCharpaneSync
 import net.sourceforge.kolmafia.clan.ClanIdSync
 import net.sourceforge.kolmafia.character.ClassResourceCombatSync
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.character.FamiliarSoupSync
+import net.sourceforge.kolmafia.character.FightPokefamSync
+import net.sourceforge.kolmafia.character.PokefamBoostSync
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.equipment.Modeable
@@ -71,6 +74,7 @@ import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
+import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
 import net.sourceforge.kolmafia.request.ZapRequest
 import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
@@ -288,7 +292,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase410"
+        const val REVISION = "phase421"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1993,14 +1997,42 @@ class GameRuntimeLibrary(
     }
 
     internal fun applyItemUseResponse(itemId: Int, html: String) {
-        val prefs = preferences ?: return
         when (itemId) {
             SleazeAirportSync.SPRING_BEACH_TICKET ->
-                SleazeAirportSync.syncFromSpringBeachTicketUse(html, prefs)
+                preferences?.let { SleazeAirportSync.syncFromSpringBeachTicketUse(html, it) }
+            in FamiliarSoupSync.protogeneticSoupIds ->
+                FamiliarSoupSync.applyProtogeneticSoupUse(
+                    itemId = itemId,
+                    html = html,
+                    familiarId = character?.state?.value?.familiarId ?: 0,
+                    familiarManager = familiarManager,
+                )
         }
     }
 
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
+        if (url?.contains("familiar.php", ignoreCase = true) == true &&
+            url.contains("ajax=1", ignoreCase = true) != true
+        ) {
+            FamiliarSoupSync.apply(html, familiarManager)
+        } else if (FamiliarSoupSync.containsSoupComment(html)) {
+            FamiliarSoupSync.apply(html, familiarManager)
+        }
+        if (url?.contains("famteam.php", ignoreCase = true) == true) {
+            PokefamBoostSync.syncFromFeed(url, html, preferences)
+        }
+        if (url?.contains("qterrarium.php", ignoreCase = true) == true) {
+            val char = character
+            if (char != null) {
+                QuantumTerrariumRequest.parseVisit(
+                    url = url,
+                    html = html,
+                    character = char,
+                    preferences = preferences,
+                    sessionLogger = sessionLogger,
+                )
+            }
+        }
         if (url?.contains("wildfire", ignoreCase = true) == true ||
             html.contains("wildfire_captain", ignoreCase = true)
         ) {
@@ -2079,6 +2111,9 @@ class GameRuntimeLibrary(
         }
         if (url != null && (url.contains("fight.php") || html.contains("You're fighting"))) {
             character?.let { ClassResourceCombatSync.apply(it, html) }
+            character?.let { char ->
+                FightPokefamSync.apply(char, html, familiarManager, preferences)
+            }
             preferences?.let { prefs ->
                 val exprCtx = character?.state?.value?.let { state ->
                     ExpressionContext.from(state, emptyList())
@@ -3326,6 +3361,7 @@ class GameRuntimeLibrary(
                 gameDatabase,
                 familiarManager,
                 preferences,
+                pokeTeam = character?.state?.value?.pokeTeam.orEmpty(),
             )
             AshType.BOUNTY -> BountyEntityFields.resolve(
                 base.toString(),

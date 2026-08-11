@@ -27,6 +27,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.PastaThrall
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.request.ClanStashRequest
+import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
@@ -41,6 +42,7 @@ import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.mall.MallPriceManager
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectData
+import net.sourceforge.kolmafia.quest.DynamicItemModifierSync
 
 open class MaximizerManager(
     private val gameDatabase: GameDatabase,
@@ -62,6 +64,7 @@ open class MaximizerManager(
     private val mallManager: MallManager? = null,
     private val modeableRequest: ModeableRequest? = null,
     private val effectManager: EffectManager? = null,
+    private val characterRequest: CharacterRequest? = null,
 ) {
     companion object {
         const val CROWN_OF_THRONES = "Crown of Thrones"
@@ -92,6 +95,12 @@ open class MaximizerManager(
 
     /** Best mode per modeable during [buildMaximizePlan]; feeds mode-aware [scoreItem]. */
     private var activeModeSelections: Map<Modeable, String> = emptyMap()
+
+    /** Post-refresh active effects during maximize/speculate search (Phase 411). */
+    private var searchActiveEffects: List<EffectData> = emptyList()
+
+    /** Passive skills during maximize/speculate search (Phase 414). */
+    private var searchPassiveSkillNames: Set<String> = emptySet()
 
     private val equipSlots = listOf(
         EquipmentSlot.HAT,
@@ -348,6 +357,9 @@ open class MaximizerManager(
             plan = plan.toEmitPlan(familiarSwitch),
             charState = charState,
             activeEffects = effectManager?.state?.value?.effects.orEmpty(),
+            passiveSkillNames = MaximizerPassiveSkills.namesFrom(
+                skillManager?.state?.value?.skills.orEmpty(),
+            ),
             inventory = plan.inventorySnapshot,
             inventoryCount = ::inventoryCount,
             gameDatabase = gameDatabase,
@@ -382,6 +394,9 @@ open class MaximizerManager(
             plan = plan.toEmitPlan(familiarSwitch),
             charState = charState,
             activeEffects = effectManager?.state?.value?.effects.orEmpty(),
+            passiveSkillNames = MaximizerPassiveSkills.namesFrom(
+                skillManager?.state?.value?.skills.orEmpty(),
+            ),
             carryFamiliars = carryFamiliars,
             gameDatabase = gameDatabase,
             preferences = preferences,
@@ -392,6 +407,9 @@ open class MaximizerManager(
         MaximizerSpecWriteBack.writeFromLiveState(
             charState = character.state.value,
             activeEffects = effectManager?.state?.value?.effects.orEmpty(),
+            passiveSkillNames = MaximizerPassiveSkills.namesFrom(
+                skillManager?.state?.value?.skills.orEmpty(),
+            ),
             gameDatabase = gameDatabase,
             preferences = preferences,
         )
@@ -403,6 +421,9 @@ open class MaximizerManager(
             charState = character.state.value,
             evaluator = plan.spec.evaluator,
             activeEffects = effectManager?.state?.value?.effects.orEmpty(),
+            passiveSkillNames = MaximizerPassiveSkills.namesFrom(
+                skillManager?.state?.value?.skills.orEmpty(),
+            ),
             preferences = preferences,
             gameDatabase = gameDatabase,
             thrallBonus = thrallBonus,
@@ -452,16 +473,40 @@ open class MaximizerManager(
         MaximizerProgress.reset()
         MaximizerProgress.sink = progressDisplay ?: {}
         activeModeSelections = emptyMap()
+        searchActiveEffects = emptyList()
+        searchPassiveSkillNames = emptySet()
         val goal = goalText.trim()
         val spec = MaximizeGoal.parseSpec(goal) ?: return null
-        MaximizerPreSearchRefresh.refresh(inventoryManager, effectManager)
+        MaximizerPreSearchRefresh.refresh(
+            inventoryManager = inventoryManager,
+            effectManager = effectManager,
+            character = character,
+            characterRequest = characterRequest,
+            preferences = preferences,
+            skillManager = skillManager,
+            familiarManager = familiarManager,
+        )
         val activeEffects = effectManager?.state?.value?.effects.orEmpty()
+        searchActiveEffects = activeEffects
         val charState = character.state.value
         val invState = inventoryManager.state.value
         val closetContents = closetRequest?.fetchContents().orEmpty()
         val storageContents = storageRequest?.fetchContents().orEmpty()
         val displayContents = displayCaseRequest?.fetchContents().orEmpty()
         val stashContents = clanStashRequest?.fetchContents().orEmpty()
+        val passiveSkillNames = MaximizerPassiveSkills.resolve(
+            skillManager?.state?.value?.skills.orEmpty(),
+            buildCheckContext(
+                charState = charState,
+                invState = invState,
+                activeEffects = activeEffects,
+                closetContents = closetContents,
+                storageContents = storageContents,
+                stashContents = stashContents,
+            ),
+            gameDatabase,
+        )
+        searchPassiveSkillNames = passiveSkillNames
         val inventorySnap = inventorySnapshot(
             closetContents, storageContents, displayContents, stashContents,
         )
@@ -485,6 +530,7 @@ open class MaximizerManager(
             preferences = preferences,
             maxBeeosity = effectiveSpec.maxBeeosity,
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
         )
 
         if (MaximizerFilterType.EQUIP !in filters) {
@@ -509,6 +555,8 @@ open class MaximizerManager(
         val (rankedBuckets, autoContext) = buildRankedBuckets(
             effectiveSpec, candidateIds, invState,
             closetContents, storageContents, displayContents, stashContents,
+            activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
         )
         var bestPerSlot = findBestPerSlot(
             effectiveSpec, charState, rankedBuckets,
@@ -531,20 +579,21 @@ open class MaximizerManager(
             carryFamiliars = carryFamiliars,
             gameDatabase = gameDatabase,
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
         )
         activeModeSelections = modeSelections
         bestPerSlot = seedModeableBestPerSlot(bestPerSlot, effectiveSpec, modeSelections)
         bestPerSlot = refineAccessoryCombinations(
             effectiveSpec, charState, rankedBuckets,
-            bestPerSlot, comboBudget, modeSelections, carryFamiliars, activeEffects,
+            bestPerSlot, comboBudget, modeSelections, carryFamiliars, activeEffects, passiveSkillNames,
         )
         bestPerSlot = refineWeaponOffhandCombinations(
             effectiveSpec, charState, rankedBuckets,
-            bestPerSlot, comboBudget, modeSelections, carryFamiliars, activeEffects,
+            bestPerSlot, comboBudget, modeSelections, carryFamiliars, activeEffects, passiveSkillNames,
         )
         bestPerSlot = refineArmorCombinations(
             effectiveSpec, charState, rankedBuckets,
-            bestPerSlot, comboBudget, modeSelections, carryFamiliars, activeEffects,
+            bestPerSlot, comboBudget, modeSelections, carryFamiliars, activeEffects, passiveSkillNames,
         )
         val (targetThrall, thrallBonus) = resolveTargetThrall(effectiveSpec)
         val usableSwitch = usableSwitchFamiliars(effectiveSpec)
@@ -594,6 +643,7 @@ open class MaximizerManager(
             carryFamiliars = carryFamiliars,
             gameDatabase = gameDatabase,
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
         )
         val scoringOptions = MaximizerScoringOptions(
             bestModes = modeSelections,
@@ -603,6 +653,7 @@ open class MaximizerManager(
             countFor = countForByName,
             foldablesEnabled = foldablesEnabled(),
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
         )
         val tryAllResult = MaximizerFamiliarSpeculation.tryAll(
             spec = effectiveSpec,
@@ -689,6 +740,7 @@ open class MaximizerManager(
             preferences = preferences,
             maxBeeosity = effectiveSpec.maxBeeosity,
             activeEffects = activeEffects,
+            passiveSkillNames = passiveSkillNames,
         )
         if (charState.inBeecore &&
             loadoutBeeosity(charState.equipment, bestPerSlot) > effectiveSpec.maxBeeosity
@@ -1110,6 +1162,7 @@ open class MaximizerManager(
         bestModes: Map<Modeable, String> = emptyMap(),
         carryFamiliars: List<String> = emptyList(),
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = searchPassiveSkillNames,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val nonAccessory = greedy.filterKeys { it !in accessorySlots }
         val usedElsewhere = nonAccessory.values.map { it.first }.toSet()
@@ -1123,7 +1176,7 @@ open class MaximizerManager(
 
         var bestAssignment = greedy
         var bestScore = scoreAssignment(
-            greedy, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects,
+            greedy, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects, passiveSkillNames,
         )
         for (a in top) {
             for (b in top) {
@@ -1136,7 +1189,7 @@ open class MaximizerManager(
                         EquipmentSlot.ACC3 to (c.first to c.second),
                     )
                     val score = scoreAssignment(
-                        combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects,
+                        combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects, passiveSkillNames,
                     )
                     if (score > bestScore) {
                         bestScore = score
@@ -1158,6 +1211,7 @@ open class MaximizerManager(
         bestModes: Map<Modeable, String> = emptyMap(),
         carryFamiliars: List<String> = emptyList(),
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = searchPassiveSkillNames,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val nonWeaponOffhand = greedy.filterKeys { it !in weaponOffhandSlots }
         val usedElsewhere = nonWeaponOffhand.values.map { it.first }.toSet()
@@ -1177,7 +1231,7 @@ open class MaximizerManager(
 
         var bestAssignment = greedy
         var bestScore = scoreAssignment(
-            greedy, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects,
+            greedy, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects, passiveSkillNames,
         )
         if (topWeapons.isEmpty()) {
             for (offhand in topOffhands) {
@@ -1186,7 +1240,7 @@ open class MaximizerManager(
                     EquipmentSlot.OFFHAND to (offhand.first to offhand.second),
                 )
                 val score = scoreAssignment(
-                    combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects,
+                    combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects, passiveSkillNames,
                 )
                 if (score > bestScore) {
                     bestScore = score
@@ -1206,7 +1260,7 @@ open class MaximizerManager(
                     EquipmentSlot.OFFHAND to (offhand.first to offhand.second),
                 )
                 val score = scoreAssignment(
-                    combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects,
+                    combo, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects, passiveSkillNames,
                 )
                 if (score > bestScore) {
                     bestScore = score
@@ -1227,6 +1281,7 @@ open class MaximizerManager(
         bestModes: Map<Modeable, String> = emptyMap(),
         carryFamiliars: List<String> = emptyList(),
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = searchPassiveSkillNames,
     ): Map<EquipmentSlot, Pair<String, Double>> {
         val nonArmor = greedy.filterKeys { it !in armorSlots }
         val usedElsewhere = nonArmor.values.map { it.first }.toSet()
@@ -1243,7 +1298,7 @@ open class MaximizerManager(
 
         var bestAssignment = greedy
         var bestScore = scoreAssignment(
-            greedy, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects,
+            greedy, spec.evaluator, charState, bestModes, carryFamiliars, spec.maxBeeosity, activeEffects, passiveSkillNames,
         )
         for (hat in topHats) {
             for (shirt in topShirts) {
@@ -1279,6 +1334,8 @@ open class MaximizerManager(
         storageContents: Map<Int, Int>,
         displayContents: Map<Int, Int>,
         stashContents: Map<Int, Int>,
+        activeEffects: List<EffectData> = searchActiveEffects,
+        passiveSkillNames: Set<String> = searchPassiveSkillNames,
     ): Pair<SlotList<MaximizerRankedItem>, MaximizerAutoContext> {
         val charState = character.state.value
         val priceLevel = maximizerPriceLevel()
@@ -1312,7 +1369,7 @@ open class MaximizerManager(
                         mallPrice = { id -> mallPriceManager?.getMallPrice(id) ?: 0L },
                     )
             },
-            scoreItem = ::scoreItem,
+            scoreItem = { name, ev -> scoreItem(name, ev, activeEffects = activeEffects, passiveSkillNames = passiveSkillNames) },
             itemMeetsConstraints = ::itemMeetsConstraints,
             priceFor = ::effectivePrice,
             autoContext = autoContext,
@@ -1396,6 +1453,7 @@ open class MaximizerManager(
         carryFamiliars: List<String> = emptyList(),
         maxBeeosity: Int = 2,
         activeEffects: List<EffectData> = emptyList(),
+        passiveSkillNames: Set<String> = searchPassiveSkillNames,
     ): Double = MaximizerSpeculation.scoreLoadout(
         baseState, assignment, evaluator,
         bestModes = bestModes,
@@ -1404,6 +1462,7 @@ open class MaximizerManager(
         preferences = preferences,
         maxBeeosity = maxBeeosity,
         activeEffects = activeEffects,
+        passiveSkillNames = passiveSkillNames,
     )
 
     private fun buildCountLookup(rankedBuckets: SlotList<MaximizerRankedItem>): (String) -> Int {
@@ -1570,12 +1629,15 @@ open class MaximizerManager(
         itemName: String?,
         evaluator: Evaluator,
         bestModes: Map<Modeable, String> = emptyMap(),
+        activeEffects: List<EffectData> = searchActiveEffects,
+        passiveSkillNames: Set<String> = searchPassiveSkillNames,
     ): Double {
         if (itemName.isNullOrBlank()) return 0.0
         val itemData = gameDatabase.item(itemName) ?: return 0.0
+        val modes = bestModes.ifEmpty { activeModeSelections }
+        val charState = character.state.value
         if (MaximizerSubSlotItems.needsSubSlotPreservation(itemData.id)) {
             val slot = slotForItem(itemData) ?: return 0.0
-            val charState = character.state.value
             val assignment = mutableMapOf<EquipmentSlot, Pair<String, Double>>()
             assignment[slot] = itemName to 0.0
             MaximizerSubSlotPreservation.applyParentPreservation(itemData.id, charState, assignment)
@@ -1583,14 +1645,44 @@ open class MaximizerManager(
                 baseState = charState,
                 assignment = assignment,
                 evaluator = evaluator,
-                bestModes = bestModes.ifEmpty { activeModeSelections },
+                bestModes = modes,
                 carryFamiliars = emptyList(),
                 gameDatabase = gameDatabase,
                 preferences = preferences,
                 validateEquipment = false,
+                activeEffects = activeEffects,
+                passiveSkillNames = passiveSkillNames,
             )
         }
-        val modes = bestModes.ifEmpty { activeModeSelections }
+        if (activeEffects.isNotEmpty() || passiveSkillNames.isNotEmpty()) {
+            val slot = slotForItem(itemData) ?: return 0.0
+            val baseline = charState.equipment.mapValues { (_, name) -> name to 0.0 }
+            val withItem = baseline.toMutableMap()
+            withItem[slot] = itemName to 0.0
+            val baseScore = MaximizerSpeculation.scoreLoadout(
+                baseState = charState,
+                assignment = baseline,
+                evaluator = evaluator,
+                bestModes = modes,
+                gameDatabase = gameDatabase,
+                preferences = preferences,
+                validateEquipment = false,
+                activeEffects = activeEffects,
+                passiveSkillNames = passiveSkillNames,
+            )
+            val withScore = MaximizerSpeculation.scoreLoadout(
+                baseState = charState,
+                assignment = withItem,
+                evaluator = evaluator,
+                bestModes = modes,
+                gameDatabase = gameDatabase,
+                preferences = preferences,
+                validateEquipment = false,
+                activeEffects = activeEffects,
+                passiveSkillNames = passiveSkillNames,
+            )
+            return withScore - baseScore + evaluator.itemBonus(itemName)
+        }
         val modeable = Modeable.find(itemName)
         val raw = if (modeable != null) {
             val mode = modes[modeable]
@@ -1683,5 +1775,33 @@ open class MaximizerManager(
         }
         if (carry.isEmpty()) return this
         return copy(equipRequired = (equipRequired + carry).distinct())
+    }
+
+    private fun buildCheckContext(
+        charState: CharacterState,
+        invState: InventoryState,
+        activeEffects: List<EffectData>,
+        closetContents: Map<Int, Int>,
+        storageContents: Map<Int, Int>,
+        stashContents: Map<Int, Int>,
+    ): DynamicItemModifierSync.CheckContext {
+        val codpieceGemNames = charState.equipment
+            .filterKeys { it in EquipmentSlot.CODPIECE_SLOTS }
+            .values
+            .filter { it.isNotBlank() }
+            .toSet()
+        return DynamicItemModifierSync.CheckContext(
+            inventoryItemIds = invState.items.filterValues { it.quantity > 0 }.keys,
+            equippedItemNames = charState.equipment.values.filter { it.isNotBlank() }.toSet(),
+            activeEffectNames = activeEffects.map { it.name }.toSet(),
+            closetItemIds = closetContents.filterValues { it > 0 }.keys,
+            storageItemIds = storageContents.filterValues { it > 0 }.keys,
+            stashItemIds = stashContents.filterValues { it > 0 }.keys,
+            limitMode = charState.limitMode,
+            canInteract = !charState.isHardcore && !charState.isInRonin,
+            hasClan = charState.hasClan,
+            ascensionPath = charState.ascensionPath,
+            codpieceGemNames = codpieceGemNames,
+        )
     }
 }

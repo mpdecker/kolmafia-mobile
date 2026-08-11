@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.recovery
 
+import net.sourceforge.kolmafia.character.CharpaneValhallaSync
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.RestoreData
@@ -165,6 +166,7 @@ class RecoveryManager(
         skillState: SkillState,
         refreshStates: suspend () -> Triple<CharacterState, InventoryState, SkillState>,
     ): Boolean {
+        if (CharpaneValhallaSync.inValhalla) return false
         isRecoveryActive = true
         try {
             var state = charState
@@ -196,6 +198,7 @@ class RecoveryManager(
         skillState: SkillState,
         refreshStates: suspend () -> Triple<CharacterState, InventoryState, SkillState>,
     ): Boolean {
+        if (CharpaneValhallaSync.inValhalla) return false
         isRecoveryActive = true
         try {
             var state = charState

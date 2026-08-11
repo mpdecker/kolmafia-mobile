@@ -8,7 +8,7 @@ import io.ktor.http.*
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
-class CharacterRequest(private val client: HttpClient) {
+class CharacterRequest(val client: HttpClient) {
 
     suspend fun fetchCharacterState(): Result<CharacterApiResponse> {
         return try {

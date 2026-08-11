@@ -174,14 +174,61 @@ class GameRuntimeLibraryAshP118Test {
     }
 
     @Test
+    fun refreshStatus_inQuantum_prefetchesQterrarium() {
+        var qterrariumCalls = 0
+        var statusCalls = 0
+        val statusJson = Json.encodeToString(
+            CharacterApiResponse.serializer(),
+            CharacterApiResponse(level = "15"),
+        )
+        val client = HttpClient(MockEngine { request ->
+            when {
+                request.url.encodedPath.endsWith("qterrarium.php") -> {
+                    qterrariumCalls++
+                    respond(
+                        """<i>Your Current Familiar</i><br /><img onClick='fam(1)'><br /><b>Fam</b><br /><a href=showplayer.php?who=1>owner</a>'s type<br />""",
+                        HttpStatusCode.OK,
+                    )
+                }
+                request.url.parameters["what"] == "status" -> {
+                    statusCalls++
+                    respond(
+                        statusJson,
+                        HttpStatusCode.OK,
+                        headersOf("Content-Type", "application/json"),
+                    )
+                }
+                else -> respond("{}", HttpStatusCode.OK)
+            }
+        }) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val char = KoLCharacter()
+        char.updateFromApiResponse(
+            CharacterApiResponse(
+                path = net.sourceforge.kolmafia.character.AscensionPath.QUANTUM_TERRARIUM.apiName,
+                familiar = "1",
+            ),
+        )
+        val lib = GameRuntimeLibrary(
+            character = char,
+            characterRequest = CharacterRequest(client),
+            preferences = prefs(),
+        )
+        assertEquals("true", outputLib(lib, """print(refresh_status());""").trim())
+        assertEquals(1, qterrariumCalls)
+        assertEquals(1, statusCalls)
+    }
+
+    @Test
     fun restoreMp_returnsFalseWithoutRecoveryManager() {
         val lib = GameRuntimeLibrary(character = KoLCharacter())
         assertEquals("false", outputLib(lib, """print(restore_mp(30));""").trim())
     }
 
     @Test
-    fun revision_phase410() {
-        assertEquals("phase410", GameRuntimeLibrary.REVISION)
+    fun revision_phase417() {
+        assertEquals("phase421", GameRuntimeLibrary.REVISION)
     }
 
     private fun apiClient(statusJson: String): HttpClient = HttpClient(

@@ -11,6 +11,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.character.CharpaneValhallaSync
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.EquipmentSlot
@@ -63,6 +64,7 @@ class MaximizerManagerTest {
 
     @AfterTest
     fun cleanupCreatableFixtures() {
+        CharpaneValhallaSync.reset()
         ItemDatabase.resetForTest()
         ConcoctionDatabase.resetForTest()
         EffectDatabase.resetForTest()
@@ -2162,6 +2164,113 @@ class MaximizerManagerTest {
     }
 
     @Test
+    fun maximize_preSearch_valhallaUsesCharpaneNotApiStatus() = runBlocking {
+        CharpaneValhallaSync.apply(
+            KoLCharacter(),
+            """<img src="otherimages/spirit.gif">""",
+            preferences = null,
+            effectManager = null,
+        )
+        var apiStatusCalls = 0
+        var charpaneCalls = 0
+        val character = KoLCharacter()
+        character.updateFromApiResponse(CharacterApiResponse(level = "15"))
+        val client = HttpClient(MockEngine { request ->
+            when {
+                request.url.parameters["what"] == "status" -> {
+                    apiStatusCalls++
+                    respond("{}", HttpStatusCode.OK)
+                }
+                request.url.encodedPath.endsWith("charpane.php") -> {
+                    charpaneCalls++
+                    respond(
+                        """<img src="otherimages/spirit.gif"> Karma: <b>10</b>""",
+                        HttpStatusCode.OK,
+                    )
+                }
+                else -> respond("{}", HttpStatusCode.OK)
+            }
+        })
+        val inv = object : InventoryManager(
+            client = client,
+            eventBus = GameEventBus(),
+            characterRequest = CharacterRequest(client),
+            character = character,
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = null
+            override fun item(name: String): ItemData? = null
+        }
+        val equip = object : EquipmentRequest(client, character = character) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(db, inv, equip, character)
+        mgr.maximize("init", filters = setOf(MaximizerFilterType.CAST))
+        assertEquals(0, apiStatusCalls)
+        assertEquals(1, charpaneCalls)
+        assertTrue(net.sourceforge.kolmafia.character.CharpaneValhallaSync.inValhalla)
+    }
+
+    @Test
+    fun maximize_preSearch_inQuantumFetchesQterrariumBeforeStatus() = runBlocking {
+        var qterrariumCalls = 0
+        var statusCalls = 0
+        val character = KoLCharacter()
+        character.updateFromApiResponse(
+            CharacterApiResponse(
+                path = AscensionPath.QUANTUM_TERRARIUM.apiName,
+                level = "15",
+                familiar = "1",
+            ),
+        )
+        val client = HttpClient(MockEngine { request ->
+            when {
+                request.url.encodedPath.endsWith("qterrarium.php") -> {
+                    qterrariumCalls++
+                    respond(
+                        """<i>Your Current Familiar</i><br /><img onClick='fam(1)'><br><b>Fam</b><br><a href=showplayer.php?who=1>owner</a>'s type<br />""",
+                        HttpStatusCode.OK,
+                    )
+                }
+                request.url.parameters["what"] == "status" -> {
+                    statusCalls++
+                    respond("{}", HttpStatusCode.OK)
+                }
+                else -> respond("{}", HttpStatusCode.OK)
+            }
+        })
+        val inv = object : InventoryManager(
+            client = client,
+            eventBus = GameEventBus(),
+            characterRequest = CharacterRequest(client),
+            character = character,
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = null
+            override fun item(name: String): ItemData? = null
+        }
+        val equip = object : EquipmentRequest(client, character = character) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(
+            db,
+            inv,
+            equip,
+            character,
+            characterRequest = CharacterRequest(client),
+        )
+        mgr.maximize("init", filters = setOf(MaximizerFilterType.CAST))
+        assertEquals(1, qterrariumCalls)
+        assertEquals(1, statusCalls)
+    }
+
+    @Test
     fun maximize_preSearch_scoreBeforeIncludesActiveEffects() = runBlocking {
         ModifierDatabase.load()
         ModifierDatabase.injectForTest("Effect", "PreSearch Myst Buff", "Mysticality: +100")
@@ -2204,6 +2313,229 @@ class MaximizerManagerTest {
             equip,
             character,
             effectManager = EffectManager(client, GameEventBus()),
+        )
+        val result = mgr.maximize("mysticality", filters = setOf(MaximizerFilterType.CAST))
+        assertTrue(result.scoreBefore >= 100.0, "scoreBefore=${result.scoreBefore}")
+    }
+
+    @Test
+    fun maximize_scoreItem_activeEffects_changesMarginalHatScore() = runBlocking {
+        runBlocking { ModifierDatabase.load() }
+        ModifierDatabase.injectForTest("Effect", "ScoreItem Myst Buff", "Mysticality: +100")
+        ModifierDatabase.injectForTest("Item", "small myst hat", "Mysticality: +1")
+        ModifierDatabase.injectForTest("Item", "big myst hat", "Mysticality: +5")
+        val character = KoLCharacter()
+        character.updateFromApiResponse(
+            CharacterApiResponse(hat = "small myst hat", level = "15"),
+        )
+        val client = HttpClient(MockEngine { request ->
+            when {
+                request.url.parameters["what"] == "status" ->
+                    respond("{}", HttpStatusCode.OK)
+                request.url.parameters["what"] == "effects" ->
+                    respond(
+                        """{"501":{"name":"ScoreItem Myst Buff","duration":10}}""",
+                        HttpStatusCode.OK,
+                        headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                else -> respond("{}", HttpStatusCode.OK)
+            }
+        }) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val inv = object : InventoryManager(
+            client = client,
+            eventBus = GameEventBus(),
+            characterRequest = CharacterRequest(client),
+            character = character,
+        ) {
+            override val state = MutableStateFlow(
+                InventoryState(items = mapOf(
+                    1 to InventoryItem(1, "small myst hat", 1, ItemType.HAT),
+                    2 to InventoryItem(2, "big myst hat", 1, ItemType.HAT),
+                )),
+            )
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = when (id) {
+                1 -> ItemData(1, "small myst hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+                2 -> ItemData(2, "big myst hat", "", "", ItemPrimaryUse.HAT, emptySet(), setOf('t'), 0, null)
+                else -> null
+            }
+            override fun item(name: String): ItemData? = when (name.lowercase()) {
+                "small myst hat" -> item(1)
+                "big myst hat" -> item(2)
+                else -> null
+            }
+            override fun itemModifier(name: String): ModifierEntry? = when (name.lowercase()) {
+                "small myst hat" -> ModifierEntry("Item", "small myst hat", "Mysticality: +1")
+                "big myst hat" -> ModifierEntry("Item", "big myst hat", "Mysticality: +5")
+                else -> null
+            }
+        }.also {
+            EquipmentDatabase.registerForTest(1, EquipmentData("small myst hat", 100, null, 0, "hat"))
+            EquipmentDatabase.registerForTest(2, EquipmentData("big myst hat", 100, null, 0, "hat"))
+            it.syncTestItemModifiers("small myst hat", "big myst hat")
+        }
+        var equippedId: Int? = null
+        val equip = object : EquipmentRequest(client, character = character) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                equippedId = itemId
+                return Result.success(Unit)
+            }
+        }
+        val prefs = Preferences(MapSettings())
+        prefs.setInt(MaximizerManager.COMBINATION_LIMIT_PREF, 64)
+        val mgr = MaximizerManager(
+            db,
+            inv,
+            equip,
+            character,
+            preferences = prefs,
+            effectManager = EffectManager(client, GameEventBus()),
+        )
+        val result = mgr.maximize(
+            "mysticality",
+            filters = setOf(MaximizerFilterType.EQUIP, MaximizerFilterType.CAST),
+        )
+        assertTrue(result.success, result.toString())
+        assertEquals(2, equippedId, "effect-aware scoreItem should still rank +5 hat above +1")
+        assertTrue(result.scoreBefore >= 100.0, "scoreBefore=${result.scoreBefore}")
+    }
+
+    @Test
+    fun maximize_scoreBefore_includesPassiveSkillOverlay() = runBlocking {
+        ModifierDatabase.load()
+        ModifierDatabase.injectForTest("Skill", "PreSearch Passive Myst", "Mysticality: +100")
+        val character = KoLCharacter()
+        character.updateFromApiResponse(CharacterApiResponse(level = "15"))
+        val client = HttpClient(MockEngine { request ->
+            when {
+                request.url.parameters["what"] == "status" ->
+                    respond("{}", HttpStatusCode.OK)
+                else -> respond("{}", HttpStatusCode.OK)
+            }
+        }) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val inv = object : InventoryManager(
+            client = client,
+            eventBus = GameEventBus(),
+            characterRequest = CharacterRequest(client),
+            character = character,
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = null
+            override fun item(name: String): ItemData? = null
+        }
+        val equip = object : EquipmentRequest(client, character = character) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val skills = SkillManager(client, SkillCastRequest(client), GameEventBus())
+        skills.learnLocalSkill(
+            SkillData(
+                id = 9001,
+                name = "PreSearch Passive Myst",
+                type = SkillType.PASSIVE,
+                mpCost = 0,
+                dailyLimit = 0,
+                timesCast = 0,
+            ),
+        )
+        val mgr = MaximizerManager(
+            db,
+            inv,
+            equip,
+            character,
+            skillManager = skills,
+        )
+        val result = mgr.maximize("mysticality", filters = setOf(MaximizerFilterType.CAST))
+        assertTrue(result.scoreBefore >= 100.0, "scoreBefore=${result.scoreBefore}")
+    }
+
+    @Test
+    fun maximize_scoreBefore_includesEquipmentGrantedPassive() = runBlocking {
+        ModifierDatabase.load()
+        ModifierDatabase.injectForTest("Skill", "Equip Passive Myst", "Mysticality: +100")
+        net.sourceforge.kolmafia.data.ItemDatabase.registerForTest(
+            ItemData(
+                id = 9101,
+                name = "passive grant pants",
+                descId = "desc9101",
+                image = "pants.gif",
+                primaryUse = ItemPrimaryUse.PANTS,
+                secondaryUses = emptySet(),
+                access = emptySet(),
+                autosellPrice = 0,
+                plural = null,
+            ),
+        )
+        net.sourceforge.kolmafia.data.SkillDefinitionDatabase.registerForTest(
+            net.sourceforge.kolmafia.data.SkillDefinition(
+                id = 9100,
+                name = "Equip Passive Myst",
+                image = "skill.gif",
+                tags = setOf("nc"),
+                mpCost = 0,
+                duration = 0,
+                isPassive = false,
+                isCombat = false,
+                isNonCombat = true,
+                isSong = false,
+            ),
+        )
+        ModifierDatabase.injectForTest(
+            "Item",
+            "passive grant pants",
+            """Conditional Skill (Equipped): "Equip Passive Myst"""",
+        )
+        val character = KoLCharacter()
+        character.updateFromApiResponse(CharacterApiResponse(level = "15"))
+        character.updateEquipment(EquipmentSlot.PANTS, "passive grant pants")
+        val pants = ItemData(
+            id = 9101,
+            name = "passive grant pants",
+            descId = "desc9101",
+            image = "pants.gif",
+            primaryUse = ItemPrimaryUse.PANTS,
+            secondaryUses = emptySet(),
+            access = emptySet(),
+            autosellPrice = 0,
+            plural = null,
+        )
+        val client = HttpClient(MockEngine { request ->
+            when (request.url.parameters["what"]) {
+                "skills", "status" -> respond("{}", HttpStatusCode.OK)
+                else -> respond("{}", HttpStatusCode.OK)
+            }
+        }) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+        }
+        val inv = object : InventoryManager(
+            client = client,
+            eventBus = GameEventBus(),
+            characterRequest = CharacterRequest(client),
+            character = character,
+        ) {
+            override val state = MutableStateFlow(InventoryState(items = emptyMap()))
+        }
+        val db = object : GameDatabase() {
+            override fun item(id: Int): ItemData? = if (id == pants.id) pants else null
+            override fun item(name: String): ItemData? = if (name.equals(pants.name, ignoreCase = true)) pants else null
+        }
+        val equip = object : EquipmentRequest(client, character = character) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> =
+                Result.success(Unit)
+        }
+        val mgr = MaximizerManager(
+            db,
+            inv,
+            equip,
+            character,
+            characterRequest = CharacterRequest(client),
         )
         val result = mgr.maximize("mysticality", filters = setOf(MaximizerFilterType.CAST))
         assertTrue(result.scoreBefore >= 100.0, "scoreBefore=${result.scoreBefore}")

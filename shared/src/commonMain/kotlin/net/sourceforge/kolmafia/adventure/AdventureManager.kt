@@ -18,6 +18,7 @@ import net.sourceforge.kolmafia.combat.RandomModifierParser
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.banish.Banisher
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.character.FightPokefamSync
 import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ZoneLookup
@@ -42,6 +43,7 @@ import net.sourceforge.kolmafia.quest.QuestFightRules
 import net.sourceforge.kolmafia.quest.QuestItemRules
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
 import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
@@ -114,6 +116,7 @@ class AdventureManager(
 
     private var skillUses: Int = 0
     private var lastTurnResponseText: String = ""
+    private var lastTurnUrl: String = ""
     private var itemGoalMetThisTurn = false
     private var _inMultiFight = false
     private var _fightFollowsChoice = false
@@ -292,6 +295,14 @@ class AdventureManager(
                     }
                     checkQuestAdvancement(lastTurnResponseText)
                     TurnCounter.removeExpired(preferences, character.state.value.currentRun)
+                    QuantumTerrariumRequest.checkCounter(
+                        client = characterRequest.client,
+                        character = character,
+                        preferences = preferences,
+                        url = lastTurnUrl,
+                        hasResult = lastTurnResponseText.isNotBlank(),
+                        sessionLogger = sessionLogger,
+                    )
                     emitTurnConsumed(location, result)
 
                     when {
@@ -346,6 +357,7 @@ class AdventureManager(
             return null
         }
         lastTurnResponseText = html
+        lastTurnUrl = url
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
             is AdventureResult.Combat -> resolveCombat(location)
             is AdventureResult.Choice -> {
@@ -376,6 +388,7 @@ class AdventureManager(
             return null
         }
         lastFightHtml = fightHtml
+        FightPokefamSync.apply(character, fightHtml, familiarManager, preferences)
         _inMultiFight = AdventureParser.isInMultiFight(fightHtml)
         val result = AdventureParser.parseFightResult(fightHtml)
         SessionMeatSync.apply(character, fightHtml)
@@ -523,6 +536,7 @@ class AdventureManager(
                 questDatabase  = questDatabase,
                 solvers        = solvers,
                 preference     = preferences.getInt("choiceAdventure$currentChoiceId", 0),
+                gameDatabase   = gameDatabase,
                 stepCount      = stepCount,
                 skillUses      = skillUses,
             )
@@ -636,6 +650,7 @@ class AdventureManager(
         url: String,
     ): AdventureResult? {
         lastTurnResponseText = html
+        lastTurnUrl = url
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
             is AdventureResult.Combat -> resolveCombat(location)
             is AdventureResult.Choice -> {
