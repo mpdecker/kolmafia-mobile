@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.character
 
 import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
 import net.sourceforge.kolmafia.data.PokefamDatabase
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /** Desktop `FamTeamRequest.getPokeBoost` + famteam feed pref sync. */
@@ -31,7 +32,12 @@ object PokefamBoostSync {
         return PokeBoost.fromLabel(label)
     }
 
-    fun syncFromFeed(url: String?, html: String, preferences: Preferences?) {
+    fun syncFromFeed(
+        url: String?,
+        html: String,
+        preferences: Preferences?,
+        inventoryManager: InventoryManager? = null,
+    ) {
         if (preferences == null || url == null) return
         if (!url.contains("famteam.php", ignoreCase = true)) return
         if (!actionFeedPattern.containsMatchIn(url)) return
@@ -56,6 +62,7 @@ object PokefamBoostSync {
             "$existing|$entry"
         }
         preferences.setString(POKEFAM_BOOSTS_PREF, updated)
+        inventoryManager?.consumeItemLocally(itemId, 1)
     }
 
     fun adjustStats(

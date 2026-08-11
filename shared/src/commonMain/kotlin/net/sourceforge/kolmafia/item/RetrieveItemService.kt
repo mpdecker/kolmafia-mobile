@@ -11,6 +11,7 @@ import net.sourceforge.kolmafia.data.isSuseCraftable
 import net.sourceforge.kolmafia.item.CreateItemIngredients
 import net.sourceforge.kolmafia.request.ConcoctionCreateRequest
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.CollectionCacheSync
 import net.sourceforge.kolmafia.inventory.ItemRestriction
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
@@ -74,25 +75,25 @@ open class RetrieveItemService(
         }
 
         if (remaining > 0 && closetRequest != null) {
-            remaining -= withdrawFromSource(itemId, remaining) { qty ->
+            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.CLOSET) { qty ->
                 closetRequest.takeOut(itemId, qty)
             }
         }
 
         if (remaining > 0 && storageRequest != null) {
-            remaining -= withdrawFromSource(itemId, remaining) { qty ->
+            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.STORAGE) { qty ->
                 storageRequest.withdraw(itemId, qty)
             }
         }
 
         if (remaining > 0 && displayCaseRequest != null) {
-            remaining -= withdrawFromSource(itemId, remaining) { qty ->
+            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.DISPLAY) { qty ->
                 displayCaseRequest.takeOut(itemId, qty)
             }
         }
 
         if (remaining > 0 && clanStashRequest != null) {
-            remaining -= withdrawFromSource(itemId, remaining) { qty ->
+            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.STASH) { qty ->
                 clanStashRequest.takeOut(itemId, qty)
             }
         }
@@ -171,13 +172,38 @@ open class RetrieveItemService(
     private suspend fun withdrawFromSource(
         itemId: Int,
         qty: Int,
+        bucket: CollectionBucket,
         withdraw: suspend (Int) -> Result<String>,
     ): Int {
         val before = inventoryCount(itemId)
         val result = withdraw(qty)
         if (result.isFailure) return 0
         inventoryManager?.fetchInventory()
+        refreshCollectionCache(bucket)
         return (inventoryCount(itemId) - before).coerceIn(0, qty)
+    }
+
+    private suspend fun refreshCollectionCache(bucket: CollectionBucket) {
+        val prefs = preferences ?: return
+        when (bucket) {
+            CollectionBucket.CLOSET ->
+                closetRequest?.let { CollectionCacheSync.refreshCloset(it, prefs) }
+            CollectionBucket.STORAGE ->
+                storageRequest?.let {
+                    CollectionCacheSync.refreshStorage(it, character?.state?.value, prefs)
+                }
+            CollectionBucket.STASH ->
+                clanStashRequest?.let { CollectionCacheSync.refreshStash(it, prefs) }
+            CollectionBucket.DISPLAY ->
+                displayCaseRequest?.let { CollectionCacheSync.refreshDisplay(it, prefs) }
+        }
+    }
+
+    private enum class CollectionBucket {
+        CLOSET,
+        STORAGE,
+        STASH,
+        DISPLAY,
     }
 
     private suspend fun craftMissing(itemName: String, itemId: Int, qty: Int): Int {

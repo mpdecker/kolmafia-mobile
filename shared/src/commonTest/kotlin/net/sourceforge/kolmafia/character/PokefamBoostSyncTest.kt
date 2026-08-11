@@ -1,11 +1,17 @@
 package net.sourceforge.kolmafia.character
 
+import com.russhwolf.settings.MapSettings
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import com.russhwolf.settings.MapSettings
 import kotlinx.coroutines.test.runTest
 import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.PokefamDatabase
+import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 
 class PokefamBoostSyncTest {
@@ -38,6 +44,26 @@ class PokefamBoostSyncTest {
         val html = "<html><center>Familiar powered up.</center></html>"
         PokefamBoostSync.syncFromFeed(url, html, prefs)
         assertEquals("Barrrnacle:None", prefs.getString(PokefamBoostSync.POKEFAM_BOOSTS_PREF))
+    }
+
+    @Test
+    fun syncFromFeed_consumesInventoryWhenManagerProvided() = runTest {
+        FamiliarDefinitionDatabase.load()
+        val prefs = Preferences(MapSettings())
+        val url = "famteam.php?action=feed&fam=215&iid=9748"
+        val html = "<html><center>Familiar powered up.</center></html>"
+        var consumedItemId = -1
+        val inventoryManager = object : InventoryManager(
+            HttpClient(MockEngine { respond("ok") }),
+            GameEventBus(),
+        ) {
+            override fun consumeItemLocally(itemId: Int, quantity: Int) {
+                consumedItemId = itemId
+                assertEquals(1, quantity)
+            }
+        }
+        PokefamBoostSync.syncFromFeed(url, html, prefs, inventoryManager)
+        assertEquals(PokeBoost.METANDIENONE, consumedItemId)
     }
 
     @Test

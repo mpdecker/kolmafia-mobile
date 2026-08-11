@@ -25,6 +25,7 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.TCRSDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.inventory.CollectionCacheSync
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.JunkListManager
 import net.sourceforge.kolmafia.mood.MoodManager
@@ -33,6 +34,8 @@ import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
+import net.sourceforge.kolmafia.request.DisplayCaseRequest
+import net.sourceforge.kolmafia.request.FamTeamRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.LoginResult
 import net.sourceforge.kolmafia.request.QuestLogRequest
@@ -70,6 +73,7 @@ class SessionManager(
     private val closetRequest: ClosetRequest? = null,
     private val storageRequest: StorageRequest? = null,
     private val clanStashRequest: ClanStashRequest? = null,
+    private val displayCaseRequest: DisplayCaseRequest? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -180,6 +184,22 @@ class SessionManager(
                             inventoryState = inventoryManager.state.value,
                         )
 
+                        if (charState.inPokefam) {
+                            httpClient?.let { client ->
+                                try {
+                                    FamTeamRequest.visit(
+                                        client = client,
+                                        character = character,
+                                        familiarManager = familiarManager,
+                                        preferences = preferences,
+                                        sessionLogger = sessionLogger,
+                                        inventoryManager = inventoryManager,
+                                    )
+                                } catch (_: Exception) {
+                                }
+                            }
+                        }
+
                         SessionState.LoggedIn
                     },
                     onFailure = { error ->
@@ -209,6 +229,13 @@ class SessionManager(
         }
         val freepulls = classified?.freepulls ?: emptyMap()
         val stash = clanStashRequest?.fetchContents() ?: emptyMap()
+        val display = if (charState.canUseDisplayCase) {
+            displayCaseRequest?.fetchContents() ?: emptyMap()
+        } else {
+            emptyMap()
+        }
+        CollectionCacheSync.saveFromSources(preferences, closet, storage, freepulls, stash)
+        CollectionCacheSync.saveDisplay(preferences, display)
         return ConcoctionIngredientSources(
             inventory = inventory,
             closet = closet,

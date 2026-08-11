@@ -73,6 +73,21 @@ class GameRuntimeLibraryFamiliarTest {
     }
 
     @Test
+    fun myFamiliarWeight_includesActiveFamiliarSoupWeight() {
+        val char = KoLCharacter()
+        char.updateFamiliar(id = 7, name = "Biscuit", weight = 12, exp = 0)
+        val goatWithSoup = goat.copy(soupWeight = 3)
+        val fm = makeFamiliarManager(
+            FamiliarState(
+                activeFamiliar = goatWithSoup,
+                ownedFamiliars = listOf(goatWithSoup),
+            ),
+        )
+        val lib = GameRuntimeLibrary(character = char, familiarManager = fm)
+        assertEquals("15", outputLib(lib, "print(to_string(my_familiar_weight()));"))
+    }
+
+    @Test
     fun useFamiliar_returnsTrueWhenOwned() {
         // libWithGoat() has the goat registered and mock returns success
         assertEquals("true",

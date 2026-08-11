@@ -462,6 +462,8 @@ open class MaximizerManager(
             modeableRequest = modeableRequest,
             retrieveItemService = retrieveItemService,
             mallManager = mallManager,
+            preferences = preferences,
+            character = character,
             cliExecutor = cliExecutor,
         )
 

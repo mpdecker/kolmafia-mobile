@@ -99,6 +99,65 @@ class QuestLogRequestTest {
         assertEquals(3, callCount)
     }
 
+    @Test fun parsePage_partyFairStep2_notClobberedByUnparseableBody() {
+        val settings = MapSettings()
+        val prefs = Preferences(settings)
+        prefs.setString("_questPartyFairQuest", "partiers")
+        prefs.setString("_questPartyFairProgress", "3")
+        val questDb = db(settings)
+        questDb.setProgress(Quest.PARTY_FAIR, "step2")
+        QuestLogDatabase.injectForTest(listOf(
+            QuestLogEntry(
+                prefKey = "_questPartyFair",
+                title = "Party Fair",
+                steps = listOf(
+                    "started" to "start the party",
+                    "step1" to "clean up trash",
+                    "step2" to "return to the party",
+                    "finished" to "party over",
+                ),
+            ),
+        ))
+        val request = QuestLogRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            questDb,
+            prefs,
+        )
+        request.parsePage(
+            "<html><body><b>Party Fair</b><br>Some vague party status text.</body></html>",
+            1,
+        )
+        assertEquals("step2", questDb.getProgress(Quest.PARTY_FAIR))
+    }
+
+    @Test fun parsePage_batStep2_notRegressedByQuestLogStep1() {
+        val settings = MapSettings()
+        val questDb = db(settings)
+        questDb.setProgress(Quest.BAT, "step2")
+        QuestLogDatabase.injectForTest(listOf(
+            QuestLogEntry(
+                prefKey = Quest.BAT.prefKey,
+                title = "Ooh, I Think I Smell a Bat.",
+                steps = listOf(
+                    "started" to "find and defeat the boss bat",
+                    "step1" to "continue searching for the boss bat",
+                    "step2" to "(no unique message)",
+                    "step3" to "defeat the boss bat",
+                    "finished" to "you have slain the boss bat",
+                ),
+            ),
+        ))
+        val request = QuestLogRequest(
+            HttpClient(MockEngine { respond("ok") }),
+            questDb,
+        )
+        request.parsePage(
+            "<html><body><b>Ooh, I Think I Smell a Bat.</b><br>Continue searching for the Boss Bat.</body></html>",
+            1,
+        )
+        assertEquals("step2", questDb.getProgress(Quest.BAT))
+    }
+
     @Test fun parsePage_page3_setsDemonNameFromAccomplishments() {
         QuestLogConsequenceDatabase.injectForTest(
             QuestLogConsequenceDatabase.parseForTest(

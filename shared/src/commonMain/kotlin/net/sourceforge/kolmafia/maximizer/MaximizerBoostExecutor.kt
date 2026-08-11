@@ -1,12 +1,15 @@
 package net.sourceforge.kolmafia.maximizer
 
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.inventory.CollectionCacheSync
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
@@ -27,6 +30,8 @@ class MaximizerBoostExecutor(
     private val modeableRequest: ModeableRequest?,
     private val retrieveItemService: RetrieveItemService?,
     private val mallManager: MallManager?,
+    private val preferences: Preferences? = null,
+    private val character: KoLCharacter? = null,
     private val cliExecutor: (suspend (String) -> Boolean)? = null,
 ) {
     suspend fun execute(cmd: String): Boolean {
@@ -72,28 +77,60 @@ class MaximizerBoostExecutor(
         if (parts.size < 4 || closetRequest == null) return false
         val itemId = itemIdFrom(parts) ?: return false
         val qty = parts.getOrNull(2)?.toIntOrNull() ?: 1
-        return closetRequest.takeOut(itemId, qty).isSuccess
+        val ok = closetRequest.takeOut(itemId, qty).isSuccess
+        if (ok) refreshClosetCache()
+        return ok
     }
 
     private suspend fun executeStash(parts: List<String>): Boolean {
         if (parts.size < 4 || clanStashRequest == null) return false
         val itemId = itemIdFrom(parts) ?: return false
         val qty = parts.getOrNull(2)?.toIntOrNull() ?: 1
-        return clanStashRequest.takeOut(itemId, qty).isSuccess
+        val ok = clanStashRequest.takeOut(itemId, qty).isSuccess
+        if (ok) refreshStashCache()
+        return ok
     }
 
     private suspend fun executeDisplay(parts: List<String>): Boolean {
         if (parts.size < 4 || displayCaseRequest == null) return false
         val itemId = itemIdFrom(parts) ?: return false
         val qty = parts.getOrNull(2)?.toIntOrNull() ?: 1
-        return displayCaseRequest.takeOut(itemId, qty).isSuccess
+        val ok = displayCaseRequest.takeOut(itemId, qty).isSuccess
+        if (ok) refreshDisplayCache()
+        return ok
     }
 
     private suspend fun executePull(parts: List<String>): Boolean {
         if (storageRequest == null) return false
         val itemId = itemIdFrom(parts) ?: return false
         val qty = parts.getOrNull(1)?.toIntOrNull() ?: 1
-        return storageRequest.withdraw(itemId, qty).isSuccess
+        val ok = storageRequest.withdraw(itemId, qty).isSuccess
+        if (ok) refreshStorageCache()
+        return ok
+    }
+
+    private suspend fun refreshClosetCache() {
+        val prefs = preferences ?: return
+        val request = closetRequest ?: return
+        CollectionCacheSync.refreshCloset(request, prefs)
+    }
+
+    private suspend fun refreshStorageCache() {
+        val prefs = preferences ?: return
+        val request = storageRequest ?: return
+        CollectionCacheSync.refreshStorage(request, character?.state?.value, prefs)
+    }
+
+    private suspend fun refreshStashCache() {
+        val prefs = preferences ?: return
+        val request = clanStashRequest ?: return
+        CollectionCacheSync.refreshStash(request, prefs)
+    }
+
+    private suspend fun refreshDisplayCache() {
+        val prefs = preferences ?: return
+        val request = displayCaseRequest ?: return
+        CollectionCacheSync.refreshDisplay(request, prefs)
     }
 
     private suspend fun executeMake(parts: List<String>): Boolean {

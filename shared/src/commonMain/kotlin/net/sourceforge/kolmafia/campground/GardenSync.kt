@@ -32,5 +32,6 @@ object GardenSync {
         val type = parseGardenType(html)?.toString() ?: ""
         character.setCampground(gardenType = type)
         preferences?.setString("myGardenType", type)
+        GardenCropSync.syncFromHtml(html, preferences)
     }
 }

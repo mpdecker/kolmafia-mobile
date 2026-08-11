@@ -7,6 +7,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.campground.GardenCropAvailability
 import net.sourceforge.kolmafia.clan.ClanHotdogMenuCache
 import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.data.ItemDatabase
@@ -123,9 +124,14 @@ open class BreakfastManager(
 
     private suspend fun harvestGarden(suffix: String) {
         val harvestPrefKey = if (suffix == "Softcore") Preferences.HARVEST_GARDEN_SOFTCORE else Preferences.HARVEST_GARDEN_HARDCORE
-        val crop = preferences.getString(harvestPrefKey, "none")
+        val crop = preferences.getString(harvestPrefKey, "none").trim()
         if (crop.equals("none", ignoreCase = true)) return
         if (preferences.getBoolean(Preferences.GARDEN_HARVESTED, false)) return
+        if (!crop.equals("any", ignoreCase = true) &&
+            !GardenCropAvailability.hasCropOrBetter(preferences, crop)
+        ) {
+            return
+        }
         campgroundRequest.harvestGarden().onSuccess {
             preferences.setBoolean(Preferences.GARDEN_HARVESTED, true)
         }

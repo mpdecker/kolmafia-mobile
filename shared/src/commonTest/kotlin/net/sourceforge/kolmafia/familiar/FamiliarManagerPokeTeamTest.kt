@@ -52,4 +52,19 @@ class FamiliarManagerPokeTeamTest {
         assertEquals(8, bluzzard.pokeLevel)
         assertEquals(8, bluzzard.weight)
     }
+
+    @Test
+    fun registerPokefamFamiliar_upsertsBullpenEntry() = runTest {
+        FamiliarDefinitionDatabase.load()
+        val client = HttpClient(MockEngine { respond("ok") })
+        val manager = FamiliarManager(client, GameEventBus())
+        manager.registerPokefamFamiliar(217, "Faux", 5)
+        var owned = manager.state.value.ownedFamiliars
+        assertEquals(1, owned.size)
+        assertEquals(5, owned[0].pokeLevel)
+        manager.registerPokefamFamiliar(217, "Faux", 7)
+        owned = manager.state.value.ownedFamiliars
+        assertEquals(1, owned.size)
+        assertEquals(7, owned[0].pokeLevel)
+    }
 }

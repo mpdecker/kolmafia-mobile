@@ -65,9 +65,11 @@ data class CharacterApiResponse(
     // ── Ascension / run mode ─────────────────────────────────────────────────
     val roninleft: String = "0",
     val hardcore: String = "0",
+    val casual: String = "0",
     val limitmode: String = "",
     val kingliberated: String = "0",
     val recalledskills: String = "0",
+    val daynumber: String = "0",
 
     // ── Class-specific combat resources ──────────────────────────────────────
     val fury: String = "0",                // Seal Clubber

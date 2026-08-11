@@ -59,6 +59,7 @@ class KoLCharacter {
             turnsPlayed = response.turnsplayed.toIntOrNull() ?: 0,
             currentRun = response.currentrun.toIntOrNull() ?: 0,
             dayCount = response.daycount.toIntOrNull() ?: 0,
+            globalDaycount = response.daynumber.toIntOrNull() ?: prev.globalDaycount,
             rolloverTimestamp = response.rollover.toLongOrNull() ?: 0L,
 
             // Consumables
@@ -76,6 +77,7 @@ class KoLCharacter {
             // Ascension / mode
             roninLeft = response.roninleft.toIntOrNull() ?: 0,
             isHardcore = response.hardcore == "1",
+            isCasual = response.casual == "1",
             kingLiberated = response.kingliberated == "1",
             skillsRecalled = response.recalledskills == "1",
             limitMode = response.limitmode,

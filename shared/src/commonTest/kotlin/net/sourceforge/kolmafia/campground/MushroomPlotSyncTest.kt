@@ -48,6 +48,32 @@ class MushroomPlotSyncTest {
     }
 
     @Test
+    fun apply_parsesFourByFourGridAndPersistsPref() {
+        val p = prefs()
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(ascensions = "9"))
+        }
+        val html = """
+            <b>Your Mushroom Plot:</b><p><table>
+            <tr><td><img src="mushroom.gif"></td><td><img src="dirt1.gif"></td><td><img src="mushsprout.gif"></td><td><img src="spooshroom.gif"></td></tr>
+            <tr><td><img src="dirt1.gif"></td><td><img src="dirt1.gif"></td><td><img src="dirt1.gif"></td><td><img src="dirt1.gif"></td></tr>
+            <tr><td><img src="dirt1.gif"></td><td><img src="dirt1.gif"></td><td><img src="dirt1.gif"></td><td><img src="dirt1.gif"></td></tr>
+            <tr><td><img src="dirt1.gif"></td><td><img src="dirt1.gif"></td><td><img src="dirt1.gif"></td><td><img src="dirt1.gif"></td></tr>
+            </table>
+        """.trimIndent()
+        MushroomPlotSync.apply(
+            p,
+            char,
+            html,
+            "https://www.kingdomofloathing.com/knoll_mushrooms.php",
+        )
+        assertEquals(9, p.getInt("lastMushroomPlot", -1))
+        assertEquals("kb__..sp________________________", p.getString(MushroomPlotSync.MUSHROOM_PLOT_SQUARES_PREF, ""))
+        assertEquals("kb", MushroomPlotSync.squareAt(p, 0, 0))
+        assertEquals("sp", MushroomPlotSync.squareAt(p, 0, 3))
+    }
+
+    @Test
     fun apply_skipsNonKnollUrl() {
         val p = prefs()
         val char = KoLCharacter().also {

@@ -196,6 +196,36 @@ open class FamiliarManager(
         _state.value = state.copy(ownedFamiliars = owned)
     }
 
+    /** Desktop `FamiliarData.registerFamiliar` from famteam bullpen parse. */
+    fun registerPokefamFamiliar(familiarId: Int, name: String, level: Int) {
+        if (familiarId <= 0 || name.isBlank()) return
+        val state = _state.value
+        val race = FamiliarDefinitionDatabase.getById(familiarId)?.name ?: name
+        val owned = state.ownedFamiliars.toMutableList()
+        val existingIdx = owned.indexOfFirst { it.id == familiarId }
+        if (existingIdx >= 0) {
+            val existing = owned[existingIdx]
+            owned[existingIdx] = existing.copy(
+                name = name.ifBlank { existing.name },
+                race = race,
+                pokeLevel = level,
+            )
+        } else {
+            owned.add(
+                FamiliarData(
+                    id = familiarId,
+                    name = name,
+                    race = race,
+                    weight = existingWeight(level),
+                    experience = 0,
+                    kills = 0,
+                    pokeLevel = level,
+                ),
+            )
+        }
+        _state.value = state.copy(ownedFamiliars = owned)
+    }
+
     private fun existingWeight(pokeLevel: Int): Int = pokeLevel.coerceAtLeast(1)
 
     /** Desktop `FamiliarData.setSoupWeight` / `addSoupAttribute` from terrarium HTML sync. */

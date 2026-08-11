@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.modifiers.StatNames
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.quest.DispensarySync
 
 internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
 
@@ -187,7 +188,7 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
 
     regFn(scope, "dispensary_available", AshType.BOOLEAN, emptyList()) { _, _ ->
         val asc = character?.state?.value?.ascensionNumber ?: 0
-        if (preferences?.getInt("lastDispensaryOpen", -1) != asc) {
+        if (preferences?.getInt(DispensarySync.LAST_DISPENSARY_OPEN_PREF, -1) != asc) {
             return@regFn AshValue.of(false)
         }
         val hasLabKey = inventoryManager?.state?.value?.items?.containsKey(339) == true

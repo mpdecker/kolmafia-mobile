@@ -5,17 +5,20 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.QuestLogDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.quest.QuestLogConsequenceSync
+import net.sourceforge.kolmafia.quest.QuestLogProgress
 import net.sourceforge.kolmafia.preferences.Preferences
 
 open class QuestLogRequest(
     private val client: HttpClient,
     private val questDatabase: QuestDatabase,
     private val preferences: Preferences? = null,
+    private val gameDatabase: GameDatabase? = null,
 ) {
     open suspend fun syncAll() {
         syncPage(1)
@@ -51,8 +54,20 @@ open class QuestLogRequest(
             val title    = section.substring(0, closeIdx).trim()
             val bodyHtml = section.substring(closeIdx + 4)
             val entry = QuestLogDatabase.findByTitle(title) ?: continue
-            val step  = QuestLogDatabase.detectStep(entry, bodyHtml)
-            questDatabase.setProgressByPrefKey(entry.prefKey, step)
+            val step = QuestLogProgress.findQuestProgress(
+                entry.prefKey, bodyHtml, entry, preferences, gameDatabase,
+            ) ?: continue
+            if (entry.prefKey == Quest.BAT.prefKey &&
+                (questDatabase.getProgress(Quest.BAT) == "step2" ||
+                    questDatabase.getProgress(Quest.BAT) == "step3")
+            ) {
+                questDatabase.setQuestIfBetter(Quest.BAT, step)
+                continue
+            }
+            val current = questDatabase.progressFor(entry.prefKey)
+            if (QuestDatabase.stepOrdinal(step) >= QuestDatabase.stepOrdinal(current)) {
+                questDatabase.setProgressByPrefKey(entry.prefKey, step)
+            }
         }
     }
 

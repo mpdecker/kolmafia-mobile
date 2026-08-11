@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.ZodiacSign
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
+import net.sourceforge.kolmafia.quest.DispensarySync
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.KolGameHolidayCalendar
 import net.sourceforge.kolmafia.data.NpcStoreData
@@ -101,7 +102,7 @@ object NpcPurchaseAccessibility {
     }
 
     private fun dispensaryOpen(state: CharacterState, prefs: Preferences?, accessibleCount: (Int) -> Int): Boolean {
-        if (prefs?.getInt("lastDispensaryOpen", -1) != state.ascensionNumber) return false
+        if (prefs?.getInt(DispensarySync.LAST_DISPENSARY_OPEN_PREF, -1) != state.ascensionNumber) return false
         return accessibleCount(LAB_KEY) > 0
     }
 

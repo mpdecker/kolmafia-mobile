@@ -31,7 +31,18 @@ internal fun GameRuntimeLibrary.registerFamiliarQueries(scope: AshScope) {
     }
 
     regFn(scope, "my_familiar_weight", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((character?.state?.value?.familiarWeight ?: 0).toLong())
+        val charState = character?.state?.value
+        var weight = charState?.familiarWeight ?: 0
+        val familiarId = familiarManager?.state?.value?.activeFamiliar?.id
+            ?: charState?.familiarId
+            ?: 0
+        if (familiarId > 0) {
+            val soupWeight = familiarManager?.state?.value?.ownedFamiliars
+                ?.firstOrNull { it.id == familiarId }
+                ?.soupWeight ?: 0
+            weight += soupWeight
+        }
+        AshValue.of(weight.toLong())
     }
 
     regFn(scope, "my_enthroned_familiar", AshType.FAMILIAR, emptyList()) { _, _ ->

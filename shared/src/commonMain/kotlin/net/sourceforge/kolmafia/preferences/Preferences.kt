@@ -136,6 +136,7 @@ class Preferences(private val settings: Settings) {
         const val CACHED_FREEPULLS         = "_cachedFreepulls"
         const val CACHED_STASH             = "_cachedStash"
         const val CACHED_DISPLAY           = "_cachedDisplay"
+        const val CACHED_CAMPGROUND        = "_cachedCampground"
         const val COMBAT_SCRIPT           = "combatScript"
         const val USER_NOTE                = "userNote"
         const val CURRENT_CHAT_CHANNEL     = "currentChatChannel"

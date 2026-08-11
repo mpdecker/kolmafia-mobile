@@ -97,9 +97,9 @@ class QuestLogDatabaseTest {
         assertEquals("step1", QuestLogDatabase.detectStep(e, "Explore the cellar now."))
     }
 
-    @Test fun detectStep_noMatch_returnsStarted() {
+    @Test fun detectStep_noMatch_returnsNull() {
         val e = entry("started" to "go find", "finished" to "you found")
-        assertEquals("started", QuestLogDatabase.detectStep(e, "Something completely different."))
+        assertNull(QuestLogDatabase.detectStep(e, "Something completely different."))
     }
 
     @Test fun detectStep_stripsHtmlBeforeMatching() {
@@ -120,5 +120,21 @@ class QuestLogDatabaseTest {
         )
         val body = "Explore the cellar. Rats gone. Quest complete!"
         assertEquals("finished", QuestLogDatabase.detectStep(e, body))
+    }
+
+    @Test fun detectStep_strippedBodyMatch_returnsStep() {
+        val e = entry(
+            "started" to "go talk to bart",
+            "step1" to "explore the cellar in the tavern basement",
+            "finished" to "done!",
+        )
+        assertEquals("step1", QuestLogDatabase.detectStep(e, "Explore<br>the cellar"))
+    }
+
+    @Test fun detectStep_fuzzyTailSubstringMatch_returnsStep() {
+        val tail = "y".repeat(100)
+        val stepText = "x$tail"
+        val e = entry("started" to "start party", "step1" to stepText, "finished" to "done")
+        assertEquals("step1", QuestLogDatabase.detectStep(e, "Party status: $tail"))
     }
 }

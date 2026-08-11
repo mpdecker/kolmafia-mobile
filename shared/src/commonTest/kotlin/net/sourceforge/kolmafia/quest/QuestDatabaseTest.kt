@@ -94,4 +94,40 @@ class QuestDatabaseTest {
         db.setProgressByPrefKey("questL02Larva", "garbage")
         assertFalse(QuestDatabase(Preferences(db2settings)).isQuestLaterThan(Quest.LARVA, QuestDatabase.UNSTARTED))
     }
+
+    // ── setQuestIfBetter ────────────────────────────────────────────────────
+
+    @Test fun setQuestIfBetter_unstartedToStarted() {
+        val db = db()
+        db.setQuestIfBetter(Quest.BAT, QuestDatabase.STARTED)
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.BAT))
+    }
+
+    @Test fun setQuestIfBetter_step2DoesNotRegressToStep1() {
+        val db = db()
+        db.setProgress(Quest.BAT, "step2")
+        db.setQuestIfBetter(Quest.BAT, "step1")
+        assertEquals("step2", db.getProgress(Quest.BAT))
+    }
+
+    @Test fun setQuestIfBetter_step2AdvancesToStep3() {
+        val db = db()
+        db.setProgress(Quest.BAT, "step2")
+        db.setQuestIfBetter(Quest.BAT, "step3")
+        assertEquals("step3", db.getProgress(Quest.BAT))
+    }
+
+    @Test fun setQuestIfBetter_finishedNeverRegresses() {
+        val db = db()
+        db.setProgress(Quest.BAT, QuestDatabase.FINISHED)
+        db.setQuestIfBetter(Quest.BAT, "step1")
+        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.BAT))
+    }
+
+    @Test fun isQuestStep_matchesCurrentProgress() {
+        val db = db()
+        db.setProgress(Quest.BAT, "step2")
+        assertTrue(db.isQuestStep(Quest.BAT, "step2"))
+        assertFalse(db.isQuestStep(Quest.BAT, "step3"))
+    }
 }

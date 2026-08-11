@@ -24,17 +24,40 @@ object QuestLogDatabase {
 
     fun findByTitle(title: String): QuestLogEntry? = byTitle[title.lowercase().trim()]
 
-    fun detectStep(entry: QuestLogEntry, bodyHtml: String): String {
-        val normalized = bodyHtml
-            .replace(Regex("<[^>]+>"), " ")
-            .replace(Regex("\\s+"), " ")
-            .trim()
-            .lowercase()
+    private val htmlWhitespace = Regex("<[^<]+?>|[\\s\\n]")
+
+    fun detectStep(entry: QuestLogEntry, bodyHtml: String): String? {
+        val normalized = bodyHtml.normalizeText()
         for ((stepName, stepText) in entry.steps.asReversed()) {
             if (stepText.isNotEmpty() && normalized.contains(stepText)) return stepName
         }
-        return "started"
+        val strippedBody = stripHtmlWhitespace(bodyHtml)
+        for ((stepName, stepText) in entry.steps.asReversed()) {
+            if (stepText.isEmpty()) continue
+            val strippedStep = stripHtmlWhitespace(stepText)
+            if (strippedStep.contains(strippedBody)) return stepName
+        }
+        for ((stepName, stepText) in entry.steps.asReversed()) {
+            if (stepText.isEmpty()) continue
+            val strippedStep = stripHtmlWhitespace(stepText)
+            val questStart: String
+            val questEnd: String
+            if (strippedStep.length <= 100) {
+                questStart = strippedStep
+                questEnd = strippedStep
+            } else {
+                questStart = strippedStep.substring(0, 100)
+                questEnd = strippedStep.substring(strippedStep.length - 100)
+            }
+            if (strippedBody.contains(questStart) || strippedBody.contains(questEnd)) {
+                return stepName
+            }
+        }
+        return null
     }
+
+    private fun stripHtmlWhitespace(text: String): String =
+        htmlWhitespace.replace(text, "").lowercase()
 
     /** Test-only: parse text without touching the singleton state. */
     internal fun parseForTest(text: String): Map<String, QuestLogEntry> = parse(text)

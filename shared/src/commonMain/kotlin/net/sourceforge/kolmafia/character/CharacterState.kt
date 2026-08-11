@@ -66,6 +66,7 @@ data class CharacterState(
     // ── Ascension / run mode ─────────────────────────────────────────────────
     val roninLeft: Int = 0,
     val isHardcore: Boolean = false,
+    val isCasual: Boolean = false,
     val kingLiberated: Boolean = false,    // freed King Ralph
     val skillsRecalled: Boolean = false,   // api.php recalledskills / account menu
     val limitMode: String = "",            // "avatar", "spelunk", etc.
@@ -207,6 +208,12 @@ data class CharacterState(
         get() = ascensionPath == AscensionPath.TWO_CRAZY_RANDOM_SUMMER
     val inWereProfessor: Boolean
         get() = ascensionPath == AscensionPath.WEREPROFESSOR
+    val isActuallyEd: Boolean
+        get() = ascensionPath == AscensionPath.ACTUALLY_ED_THE_UNDYING
+    val inSmallcore: Boolean
+        get() = ascensionPath == AscensionPath.SMALL
+    val isMeat: Boolean
+        get() = ascensionPath == AscensionPath.MEAT
 
     fun isMildManneredProfessor(activeEffectNames: Collection<String>): Boolean =
         activeEffectNames.any { it.equals(EffectPool.MILD_MANNERED_PROFESSOR, ignoreCase = true) }

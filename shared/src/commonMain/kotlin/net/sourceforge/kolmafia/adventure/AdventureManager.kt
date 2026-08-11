@@ -26,7 +26,12 @@ import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.SessionMeatSync
 import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.quest.FinalQuestCombatSync
+import net.sourceforge.kolmafia.quest.GuzzlrCombatSync
+import net.sourceforge.kolmafia.quest.IslandWarCombatSync
+import net.sourceforge.kolmafia.quest.ToppingPeakCombatSync
 import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
+import net.sourceforge.kolmafia.quest.ShadowRiftSync
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
@@ -61,6 +66,7 @@ import net.sourceforge.kolmafia.request.OceanRequest
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.YegDemonNameSync
 import net.sourceforge.kolmafia.session.CargoPocketSync
+import net.sourceforge.kolmafia.character.FamTeamSync
 import net.sourceforge.kolmafia.session.OceanManager
 import net.sourceforge.kolmafia.session.WereProfessorResearchSync
 import net.sourceforge.kolmafia.session.WildfireCampManager
@@ -388,7 +394,7 @@ class AdventureManager(
             return null
         }
         lastFightHtml = fightHtml
-        FightPokefamSync.apply(character, fightHtml, familiarManager, preferences)
+        FightPokefamSync.apply(character, fightHtml, familiarManager, preferences, sessionLogger)
         _inMultiFight = AdventureParser.isInMultiFight(fightHtml)
         val result = AdventureParser.parseFightResult(fightHtml)
         SessionMeatSync.apply(character, fightHtml)
@@ -429,10 +435,21 @@ class AdventureManager(
         questDatabase?.let {
             QuestFightRules.applyFightStarted(it, result.monster)
             val itemIdsGained = result.itemsGained.mapNotNull { name -> gameDatabase?.item(name)?.id }
-            QuestFightRules.applyCombat(
+            val combatResult = QuestFightRules.applyCombat(
                 it, result.monster, result.won, result.itemsGained, itemIdsGained,
                 preferences, location.id,
+                responseText = fightHtml,
+                hasItemEquipped = { id ->
+                    character.state.value.equipment.values.any { name ->
+                        gameDatabase?.item(name)?.id == id
+                    }
+                },
             )
+            if (combatResult.resyncQuestLogPage1) {
+                questLogRequest?.syncPage(1)
+                val woots = preferences.getString("_questPartyFairProgress", "0")
+                sessionLogger?.appendRawLine("The Party is at $woots/100 woots.")
+            }
             QuestItemRules.applyItemsGained(
                 result.itemsGained,
                 it,
@@ -441,10 +458,71 @@ class AdventureManager(
                     inventory?.consumeItemLocally(itemId, quantity)
                 },
             )
+            GuzzlrCombatSync.applyCombatWin(
+                questDatabase = it,
+                preferences = preferences,
+                locationName = location.name,
+                responseText = fightHtml,
+                won = result.won,
+                gameDatabase = gameDatabase,
+                hasItemEquipped = { id ->
+                    character.state.value.equipment.values.any { name ->
+                        gameDatabase?.item(name)?.id == id
+                    }
+                },
+                hasItemCount = { id -> inventory?.state?.value?.items?.get(id)?.quantity ?: 0 },
+                consumeItem = { itemId, quantity ->
+                    inventory?.consumeItemLocally(itemId, quantity)
+                },
+            )
+            FinalQuestCombatSync.applyCombatWin(
+                questDatabase = it,
+                preferences = preferences,
+                adventureId = location.id,
+                monster = result.monster,
+                responseText = fightHtml,
+                won = result.won,
+            )
+            ToppingPeakCombatSync.applyCombatWin(
+                preferences = preferences,
+                monster = result.monster,
+                responseText = fightHtml,
+                won = result.won,
+                hasItemEquipped = { id ->
+                    character.state.value.equipment.values.any { name ->
+                        gameDatabase?.item(name)?.id == id
+                    }
+                },
+            )
+            val warEnded = IslandWarCombatSync.applyEndOfWar(
+                questDatabase = it,
+                preferences = preferences,
+                adventureId = location.id,
+                monster = result.monster,
+                responseText = fightHtml,
+                won = result.won,
+                isKingdomOfExploathing = character.state.value.isKingdomOfExploathing,
+            )
+            if (!warEnded) {
+                IslandWarCombatSync.applyCombatWin(
+                    preferences = preferences,
+                    adventureId = location.id,
+                    responseText = fightHtml,
+                    won = result.won,
+                    isKingdomOfExploathing = character.state.value.isKingdomOfExploathing,
+                )
+            }
+            IslandWarCombatSync.applyNunsSidequestWin(
+                preferences = preferences,
+                monster = result.monster,
+                responseText = fightHtml,
+                won = result.won,
+            )
         }
         emitItemEvents(result.itemsGained)
-        if (preferences.getString(Preferences.LAST_LOCATION, "").contains("Shadow Rift", ignoreCase = true)) {
+        if (preferences.getString(Preferences.LAST_LOCATION, "").let { ShadowRiftSync.isShadowRiftLocation(it) }) {
             RufusManager(preferences).handleShadowRiftFight(result.monster)
+            ShadowRiftSync.incrementCombats(preferences)
         }
         if (result.banished) {
             eventBus.emit(GameEvent.MonsterBanished(result.monster, result.banisher.canonicalName))
@@ -562,6 +640,7 @@ class AdventureManager(
             var url = rawUrl
             WereProfessorResearchSync.postChoice0(url, html, sessionLogger)
             OceanManager.registerRequest(url, sessionLogger)
+            FamTeamSync.registerRequest(url, sessionLogger)
             if (OceanRequest.isOceanPage(html, url) && OceanManager.shouldAutomate(preferences)) {
                 oceanRequest?.let { request ->
                     when (

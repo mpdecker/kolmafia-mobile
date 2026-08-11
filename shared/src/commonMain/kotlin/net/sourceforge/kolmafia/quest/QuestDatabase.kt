@@ -69,4 +69,31 @@ class QuestDatabase(private val preferences: Preferences) {
 
     fun isFinished(prefKey: String): Boolean =
         progressFor(prefKey) == FINISHED
+
+    fun isQuestStep(quest: Quest, step: String): Boolean =
+        getProgress(quest) == step
+
+    /** Desktop QuestDatabase.setQuestIfBetter — advance quest progress without regressing. */
+    fun setQuestIfBetter(quest: Quest, step: String) =
+        setQuestIfBetterByPrefKey(quest.prefKey, step)
+
+    fun setQuestIfBetterByPrefKey(prefKey: String, step: String) {
+        val status = validateStep(step)
+        val current = progressFor(prefKey)
+        val shouldSet = when {
+            current == UNSTARTED -> true
+            current == STARTED ->
+                status.startsWith("step") || status == FINISHED
+            current.startsWith("step") -> when {
+                status == FINISHED -> true
+                status.startsWith("step") -> stepOrdinal(status) > stepOrdinal(current)
+                else -> false
+            }
+            current == FINISHED -> false
+            else -> true
+        }
+        if (shouldSet) {
+            setProgressByPrefKey(prefKey, status)
+        }
+    }
 }

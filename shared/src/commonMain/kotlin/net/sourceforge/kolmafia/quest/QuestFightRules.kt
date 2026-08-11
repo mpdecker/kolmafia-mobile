@@ -5,11 +5,49 @@ import net.sourceforge.kolmafia.preferences.Preferences
 /** Quest step bumps from combat win/loss and item drops. */
 object QuestFightRules {
 
+    data class QuestCombatResult(
+        val advanced: Boolean,
+        val resyncQuestLogPage1: Boolean = false,
+    )
+
     const val VOLCANO_MAP_ID = 3291
     const val BURNOUTS_DEFEATED_PREF = "burnoutsDefeated"
+    const val INTIMIDATING_CHAINSAW_ID = 9972
     private const val BURNOUTS_GOAL = 30
 
     private val VOLCANIC_CAVE_MARKER = "(volcanic cave)"
+
+    private val PARTY_FAIR_MONSTERS = setOf(
+        "biker", "\"plain\" girl", "jock", "party girl", "burnout",
+    )
+
+    private val TELEGRAM_STAGE_MONSTERS = setOf(
+        "hired gun", "camp cook", "skeletal gunslinger", "restless ghost",
+        "buzzard", "mountain lion", "grizzled bear", "diamondback rattler",
+        "coal snake", "frontwinder", "caugr", "pyrobove", "spidercow", "moomy",
+    )
+
+    private val TELEGRAM_BOSS_MONSTERS = setOf(
+        "jeff the fancy skeleton", "daisy the unclean", "pecos dave",
+        "pharaoh amoon-ra cowtep", "snake-eyes glenn", "former sheriff dan driscoll",
+        "unusual construct", "clara", "granny hackleton",
+    )
+
+    private val GHOST_BOSS_MONSTERS = setOf(
+        "the ghost of oily mcbindle",
+        "boneless blobghost",
+        "the ghost of monsieur baguelle",
+        "the headless horseman",
+        "the icewoman",
+        "the ghost of ebenoozer screege",
+        "the ghost of lord montague spookyraven",
+        "the ghost of vanillica \"trashblossom\" gorton",
+        "the ghost of sam mcgee",
+        "the ghost of richard cockingham",
+        "the ghost of waldo the carpathian",
+        "emily koops, a spooky lime",
+        "the ghost of jim unfortunato",
+    )
 
     fun applyFightStarted(questDatabase: QuestDatabase, monster: String): Boolean {
         if (monster.isBlank()) return false
@@ -31,8 +69,11 @@ object QuestFightRules {
         itemIdsGained: List<Int> = emptyList(),
         preferences: Preferences? = null,
         adventureId: String = "",
-    ): Boolean {
+        responseText: String = "",
+        hasItemEquipped: (Int) -> Boolean = { false },
+    ): QuestCombatResult {
         var advanced = false
+        var resyncQuestLogPage1 = false
         if (won && adventureId == PirateRealmSync.PIRATEREALM_ISLAND_ADVENTURE.toString()) {
             advanced = PirateRealmSync.applyIslandCombatWin(questDatabase, preferences) || advanced
         }
@@ -46,13 +87,108 @@ object QuestFightRules {
             armorerStep(monster, won)?.let {
                 if (advance(questDatabase, Quest.ARMORER, it)) advanced = true
             }
+            if (won) {
+                if (applyTelegramCombat(questDatabase, monster, preferences)) advanced = true
+                if (applyGhostBossReset(questDatabase, monster, preferences)) advanced = true
+                applyPartyFairCombat(
+                    questDatabase, monster, preferences, responseText, hasItemEquipped,
+                )?.let { partyFair ->
+                    if (partyFair.advanced) advanced = true
+                    if (partyFair.resyncQuestLogPage1) resyncQuestLogPage1 = true
+                }
+            }
         }
         if (itemsGained.any { it.contains("volcano map", ignoreCase = true) } ||
             VOLCANO_MAP_ID in itemIdsGained
         ) {
             if (advance(questDatabase, Quest.NEMESIS, "step25")) advanced = true
         }
-        return advanced
+        return QuestCombatResult(advanced, resyncQuestLogPage1)
+    }
+
+    private data class PartyFairCombatResult(
+        val advanced: Boolean = false,
+        val resyncQuestLogPage1: Boolean = false,
+    )
+
+    private fun applyTelegramCombat(
+        questDatabase: QuestDatabase,
+        monster: String,
+        preferences: Preferences?,
+    ): Boolean {
+        if (questDatabase.getProgress(Quest.TELEGRAM) == QuestDatabase.UNSTARTED) return false
+        val lower = monster.lowercase()
+        if (lower in TELEGRAM_BOSS_MONSTERS) {
+            questDatabase.setProgress(Quest.TELEGRAM, QuestDatabase.UNSTARTED)
+            preferences?.setString("lttQuestName", "")
+            preferences?.setInt("lttQuestDifficulty", 0)
+            preferences?.setInt("lttQuestStageCount", 0)
+            return true
+        }
+        if (lower in TELEGRAM_STAGE_MONSTERS) {
+            preferences?.setInt(
+                "lttQuestStageCount",
+                (preferences?.getInt("lttQuestStageCount", 0) ?: 0) + 1,
+            )
+            return true
+        }
+        return false
+    }
+
+    internal fun applyGhostBossReset(
+        questDatabase: QuestDatabase,
+        monster: String,
+        preferences: Preferences?,
+    ): Boolean {
+        if (monster.trim().lowercase() !in GHOST_BOSS_MONSTERS) return false
+        questDatabase.setProgress(Quest.GHOST, QuestDatabase.UNSTARTED)
+        preferences?.setString("ghostLocation", "")
+        return true
+    }
+
+    private fun applyPartyFairCombat(
+        questDatabase: QuestDatabase,
+        monster: String,
+        preferences: Preferences?,
+        responseText: String,
+        hasItemEquipped: (Int) -> Boolean,
+    ): PartyFairCombatResult? {
+        val progress = questDatabase.getProgress(Quest.PARTY_FAIR)
+        if (progress != "step1" && progress != "step2") return null
+        val lower = monster.lowercase()
+        if (lower !in PARTY_FAIR_MONSTERS) return null
+        val prefs = preferences ?: return null
+        when (prefs.getString("_questPartyFairQuest", "")) {
+            "partiers" -> {
+                val kills = if (hasItemEquipped(INTIMIDATING_CHAINSAW_ID)) 2 else 1
+                val remaining = (prefs.getString("_questPartyFairProgress", "0").toIntOrNull() ?: 0) - kills
+                prefs.setString("_questPartyFairProgress", remaining.coerceAtLeast(0).toString())
+                if (remaining < 1) {
+                    return PartyFairCombatResult(advanced = advance(questDatabase, Quest.PARTY_FAIR, "step2"))
+                }
+            }
+            "dj" -> {
+                val match = QuestSpecialSync.partyFairDjMeatPattern.find(responseText) ?: return null
+                val meat = match.groupValues[1].replace(",", "").toIntOrNull() ?: return null
+                val remaining = (prefs.getString("_questPartyFairProgress", "0").toIntOrNull() ?: 0) - meat
+                prefs.setString("_questPartyFairProgress", remaining.coerceAtLeast(0).toString())
+                if (remaining < 1) {
+                    return PartyFairCombatResult(advanced = advance(questDatabase, Quest.PARTY_FAIR, "step2"))
+                }
+            }
+            "trash" -> {
+                val match = QuestSpecialSync.partyFairCombatTrashPattern.find(responseText) ?: return null
+                val trash = match.groupValues[1].toIntOrNull() ?: return null
+                val remaining = (prefs.getString("_questPartyFairProgress", "0").toIntOrNull() ?: 0) - trash
+                prefs.setString("_questPartyFairProgress", remaining.coerceAtLeast(0).toString())
+                if (remaining < 1) {
+                    return PartyFairCombatResult(advanced = advance(questDatabase, Quest.PARTY_FAIR, "step2"))
+                }
+            }
+            "woots" -> return PartyFairCombatResult(resyncQuestLogPage1 = true)
+            else -> return null
+        }
+        return PartyFairCombatResult(advanced = true)
     }
 
     private fun nemesisStep(monster: String, won: Boolean): String? {
