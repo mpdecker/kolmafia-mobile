@@ -10,6 +10,7 @@ import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.adventure.AdventureRequest
 import net.sourceforge.kolmafia.adventure.MacroStrategy
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
+import net.sourceforge.kolmafia.adventure.choice.OutfitPool
 import net.sourceforge.kolmafia.adventure.runHedgeMaze
 import net.sourceforge.kolmafia.adventure.runTowerDoor
 import net.sourceforge.kolmafia.adventure.TowerDoorConfig
@@ -17,6 +18,7 @@ import net.sourceforge.kolmafia.adventure.TowerDoorStatus
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.DescriptionCache
 import net.sourceforge.kolmafia.data.EffectDatabase
+import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.buffbot.BuffBotManager
@@ -118,6 +120,7 @@ import net.sourceforge.kolmafia.request.AbsorbRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.PirateRealmSync
 import net.sourceforge.kolmafia.quest.DispensarySync
+import net.sourceforge.kolmafia.quest.IslandWarVisitLogSync
 import net.sourceforge.kolmafia.quest.IslandWarVisitSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.TelescopeSync
@@ -324,7 +327,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase440"
+        const val REVISION = "phase450"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -2349,7 +2352,61 @@ class GameRuntimeLibrary(
             DispensarySync.applyFromResponse(html, state, preferences)
         }
         if (url?.contains("bigisland.php", ignoreCase = true) == true) {
-            preferences?.let { IslandWarVisitSync.applyFromBigIslandVisit(html, it) }
+            preferences?.let { prefs ->
+                val equipment = character?.state?.value?.equipment ?: emptyMap()
+                val islandVisitContext = IslandWarVisitSync.IslandVisitContext(
+                    hasItemId = { id ->
+                        inventoryManager?.state?.value?.items?.containsKey(id) == true
+                    },
+                    consumeItem = { itemId, quantity ->
+                        inventoryManager?.consumeItemLocally(itemId, quantity)
+                    },
+                    isWearingWarHippyOutfit = {
+                        val outfit = OutfitDatabase.getById(OutfitPool.WAR_HIPPY_OUTFIT)
+                            ?: return@IslandVisitContext false
+                        OutfitManager.isWearingPieces(outfit.equipment, equipment)
+                    },
+                    ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                )
+                IslandWarVisitLogSync.register(
+                    url = url,
+                    html = html,
+                    preferences = prefs,
+                    context = islandVisitContext,
+                    sessionLogger = sessionLogger,
+                )
+                IslandWarVisitSync.applyFromBigIslandVisit(
+                    url = url,
+                    html = html,
+                    preferences = prefs,
+                    sessionLogger = sessionLogger,
+                    context = islandVisitContext,
+                )
+            }
+        }
+        if (url?.contains("postwarisland.php", ignoreCase = true) == true) {
+            preferences?.let { prefs ->
+                val equipment = character?.state?.value?.equipment ?: emptyMap()
+                IslandWarVisitSync.applyFromPostwarIslandVisit(
+                    url = url,
+                    html = html,
+                    preferences = prefs,
+                    context = IslandWarVisitSync.IslandVisitContext(
+                        hasItemId = { id ->
+                            inventoryManager?.state?.value?.items?.containsKey(id) == true
+                        },
+                        consumeItem = { itemId, quantity ->
+                            inventoryManager?.consumeItemLocally(itemId, quantity)
+                        },
+                        isWearingWarHippyOutfit = {
+                            val outfit = OutfitDatabase.getById(OutfitPool.WAR_HIPPY_OUTFIT)
+                                ?: return@IslandVisitContext false
+                            OutfitManager.isWearingPieces(outfit.equipment, equipment)
+                        },
+                        ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                    ),
+                )
+            }
         }
     }
 

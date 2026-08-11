@@ -502,6 +502,7 @@ class AdventureManager(
                 responseText = fightHtml,
                 won = result.won,
                 isKingdomOfExploathing = character.state.value.isKingdomOfExploathing,
+                sessionLogger = sessionLogger,
             )
             if (!warEnded) {
                 IslandWarCombatSync.applyCombatWin(
@@ -509,7 +510,9 @@ class AdventureManager(
                     adventureId = location.id,
                     responseText = fightHtml,
                     won = result.won,
+                    monster = result.monster,
                     isKingdomOfExploathing = character.state.value.isKingdomOfExploathing,
+                    sessionLogger = sessionLogger,
                 )
             }
             IslandWarCombatSync.applyNunsSidequestWin(

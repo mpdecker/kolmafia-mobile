@@ -4,11 +4,19 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import net.sourceforge.kolmafia.equipment.OutfitManager
+import net.sourceforge.kolmafia.adventure.choice.OutfitPool
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.IslandWarCampSync
+import net.sourceforge.kolmafia.quest.IslandWarVisitLogSync
+import net.sourceforge.kolmafia.quest.IslandWarVisitSync
+import net.sourceforge.kolmafia.session.SessionLogger
 
 open class CoinmasterManager(
     private val coinmasterRequest: CoinmasterRequest,
@@ -17,6 +25,7 @@ open class CoinmasterManager(
     private val client: HttpClient,
     private val character: KoLCharacter? = null,
     private val preferences: Preferences? = null,
+    private val sessionLogger: SessionLogger? = null,
 ) {
     open fun resolveMaster(value: String): CoinmasterData? =
         CoinmasterRegistry.findByNickname(value)
@@ -76,7 +85,9 @@ open class CoinmasterManager(
         val row = master.buyRowFor(itemId) ?: return 0
         val before = inventoryCount(itemId)
         val rowOrItemId = if (master.useItemField) itemId else row.rowId
-        if (coinmasterRequest.buy(master, rowOrItemId, quantity).isFailure) return 0
+        val response = coinmasterRequest.buy(master, rowOrItemId, quantity)
+        if (response.isFailure) return 0
+        applyCampCoinmasterResponse(master, master.buyAction, itemId, quantity, response.getOrThrow())
         inventoryManager?.fetchInventory()
         val after = inventoryCount(itemId)
         val bought = (after - before).coerceAtLeast(0)
@@ -91,7 +102,9 @@ open class CoinmasterManager(
         val row = master.sellRowFor(itemId) ?: return 0
         val before = inventoryCount(itemId)
         val rowOrItemId = if (master.useItemField) itemId else row.rowId
-        if (coinmasterRequest.sell(master, rowOrItemId, quantity).isFailure) return 0
+        val response = coinmasterRequest.sell(master, rowOrItemId, quantity)
+        if (response.isFailure) return 0
+        applyCampCoinmasterResponse(master, master.sellAction, itemId, quantity, response.getOrThrow())
         inventoryManager?.fetchInventory()
         val after = inventoryCount(itemId)
         return (before - after).coerceAtLeast(0)
@@ -138,6 +151,42 @@ open class CoinmasterManager(
             CoinmasterAccessibility.inaccessibleReason(master, char, preferences)?.let { return it }
         }
         return ""
+    }
+
+    private fun applyCampCoinmasterResponse(
+        master: CoinmasterData,
+        action: String,
+        itemId: Int,
+        quantity: Int,
+        html: String,
+    ) {
+        if (!IslandWarCampSync.isCampCoinmaster(master)) return
+        val prefs = preferences ?: return
+        val url = IslandWarCampSync.buildCampTransactionUrl(master, action, itemId, quantity)
+        val context = islandVisitContext()
+        IslandWarVisitLogSync.register(url, html, prefs, context, sessionLogger)
+        IslandWarCampSync.parseCampResponse(url, html, prefs, context, sessionLogger)
+        if (master.tokenItemId() == null) {
+            ConcoctionDatabase.markRefreshNeeded()
+        }
+    }
+
+    private fun islandVisitContext(): IslandWarVisitSync.IslandVisitContext {
+        val equipment = character?.state?.value?.equipment ?: emptyMap()
+        return IslandWarVisitSync.IslandVisitContext(
+            hasItemId = { id ->
+                inventoryManager?.state?.value?.items?.containsKey(id) == true
+            },
+            consumeItem = { itemId, qty ->
+                inventoryManager?.consumeItemLocally(itemId, qty)
+            },
+            isWearingWarHippyOutfit = {
+                val outfit = OutfitDatabase.getById(OutfitPool.WAR_HIPPY_OUTFIT)
+                    ?: return@IslandVisitContext false
+                OutfitManager.isWearingPieces(outfit.equipment, equipment)
+            },
+            ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+        )
     }
 
     private fun inventoryCount(itemId: Int): Int =

@@ -157,6 +157,11 @@ object ConcoctionDatabase {
         recalculateAdventureRange = true
     }
 
+    /** Desktop ConcoctionDatabase.setRefreshNeeded — pseudo-token coinmaster trades defer concoction refresh. */
+    fun markRefreshNeeded() {
+        refreshNeeded = true
+    }
+
     /** Desktop ConcoctionDatabase.refreshConcoctions — effect names + initial counts; full creatable cache deferred. */
     fun refreshConcoctions(
         force: Boolean = true,

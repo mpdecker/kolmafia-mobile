@@ -409,6 +409,8 @@ object CoinmasterDatabase {
             override.useItemField?.let { builder.useItemField = it }
             override.buyUrl?.let { builder.buyUrl = it }
             override.sellUrl?.let { builder.sellUrl = it }
+            override.buyAction?.let { builder.buyAction = it }
+            override.sellAction?.let { builder.sellAction = it }
         }
         PROPERTY_OVERRIDES.forEach { (name, property) ->
             val builder = builders.getOrPut(name) { Builder(name, null) }
@@ -425,10 +427,11 @@ object CoinmasterDatabase {
         val useItemField: Boolean? = null,
         val buyUrl: String? = null,
         val sellUrl: String? = null,
+        val buyAction: String? = null,
+        val sellAction: String? = null,
     )
 
     private val PROPERTY_OVERRIDES = mapOf(
-        "Quartersmaster" to "availableQuarters",
         "Game Shoppe" to "availableStoreCredits",
         "PirateRealm Fun-a-Log" to "availableFunPoints",
         "Sept-Ember Censer" to "availableSeptEmbers",
@@ -441,8 +444,21 @@ object CoinmasterDatabase {
             aliases = listOf("dmt"),
             token = "dime",
             property = "availableDimes",
-            buyUrl = "bigisland.php",
-            sellUrl = "bigisland.php",
+            useItemField = true,
+            buyUrl = "bigisland.php?place=camp&whichcamp=1",
+            sellUrl = "bigisland.php?place=camp&whichcamp=1",
+            buyAction = "getgear",
+            sellAction = "turnin",
+        ),
+        "Quartersmaster" to SpecialOverride(
+            nickname = "quartersmaster",
+            token = "quarter",
+            property = "availableQuarters",
+            useItemField = true,
+            buyUrl = "bigisland.php?place=camp&whichcamp=2",
+            sellUrl = "bigisland.php?place=camp&whichcamp=2",
+            buyAction = "getgear",
+            sellAction = "turnin",
         ),
         "Bounty Hunter Hunter" to SpecialOverride(
             nickname = "hunter",
@@ -488,6 +504,8 @@ object CoinmasterDatabase {
         var useItemField: Boolean = false
         var buyUrl: String? = null
         var sellUrl: String? = null
+        var buyAction: String = "buy"
+        var sellAction: String = "sell"
         val buyRows = mutableListOf<ShopRow>()
         val sellRows = mutableListOf<ShopRow>()
 
@@ -505,7 +523,9 @@ object CoinmasterDatabase {
                 sellItems = dedupedSell,
                 useItemField = useItemField,
                 buyUrl = buyUrl,
+                buyAction = buyAction,
                 sellUrl = sellUrl ?: buyUrl,
+                sellAction = sellAction,
             )
         }
     }

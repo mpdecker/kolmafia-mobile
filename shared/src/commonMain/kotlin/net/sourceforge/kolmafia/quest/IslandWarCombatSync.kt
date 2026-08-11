@@ -1,13 +1,16 @@
 package net.sourceforge.kolmafia.quest
 
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.SessionLogger
 import kotlin.math.min
 
 /** Desktop [IslandManager.handleBattlefield] / [IslandManager.handleBattlefieldMonster] Island War combat hooks. */
 object IslandWarCombatSync {
 
-    private const val BATTLEFIELD_FRAT_UNIFORM = "131"
-    private const val BATTLEFIELD_HIPPY_OUTFIT = "132"
+    private const val BATTLEFIELD_FRAT_UNIFORM = "132"
+    private const val BATTLEFIELD_HIPPY_UNIFORM = "140"
+
+    private val BATTLEFIELD_IDS = setOf(BATTLEFIELD_FRAT_UNIFORM, BATTLEFIELD_HIPPY_UNIFORM)
 
     private const val BOSS_BIG_WISNIEWSKI = "the big wisniewski"
     private const val BOSS_THE_MAN = "the man"
@@ -43,6 +46,7 @@ object IslandWarCombatSync {
         responseText: String,
         won: Boolean,
         isKingdomOfExploathing: Boolean = false,
+        sessionLogger: SessionLogger? = null,
     ): Boolean {
         val prefs = preferences ?: return false
         val db = questDatabase ?: return false
@@ -50,18 +54,36 @@ object IslandWarCombatSync {
         if (prefs.getString("warProgress", "unstarted") == "finished") return false
 
         if (responseText.contains("Giant explosions in slow motion")) {
-            return finishWar(prefs, db, loser = "both", isKingdomOfExploathing = isKingdomOfExploathing)
+            return finishWar(
+                prefs,
+                db,
+                loser = "both",
+                isKingdomOfExploathing = isKingdomOfExploathing,
+                sessionLogger = sessionLogger,
+            )
         }
 
-        if (adventureId != BATTLEFIELD_FRAT_UNIFORM && adventureId != BATTLEFIELD_HIPPY_OUTFIT) {
+        if (adventureId !in BATTLEFIELD_IDS) {
             return false
         }
 
         return when (monster.trim().lowercase()) {
             BOSS_BIG_WISNIEWSKI ->
-                finishWar(prefs, db, loser = "hippies", isKingdomOfExploathing = isKingdomOfExploathing)
+                finishWar(
+                    prefs,
+                    db,
+                    loser = "hippies",
+                    isKingdomOfExploathing = isKingdomOfExploathing,
+                    sessionLogger = sessionLogger,
+                )
             BOSS_THE_MAN ->
-                finishWar(prefs, db, loser = "fratboys", isKingdomOfExploathing = isKingdomOfExploathing)
+                finishWar(
+                    prefs,
+                    db,
+                    loser = "fratboys",
+                    isKingdomOfExploathing = isKingdomOfExploathing,
+                    sessionLogger = sessionLogger,
+                )
             else -> false
         }
     }
@@ -71,16 +93,37 @@ object IslandWarCombatSync {
         adventureId: String,
         responseText: String,
         won: Boolean,
+        monster: String = "",
         isKingdomOfExploathing: Boolean = false,
+        sessionLogger: SessionLogger? = null,
     ): Boolean {
         val prefs = preferences ?: return false
         if (!won || !responseText.contains("WINWINWIN")) return false
         if (prefs.getString("warProgress", "unstarted") == "finished") return false
 
-        val routing = when (adventureId) {
-            BATTLEFIELD_FRAT_UNIFORM -> "hippiesDefeated" to IslandWarBattlefieldMessages.HIPPY_MESSAGES
-            BATTLEFIELD_HIPPY_OUTFIT -> "fratboysDefeated" to IslandWarBattlefieldMessages.FRAT_MESSAGES
-            else -> return false
+        val onBattlefield = adventureId in BATTLEFIELD_IDS
+        val kind = IslandWarBattlefieldMonsters.classify(monster)
+        val routing = when (kind) {
+            BattlefieldMonsterKind.WAR_HIPPY ->
+                "hippiesDefeated" to IslandWarBattlefieldMessages.HIPPY_MESSAGES
+            BattlefieldMonsterKind.WAR_FRATBOY ->
+                "fratboysDefeated" to IslandWarBattlefieldMessages.FRAT_MESSAGES
+            BattlefieldMonsterKind.UNKNOWN -> {
+                if (onBattlefield) {
+                    sessionLogger?.appendRawLine(
+                        IslandWarBattlefieldMonsters.unknownMonsterMessage(monster.ifBlank { "?" }),
+                    )
+                }
+                return false
+            }
+            BattlefieldMonsterKind.UNEXPECTED -> {
+                if (onBattlefield) {
+                    sessionLogger?.appendRawLine(
+                        IslandWarBattlefieldMonsters.unexpectedMonsterMessage(monster),
+                    )
+                }
+                return false
+            }
         }
         val (prefKey, messages) = routing
 
@@ -93,7 +136,19 @@ object IslandWarCombatSync {
         }
 
         val max = if (isKingdomOfExploathing) 333 else 1000
-        return incrementBattlefieldCounter(prefs, prefKey, delta, max)
+        val last = prefs.getInt(prefKey, 0)
+        if (!incrementBattlefieldCounter(prefs, prefKey, delta, max)) {
+            return false
+        }
+        val current = prefs.getInt(prefKey, 0)
+        logBattlefieldVictory(
+            sessionLogger = sessionLogger,
+            defeatingFratSide = prefKey == "hippiesDefeated",
+            last = last,
+            current = current,
+            isKingdomOfExploathing = isKingdomOfExploathing,
+        )
+        return true
     }
 
     internal fun finishWar(
@@ -101,6 +156,7 @@ object IslandWarCombatSync {
         questDatabase: QuestDatabase,
         loser: String,
         isKingdomOfExploathing: Boolean,
+        sessionLogger: SessionLogger? = null,
     ): Boolean {
         val total = if (isKingdomOfExploathing) 333 else 1000
         when (loser) {
@@ -116,7 +172,38 @@ object IslandWarCombatSync {
         preferences.setString("warProgress", "finished")
         val warQuest = if (isKingdomOfExploathing) Quest.HIPPY_FRAT else Quest.ISLAND_WAR
         questDatabase.setProgress(warQuest, QuestDatabase.FINISHED)
+        sessionLogger?.appendRawLine(IslandWarBattlefieldMessages.finishWarMessage(loser))
         return true
+    }
+
+    internal fun logBattlefieldVictory(
+        sessionLogger: SessionLogger?,
+        defeatingFratSide: Boolean,
+        last: Int,
+        current: Int,
+        isKingdomOfExploathing: Boolean,
+    ) {
+        if (sessionLogger == null) return
+        sessionLogger.appendRawLine(
+            IslandWarBattlefieldMessages.victoryMessage(
+                defeatingFratSide = defeatingFratSide,
+                last = last,
+                current = current,
+                isKingdomOfExploathing = isKingdomOfExploathing,
+            ),
+        )
+        IslandWarBattlefieldMessages.areaMessage(
+            defeatingFratSide = defeatingFratSide,
+            last = last,
+            current = current,
+            isKingdomOfExploathing = isKingdomOfExploathing,
+        )?.let { sessionLogger.appendRawLine(it) }
+        IslandWarBattlefieldMessages.heroMessage(
+            defeatingFratSide = defeatingFratSide,
+            last = last,
+            current = current,
+            isKingdomOfExploathing = isKingdomOfExploathing,
+        )?.let { sessionLogger.appendRawLine(it) }
     }
 
     internal fun incrementBattlefieldCounter(
