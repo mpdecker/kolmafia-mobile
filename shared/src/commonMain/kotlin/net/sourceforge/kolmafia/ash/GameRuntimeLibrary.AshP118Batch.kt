@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.CharacterStatusRefresh
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.skill.SkillState
 
@@ -11,9 +12,14 @@ import net.sourceforge.kolmafia.skill.SkillState
 internal fun GameRuntimeLibrary.registerAshP118Batch(scope: AshScope) {
     regFn(scope, "refresh_status", AshType.BOOLEAN, emptyList()) { _, _ ->
         runBlocking {
-            val ok = characterRequest?.fetchCharacterState()
-                ?.onSuccess { character?.updateFromApiResponse(it) }
-                ?.isSuccess == true
+            val char = character ?: return@runBlocking AshValue.FALSE
+            val ok = CharacterStatusRefresh.refreshWithQuantumPreflight(
+                characterRequest = characterRequest,
+                character = char,
+                effectManager = null,
+                preferences = preferences,
+                familiarManager = familiarManager,
+            )
             AshValue.of(ok)
         }
     }
@@ -47,9 +53,18 @@ internal fun GameRuntimeLibrary.registerAshP118Batch(scope: AshScope) {
     }
 }
 
-/** api.php status refresh (desktop ApiRequest.updateStatus scope). */
+/** Status refresh with desktop charpane fallback routing (Phase 408). */
 internal suspend fun GameRuntimeLibrary.refreshCharacterStates(): Triple<CharacterState, InventoryState, SkillState> {
-    characterRequest?.fetchCharacterState()?.onSuccess { character?.updateFromApiResponse(it) }
+    val char = character
+    if (char != null) {
+        CharacterStatusRefresh.refreshWithQuantumPreflight(
+            characterRequest = characterRequest,
+            character = char,
+            effectManager = effectManager,
+            preferences = preferences,
+            familiarManager = familiarManager,
+        )
+    }
     return Triple(
         character?.state?.value ?: CharacterState(),
         inventoryManager?.state?.value ?: InventoryState(),

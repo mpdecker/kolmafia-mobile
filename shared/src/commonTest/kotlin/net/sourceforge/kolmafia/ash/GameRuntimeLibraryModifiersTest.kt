@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.ModifierEntry
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -93,5 +94,23 @@ class GameRuntimeLibraryModifiersTest {
         assertEquals("Disco Bandit",
             outputLib(dbLib,
                 """print(string_modifier(to_familiar("Grandpa Brynne"), "Class"));"""))
+    }
+
+    @Test
+    fun numericModifier_generatedSpec_returnsStoredValue() {
+        ModifierDatabase.resetForTest()
+        ModifierDatabase.overrideGenerated("_spec", "Meat Drop: +42")
+        assertEquals("42.0",
+            outputLib(lib,
+                """print(to_string(numeric_modifier("Generated:_spec", "Meat Drop")));"""))
+    }
+
+    @Test
+    fun booleanModifier_generatedSpec_returnsStoredValue() {
+        ModifierDatabase.resetForTest()
+        ModifierDatabase.overrideGenerated("_spec", "Single Equip")
+        assertEquals("true",
+            outputLib(lib,
+                """print(to_string(boolean_modifier("Generated:_spec", "Single Equip")));"""))
     }
 }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
@@ -1883,6 +1884,83 @@ class AshCompatibilityCorpusTest {
             "https://www.kingdomofloathing.com/knoll_mushrooms.php",
         )
         assertEquals("true", outputLib(lib, """print(have_mushroom_plot());""").trim())
+    }
+
+    @Test
+    fun corpus_campgroundAsh_fromPrefsAndPath() {
+        val p = prefs()
+        p.setInt(CampgroundItemSync.CURRENT_WORKSHED_ITEM_ID_PREF, 6967)
+        p.setBoolean("hasChef", true)
+        p.setBoolean("hasBartender", false)
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            private val chem = net.sourceforge.kolmafia.data.ItemData(
+                6967, "Chemystery Box", "desc", "wbchemset.gif",
+                net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE, emptySet(), setOf('t', 'd'), 0, null,
+            )
+            override fun item(id: Int) = if (id == 6967) chem else null
+            override fun item(name: String) =
+                if (name.equals("Chemystery Box", ignoreCase = true)) chem else null
+        }
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(CharacterApiResponse(path = "Standard"))
+        }
+        val lib = GameRuntimeLibrary(character = char, preferences = p, gameDatabase = db)
+        assertEquals("Chemystery Box", outputLib(lib, """print(get_workshed());""").trim())
+        assertEquals("true", outputLib(lib, """print(have_campground());""").trim())
+        assertEquals("true", outputLib(lib, """print(have_chef());""").trim())
+        assertEquals("false", outputLib(lib, """print(have_bartender());""").trim())
+    }
+
+    @Test
+    fun corpus_getCampground_cropFromGardenHook() {
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            private val pumpkin = net.sourceforge.kolmafia.data.ItemData(
+                4761, "pumpkin", "desc", "pumpkin.gif",
+                net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE, emptySet(), setOf('t', 'd'), 0, null,
+            )
+            override fun item(id: Int) = if (id == 4761) pumpkin else null
+            override fun item(name: String) =
+                if (name.equals("pumpkin", ignoreCase = true)) pumpkin else null
+        }
+        val lib = GameRuntimeLibrary(preferences = prefs(), gameDatabase = db, character = KoLCharacter())
+        lib.processVisitResponseHooks(
+            """<img src="pumpkinpatch_1.gif">""",
+            "https://www.kingdomofloathing.com/campground.php",
+        )
+        assertEquals("1", outputLib(lib, """print(get_campground()[to_item("pumpkin")]);""").trim())
+    }
+
+    @Test
+    fun corpus_bookshelf_fromCampgroundVisit() {
+        val char = KoLCharacter()
+        val lib = GameRuntimeLibrary(character = char, preferences = prefs())
+        lib.processVisitResponseHooks(
+            """<a href="campground.php?action=bookshelf">Bookshelf</a>""",
+            "https://www.kingdomofloathing.com/campground.php",
+        )
+        assertEquals(true, char.state.value.hasBookshelf)
+    }
+
+    @Test
+    fun corpus_ascensionAsh_fromApiStatus() {
+        val char = KoLCharacter().also {
+            it.updateFromApiResponse(
+                CharacterApiResponse(
+                    casual = "1",
+                    limitmode = "batman",
+                    currentrun = "100",
+                    turnsplayed = "50000",
+                    daynumber = "8000",
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(character = char)
+        assertEquals("true", outputLib(lib, """print(in_casual());""").trim())
+        assertEquals("batman", outputLib(lib, """print(limit_mode());""").trim())
+        assertEquals("100", outputLib(lib, """print(turns_played());""").trim())
+        assertEquals("100", outputLib(lib, """print(my_turncount());""").trim())
+        assertEquals("50000", outputLib(lib, """print(total_turns_played());""").trim())
+        assertEquals("8000", outputLib(lib, """print(daycount());""").trim())
     }
 
     @Test

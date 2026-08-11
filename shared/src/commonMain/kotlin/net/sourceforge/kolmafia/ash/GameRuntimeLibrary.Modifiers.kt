@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.ModifierEntry
 import net.sourceforge.kolmafia.modifiers.BooleanModifier
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
@@ -7,6 +8,22 @@ import net.sourceforge.kolmafia.modifiers.ModifierParser
 import net.sourceforge.kolmafia.modifiers.StringModifier
 
 internal fun GameRuntimeLibrary.registerModifierQueries(scope: AshScope) {
+
+    // ── numeric_modifier(type, string) → float ────────────────────────────────
+    regFn(scope, "numeric_modifier", AshType.FLOAT,
+        listOf("typeName" to AshType.STRING, "modifier" to AshType.STRING)) { _, args ->
+        val (type, name) = parseTypeName(args[0].toString())
+        val entry = gameDatabase?.modifier(type, name) ?: ModifierDatabase.get(type, name)
+        AshValue.of(numericFromEntry(entry, args[1].toString()))
+    }
+
+    // ── boolean_modifier(type, string) → boolean ──────────────────────────────
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN,
+        listOf("typeName" to AshType.STRING, "modifier" to AshType.STRING)) { _, args ->
+        val (type, name) = parseTypeName(args[0].toString())
+        val entry = gameDatabase?.modifier(type, name) ?: ModifierDatabase.get(type, name)
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
+    }
 
     // ── numeric_modifier(item, string) → float ────────────────────────────────
     regFn(scope, "numeric_modifier", AshType.FLOAT,
@@ -125,4 +142,13 @@ internal fun stringFromEntry(entry: ModifierEntry?, tag: String): String {
 internal fun stringsFromEntry(entry: ModifierEntry?, sm: StringModifier): List<String> {
     if (entry == null) return emptyList()
     return ModifierParser.parse(entry.modifiers).getAll(sm)
+}
+
+internal fun parseTypeName(typeNameArg: String): Pair<String, String> {
+    val idx = typeNameArg.indexOf(':')
+    return if (idx >= 0) {
+        typeNameArg.substring(0, idx).trim() to typeNameArg.substring(idx + 1).trim()
+    } else {
+        "Item" to typeNameArg
+    }
 }

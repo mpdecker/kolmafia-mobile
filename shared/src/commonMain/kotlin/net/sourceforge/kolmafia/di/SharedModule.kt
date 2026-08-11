@@ -172,7 +172,7 @@ val sharedModule = module {
     singleOf(::ResearchBenchRequest)
     single { GoalManager() }
     single { QuestDatabase(get()) }
-    single { QuestLogRequest(get(), get(), get()) }
+    single { QuestLogRequest(get(), get(), get(), get()) }
     single {
         ChoiceSolvers(
             safetyShelter = SafetyShelterSolverImpl(),
@@ -496,6 +496,7 @@ val sharedModule = module {
             mallManager = get(),
             modeableRequest = get(),
             effectManager = get(),
+            characterRequest = get(),
         )
     }
     singleOf(::SessionLogger)
@@ -747,6 +748,7 @@ val sharedModule = module {
             closetRequest        = get(),
             storageRequest       = get(),
             clanStashRequest     = get(),
+            displayCaseRequest   = get(),
         )
     }
     singleOf(::ShopRequest)

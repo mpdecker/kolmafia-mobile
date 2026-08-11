@@ -107,6 +107,8 @@ object MaximizerContainerSpeculation {
                     foldablesEnabled = scoring.foldablesEnabled,
                     countFor = scoring.countFor,
                     preferences = preferences,
+                    activeEffects = scoring.activeEffects,
+                    passiveSkillNames = scoring.passiveSkillNames,
                 )
                 if (result.isEmpty()) continue
 
@@ -164,6 +166,8 @@ object MaximizerContainerSpeculation {
             cardInSleeve = card,
             preferences = preferences,
             maxBeeosity = spec.maxBeeosity,
+            activeEffects = scoring.activeEffects,
+            passiveSkillNames = scoring.passiveSkillNames,
         )
     }
 
@@ -184,6 +188,8 @@ object MaximizerContainerSpeculation {
             gameDatabase = scoring.gameDatabase,
             cardInSleeve = card,
             preferences = preferences,
+            activeEffects = scoring.activeEffects,
+            passiveSkillNames = scoring.passiveSkillNames,
         )
     }
 }

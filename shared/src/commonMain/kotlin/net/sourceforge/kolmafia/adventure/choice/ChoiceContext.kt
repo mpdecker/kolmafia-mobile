@@ -1,15 +1,19 @@
 package net.sourceforge.kolmafia.adventure.choice
 
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.MainStat
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.maximizer.MaximizerPassiveSkills
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.DynamicItemModifierSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.skill.SkillState
@@ -27,6 +31,7 @@ data class ChoiceContext(
     val questDatabase: QuestDatabase,
     val solvers: ChoiceSolvers,
     val preference: Int,
+    val gameDatabase: GameDatabase? = null,
     val stepCount: Int = 0,
     val skillUses: Int = 0,
 ) {
@@ -47,12 +52,35 @@ data class ChoiceContext(
         effectState.effects.any { it.name.equals(effectName, ignoreCase = true) }
 
     fun currentNumericModifier(modifier: DoubleModifier): Double {
-        val passiveSkillNames = skillState.skills
-            .filter { !it.isActive }
-            .map { it.name }
-            .toSet()
+        val passiveSkillNames = if (gameDatabase != null) {
+            MaximizerPassiveSkills.resolve(
+                skillState.skills,
+                choiceCheckContext(),
+                gameDatabase,
+            )
+        } else {
+            MaximizerPassiveSkills.resolve(apiSkills = skillState.skills)
+        }
         return CurrentModifiers(characterState, effectState.effects, passiveSkillNames)
             .values.get(modifier)
+    }
+
+    private fun choiceCheckContext(): DynamicItemModifierSync.CheckContext {
+        val codpieceGemNames = characterState.equipment
+            .filterKeys { it in EquipmentSlot.CODPIECE_SLOTS }
+            .values
+            .filter { it.isNotBlank() }
+            .toSet()
+        return DynamicItemModifierSync.CheckContext(
+            inventoryItemIds = inventoryState.items.filterValues { it.quantity > 0 }.keys,
+            equippedItemNames = characterState.equipment.values.filter { it.isNotBlank() }.toSet(),
+            activeEffectNames = effectState.effects.map { it.name }.toSet(),
+            limitMode = characterState.limitMode,
+            canInteract = !characterState.isHardcore && !characterState.isInRonin,
+            hasClan = characterState.hasClan,
+            ascensionPath = characterState.ascensionPath,
+            codpieceGemNames = codpieceGemNames,
+        )
     }
 
     val characterClass get() = characterState.characterClassEnum

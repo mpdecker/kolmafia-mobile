@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.campground
 
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
@@ -18,7 +19,7 @@ object CampgroundItemSync {
     private val FUEL_GAUGE_PATTERN =
         Regex("""fuel gauge reads ([\d,]+) litre""", RegexOption.IGNORE_CASE)
 
-    private val WORKSHED_GIF_TO_ID = listOf(
+    internal val WORKSHED_GIF_TO_ID = listOf(
         "wbchemset.gif" to 6967,
         "wboven.gif" to 6966,
         "wblprom.gif" to 7037,
@@ -68,16 +69,25 @@ object CampgroundItemSync {
         for ((gif, itemId) in WORKSHED_GIF_TO_ID) {
             if (html.contains(gif, ignoreCase = true)) {
                 prefs?.setInt(CURRENT_WORKSHED_ITEM_ID_PREF, itemId)
-                return
+                break
             }
         }
         if (html.contains("Looks like the doctors are out for the day.", ignoreCase = true)) {
             prefs?.setInt(CURRENT_WORKSHED_ITEM_ID_PREF, 10815)
         }
+        CampgroundInventorySync.syncFromHtml(html, prefs)
     }
 
-    fun apply(preferences: Preferences?, html: String, url: String?) {
+    fun apply(
+        preferences: Preferences?,
+        html: String,
+        url: String?,
+        character: KoLCharacter? = null,
+    ) {
         if (url == null || !url.contains("campground.php", ignoreCase = true)) return
+        if (html.contains("action=bookshelf", ignoreCase = true)) {
+            character?.setCampground(hasBookshelf = true)
+        }
         syncFromHtml(html, preferences)
     }
 

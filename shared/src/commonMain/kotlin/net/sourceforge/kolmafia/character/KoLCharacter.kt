@@ -59,6 +59,7 @@ class KoLCharacter {
             turnsPlayed = response.turnsplayed.toIntOrNull() ?: 0,
             currentRun = response.currentrun.toIntOrNull() ?: 0,
             dayCount = response.daycount.toIntOrNull() ?: 0,
+            globalDaycount = response.daynumber.toIntOrNull() ?: prev.globalDaycount,
             rolloverTimestamp = response.rollover.toLongOrNull() ?: 0L,
 
             // Consumables
@@ -76,6 +77,7 @@ class KoLCharacter {
             // Ascension / mode
             roninLeft = response.roninleft.toIntOrNull() ?: 0,
             isHardcore = response.hardcore == "1",
+            isCasual = response.casual == "1",
             kingLiberated = response.kingliberated == "1",
             skillsRecalled = response.recalledskills == "1",
             limitMode = response.limitmode,
@@ -253,6 +255,65 @@ class KoLCharacter {
 
     fun setCurrentRun(run: Int) {
         _state.value = _state.value.copy(currentRun = run)
+    }
+
+    /** Desktop [CharPaneRequest.processValhallaCharacterPane] spirit stat reset (Phase 412). */
+    fun applyValhallaState() {
+        val prev = _state.value
+        _state.value = prev.copy(
+            baseMusc = 1,
+            muscSubpoints = 0L,
+            baseMyst = 1,
+            mystSubpoints = 0L,
+            baseMoxie = 1,
+            moxieSubpoints = 0L,
+            buffedMusc = 1,
+            buffedMyst = 1,
+            buffedMoxie = 1,
+            currentHp = 1,
+            maxHp = 1,
+            baseMaxHp = 1,
+            currentMp = 1,
+            maxMp = 1,
+            baseMaxMp = 1,
+            meat = 0,
+            adventuresLeft = 0,
+            mindControlLevel = 0,
+        )
+    }
+
+    fun updateFromCharpane(parsed: CharpaneStatusSync.ParsedStatus) {
+        val prev = _state.value
+        _state.value = prev.copy(
+            buffedMusc = parsed.buffedMusc ?: prev.buffedMusc,
+            buffedMyst = parsed.buffedMyst ?: prev.buffedMyst,
+            buffedMoxie = parsed.buffedMoxie ?: prev.buffedMoxie,
+            currentHp = parsed.currentHp ?: prev.currentHp,
+            maxHp = parsed.maxHp ?: prev.maxHp,
+            currentMp = parsed.currentMp ?: prev.currentMp,
+            maxMp = parsed.maxMp ?: prev.maxMp,
+            meat = parsed.meat ?: prev.meat,
+            adventuresLeft = parsed.adventuresLeft ?: prev.adventuresLeft,
+            mindControlLevel = parsed.mindControlLevel ?: prev.mindControlLevel,
+            inebriety = parsed.inebriety ?: prev.inebriety,
+            currentPP = parsed.currentPP ?: prev.currentPP,
+            maximumPP = parsed.maximumPP ?: prev.maximumPP,
+            youRobotEnergy = parsed.youRobotEnergy ?: prev.youRobotEnergy,
+            thunder = parsed.thunder ?: prev.thunder,
+            rain = parsed.rain ?: prev.rain,
+            lightning = parsed.lightning ?: prev.lightning,
+            wildfireWater = parsed.wildfireWater ?: prev.wildfireWater,
+        )
+    }
+
+    fun updatePokeTeam(slots: List<PokefamTeamSlot>) {
+        _state.value = _state.value.copy(pokeTeam = slots)
+    }
+
+    /** Desktop `KoLCharacter.getPokeFam(slot)` — 0-based slots 0–2. */
+    fun pokeFamSlot(slot: Int): PokefamTeamSlot {
+        if (slot !in 0..2) return PokefamTeamSlot.EMPTY
+        return _state.value.pokeTeam.getOrElse(slot) { PokefamTeamSlot.EMPTY }
     }
 
     fun reset() {

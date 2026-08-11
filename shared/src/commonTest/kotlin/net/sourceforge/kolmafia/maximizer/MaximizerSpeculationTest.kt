@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
+import net.sourceforge.kolmafia.effect.EffectData
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -289,5 +290,230 @@ class MaximizerSpeculationTest {
         )
         val familiar = ranked[EquipmentSlot.FAMILIAR] ?: emptyList()
         assertEquals(listOf("allowed-offhand"), familiar.map { it.first })
+    }
+
+    @Test
+    fun scorePostEquipmentLive_usesCharStateEquipmentNotPlanOverlay() = runBlocking {
+        ModifierDatabase.load()
+        ModifierDatabase.injectForTest("Item", "plain hat", "Mysticality: +1")
+        ModifierDatabase.injectForTest("Item", "myst hat", "Mysticality: +5")
+        val state = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "plain hat"),
+        )
+        val plan = MaximizerEmitSlot.Plan(
+            goal = "mys",
+            spec = MaximizeSpec(DoubleModifier.MYS),
+            scoreBefore = 0.0,
+            scoreAfter = 5.0,
+            bestPerSlot = mapOf(EquipmentSlot.HAT to ("myst hat" to 5.0)),
+        )
+        val eval = Evaluator("mysticality")
+        val liveScore = MaximizerSpeculation.scorePostEquipmentLive(
+            charState = state,
+            evaluator = eval,
+        )
+        val planScore = MaximizerSpeculation.scorePostEquipmentPlan(
+            plan = plan,
+            charState = state,
+        )
+        assertEquals(1.0, liveScore, 0.01)
+        assertEquals(5.0, planScore, 0.01)
+        assertTrue(planScore > liveScore)
+    }
+
+    @Test
+    fun speculate_emitsProgressWhenBestImproves() {
+        MaximizerProgress.reset()
+        var now = 0L
+        MaximizerProgress.clockMs = { now }
+        val messages = mutableListOf<String>()
+        MaximizerProgress.sink = { messages += it }
+        runBlocking { ModifierDatabase.load() }
+        ModifierDatabase.injectForTest("Item", "plain hat", "Mysticality: +1")
+        ModifierDatabase.injectForTest("Item", "myst hat", "Mysticality: +5")
+        val spec = MaximizeSpec(DoubleModifier.MYS)
+        val state = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "plain hat"),
+        )
+        val budget = ComboBudget(64)
+        val candidates = buildMap {
+            for (slot in MaximizerSpeculation.searchSlots) {
+                if (slot == EquipmentSlot.HAT) {
+                    put(slot, listOf("plain hat" to 1.0, "myst hat" to 5.0))
+                } else {
+                    put(slot, emptyList())
+                }
+            }
+        }
+        MaximizerSpeculation.speculate(
+            spec = spec,
+            baseState = state,
+            candidatesBySlot = candidates,
+            budget = budget,
+        )
+        assertTrue(
+            messages.any { it.contains("combinations checked") },
+            messages.toString(),
+        )
+    }
+
+    @Test
+    fun scoreLoadout_activeEffects_increaseMysticalityScore() = runBlocking {
+        ModifierDatabase.load()
+        ModifierDatabase.injectForTest("Effect", "Overlay Myst Buff", "Mysticality: +50")
+        val state = CharacterState()
+        val eval = Evaluator("mysticality")
+        val assignment = emptyMap<EquipmentSlot, Pair<String, Double>>()
+        val without = MaximizerSpeculation.scoreLoadout(state, assignment, eval)
+        val with = MaximizerSpeculation.scoreLoadout(
+            state,
+            assignment,
+            eval,
+            activeEffects = listOf(EffectData(id = 99, name = "Overlay Myst Buff", duration = 10)),
+        )
+        assertTrue(with > without, "effect overlay expected: without=$without with=$with")
+        assertEquals(50.0, with - without, 0.01)
+    }
+
+    @Test
+    fun speculate_activeEffects_increaseSeedScore() = runBlocking {
+        ModifierDatabase.load()
+        ModifierDatabase.injectForTest("Effect", "Speculate Myst Buff", "Mysticality: +25")
+        val state = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "plain hat"),
+        )
+        ModifierDatabase.injectForTest("Item", "plain hat", "Mysticality: +1")
+        val spec = MaximizeSpec(DoubleModifier.MYS, evaluator = Evaluator("mysticality"))
+        val seed = mapOf(EquipmentSlot.HAT to ("plain hat" to 1.0))
+        val budget = ComboBudget(1)
+        val emptyCandidates = buildMap<EquipmentSlot, List<Pair<String, Double>>> {
+            for (slot in MaximizerSpeculation.searchSlots) {
+                put(slot, emptyList())
+            }
+        }
+        val without = MaximizerSpeculation.scoreLoadout(state, seed, spec.evaluator)
+        val withOverlay = MaximizerSpeculation.scoreLoadout(
+            state,
+            seed,
+            spec.evaluator,
+            activeEffects = listOf(EffectData(id = 88, name = "Speculate Myst Buff", duration = 5)),
+        )
+        MaximizerSpeculation.speculate(
+            spec = spec,
+            baseState = state,
+            candidatesBySlot = emptyCandidates,
+            budget = budget,
+            seed = seed,
+            activeEffects = listOf(EffectData(id = 88, name = "Speculate Myst Buff", duration = 5)),
+        )
+        assertTrue(withOverlay > without, "overlay seed score: without=$without with=$withOverlay")
+        assertEquals(25.0, withOverlay - without, 0.01)
+    }
+
+    @Test
+    fun scoreLoadout_marginalSwap_withActiveEffects_differsFromRawContribution() = runBlocking {
+        ModifierDatabase.load()
+        ModifierDatabase.injectForTest("Effect", "Swap Myst Buff", "Mysticality: +10")
+        ModifierDatabase.injectForTest("Item", "hat a", "Mysticality: +20")
+        ModifierDatabase.injectForTest("Item", "hat b", "Mysticality: +5")
+        val state = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "hat a"),
+        )
+        val eval = Evaluator("mysticality")
+        val activeEffects = listOf(EffectData(id = 77, name = "Swap Myst Buff", duration = 5))
+        val baseline = state.equipment.mapValues { (_, name) -> name to 0.0 }
+        val withB = baseline.toMutableMap().apply {
+            put(EquipmentSlot.HAT, "hat b" to 0.0)
+        }
+        val delta = MaximizerSpeculation.scoreLoadout(
+            state, withB, eval, activeEffects = activeEffects, validateEquipment = false,
+        ) - MaximizerSpeculation.scoreLoadout(
+            state, baseline, eval, activeEffects = activeEffects, validateEquipment = false,
+        )
+        val rawContribution = eval.getItemContribution(
+            net.sourceforge.kolmafia.modifiers.ModifierParser.parse("Mysticality: +5"),
+        )
+        assertEquals(-15.0, delta, 0.01)
+        assertEquals(5.0, rawContribution, 0.01)
+    }
+
+    @Test
+    fun scoreLoadout_passiveSkills_increaseMysticalityScore() = runBlocking {
+        ModifierDatabase.load()
+        ModifierDatabase.injectForTest("Skill", "Passive Myst Buff", "Mysticality: +50")
+        val state = CharacterState()
+        val eval = Evaluator("mysticality")
+        val assignment = emptyMap<EquipmentSlot, Pair<String, Double>>()
+        val without = MaximizerSpeculation.scoreLoadout(state, assignment, eval)
+        val with = MaximizerSpeculation.scoreLoadout(
+            state,
+            assignment,
+            eval,
+            passiveSkillNames = setOf("Passive Myst Buff"),
+        )
+        assertTrue(with > without, "passive overlay expected: without=$without with=$with")
+        assertEquals(50.0, with - without, 0.01)
+    }
+
+    @Test
+    fun speculate_passiveSkills_increaseSeedScore() = runBlocking {
+        ModifierDatabase.load()
+        ModifierDatabase.injectForTest("Skill", "Speculate Passive Myst", "Mysticality: +25")
+        val state = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "plain hat"),
+        )
+        ModifierDatabase.injectForTest("Item", "plain hat", "Mysticality: +1")
+        val spec = MaximizeSpec(DoubleModifier.MYS, evaluator = Evaluator("mysticality"))
+        val seed = mapOf(EquipmentSlot.HAT to ("plain hat" to 1.0))
+        val budget = ComboBudget(1)
+        val emptyCandidates = buildMap<EquipmentSlot, List<Pair<String, Double>>> {
+            for (slot in MaximizerSpeculation.searchSlots) {
+                put(slot, emptyList())
+            }
+        }
+        val without = MaximizerSpeculation.scoreLoadout(state, seed, spec.evaluator)
+        val withOverlay = MaximizerSpeculation.scoreLoadout(
+            state,
+            seed,
+            spec.evaluator,
+            passiveSkillNames = setOf("Speculate Passive Myst"),
+        )
+        MaximizerSpeculation.speculate(
+            spec = spec,
+            baseState = state,
+            candidatesBySlot = emptyCandidates,
+            budget = budget,
+            seed = seed,
+            passiveSkillNames = setOf("Speculate Passive Myst"),
+        )
+        assertTrue(withOverlay > without, "overlay seed score: without=$without with=$withOverlay")
+        assertEquals(25.0, withOverlay - without, 0.01)
+    }
+
+    @Test
+    fun scoreLoadout_marginalSwap_withPassiveSkills_differsFromRawContribution() = runBlocking {
+        ModifierDatabase.load()
+        ModifierDatabase.injectForTest("Skill", "Swap Passive Myst", "Mysticality: +10")
+        ModifierDatabase.injectForTest("Item", "hat a", "Mysticality: +20")
+        ModifierDatabase.injectForTest("Item", "hat b", "Mysticality: +5")
+        val state = CharacterState(
+            equipment = mapOf(EquipmentSlot.HAT to "hat a"),
+        )
+        val eval = Evaluator("mysticality")
+        val passiveSkillNames = setOf("Swap Passive Myst")
+        val baseline = state.equipment.mapValues { (_, name) -> name to 0.0 }
+        val withB = baseline.toMutableMap().apply {
+            put(EquipmentSlot.HAT, "hat b" to 0.0)
+        }
+        val delta = MaximizerSpeculation.scoreLoadout(
+            state, withB, eval, passiveSkillNames = passiveSkillNames, validateEquipment = false,
+        ) - MaximizerSpeculation.scoreLoadout(
+            state, baseline, eval, passiveSkillNames = passiveSkillNames, validateEquipment = false,
+        )
+        val rawContribution = eval.getItemContribution(
+            net.sourceforge.kolmafia.modifiers.ModifierParser.parse("Mysticality: +5"),
+        )
+        assertEquals(-15.0, delta, 0.01)
+        assertEquals(5.0, rawContribution, 0.01)
     }
 }

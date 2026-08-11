@@ -39,6 +39,10 @@ import net.sourceforge.kolmafia.character.ClassResourceCharpaneSync
 import net.sourceforge.kolmafia.clan.ClanIdSync
 import net.sourceforge.kolmafia.character.ClassResourceCombatSync
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.character.FamiliarSoupSync
+import net.sourceforge.kolmafia.character.FamTeamSync
+import net.sourceforge.kolmafia.character.FightPokefamSync
+import net.sourceforge.kolmafia.character.PokefamBoostSync
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.equipment.Modeable
@@ -52,6 +56,7 @@ import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.inventory.AccessCountContext
 import net.sourceforge.kolmafia.inventory.AccessibleItemCount
+import net.sourceforge.kolmafia.inventory.CollectionCacheSync
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
@@ -71,6 +76,7 @@ import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
+import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
 import net.sourceforge.kolmafia.request.ZapRequest
 import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
@@ -111,6 +117,8 @@ import net.sourceforge.kolmafia.request.MindControlRequest
 import net.sourceforge.kolmafia.request.AbsorbRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.PirateRealmSync
+import net.sourceforge.kolmafia.quest.DispensarySync
+import net.sourceforge.kolmafia.quest.IslandWarVisitSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.TelescopeSync
 import net.sourceforge.kolmafia.quest.TowerSync
@@ -270,6 +278,9 @@ class GameRuntimeLibrary(
             dispatchCli(cmd, moodCliContext)
             true
         }
+        maximizerManager?.progressDisplay = { msg ->
+            chatManager?.notify(msg, "blue")
+        }
         manaBurnManager?.accessibleCountProvider = { itemId ->
             val name = gameDatabase?.item(itemId)?.name
             if (name != null) physicalAccessibleCount(itemId, name) else 0
@@ -280,12 +291,40 @@ class GameRuntimeLibrary(
         manaBurnManager?.gameDatabase = gameDatabase
     }
 
+    private suspend fun refreshClosetCacheAfter(result: Result<*>?) {
+        if (result?.isSuccess != true) return
+        val prefs = preferences ?: return
+        val request = closetRequest ?: return
+        CollectionCacheSync.refreshCloset(request, prefs)
+    }
+
+    private suspend fun refreshStorageCacheAfter(result: Result<*>?) {
+        if (result?.isSuccess != true) return
+        val prefs = preferences ?: return
+        val request = storageRequest ?: return
+        CollectionCacheSync.refreshStorage(request, character?.state?.value, prefs)
+    }
+
+    private suspend fun refreshStashCacheAfter(result: Result<*>?) {
+        if (result?.isSuccess != true) return
+        val prefs = preferences ?: return
+        val request = clanStashRequest ?: return
+        CollectionCacheSync.refreshStash(request, prefs)
+    }
+
+    private suspend fun refreshDisplayCacheAfter(result: Result<*>?) {
+        if (result?.isSuccess != true) return
+        val prefs = preferences ?: return
+        val request = displayCaseRequest ?: return
+        CollectionCacheSync.refreshDisplay(request, prefs)
+    }
+
     companion object {
         /** Used in tests where no game managers are needed. */
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase400"
+        const val REVISION = "phase440"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -823,37 +862,51 @@ class GameRuntimeLibrary(
         Regex("^closet\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { closetRequest?.putIn(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshClosetCacheAfter(closetRequest?.putIn(itemId, qty))
+            }
         },
         Regex("^closet\\s+take\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { closetRequest?.takeOut(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshClosetCacheAfter(closetRequest?.takeOut(itemId, qty))
+            }
         },
         Regex("^storage\\s+take\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { storageRequest?.withdraw(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshStorageCacheAfter(storageRequest?.withdraw(itemId, qty))
+            }
         },
         Regex("^display\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { displayCaseRequest?.putIn(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshDisplayCacheAfter(displayCaseRequest?.putIn(itemId, qty))
+            }
         },
         Regex("^display\\s+take\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { displayCaseRequest?.takeOut(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshDisplayCacheAfter(displayCaseRequest?.takeOut(itemId, qty))
+            }
         },
         Regex("^stash\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { clanStashRequest?.putIn(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshStashCacheAfter(clanStashRequest?.putIn(itemId, qty))
+            }
         },
         Regex("^stash\\s+take\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { clanStashRequest?.takeOut(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshStashCacheAfter(clanStashRequest?.takeOut(itemId, qty))
+            }
         },
 
         // goal add id:N — before generic goal add (order matters in cliDispatch)
@@ -1160,7 +1213,9 @@ class GameRuntimeLibrary(
         Regex("^put_storage\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { storageRequest?.deposit(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshStorageCacheAfter(storageRequest?.deposit(itemId, qty))
+            }
         },
 
         // refresh — sync character, inventory, skills, effects, familiars, quest log
@@ -1529,7 +1584,9 @@ class GameRuntimeLibrary(
         Regex("^storage\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { storageRequest?.deposit(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshStorageCacheAfter(storageRequest?.deposit(itemId, qty))
+            }
         },
 
         // takeshop N item
@@ -1541,7 +1598,9 @@ class GameRuntimeLibrary(
 
         // empty closet
         Regex("^empty\\s+closet$", RegexOption.IGNORE_CASE) to { _, _ ->
-            kotlinx.coroutines.runBlocking { closetRequest?.emptyCloset() }
+            kotlinx.coroutines.runBlocking {
+                refreshClosetCacheAfter(closetRequest?.emptyCloset())
+            }
         },
 
         // overdrink N item
@@ -1567,8 +1626,9 @@ class GameRuntimeLibrary(
             }
         },
 
-        // stop / abort / pause — cancel running adventure loop
+        // stop / abort / pause — cancel running adventure loop and maximizer search
         Regex("^(?:stop|abort|pause)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            net.sourceforge.kolmafia.maximizer.MaximizerContinuation.abort()
             adventureManager?.stop()
         },
 
@@ -1668,28 +1728,36 @@ class GameRuntimeLibrary(
         Regex("^put_closet\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { closetRequest?.putIn(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshClosetCacheAfter(closetRequest?.putIn(itemId, qty))
+            }
         },
 
         // take_closet N item — alias for closet take
         Regex("^take_closet\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { closetRequest?.takeOut(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshClosetCacheAfter(closetRequest?.takeOut(itemId, qty))
+            }
         },
 
         // take_storage N item — alias for storage take
         Regex("^take_storage\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { storageRequest?.withdraw(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshStorageCacheAfter(storageRequest?.withdraw(itemId, qty))
+            }
         },
 
         // pull / hagnk — aliases for storage take
         Regex("^(?:pull|hagnk)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { storageRequest?.withdraw(itemId, qty) }
+            kotlinx.coroutines.runBlocking {
+                refreshStorageCacheAfter(storageRequest?.withdraw(itemId, qty))
+            }
         },
 
         // searchmall [with limit N] item — print cheapest mall price
@@ -1989,14 +2057,48 @@ class GameRuntimeLibrary(
     }
 
     internal fun applyItemUseResponse(itemId: Int, html: String) {
-        val prefs = preferences ?: return
         when (itemId) {
             SleazeAirportSync.SPRING_BEACH_TICKET ->
-                SleazeAirportSync.syncFromSpringBeachTicketUse(html, prefs)
+                preferences?.let { SleazeAirportSync.syncFromSpringBeachTicketUse(html, it) }
+            in FamiliarSoupSync.protogeneticSoupIds ->
+                FamiliarSoupSync.applyProtogeneticSoupUse(
+                    itemId = itemId,
+                    html = html,
+                    familiarId = character?.state?.value?.familiarId ?: 0,
+                    familiarManager = familiarManager,
+                )
         }
     }
 
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
+        if (url?.contains("familiar.php", ignoreCase = true) == true &&
+            url.contains("ajax=1", ignoreCase = true) != true
+        ) {
+            FamiliarSoupSync.apply(html, familiarManager)
+        } else if (FamiliarSoupSync.containsSoupComment(html)) {
+            FamiliarSoupSync.apply(html, familiarManager)
+        }
+        if (url?.contains("famteam.php", ignoreCase = true) == true) {
+            FamTeamSync.registerRequest(url, sessionLogger)
+            PokefamBoostSync.syncFromFeed(url, html, preferences, inventoryManager)
+            character?.let { char ->
+                if (char.state.value.inPokefam) {
+                    FamTeamSync.apply(char, html, familiarManager, preferences, sessionLogger)
+                }
+            }
+        }
+        if (url?.contains("qterrarium.php", ignoreCase = true) == true) {
+            val char = character
+            if (char != null) {
+                QuantumTerrariumRequest.parseVisit(
+                    url = url,
+                    html = html,
+                    character = char,
+                    preferences = preferences,
+                    sessionLogger = sessionLogger,
+                )
+            }
+        }
         if (url?.contains("wildfire", ignoreCase = true) == true ||
             html.contains("wildfire_captain", ignoreCase = true)
         ) {
@@ -2075,6 +2177,9 @@ class GameRuntimeLibrary(
         }
         if (url != null && (url.contains("fight.php") || html.contains("You're fighting"))) {
             character?.let { ClassResourceCombatSync.apply(it, html) }
+            character?.let { char ->
+                FightPokefamSync.apply(char, html, familiarManager, preferences, sessionLogger)
+            }
             preferences?.let { prefs ->
                 val exprCtx = character?.state?.value?.let { state ->
                     ExpressionContext.from(state, emptyList())
@@ -2143,7 +2248,7 @@ class GameRuntimeLibrary(
         }
         if (url != null && url.contains("campground.php", ignoreCase = true)) {
             character?.let { GardenSync.apply(it, html, preferences) }
-            CampgroundItemSync.apply(preferences, html, url)
+            CampgroundItemSync.apply(preferences, html, url, character)
         }
         if (url != null && url.contains("closet.php", ignoreCase = true)) {
             character?.let { ClosetMeatSync.apply(it, html, url) }
@@ -2240,6 +2345,12 @@ class GameRuntimeLibrary(
         }
         ClanLoungeSync.apply(preferences, html, url)
         character?.let { SessionMeatSync.apply(it, html) }
+        character?.state?.value?.let { state ->
+            DispensarySync.applyFromResponse(html, state, preferences)
+        }
+        if (url?.contains("bigisland.php", ignoreCase = true) == true) {
+            preferences?.let { IslandWarVisitSync.applyFromBigIslandVisit(html, it) }
+        }
     }
 
     private fun extractDescItemId(url: String): String? =
@@ -3322,6 +3433,7 @@ class GameRuntimeLibrary(
                 gameDatabase,
                 familiarManager,
                 preferences,
+                pokeTeam = character?.state?.value?.pokeTeam.orEmpty(),
             )
             AshType.BOUNTY -> BountyEntityFields.resolve(
                 base.toString(),
@@ -3566,6 +3678,9 @@ class GameRuntimeLibrary(
         registerAshP269Batch(scope)
         registerAshP301Batch(scope)
         registerAshP305Batch(scope)
+        registerAshP429Batch(scope)
+        registerAshP430Batch(scope)
+        registerAshP432Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

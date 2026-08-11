@@ -12,9 +12,11 @@ data class MaximizerBoost(
     val delta: Double = 0.0,
     val isEquipment: Boolean = true,
     val familiarRace: String? = null,
+    val priority: Boolean = false,
 ) : Comparable<MaximizerBoost> {
     override fun compareTo(other: MaximizerBoost): Int {
         if (isEquipment != other.isEquipment) return if (isEquipment) -1 else 1
+        if (priority != other.priority) return if (priority) -1 else 1
         if (isEquipment) return 0
         return other.delta.compareTo(delta)
     }

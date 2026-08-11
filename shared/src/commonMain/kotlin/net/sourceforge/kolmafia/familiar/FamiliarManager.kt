@@ -14,6 +14,8 @@ import kotlinx.serialization.Serializable
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.character.PokefamTeamSlot
+import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
 import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.ItemType
 
@@ -58,7 +60,9 @@ open class FamiliarManager(
                 return
             }
             val entries: List<FamiliarApiEntry> = response.body()
+            val existingById = _state.value.ownedFamiliars.associateBy { it.id }
             val familiars = entries.map { e ->
+                val existing = existingById[e.id]
                 FamiliarData(
                     id = e.id,
                     name = e.name,
@@ -66,6 +70,9 @@ open class FamiliarManager(
                     weight = e.weight,
                     experience = e.exp,
                     kills = e.kills,
+                    pokeLevel = existing?.pokeLevel ?: 0,
+                    soupWeight = existing?.soupWeight ?: 0,
+                    soupAttributes = existing?.soupAttributes ?: emptySet(),
                     equipment = e.item.takeIf { it > 0 }?.let { itemId ->
                         InventoryItem(itemId, "Familiar item", 1, ItemType.FAMILIAR_ITEM)
                     },
@@ -156,4 +163,116 @@ open class FamiliarManager(
 
     /** Test hook — sets internal state without going through the network. */
     internal fun testSetState(state: FamiliarState) { _state.value = state }
+
+    /** Desktop `CharPaneRequest.checkPokeFam` owned-familiar upsert from charpane team. */
+    fun mergePokeTeam(slots: List<PokefamTeamSlot>) {
+        val state = _state.value
+        var owned = state.ownedFamiliars.toMutableList()
+        for (slot in slots) {
+            if (slot.isEmpty) continue
+            val race = FamiliarDefinitionDatabase.getById(slot.familiarId)?.name
+                ?: slot.name
+            val existingIdx = owned.indexOfFirst { it.id == slot.familiarId }
+            if (existingIdx >= 0) {
+                val existing = owned[existingIdx]
+                owned[existingIdx] = existing.copy(
+                    name = slot.name.ifBlank { existing.name },
+                    pokeLevel = slot.level,
+                )
+            } else {
+                owned.add(
+                    FamiliarData(
+                        id = slot.familiarId,
+                        name = slot.name.ifBlank { race },
+                        race = race,
+                        weight = existingWeight(slot.level),
+                        experience = 0,
+                        kills = 0,
+                        pokeLevel = slot.level,
+                    ),
+                )
+            }
+        }
+        _state.value = state.copy(ownedFamiliars = owned)
+    }
+
+    /** Desktop `FamiliarData.registerFamiliar` from famteam bullpen parse. */
+    fun registerPokefamFamiliar(familiarId: Int, name: String, level: Int) {
+        if (familiarId <= 0 || name.isBlank()) return
+        val state = _state.value
+        val race = FamiliarDefinitionDatabase.getById(familiarId)?.name ?: name
+        val owned = state.ownedFamiliars.toMutableList()
+        val existingIdx = owned.indexOfFirst { it.id == familiarId }
+        if (existingIdx >= 0) {
+            val existing = owned[existingIdx]
+            owned[existingIdx] = existing.copy(
+                name = name.ifBlank { existing.name },
+                race = race,
+                pokeLevel = level,
+            )
+        } else {
+            owned.add(
+                FamiliarData(
+                    id = familiarId,
+                    name = name,
+                    race = race,
+                    weight = existingWeight(level),
+                    experience = 0,
+                    kills = 0,
+                    pokeLevel = level,
+                ),
+            )
+        }
+        _state.value = state.copy(ownedFamiliars = owned)
+    }
+
+    private fun existingWeight(pokeLevel: Int): Int = pokeLevel.coerceAtLeast(1)
+
+    /** Desktop `FamiliarData.setSoupWeight` / `addSoupAttribute` from terrarium HTML sync. */
+    fun applySoupData(familiarId: Int, weight: Int, attributes: Collection<String>) {
+        if (familiarId <= 0) return
+        val state = _state.value
+        val idx = state.ownedFamiliars.indexOfFirst { it.id == familiarId }
+        if (idx < 0) return
+        val existing = state.ownedFamiliars[idx]
+        val mergedAttributes = existing.soupAttributes + attributes.filter { it.isNotBlank() }
+        val updated = existing.copy(
+            soupWeight = weight.coerceAtMost(MAX_SOUP_WEIGHT),
+            soupAttributes = mergedAttributes,
+        )
+        _state.value = state.copy(
+            ownedFamiliars = state.ownedFamiliars.toMutableList().apply { set(idx, updated) },
+            activeFamiliar = state.activeFamiliar?.let { active ->
+                if (active.id == familiarId) updated else active
+            },
+        )
+    }
+
+    /** Desktop protogenetic soup use increment on the active familiar. */
+    fun incrementSoup(familiarId: Int, attribute: String?) {
+        if (familiarId <= 0) return
+        val state = _state.value
+        val idx = state.ownedFamiliars.indexOfFirst { it.id == familiarId }
+        if (idx < 0) return
+        val existing = state.ownedFamiliars[idx]
+        val mergedAttributes = if (attribute.isNullOrBlank()) {
+            existing.soupAttributes
+        } else {
+            existing.soupAttributes + attribute
+        }
+        val updated = existing.copy(
+            soupWeight = existing.soupWeight + 1,
+            soupAttributes = mergedAttributes,
+        )
+        _state.value = state.copy(
+            ownedFamiliars = state.ownedFamiliars.toMutableList().apply { set(idx, updated) },
+            activeFamiliar = state.activeFamiliar?.let { active ->
+                if (active.id == familiarId) updated else active
+            },
+        )
+    }
+
+    companion object {
+        const val MAX_SOUP_WEIGHT = 111
+    }
 }

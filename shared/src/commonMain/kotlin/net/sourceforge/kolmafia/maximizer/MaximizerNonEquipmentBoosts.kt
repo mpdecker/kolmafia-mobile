@@ -26,6 +26,11 @@ import net.sourceforge.kolmafia.skill.SkillManager
 /** Desktop Maximizer non-equipment boost pass (Phase 386–388: horsery/boombox/mcd/effects + noobcore absorb). */
 object MaximizerNonEquipmentBoosts {
 
+    enum class NonEquipmentBaseline {
+        PLAN_OVERLAY,
+        LIVE_EQUIPPED,
+    }
+
     const val BOOMBOX_ITEM_ID = 9919
     private const val DECK_OF_EVERY_CARD_ID = 8382
     private const val REPLICA_DECK_ID = 11230
@@ -41,6 +46,7 @@ object MaximizerNonEquipmentBoosts {
         val plan: MaximizerEmitSlot.Plan,
         val charState: CharacterState,
         val activeEffects: List<EffectData>,
+        val passiveSkillNames: Set<String> = emptySet(),
         val inventory: MaximizerEmitSlot.InventorySnapshot,
         val inventoryCount: (Int) -> Int,
         val gameDatabase: GameDatabase,
@@ -54,6 +60,7 @@ object MaximizerNonEquipmentBoosts {
         val standardRequest: StandardRequest? = null,
         val includeAll: Boolean = false,
         val filters: Set<MaximizerFilterType> = MaximizerFilters.allEnabled(),
+        val baseline: NonEquipmentBaseline = NonEquipmentBaseline.PLAN_OVERLAY,
     )
 
     fun build(ctx: Context): List<MaximizerBoost> {
@@ -190,9 +197,10 @@ object MaximizerNonEquipmentBoosts {
         val effectState = EffectState(ctx.activeEffects)
         val boosts = mutableListOf<MaximizerBoost>()
         val baseline = postEquipmentScore(ctx)
-        val exprCtx = ExpressionContext.from(ctx.charState, ctx.activeEffects, emptySet())
+        val exprCtx = ExpressionContext.from(ctx.charState, ctx.activeEffects, ctx.passiveSkillNames)
 
         for (effectDef in EffectDatabase.all()) {
+            if (!MaximizerContinuation.permitsContinue()) break
             if (effectDef.id <= 0) continue
             val modifierEntry = ModifierDatabase.getEffect(effectDef.name) ?: continue
             val effectValues = ModifierParser.parse(modifierEntry.modifiers, exprCtx)
@@ -210,17 +218,27 @@ object MaximizerNonEquipmentBoosts {
                 ) {
                     continue
                 }
-                val overlay = ctx.activeEffects + EffectData(
-                    id = effectDef.id,
-                    name = effectDef.name,
-                    duration = 1,
+                val overlay = ReplaceableEffectMutex.applyEffectGain(
+                    ctx.activeEffects,
+                    EffectData(
+                        id = effectDef.id,
+                        name = effectDef.name,
+                        duration = 1,
+                    ),
                 )
+                val baselineMods = postEquipmentModifierValues(ctx)
+                val overlayMods = postEquipmentModifierValues(ctx, activeEffects = overlay)
+                if (MaximizerMutexViolations.introducesNewViolations(baselineMods, overlayMods)) {
+                    continue
+                }
                 val delta = postEquipmentScore(ctx, activeEffects = overlay) - baseline
-                when (ctx.plan.spec.evaluator.checkConstraints(effectValues)) {
+                val constraint = ctx.plan.spec.evaluator.checkConstraints(effectValues)
+                when (constraint) {
                     Evaluator.Constraint.VIOLATES -> continue
                     Evaluator.Constraint.IRRELEVANT -> if (delta <= 0.0) continue
                     Evaluator.Constraint.MEETS -> Unit
                 }
+                val priority = constraint == Evaluator.Constraint.MEETS
                 val sources = effectSourcesForGain(ctx, effectDef)
                 if (sources.isEmpty()) {
                     if (!ctx.includeAll) continue
@@ -228,10 +246,12 @@ object MaximizerNonEquipmentBoosts {
                         cmd = "",
                         text = "(no known source of ${effectDef.name}) (${formatDelta(delta)})",
                         delta = delta,
+                        priority = priority,
                     )
                     continue
                 }
                 for (source in sources) {
+                    if (!MaximizerContinuation.permitsContinue()) break
                     if (source.startsWith("#") && !ctx.includeAll) continue
                     if (!MaximizerFilters.allowsSource(source, ctx.filters)) continue
                     val boost = buildSourceBoost(
@@ -242,6 +262,7 @@ object MaximizerNonEquipmentBoosts {
                         ctx,
                         effectDuration = 1,
                         hasEffect = false,
+                        priority = priority,
                     ) ?: continue
                     boosts += boost
                 }
@@ -304,6 +325,7 @@ object MaximizerNonEquipmentBoosts {
         ctx: Context,
         effectDuration: Int = 0,
         hasEffect: Boolean = false,
+        priority: Boolean = false,
     ): MaximizerBoost? {
         val ruleCtx = MaximizerBoostSourceRules.SourceRuleContext(
             base = ctx,
@@ -405,7 +427,7 @@ object MaximizerNonEquipmentBoosts {
             ),
             verboseMaximizer = ctx.preferences?.getBoolean("verboseMaximizer", false) == true,
         )
-        return effectBoost(cmd = cmd, text = text, delta = delta)
+        return effectBoost(cmd = cmd, text = text, delta = delta, priority = priority)
     }
 
     private fun itemUsesRemaining(itemId: Int, ctx: Context): Int {
@@ -413,19 +435,59 @@ object MaximizerNonEquipmentBoosts {
         val limitsCtx = net.sourceforge.kolmafia.request.ItemUseLimitsContext(
             character = ctx.charState,
             preferences = ctx.preferences,
-            expressionContext = ExpressionContext.from(ctx.charState, ctx.activeEffects, emptySet()),
+            expressionContext = ExpressionContext.from(ctx.charState, ctx.activeEffects, ctx.passiveSkillNames),
             accessibleCount = ctx.inventoryCount,
         )
         return net.sourceforge.kolmafia.request.maximumUses(itemId, name, limitsCtx)
     }
 
-    private fun effectBoost(cmd: String, text: String, delta: Double): MaximizerBoost =
+    private fun effectBoost(
+        cmd: String,
+        text: String,
+        delta: Double,
+        priority: Boolean = false,
+    ): MaximizerBoost =
         MaximizerBoost(
             cmd = cmd,
             text = text,
             delta = delta,
             isEquipment = false,
+            priority = priority,
         )
+
+    private fun postEquipmentModifierValues(
+        ctx: Context,
+        activeEffects: List<EffectData> = ctx.activeEffects,
+        horseryOverride: String? = null,
+        boomBoxOverride: String? = null,
+        mindControlOverride: Int? = null,
+        customModifierOverlay: String? = null,
+    ) = when (ctx.baseline) {
+        NonEquipmentBaseline.PLAN_OVERLAY -> MaximizerSpeculation.modifierValuesForPostEquipmentPlan(
+            plan = ctx.plan,
+            charState = ctx.charState,
+            activeEffects = activeEffects,
+            passiveSkillNames = ctx.passiveSkillNames,
+            horseryOverride = horseryOverride,
+            boomBoxOverride = boomBoxOverride,
+            mindControlOverride = mindControlOverride,
+            customModifierOverlay = customModifierOverlay,
+            carryFamiliars = ctx.carryFamiliars,
+            gameDatabase = ctx.gameDatabase,
+            preferences = ctx.preferences,
+        )
+        NonEquipmentBaseline.LIVE_EQUIPPED -> MaximizerSpeculation.modifierValuesForPostEquipmentLive(
+            charState = ctx.charState,
+            activeEffects = activeEffects,
+            passiveSkillNames = ctx.passiveSkillNames,
+            horseryOverride = horseryOverride,
+            boomBoxOverride = boomBoxOverride,
+            mindControlOverride = mindControlOverride,
+            customModifierOverlay = customModifierOverlay,
+            gameDatabase = ctx.gameDatabase,
+            preferences = ctx.preferences,
+        )
+    }
 
     private fun postEquipmentScore(
         ctx: Context,
@@ -433,18 +495,37 @@ object MaximizerNonEquipmentBoosts {
         horseryOverride: String? = null,
         boomBoxOverride: String? = null,
         mindControlOverride: Int? = null,
-    ): Double = MaximizerSpeculation.scorePostEquipmentPlan(
-        plan = ctx.plan,
-        charState = ctx.charState,
-        activeEffects = activeEffects,
-        horseryOverride = horseryOverride,
-        boomBoxOverride = boomBoxOverride,
-        mindControlOverride = mindControlOverride,
-        carryFamiliars = ctx.carryFamiliars,
-        gameDatabase = ctx.gameDatabase,
-        preferences = ctx.preferences,
-        thrallBonus = ctx.thrallBonus,
-    )
+        customModifierOverlay: String? = null,
+    ): Double = when (ctx.baseline) {
+        NonEquipmentBaseline.PLAN_OVERLAY -> MaximizerSpeculation.scorePostEquipmentPlan(
+            plan = ctx.plan,
+            charState = ctx.charState,
+            activeEffects = activeEffects,
+            passiveSkillNames = ctx.passiveSkillNames,
+            horseryOverride = horseryOverride,
+            boomBoxOverride = boomBoxOverride,
+            mindControlOverride = mindControlOverride,
+            customModifierOverlay = customModifierOverlay,
+            carryFamiliars = ctx.carryFamiliars,
+            gameDatabase = ctx.gameDatabase,
+            preferences = ctx.preferences,
+            thrallBonus = ctx.thrallBonus,
+        )
+        NonEquipmentBaseline.LIVE_EQUIPPED -> MaximizerSpeculation.scorePostEquipmentLive(
+            charState = ctx.charState,
+            evaluator = ctx.plan.spec.evaluator,
+            activeEffects = activeEffects,
+            passiveSkillNames = ctx.passiveSkillNames,
+            horseryOverride = horseryOverride,
+            boomBoxOverride = boomBoxOverride,
+            mindControlOverride = mindControlOverride,
+            customModifierOverlay = customModifierOverlay,
+            gameDatabase = ctx.gameDatabase,
+            preferences = ctx.preferences,
+            thrallBonus = ctx.thrallBonus,
+            maxBeeosity = ctx.plan.spec.maxBeeosity,
+        )
+    }
 
     private fun checkedItemContext(ctx: Context): MaximizerCheckedItemBuilder.Context =
         MaximizerCheckedItemBuilder.Context(

@@ -116,4 +116,11 @@ object LimitModeGates {
 
     /** Desktop LimitMode.limitZone — mobile limit modes do not zone-lock knoll/beach yet. */
     fun limitZone(zone: String, limitMode: String): Boolean = false
+
+    /** Desktop [LimitMode.requiresCharPane] — api.php status is incomplete in these modes. */
+    fun requiresCharPane(limitMode: String): Boolean =
+        when (normalize(limitMode)) {
+            Mode.SPELUNKY, Mode.BATMAN -> true
+            else -> false
+        }
 }

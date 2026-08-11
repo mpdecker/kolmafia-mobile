@@ -81,4 +81,17 @@ class CampgroundItemSyncTest {
         assertEquals(true, prefs.getBoolean("hasChef", false))
         assertEquals(true, prefs.getBoolean("hasBartender", false))
     }
+
+    @Test
+    fun apply_setsHasBookshelfFromCampgroundHtml() {
+        val prefs = Preferences(MapSettings())
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        CampgroundItemSync.apply(
+            prefs,
+            """<a href="campground.php?action=bookshelf">Bookshelf</a>""",
+            "https://www.kingdomofloathing.com/campground.php",
+            char,
+        )
+        assertEquals(true, char.state.value.hasBookshelf)
+    }
 }
