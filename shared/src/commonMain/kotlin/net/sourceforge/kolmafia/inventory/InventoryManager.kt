@@ -15,6 +15,7 @@ import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.character.CharacterStatusRefresh
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.shop.StandardRewardCurrencySync
@@ -102,9 +103,17 @@ open class InventoryManager(
     }
 
     open suspend fun syncCharacterEquipment() {
-        val req = characterRequest ?: return
-        val char = character ?: return
-        req.fetchCharacterState().onSuccess { char.updateFromApiResponse(it) }
+        refreshCharacterStatus(null)
+    }
+
+    open suspend fun refreshCharacterStatus(effectManager: net.sourceforge.kolmafia.effect.EffectManager? = null): Boolean {
+        val char = character ?: return false
+        return CharacterStatusRefresh.refresh(
+            characterRequest = characterRequest,
+            character = char,
+            effectManager = effectManager,
+            preferences = preferences,
+        )
     }
 
     open suspend fun unequipSlot(slot: String): Result<Unit> = try {

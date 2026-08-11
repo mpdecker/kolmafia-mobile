@@ -194,16 +194,30 @@ object MaximizerNoobcoreAbsorbBoosts {
     private fun postEquipmentScore(
         ctx: MaximizerNonEquipmentBoosts.Context,
         customModifierOverlay: String? = null,
-    ): Double = MaximizerSpeculation.scorePostEquipmentPlan(
-        plan = ctx.plan,
-        charState = ctx.charState,
-        activeEffects = ctx.activeEffects,
-        carryFamiliars = ctx.carryFamiliars,
-        gameDatabase = ctx.gameDatabase,
-        preferences = ctx.preferences,
-        thrallBonus = ctx.thrallBonus,
-        customModifierOverlay = customModifierOverlay,
-    )
+    ): Double = when (ctx.baseline) {
+        MaximizerNonEquipmentBoosts.NonEquipmentBaseline.PLAN_OVERLAY ->
+            MaximizerSpeculation.scorePostEquipmentPlan(
+                plan = ctx.plan,
+                charState = ctx.charState,
+                activeEffects = ctx.activeEffects,
+                carryFamiliars = ctx.carryFamiliars,
+                gameDatabase = ctx.gameDatabase,
+                preferences = ctx.preferences,
+                thrallBonus = ctx.thrallBonus,
+                customModifierOverlay = customModifierOverlay,
+            )
+        MaximizerNonEquipmentBoosts.NonEquipmentBaseline.LIVE_EQUIPPED ->
+            MaximizerSpeculation.scorePostEquipmentLive(
+                charState = ctx.charState,
+                evaluator = ctx.plan.spec.evaluator,
+                activeEffects = ctx.activeEffects,
+                gameDatabase = ctx.gameDatabase,
+                preferences = ctx.preferences,
+                thrallBonus = ctx.thrallBonus,
+                maxBeeosity = ctx.plan.spec.maxBeeosity,
+                customModifierOverlay = customModifierOverlay,
+            )
+    }
 
     private fun checkedItemContext(ctx: MaximizerNonEquipmentBoosts.Context): MaximizerCheckedItemBuilder.Context =
         MaximizerCheckedItemBuilder.Context(

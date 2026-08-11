@@ -25,9 +25,17 @@ data class ModifierValues(
 
     // Accumulates two ModifierValues together.
     // Doubles are summed, booleans are OR-ed, strings are merged into lists, bitmaps are OR-ed.
+    // Desktop Modifiers.add(): overlapping MUTEX bits accumulate into MUTEX_VIOLATIONS.
     operator fun plus(other: ModifierValues): ModifierValues {
         if (other.isEmpty) return this
         if (this.isEmpty) return other
+        val leftMutex = get(BitmapModifier.MUTEX)
+        val rightMutex = other.get(BitmapModifier.MUTEX)
+        val newViolations = leftMutex and rightMutex
+        val mergedViolations =
+            get(BitmapModifier.MUTEX_VIOLATIONS) or
+                other.get(BitmapModifier.MUTEX_VIOLATIONS) or
+                newViolations
         return ModifierValues(
             doubles = buildMap {
                 putAll(doubles)
@@ -41,9 +49,15 @@ data class ModifierValues(
                 }
             },
             bitmaps = buildMap {
-                putAll(bitmaps)
-                other.bitmaps.forEach { (k, v) -> put(k, (bitmaps[k] ?: 0) or v) }
-            }
+                BitmapModifier.entries.forEach { mod ->
+                    if (mod == BitmapModifier.MUTEX_VIOLATIONS) return@forEach
+                    val merged = this@ModifierValues.get(mod) or other.get(mod)
+                    if (merged != 0) put(mod, merged)
+                }
+                if (mergedViolations != 0) {
+                    put(BitmapModifier.MUTEX_VIOLATIONS, mergedViolations)
+                }
+            },
         )
     }
 

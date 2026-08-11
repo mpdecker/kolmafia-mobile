@@ -165,6 +165,7 @@ object MaximizerFamiliarSpeculation {
             gameDatabase = scoring.gameDatabase,
             cardInSleeve = card,
             preferences = preferences,
+            activeEffects = scoring.activeEffects,
         )
     }
 
@@ -185,6 +186,7 @@ object MaximizerFamiliarSpeculation {
             gameDatabase = scoring.gameDatabase,
             cardInSleeve = card,
             preferences = preferences,
+            activeEffects = scoring.activeEffects,
         )
     }
 
@@ -300,6 +302,7 @@ object MaximizerFamiliarSpeculation {
             foldablesEnabled = scoring.foldablesEnabled,
             countFor = scoring.countFor,
             preferences = preferences,
+            activeEffects = scoring.activeEffects,
         )
         if (speculated.isNotEmpty()) {
             bestPerSlot = speculated

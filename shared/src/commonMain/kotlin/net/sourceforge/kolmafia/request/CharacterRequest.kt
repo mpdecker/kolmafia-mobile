@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.request
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
@@ -17,6 +18,19 @@ class CharacterRequest(private val client: HttpClient) {
             }
             if (response.status.isSuccess()) {
                 Result.success(response.body())
+            } else {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchCharpaneHtml(): Result<String> {
+        return try {
+            val response = client.get("$KOL_BASE_URL/charpane.php")
+            if (response.status.isSuccess()) {
+                Result.success(response.bodyAsText())
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))
             }

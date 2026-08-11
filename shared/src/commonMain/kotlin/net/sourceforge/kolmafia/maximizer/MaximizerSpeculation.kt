@@ -18,6 +18,7 @@ data class MaximizerScoringOptions(
     val cardInSleeve: String? = null,
     val countFor: ((String) -> Int)? = null,
     val foldablesEnabled: Boolean = true,
+    val activeEffects: List<EffectData> = emptyList(),
 )
 
 /**
@@ -60,6 +61,16 @@ object MaximizerSpeculation {
             baseState,
         )
         val equipment = buildEquipmentMap(baseState, assignment, resolvedCard)
+        val baselineMods = CurrentModifiers(
+            baseState,
+            activeEffects = activeEffects,
+            modeOverrides = modeOverrides,
+            preferences = preferences,
+            horseryOverride = horseryOverride,
+            boomBoxOverride = boomBoxOverride,
+            mindControlOverride = mindControlOverride,
+            customModifierOverlay = customModifierOverlay,
+        )
         val mods = CurrentModifiers(
             baseState.copy(equipment = equipment),
             activeEffects = activeEffects,
@@ -73,6 +84,9 @@ object MaximizerSpeculation {
         val score = evaluator.getScore(mods) +
             evaluator.equipmentBonus(equipment.values) +
             familiarBonus + thrallBonus
+        if (MaximizerMutexViolations.introducesNewViolations(baselineMods.values, mods.values)) {
+            evaluator.markFailed()
+        }
         if (validateEquipment) {
             evaluator.checkEquipment(
                 equipment = equipment,
@@ -116,6 +130,122 @@ object MaximizerSpeculation {
         customModifierOverlay = customModifierOverlay,
     )
 
+    /** Modifier accumulation for a post-equipment plan loadout (mutex checks). */
+    fun modifierValuesForPostEquipmentPlan(
+        plan: MaximizerEmitSlot.Plan,
+        charState: CharacterState,
+        activeEffects: List<EffectData> = emptyList(),
+        horseryOverride: String? = null,
+        boomBoxOverride: String? = null,
+        mindControlOverride: Int? = null,
+        customModifierOverlay: String? = null,
+        carryFamiliars: List<String> = emptyList(),
+        gameDatabase: GameDatabase? = null,
+        preferences: Preferences? = null,
+    ) = modifierValuesForLoadout(
+        baseState = charState,
+        assignment = plan.bestPerSlot,
+        bestModes = plan.modeSelections,
+        carryFamiliars = carryFamiliars,
+        gameDatabase = gameDatabase,
+        cardInSleeve = plan.cardInSleeve,
+        preferences = preferences,
+        activeEffects = activeEffects,
+        horseryOverride = horseryOverride,
+        boomBoxOverride = boomBoxOverride,
+        mindControlOverride = mindControlOverride,
+        customModifierOverlay = customModifierOverlay,
+    )
+
+    /** Live post-equipment baseline score after maximize equip (Phase 405). */
+    fun scorePostEquipmentLive(
+        charState: CharacterState,
+        evaluator: Evaluator,
+        activeEffects: List<EffectData> = emptyList(),
+        horseryOverride: String? = null,
+        boomBoxOverride: String? = null,
+        mindControlOverride: Int? = null,
+        customModifierOverlay: String? = null,
+        gameDatabase: GameDatabase? = null,
+        preferences: Preferences? = null,
+        thrallBonus: Double = 0.0,
+        maxBeeosity: Int = 2,
+    ): Double = scoreLoadout(
+        baseState = charState,
+        assignment = emptyMap(),
+        evaluator = evaluator,
+        thrallBonus = thrallBonus,
+        gameDatabase = gameDatabase,
+        preferences = preferences,
+        maxBeeosity = maxBeeosity,
+        activeEffects = activeEffects,
+        horseryOverride = horseryOverride,
+        boomBoxOverride = boomBoxOverride,
+        mindControlOverride = mindControlOverride,
+        customModifierOverlay = customModifierOverlay,
+    )
+
+    /** Live post-equipment modifier accumulation (Phase 405). */
+    fun modifierValuesForPostEquipmentLive(
+        charState: CharacterState,
+        activeEffects: List<EffectData> = emptyList(),
+        horseryOverride: String? = null,
+        boomBoxOverride: String? = null,
+        mindControlOverride: Int? = null,
+        customModifierOverlay: String? = null,
+        gameDatabase: GameDatabase? = null,
+        preferences: Preferences? = null,
+    ) = modifierValuesForLoadout(
+        baseState = charState,
+        assignment = emptyMap(),
+        gameDatabase = gameDatabase,
+        preferences = preferences,
+        activeEffects = activeEffects,
+        horseryOverride = horseryOverride,
+        boomBoxOverride = boomBoxOverride,
+        mindControlOverride = mindControlOverride,
+        customModifierOverlay = customModifierOverlay,
+    )
+
+    internal fun modifierValuesForLoadout(
+        baseState: CharacterState,
+        assignment: Map<EquipmentSlot, Pair<String, Double>>,
+        modeOverrides: Map<Modeable, String> = emptyMap(),
+        bestModes: Map<Modeable, String>? = null,
+        carryFamiliars: List<String> = emptyList(),
+        gameDatabase: GameDatabase? = null,
+        cardInSleeve: String? = null,
+        preferences: Preferences? = null,
+        activeEffects: List<EffectData> = emptyList(),
+        horseryOverride: String? = null,
+        boomBoxOverride: String? = null,
+        mindControlOverride: Int? = null,
+        customModifierOverlay: String? = null,
+    ): net.sourceforge.kolmafia.modifiers.ModifierValues {
+        val effectiveModes = bestModes?.let {
+            MaximizerModeSelection.assignmentModeOverrides(
+                assignment, it, carryFamiliars, gameDatabase,
+            )
+        } ?: modeOverrides
+        val resolvedCard = cardInSleeve ?: MaximizerCardSelection.cardForOffhand(
+            assignment[EquipmentSlot.OFFHAND]?.first
+                ?: baseState.equipment[EquipmentSlot.OFFHAND],
+            null,
+            baseState,
+        )
+        val equipment = buildEquipmentMap(baseState, assignment, resolvedCard)
+        return CurrentModifiers(
+            baseState.copy(equipment = equipment),
+            activeEffects = activeEffects,
+            modeOverrides = effectiveModes,
+            preferences = preferences,
+            horseryOverride = horseryOverride,
+            boomBoxOverride = boomBoxOverride,
+            mindControlOverride = mindControlOverride,
+            customModifierOverlay = customModifierOverlay,
+        ).values
+    }
+
     fun tiebreakerScore(
         baseState: CharacterState,
         assignment: Map<EquipmentSlot, Pair<String, Double>>,
@@ -126,6 +256,7 @@ object MaximizerSpeculation {
         gameDatabase: GameDatabase? = null,
         cardInSleeve: String? = null,
         preferences: Preferences? = null,
+        activeEffects: List<EffectData> = emptyList(),
     ): Double {
         val effectiveModes = bestModes?.let {
             MaximizerModeSelection.assignmentModeOverrides(
@@ -141,6 +272,7 @@ object MaximizerSpeculation {
         val equipment = buildEquipmentMap(baseState, assignment, resolvedCard)
         val mods = CurrentModifiers(
             baseState.copy(equipment = equipment),
+            activeEffects = activeEffects,
             modeOverrides = effectiveModes,
             preferences = preferences,
         )
@@ -237,6 +369,7 @@ object MaximizerSpeculation {
         foldablesEnabled: Boolean = true,
         countFor: ((String) -> Int)? = null,
         preferences: Preferences? = null,
+        activeEffects: List<EffectData> = emptyList(),
     ): Map<EquipmentSlot, Pair<String, Double>> {
         var best = seed
         val resolvedCard = cardInSleeve
@@ -247,6 +380,7 @@ object MaximizerSpeculation {
                 baseState, seed, spec.evaluator, familiarBonus, thrallBonus,
                 modeOverrides, bestModes, carryFamiliars, gameDatabase, resolvedCard, preferences,
                 maxBeeosity = spec.maxBeeosity,
+                activeEffects = activeEffects,
             )
             bestFailed = spec.evaluator.failed
         } else {
@@ -256,7 +390,7 @@ object MaximizerSpeculation {
         var bestTie = if (seed.isNotEmpty()) {
             tiebreakerScore(
                 baseState, seed, spec.evaluator, modeOverrides, bestModes, carryFamiliars,
-                gameDatabase, resolvedCard, preferences,
+                gameDatabase, resolvedCard, preferences, activeEffects,
             )
         } else {
             Double.NEGATIVE_INFINITY
@@ -280,12 +414,13 @@ object MaximizerSpeculation {
                     baseState, current, spec.evaluator, familiarBonus, thrallBonus,
                     modeOverrides, bestModes, carryFamiliars, gameDatabase, card, preferences,
                     maxBeeosity = spec.maxBeeosity,
+                    activeEffects = activeEffects,
                 )
                 val failed = spec.evaluator.failed
                 val exceeded = spec.evaluator.exceeded
                 val tie = tiebreakerScore(
                     baseState, current, spec.evaluator, modeOverrides, bestModes, carryFamiliars,
-                    gameDatabase, card, preferences,
+                    gameDatabase, card, preferences, activeEffects,
                 )
                 val price = priceFor?.let { assignmentPrice(current, it) } ?: Int.MAX_VALUE
                 if (!failed &&
@@ -299,8 +434,16 @@ object MaximizerSpeculation {
                     bestPrice = price
                     bestFailed = false
                     best = current.toMap()
+                    MaximizerProgress.maybeShow(
+                        budget.combinationsChecked,
+                        bestScore,
+                        bestFailed,
+                    )
                 }
-                if (exceeded) stopSearch = true
+                if (exceeded) {
+                    budget.markScoreCapReached()
+                    stopSearch = true
+                }
                 return
             }
             val slot = searchSlots[slotIndex]
@@ -330,7 +473,11 @@ object MaximizerSpeculation {
             }
         }
 
-        search(0, seed.toMutableMap())
+        if (!MaximizerContinuation.permitsContinue()) {
+            budget.markInterrupted()
+        } else {
+            search(0, seed.toMutableMap())
+        }
         return best
     }
 
@@ -408,11 +555,36 @@ object MaximizerSpeculation {
 /** Shared combination budget across maximizer refine passes. */
 class ComboBudget(private val limit: Int) {
     private var checked = 0
+    var limitHit: Boolean = false
+        private set
+    var scoreCapReached: Boolean = false
+        private set
+    var interrupted: Boolean = false
+        private set
+
+    val combinationsChecked: Int
+        get() = checked
+
+    fun markScoreCapReached() {
+        scoreCapReached = true
+    }
+
+    fun markInterrupted() {
+        interrupted = true
+    }
 
     fun tick(): Boolean {
+        if (!MaximizerContinuation.permitsContinue()) {
+            interrupted = true
+            return true
+        }
         if (limit <= 0) return false
         checked++
-        return checked > limit
+        if (checked > limit) {
+            limitHit = true
+            return true
+        }
+        return false
     }
 
     fun exhausted(): Boolean = limit > 0 && checked > limit

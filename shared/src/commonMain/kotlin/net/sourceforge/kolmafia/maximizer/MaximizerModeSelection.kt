@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
+import net.sourceforge.kolmafia.effect.EffectData
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.equipment.ModeableState
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -24,6 +25,7 @@ object MaximizerModeSelection {
         thrallBonus: Double = 0.0,
         carryFamiliars: List<String> = emptyList(),
         gameDatabase: GameDatabase? = null,
+        activeEffects: List<EffectData> = emptyList(),
     ): Map<Modeable, String> {
         val needed = modeablesNeeded(rankedBuckets, bestPerSlot, carryFamiliars, gameDatabase)
         if (needed.isEmpty()) return emptyMap()
@@ -50,6 +52,7 @@ object MaximizerModeSelection {
                     preferences = preferences,
                     maxBeeosity = spec.maxBeeosity,
                     validateEquipment = false,
+                    activeEffects = activeEffects,
                 )
                 if (spec.evaluator.failed) continue
                 if (score > bestScore) {

@@ -109,6 +109,7 @@ object MaximizerHatSpeculation {
                     foldablesEnabled = scoring.foldablesEnabled,
                     countFor = scoring.countFor,
                     preferences = preferences,
+                    activeEffects = scoring.activeEffects,
                 )
                 if (result.isEmpty()) continue
 
@@ -166,6 +167,7 @@ object MaximizerHatSpeculation {
             cardInSleeve = card,
             preferences = preferences,
             maxBeeosity = spec.maxBeeosity,
+            activeEffects = scoring.activeEffects,
         )
     }
 
@@ -186,6 +188,7 @@ object MaximizerHatSpeculation {
             gameDatabase = scoring.gameDatabase,
             cardInSleeve = card,
             preferences = preferences,
+            activeEffects = scoring.activeEffects,
         )
     }
 }

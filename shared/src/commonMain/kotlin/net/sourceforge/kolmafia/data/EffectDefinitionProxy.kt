@@ -3,15 +3,28 @@ package net.sourceforge.kolmafia.data
 /** Desktop EffectDatabase helpers for `$effect[field]` proxy reads. */
 object EffectDefinitionProxy {
 
+    /** Desktop [EffectDatabase.getEffectId] bracket prefix: `[1553]Slicked-Back Do`. */
+    fun parseBracketEffectId(effectRef: String): Int? {
+        if (!effectRef.startsWith("[")) return null
+        val end = effectRef.indexOf(']')
+        if (end <= 1) return null
+        return effectRef.substring(1, end).toIntOrNull()
+    }
+
     fun getByIdOrName(effectRef: String): EffectData? {
+        parseBracketEffectId(effectRef)?.let { id ->
+            EffectDatabase.getById(id)?.let { return it }
+        }
         effectRef.toIntOrNull()?.let { EffectDatabase.getById(it) }?.let { return it }
         return EffectDatabase.getByName(effectRef)
     }
 
-    fun resolveEffectId(effectRef: String): Int =
-        effectRef.toIntOrNull()
+    fun resolveEffectId(effectRef: String): Int {
+        parseBracketEffectId(effectRef)?.let { return it }
+        return effectRef.toIntOrNull()
             ?: EffectDatabase.getByName(effectRef)?.id
             ?: 0
+    }
 
     fun getActions(effectId: Int): String? {
         if (effectId == -1) return null

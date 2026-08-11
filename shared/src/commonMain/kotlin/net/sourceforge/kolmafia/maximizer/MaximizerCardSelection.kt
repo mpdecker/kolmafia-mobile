@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.maximizer
 
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.effect.EffectData
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.preferences.Preferences
 
@@ -29,6 +30,7 @@ object MaximizerCardSelection {
         thrallBonus: Double = 0.0,
         carryFamiliars: List<String> = emptyList(),
         gameDatabase: net.sourceforge.kolmafia.data.GameDatabase? = null,
+        activeEffects: List<EffectData> = emptyList(),
     ): String? {
         if (!cardNeeded(rankedBuckets)) return null
 
@@ -56,6 +58,7 @@ object MaximizerCardSelection {
                 ),
                 preferences = preferences,
                 cardInSleeve = cardName,
+                activeEffects = activeEffects,
             )
             if (spec.evaluator.failed) continue
             if (score > bestScore) {

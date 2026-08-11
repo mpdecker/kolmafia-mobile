@@ -16,6 +16,7 @@ object ModifierDatabase {
     private val _synergies = mutableListOf<ModifierEntry>()
     private val _synergyMaskByName = mutableMapOf<String, Int>()
     private val _inventorySkillProviderNames = mutableSetOf<String>()
+    private val _replaceableMutexByEffectId = mutableMapOf<Int, Set<Int>>()
     private var loaded = false
 
     /** Desktop [ModifierDatabase.CARRIED_OVER] tag names preserved on override. */
@@ -81,8 +82,82 @@ object ModifierDatabase {
         }
         rebuildInventorySkillProviders()
         rebuildSynergyMasks()
+        rebuildMutexBits()
+        rebuildReplaceableMutexEffects()
         loaded = true
     }
+
+    /** Desktop [ModifierDatabase.computeMutexes] — assign MUTEX bitmap bits from MutexI/MutexE rows. */
+    private fun rebuildMutexBits() {
+        listOf("Item", "Effect").forEach { entityType ->
+            val bundled = _bundledByTypeAndName[entityType] ?: return@forEach
+            val live = _byTypeAndName.getOrPut(entityType) { mutableMapOf() }
+            for ((name, entry) in bundled) {
+                live[name] = entry
+            }
+        }
+        var groupIndex = 0
+        for (mutexType in listOf("MutexI", "MutexE")) {
+            val targetType = if (mutexType == "MutexI") "Item" else "Effect"
+            val groups = _bundledByTypeAndName[mutexType] ?: continue
+            for ((groupName, _) in groups) {
+                val bit = 1 shl groupIndex
+                for (piece in groupName.split('/')) {
+                    val pieceName = piece.trim()
+                    if (pieceName.isEmpty()) continue
+                    val entry = resolveMutexPiece(targetType, pieceName) ?: continue
+                    val updated = withMutexBit(entry.modifiers, bit)
+                    _byTypeAndName.getOrPut(targetType) { mutableMapOf() }[entry.name] =
+                        entry.copy(modifiers = updated)
+                }
+                groupIndex++
+            }
+        }
+    }
+
+    private fun resolveMutexPiece(entityType: String, pieceName: String): ModifierEntry? {
+        val map = _byTypeAndName[entityType] ?: return null
+        return map[pieceName]
+            ?: map.entries.firstOrNull { it.key.equals(pieceName, ignoreCase = true) }?.value
+    }
+
+    private fun withMutexBit(modifiers: String, bit: Int): String {
+        if (bit == 0) return modifiers
+        val parsed = ModifierParser.parse(modifiers)
+        val newMutex = parsed.get(BitmapModifier.MUTEX) or bit
+        val tokens = modifierTokens(modifiers).filter { token ->
+            !modifierTag(token).equals(BitmapModifier.MUTEX.tag, ignoreCase = true)
+        }
+        val base = tokens.joinToString(", ")
+        val mutexToken = "${BitmapModifier.MUTEX.tag}: $newMutex"
+        return if (base.isBlank()) mutexToken else "$base, $mutexToken"
+    }
+
+    internal fun rebuildMutexBitsForTest() = rebuildMutexBits()
+
+    /** Desktop [ModifierDatabase.computeReplaceableEffectMutexes] — MutexER peer groups by effect id. */
+    private fun rebuildReplaceableMutexEffects() {
+        _replaceableMutexByEffectId.clear()
+        val groups = _bundledByTypeAndName["MutexER"] ?: return
+        for ((groupName, _) in groups) {
+            val pieces = groupName.split('/').map { it.trim() }.filter { it.isNotEmpty() }
+            if (pieces.size < 2) continue
+            val effectIds = pieces.mapNotNull { piece ->
+                val id = EffectDefinitionProxy.resolveEffectId(piece)
+                if (id <= 0) null else id
+            }.toSet()
+            if (effectIds.size < 2) continue
+            for (id in effectIds) {
+                _replaceableMutexByEffectId[id] = effectIds
+            }
+        }
+    }
+
+    /** Desktop [ModifierDatabase.getReplaceableMutexFor] peer effect ids for replace-before-add. */
+    fun getReplaceableMutexFor(effectId: Int): Set<Int> =
+        _replaceableMutexByEffectId[effectId].orEmpty()
+
+    internal fun rebuildReplaceableMutexEffectsForTest() = rebuildReplaceableMutexEffects()
 
     private fun rebuildSynergyMasks() {
         _synergyMaskByName.clear()
@@ -129,6 +204,12 @@ object ModifierDatabase {
         }
     }
 
+    /** Desktop [ModifierDatabase.overrideModifier] for GENERATED — exact override, no CARRIED_OVER merge. */
+    fun overrideGenerated(name: String, modifierString: String) {
+        _byTypeAndName.getOrPut("Generated") { mutableMapOf() }[name] =
+            ModifierEntry("Generated", name, modifierString)
+    }
+
     /** Desktop [ModifierDatabase.overrideModifier] — replace runtime modifier string, preserving CARRIED_OVER. */
     fun overrideModifier(entityType: String, name: String, modifierString: String) {
         val base = _bundledByTypeAndName[entityType]?.get(name)?.modifiers.orEmpty()
@@ -155,6 +236,8 @@ object ModifierDatabase {
                 live[name] = entry
             }
         }
+        rebuildMutexBits()
+        rebuildReplaceableMutexEffects()
     }
 
     fun updateItem(itemId: Int, modifierString: String): Boolean {
@@ -180,6 +263,12 @@ object ModifierDatabase {
                 rebuildSynergyMasks()
             }
         }
+        if (entityType == "MutexI" || entityType == "MutexE") {
+            rebuildMutexBits()
+        }
+        if (entityType == "MutexER") {
+            rebuildReplaceableMutexEffects()
+        }
     }
 
     internal fun resetForTest() {
@@ -189,6 +278,7 @@ object ModifierDatabase {
         _synergies.clear()
         _synergyMaskByName.clear()
         _inventorySkillProviderNames.clear()
+        _replaceableMutexByEffectId.clear()
         loaded = false
     }
 

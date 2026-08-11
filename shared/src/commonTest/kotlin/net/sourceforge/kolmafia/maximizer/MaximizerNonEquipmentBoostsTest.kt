@@ -24,6 +24,15 @@ import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.skill.SkillCastRequest
+import net.sourceforge.kolmafia.skill.SkillData
+import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.skill.SkillType
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
 
 class MaximizerNonEquipmentBoostsTest {
 
@@ -340,6 +349,95 @@ class MaximizerNonEquipmentBoostsTest {
         )
     }
 
+    @Test
+    fun build_liveBaselineDiffersFromPlanOverlayAtScoreCap() {
+        registerFood(8201, "unused food", fullness = 1)
+        EffectDatabase.registerForTest(
+            StaticEffectData(
+                id = 95001,
+                name = "Live Rescore Mys Buff",
+                image = "buff.gif",
+                descId = "d95001",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "cast 1 Live Rescore Mys Buff",
+            ),
+        )
+        ModifierDatabase.injectForTest("Effect", "Live Rescore Mys Buff", "Mysticality: +100")
+        SkillDefinitionDatabase.registerForTest(
+            SkillDefinition(
+                id = 95001,
+                name = "Live Rescore Mys Buff",
+                image = "buff.gif",
+                tags = setOf("nc", "effect"),
+                mpCost = 10,
+                duration = 5,
+                isPassive = false,
+                isCombat = false,
+                isNonCombat = true,
+                isSong = false,
+            ),
+        )
+        UneffectSkillEffectMap.rebuild()
+        registerItem(8202, "myst hat", ItemPrimaryUse.HAT)
+        val skills = skillManagerFor("Live Rescore Mys Buff", 95001)
+        val overlayPlan = MaximizerEmitSlot.Plan(
+            goal = "mysticality 5 max",
+            spec = MaximizeSpec(DoubleModifier.MYS, Evaluator("mysticality 5 max")),
+            scoreBefore = 0.0,
+            scoreAfter = 5.0,
+            bestPerSlot = mapOf(EquipmentSlot.HAT to ("myst hat" to 5.0)),
+        )
+        val baseCtx = nonEquipmentContext(
+            spec = overlayPlan.spec,
+            preferences = Preferences(MapSettings()),
+            charState = CharacterState(
+                equipment = mapOf(EquipmentSlot.HAT to "plain hat"),
+                level = 15,
+            ),
+            filters = setOf(MaximizerFilterType.CAST),
+            skillManager = skills,
+        )
+        ModifierDatabase.injectForTest("Item", "plain hat", "Mysticality: +1")
+        ModifierDatabase.injectForTest("Item", "myst hat", "Mysticality: +5")
+        val overlayBoosts = MaximizerNonEquipmentBoosts.build(
+            baseCtx.copy(
+                plan = overlayPlan,
+                baseline = MaximizerNonEquipmentBoosts.NonEquipmentBaseline.PLAN_OVERLAY,
+            ),
+        )
+        val liveBoosts = MaximizerNonEquipmentBoosts.build(
+            baseCtx.copy(
+                plan = overlayPlan,
+                baseline = MaximizerNonEquipmentBoosts.NonEquipmentBaseline.LIVE_EQUIPPED,
+            ),
+        )
+        assertFalse(
+            overlayBoosts.any { it.text.contains("Live Rescore Mys Buff", ignoreCase = true) },
+            overlayBoosts.joinToString { it.text },
+        )
+        assertTrue(
+            liveBoosts.any { it.text.contains("Live Rescore Mys Buff", ignoreCase = true) },
+            liveBoosts.joinToString { it.text },
+        )
+    }
+
+    private fun skillManagerFor(skillName: String, skillId: Int): SkillManager {
+        val client = HttpClient(MockEngine { _ -> respond("{}", HttpStatusCode.OK) })
+        val skills = SkillManager(client, SkillCastRequest(client), GameEventBus())
+        skills.learnLocalSkill(
+            SkillData(
+                id = skillId,
+                name = skillName,
+                type = SkillType.NONCOMBAT,
+                mpCost = 10,
+                dailyLimit = 0,
+                timesCast = 0,
+            ),
+        )
+        return skills
+    }
+
     private fun nonEquipmentContext(
         spec: MaximizeSpec,
         preferences: Preferences?,
@@ -350,6 +448,7 @@ class MaximizerNonEquipmentBoostsTest {
         ),
         filters: Set<MaximizerFilterType> = MaximizerFilters.allEnabled(),
         includeAll: Boolean = false,
+        skillManager: SkillManager? = null,
     ): MaximizerNonEquipmentBoosts.Context {
         val plan = MaximizerEmitSlot.Plan(
             goal = "init",
@@ -372,6 +471,7 @@ class MaximizerNonEquipmentBoostsTest {
             priceLevel = MaximizerPriceLevel.DONT_CHECK,
             filters = filters,
             includeAll = includeAll,
+            skillManager = skillManager,
         )
     }
 

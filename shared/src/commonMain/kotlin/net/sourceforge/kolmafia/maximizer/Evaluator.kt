@@ -55,6 +55,10 @@ class Evaluator private constructor(
     var failed: Boolean = false
         private set
 
+    internal fun markFailed() {
+        failed = true
+    }
+
     /** Set when total score reaches [totalMax] (desktop Evaluator.exceeded). */
     var exceeded: Boolean = false
         private set

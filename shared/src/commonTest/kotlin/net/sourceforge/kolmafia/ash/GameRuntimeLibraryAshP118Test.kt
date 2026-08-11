@@ -135,14 +135,53 @@ class GameRuntimeLibraryAshP118Test {
     }
 
     @Test
+    fun refreshStatus_usesCharpaneWhenNoobcore() {
+        var apiStatusCalls = 0
+        var charpaneCalls = 0
+        val client = HttpClient(MockEngine { request ->
+            when {
+                request.url.parameters["what"] == "status" -> {
+                    apiStatusCalls++
+                    respond("{}", HttpStatusCode.OK)
+                }
+                request.url.encodedPath.endsWith("charpane.php") -> {
+                    charpaneCalls++
+                    respond(
+                        """
+                        <br>Lvl. 5
+                        >Mus</td><td><b>55</b></td>>Mys</td><td><b>44</b></td>>Mox</td><td><b>33</b></td>
+                        HP: <b>70/100</b>
+                        MP: <b>35/50</b>
+                        """.trimIndent(),
+                        HttpStatusCode.OK,
+                    )
+                }
+                else -> respond("{}", HttpStatusCode.OK)
+            }
+        })
+        val char = KoLCharacter()
+        char.updateFromApiResponse(
+            CharacterApiResponse(path = net.sourceforge.kolmafia.character.AscensionPath.GELATINOUS_NOOB.apiName),
+        )
+        val lib = GameRuntimeLibrary(
+            character = char,
+            characterRequest = CharacterRequest(client),
+        )
+        assertEquals("true", outputLib(lib, """print(refresh_status());""").trim())
+        assertEquals(0, apiStatusCalls)
+        assertEquals(1, charpaneCalls)
+        assertEquals(55, char.state.value.buffedMusc)
+    }
+
+    @Test
     fun restoreMp_returnsFalseWithoutRecoveryManager() {
         val lib = GameRuntimeLibrary(character = KoLCharacter())
         assertEquals("false", outputLib(lib, """print(restore_mp(30));""").trim())
     }
 
     @Test
-    fun revision_phase170() {
-        assertEquals("phase400", GameRuntimeLibrary.REVISION)
+    fun revision_phase410() {
+        assertEquals("phase410", GameRuntimeLibrary.REVISION)
     }
 
     private fun apiClient(statusJson: String): HttpClient = HttpClient(

@@ -270,6 +270,9 @@ class GameRuntimeLibrary(
             dispatchCli(cmd, moodCliContext)
             true
         }
+        maximizerManager?.progressDisplay = { msg ->
+            chatManager?.notify(msg, "blue")
+        }
         manaBurnManager?.accessibleCountProvider = { itemId ->
             val name = gameDatabase?.item(itemId)?.name
             if (name != null) physicalAccessibleCount(itemId, name) else 0
@@ -285,7 +288,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase400"
+        const val REVISION = "phase410"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1567,8 +1570,9 @@ class GameRuntimeLibrary(
             }
         },
 
-        // stop / abort / pause — cancel running adventure loop
+        // stop / abort / pause — cancel running adventure loop and maximizer search
         Regex("^(?:stop|abort|pause)$", RegexOption.IGNORE_CASE) to { _, _ ->
+            net.sourceforge.kolmafia.maximizer.MaximizerContinuation.abort()
             adventureManager?.stop()
         },
 

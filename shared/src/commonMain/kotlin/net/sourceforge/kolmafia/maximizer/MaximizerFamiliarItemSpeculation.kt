@@ -72,6 +72,7 @@ object MaximizerFamiliarItemSpeculation {
                 foldablesEnabled = scoring.foldablesEnabled,
                 countFor = scoring.countFor,
                 preferences = preferences,
+                activeEffects = scoring.activeEffects,
             )
             if (result.isEmpty()) continue
 
@@ -135,6 +136,7 @@ object MaximizerFamiliarItemSpeculation {
             cardInSleeve = card,
             preferences = preferences,
             maxBeeosity = spec.maxBeeosity,
+            activeEffects = scoring.activeEffects,
         )
     }
 
@@ -155,6 +157,7 @@ object MaximizerFamiliarItemSpeculation {
             gameDatabase = scoring.gameDatabase,
             cardInSleeve = card,
             preferences = preferences,
+            activeEffects = scoring.activeEffects,
         )
     }
 }

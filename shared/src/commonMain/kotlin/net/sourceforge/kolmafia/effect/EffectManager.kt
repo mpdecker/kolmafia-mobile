@@ -61,4 +61,10 @@ class EffectManager(
             _state.value = _state.value.copy(isStale = true)
         }
     }
+
+    fun applyEffectsFromCharpane(html: String) {
+        val effects = CharpaneEffectsSync.parse(html)
+        _state.value = EffectState(effects = effects, isStale = false)
+        eventBus.tryEmit(GameEvent.EffectsRefreshed)
+    }
 }

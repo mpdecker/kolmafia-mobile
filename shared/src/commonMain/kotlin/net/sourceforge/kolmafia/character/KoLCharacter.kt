@@ -255,6 +255,30 @@ class KoLCharacter {
         _state.value = _state.value.copy(currentRun = run)
     }
 
+    fun updateFromCharpane(parsed: CharpaneStatusSync.ParsedStatus) {
+        val prev = _state.value
+        _state.value = prev.copy(
+            buffedMusc = parsed.buffedMusc ?: prev.buffedMusc,
+            buffedMyst = parsed.buffedMyst ?: prev.buffedMyst,
+            buffedMoxie = parsed.buffedMoxie ?: prev.buffedMoxie,
+            currentHp = parsed.currentHp ?: prev.currentHp,
+            maxHp = parsed.maxHp ?: prev.maxHp,
+            currentMp = parsed.currentMp ?: prev.currentMp,
+            maxMp = parsed.maxMp ?: prev.maxMp,
+            meat = parsed.meat ?: prev.meat,
+            adventuresLeft = parsed.adventuresLeft ?: prev.adventuresLeft,
+            mindControlLevel = parsed.mindControlLevel ?: prev.mindControlLevel,
+            inebriety = parsed.inebriety ?: prev.inebriety,
+            currentPP = parsed.currentPP ?: prev.currentPP,
+            maximumPP = parsed.maximumPP ?: prev.maximumPP,
+            youRobotEnergy = parsed.youRobotEnergy ?: prev.youRobotEnergy,
+            thunder = parsed.thunder ?: prev.thunder,
+            rain = parsed.rain ?: prev.rain,
+            lightning = parsed.lightning ?: prev.lightning,
+            wildfireWater = parsed.wildfireWater ?: prev.wildfireWater,
+        )
+    }
+
     fun reset() {
         _state.value = CharacterState()
     }
