@@ -3,7 +3,7 @@ package net.sourceforge.kolmafia.quest
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
 
-/** Desktop [IslandRequest.registerRequest] bigisland.php visit session-log hooks. */
+/** Desktop [IslandRequest.registerRequest] bigisland.php/postwarisland.php visit session-log hooks. */
 object IslandWarVisitLogSync {
 
     const val PREF_LAST_CAMP_VISITED = "_lastCampVisited"
@@ -24,18 +24,24 @@ object IslandWarVisitLogSync {
         context: IslandWarVisitSync.IslandVisitContext,
         sessionLogger: SessionLogger?,
     ): Boolean {
-        if (!url.contains("bigisland.php", ignoreCase = true)) return false
+        val isBigIsland = url.contains("bigisland.php", ignoreCase = true)
+        val isPostwarIsland = url.contains("postwarisland.php", ignoreCase = true)
+        if (!isBigIsland && !isPostwarIsland) return false
 
-        val campMaster = IslandWarVisitSync.findCampMaster(url)
-        if (campMaster != null) {
-            preferences.setString(PREF_LAST_CAMP_VISITED, campMaster.nickname)
-            return true
+        if (isBigIsland) {
+            val campMaster = IslandWarVisitSync.findCampMaster(url)
+            if (campMaster != null) {
+                preferences.setString(PREF_LAST_CAMP_VISITED, campMaster.nickname)
+                return true
+            }
+
+            val action = getAction(url)
+            if (action == "bossfight") {
+                return handleBossfight(preferences, sessionLogger)
+            }
         }
 
         val action = getAction(url)
-        if (action == "bossfight") {
-            return handleBossfight(preferences, sessionLogger)
-        }
 
         if (action == null) {
             val place = getPlace(url)

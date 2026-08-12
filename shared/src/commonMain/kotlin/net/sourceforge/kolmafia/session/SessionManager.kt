@@ -30,6 +30,7 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.JunkListManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.IslandWarResetSync
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
@@ -93,6 +94,7 @@ class SessionManager(
                             preferences,
                             charState.ascensionNumber,
                         )
+                        IslandWarResetSync.ensureUpdated(charState.ascensionNumber, preferences)
                         dailyResourceTracker.syncDay(charState.dayCount)
 
                         // Gate rollover clear on day change or rollover timestamp gap (desktop parity)

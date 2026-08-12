@@ -25,6 +25,7 @@ object IslandWarVisitSync {
         val consumeItem: (Int, Int) -> Unit = { _, _ -> },
         val isWearingWarHippyOutfit: () -> Boolean = { false },
         val ascensionNumber: Int = 0,
+        val itemCount: (Int) -> Int = { id -> if (hasItemId(id)) 1 else 0 },
     )
 
     private const val JAM_BAND_FLYERS = 2404

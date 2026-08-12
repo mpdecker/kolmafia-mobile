@@ -196,6 +196,12 @@ object ClanLoungeSync {
                     ConcoctionDatabase.refreshAfterLoungeMutation(preferences)
                 }
             }
+            "takeshower" -> ClanLoungeVipSync.syncShowerFromResponse(html, "takeshower", preferences)
+            "goswimming" -> ClanLoungeVipSync.syncSwimFromResponse(html, "goswimming", preferences)
+        }
+        when (action?.lowercase()) {
+            "shower" -> ClanLoungeVipSync.syncShowerFromResponse(html, "shower", preferences)
+            "swimmingpool" -> ClanLoungeVipSync.syncSwimFromResponse(html, "swimmingpool", preferences)
         }
     }
 

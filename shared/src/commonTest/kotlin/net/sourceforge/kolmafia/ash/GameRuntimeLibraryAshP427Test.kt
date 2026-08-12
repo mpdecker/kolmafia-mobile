@@ -16,8 +16,8 @@ import kotlin.test.assertTrue
 class GameRuntimeLibraryAshP427Test {
 
     @Test
-    fun revision_phase450() {
-        assertEquals("phase450", GameRuntimeLibrary.REVISION)
+    fun revision_phase460() {
+        assertEquals("phase460", GameRuntimeLibrary.REVISION)
     }
 
     @Test

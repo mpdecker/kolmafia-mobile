@@ -120,6 +120,7 @@ import net.sourceforge.kolmafia.request.AbsorbRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.quest.PirateRealmSync
 import net.sourceforge.kolmafia.quest.DispensarySync
+import net.sourceforge.kolmafia.quest.IslandWarActionResponseSync
 import net.sourceforge.kolmafia.quest.IslandWarVisitLogSync
 import net.sourceforge.kolmafia.quest.IslandWarVisitSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
@@ -327,7 +328,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase450"
+        const val REVISION = "phase460"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -1084,6 +1085,106 @@ class GameRuntimeLibrary(
             cliBarrelPrayer(m.groupValues[1].trim(), rt::print)
         },
 
+        Regex("^concert(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliConcert(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^nuns(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliNuns(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^shower(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliShower(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^swim(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSwim(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^ballpit$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliBallpit(rt::print)
+        },
+
+        Regex("^pillkeeper(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliPillkeeper(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^photobooth(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliPhotobooth(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^fortune(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFortune(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^mom(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliMom(m.groupValues[1].trim(), rt::print)
+        },
+
+        Regex("^mayosoak$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliMayosoak(rt::print)
+        },
+
+        Regex("^genie(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliGenie(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^monkeypaw(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliMonkeypaw(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^monorail(?:\\s+.*)?$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliMonorail(rt::print)
+        },
+
+        Regex("^toggle(?:\\s+.*)?$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliToggle(rt::print)
+        },
+
+        Regex("^crossstreams(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliCrossstreams(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^styx(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliStyx(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^skeleton(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSkeleton(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^play(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliPlay(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^gong(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliGong(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^gap(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliGap(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^spacegate(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSpacegate(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^daycare(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliDaycare(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^campground\\s+vault3$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliCampgroundVault3(rt::print)
+        },
+
+        Regex("^grim(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliGrim(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^aprilband(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliAprilband(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
         Regex("^factory$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("guild.php?place=paco", applyQuestHooks = true)
         },
@@ -1116,8 +1217,8 @@ class GameRuntimeLibrary(
             visitKolPage("adventure.php?snarfblat=43")
         },
 
-        Regex("^friars$", RegexOption.IGNORE_CASE) to { _, _ ->
-            visitKolPage("friars.php", applyQuestHooks = true)
+        Regex("^friars(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFriars(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
         Regex("^desert$", RegexOption.IGNORE_CASE) to { _, _ ->
@@ -1652,10 +1753,8 @@ class GameRuntimeLibrary(
             rt.print(progress)
         },
 
-        Regex("^telescope(?:\\s+(high|low))?$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val direction = m.groupValues.getOrNull(1)?.lowercase()?.takeIf { it.isNotBlank() } ?: "low"
-            val action = if (direction == "high") "telescopehigh" else "telescopelow"
-            visitKolPage("campground.php?action=$action", applyQuestHooks = true)
+        Regex("^telescope(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, _ ->
+            cliTelescope(m.groupValues.getOrNull(1)?.trim().orEmpty())
         },
 
         // main / council / campground / homepage — visit common KoL pages
@@ -2367,6 +2466,9 @@ class GameRuntimeLibrary(
                         OutfitManager.isWearingPieces(outfit.equipment, equipment)
                     },
                     ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                    itemCount = { id ->
+                        inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
+                    },
                 )
                 IslandWarVisitLogSync.register(
                     url = url,
@@ -2382,29 +2484,52 @@ class GameRuntimeLibrary(
                     sessionLogger = sessionLogger,
                     context = islandVisitContext,
                 )
+                IslandWarActionResponseSync.parseActionResponse(
+                    url = url,
+                    html = html,
+                    preferences = prefs,
+                    context = islandVisitContext,
+                )
             }
         }
         if (url?.contains("postwarisland.php", ignoreCase = true) == true) {
             preferences?.let { prefs ->
                 val equipment = character?.state?.value?.equipment ?: emptyMap()
+                val islandVisitContext = IslandWarVisitSync.IslandVisitContext(
+                    hasItemId = { id ->
+                        inventoryManager?.state?.value?.items?.containsKey(id) == true
+                    },
+                    consumeItem = { itemId, quantity ->
+                        inventoryManager?.consumeItemLocally(itemId, quantity)
+                    },
+                    isWearingWarHippyOutfit = {
+                        val outfit = OutfitDatabase.getById(OutfitPool.WAR_HIPPY_OUTFIT)
+                            ?: return@IslandVisitContext false
+                        OutfitManager.isWearingPieces(outfit.equipment, equipment)
+                    },
+                    ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                    itemCount = { id ->
+                        inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
+                    },
+                )
+                IslandWarVisitLogSync.register(
+                    url = url,
+                    html = html,
+                    preferences = prefs,
+                    context = islandVisitContext,
+                    sessionLogger = sessionLogger,
+                )
                 IslandWarVisitSync.applyFromPostwarIslandVisit(
                     url = url,
                     html = html,
                     preferences = prefs,
-                    context = IslandWarVisitSync.IslandVisitContext(
-                        hasItemId = { id ->
-                            inventoryManager?.state?.value?.items?.containsKey(id) == true
-                        },
-                        consumeItem = { itemId, quantity ->
-                            inventoryManager?.consumeItemLocally(itemId, quantity)
-                        },
-                        isWearingWarHippyOutfit = {
-                            val outfit = OutfitDatabase.getById(OutfitPool.WAR_HIPPY_OUTFIT)
-                                ?: return@IslandVisitContext false
-                            OutfitManager.isWearingPieces(outfit.equipment, equipment)
-                        },
-                        ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
-                    ),
+                    context = islandVisitContext,
+                )
+                IslandWarActionResponseSync.parseActionResponse(
+                    url = url,
+                    html = html,
+                    preferences = prefs,
+                    context = islandVisitContext,
                 )
             }
         }

@@ -511,6 +511,8 @@ val sharedModule = module {
             httpClient = get(),
             familiarManager = get(),
             questDatabase = get(),
+            outfitManager = get(),
+            inventoryManager = get(),
         )
     }
     single {

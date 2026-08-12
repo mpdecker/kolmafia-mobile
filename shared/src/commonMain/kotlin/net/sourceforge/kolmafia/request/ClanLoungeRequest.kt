@@ -7,6 +7,8 @@ import io.ktor.http.ParametersBuilder
 import io.ktor.http.isSuccess
 import io.ktor.http.parameters
 import net.sourceforge.kolmafia.clan.ClanLoungeSync
+import net.sourceforge.kolmafia.clan.ClanLoungeVipSync
+import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.ConsumptionEligibility
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
@@ -15,6 +17,7 @@ import net.sourceforge.kolmafia.data.HotDogDatabase
 import net.sourceforge.kolmafia.data.SpeakeasyDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.ClanLoungeVipOptions.CANNONBALL
 
 open class ClanLoungeRequest(private val client: HttpClient) {
 
@@ -171,6 +174,73 @@ open class ClanLoungeRequest(private val client: HttpClient) {
         return drinkSpeakeasy(SpeakeasyDatabase.entries[index].loungeId, preferences, state)
     }
 
+    /** Desktop ClanLoungeRequest(Action.APRIL_SHOWER, option). */
+    open suspend fun takeShower(
+        option: Int,
+        preferences: Preferences? = null,
+    ): Result<String> {
+        if (option !in 1..5) {
+            return Result.failure(IllegalArgumentException("Invalid shower option: $option"))
+        }
+        return postLoungeForm(
+            formParams = {
+                append("preaction", "takeshower")
+                append("temperature", option.toString())
+                append("whichfloor", "2")
+            },
+            syncUrlSuffix = "?preaction=takeshower&temperature=$option",
+            preferences = preferences,
+        )
+    }
+
+    /**
+     * Desktop ClanLoungeRequest(Action.SWIMMING_POOL, option).
+     * Cannonball also runs choice 585 flip → treasure → leave.
+     */
+    open suspend fun swimPool(
+        option: Int,
+        preferences: Preferences? = null,
+        choiceRequest: ChoiceRequest? = null,
+    ): Result<String> {
+        val subaction = ClanLoungeVipOptions.swimmingSubaction(option)
+            ?: return Result.failure(IllegalArgumentException("Invalid swimming option: $option"))
+        val result = postLoungeForm(
+            formParams = {
+                append("preaction", "goswimming")
+                append("subaction", subaction)
+                append("whichfloor", "2")
+            },
+            syncUrlSuffix = "?preaction=goswimming&subaction=$subaction",
+            preferences = preferences,
+        )
+        if (result.isFailure) return result
+        if (option != CANNONBALL) return result
+
+        val choice = choiceRequest
+            ?: return Result.failure(IllegalStateException("Choice request is not available."))
+        // Desktop ClanLoungeSwimmingPoolRequest: flip → treasure → leave
+        choice.choose(585, 1, mapOf("action" to "flip")).onFailure { return Result.failure(it) }
+        val treasure = choice.choose(585, 1, mapOf("action" to "treasure"))
+        treasure.onSuccess { (html, url) ->
+            ClanLoungeVipSync.syncSwimTreasureFromResponse(html, url, preferences)
+        }.onFailure { return Result.failure(it) }
+        choice.choose(585, 1, mapOf("action" to "leave")).onFailure { return Result.failure(it) }
+        preferences?.setBoolean(ClanLoungeVipSync.OLYMPIC_SWIMMING_POOL_PREF, true)
+        return result
+    }
+
+    /** Desktop ClanLoungeRequest(Action.FORTUNE) — open love tester for fortune buff. */
+    open suspend fun visitFortuneTeller(
+        preferences: Preferences? = null,
+    ): Result<String> = postLoungeForm(
+        formParams = {
+            append("preaction", "lovetester")
+            append("whichfloor", "2")
+        },
+        syncUrlSuffix = "?preaction=lovetester",
+        preferences = preferences,
+    )
+
     fun findFaxOption(tag: String): Int {
         val normalized = tag.trim().lowercase()
         return when (normalized) {
@@ -243,6 +313,10 @@ open class ClanLoungeRequest(private val client: HttpClient) {
     companion object {
         const val SEND_FAX = 1
         const val RECEIVE_FAX = 2
+
+        fun findShowerOption(tag: String): Int = ClanLoungeVipOptions.findShowerOption(tag)
+
+        fun findSwimmingOption(tag: String): Int = ClanLoungeVipOptions.findSwimmingOption(tag)
 
         internal fun preflightHotDog(
             name: String,
