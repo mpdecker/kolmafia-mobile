@@ -12,13 +12,18 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.sourceforge.kolmafia.character.CharacterApiResponse
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.EffectData
+import net.sourceforge.kolmafia.data.EffectDatabase
+import net.sourceforge.kolmafia.data.EffectQuality
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.VolcanoMazeDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import net.sourceforge.kolmafia.maximizer.MaximizerManager
 import net.sourceforge.kolmafia.request.EquipmentRequest
@@ -157,6 +162,108 @@ class GameRuntimeLibraryCliTest {
         val lib = GameRuntimeLibrary(skillManager = fakeSkillMgr)
         runLib(lib, """cli_execute("cast 3 Leash of Linguini");""")
         assertEquals(listOf("Leash of Linguini" to 3), castCalls)
+    }
+
+    @Test
+    fun cliExecute_castCaretEffect_resolvesSkillNameOnly() {
+        val castCalls = mutableListOf<Pair<String, Int>>()
+        val fakeSkillMgr = fakeSkillManager(
+            skills = listOf(
+                SkillData(
+                    id = 6003, name = "Empathy of the Newt", type = SkillType.BUFF,
+                    mpCost = 1, dailyLimit = 0, timesCast = 0,
+                ),
+            ),
+            castCalls = castCalls,
+        )
+        val lib = GameRuntimeLibrary(skillManager = fakeSkillMgr)
+        runLib(lib, """cli_execute("cast 1 Empathy of the Newt ^ Empathy");""")
+        assertEquals(listOf("Empathy of the Newt" to 1), castCalls)
+    }
+
+    @Test
+    fun cliExecute_castCaretEffect_commaList_castsEach() {
+        val castCalls = mutableListOf<Pair<String, Int>>()
+        val fakeSkillMgr = fakeSkillManager(
+            skills = listOf(
+                SkillData(id = 1, name = "Leash of Linguini", type = SkillType.BUFF,
+                    mpCost = 1, dailyLimit = 0, timesCast = 0),
+                SkillData(id = 2, name = "Empathy of the Newt", type = SkillType.BUFF,
+                    mpCost = 1, dailyLimit = 0, timesCast = 0),
+            ),
+            castCalls = castCalls,
+        )
+        val lib = GameRuntimeLibrary(skillManager = fakeSkillMgr)
+        runLib(
+            lib,
+            """cli_execute("cast 1 Leash of Linguini, 2 Empathy of the Newt ^ Empathy");""",
+        )
+        assertEquals(
+            listOf("Leash of Linguini" to 1, "Empathy of the Newt" to 2),
+            castCalls,
+        )
+    }
+
+    @Test
+    fun cliExecute_castCaretRemaster_equipsRequiredItem() {
+        val castCalls = mutableListOf<Pair<String, Int>>()
+        val equipped = mutableListOf<Pair<Int, EquipmentSlot>>()
+        val fakeSkillMgr = fakeSkillManager(
+            skills = listOf(
+                SkillData(
+                    id = 3027, name = "Scarysauce", type = SkillType.BUFF,
+                    mpCost = 1, dailyLimit = 0, timesCast = 0,
+                ),
+            ),
+            castCalls = castCalls,
+        )
+        EffectDatabase.registerForTest(
+            EffectData(
+                id = 3095,
+                name = "Scariersauce",
+                image = "",
+                descId = "scariersauce",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+            ),
+        )
+        val wandId = 12223
+        val invState = InventoryState(
+            items = mapOf(
+                wandId to InventoryItem(
+                    itemId = wandId,
+                    name = "The Legendary Pasta Wand",
+                    quantity = 1,
+                    type = ItemType.OTHER,
+                ),
+            ),
+        )
+        val inv = object : InventoryManager(
+            HttpClient(MockEngine { respond("") }),
+            GameEventBus(),
+        ) {
+            override val state = MutableStateFlow(invState).asStateFlow()
+            override suspend fun equipItem(item: InventoryItem, slot: String): Result<Unit> =
+                Result.success(Unit)
+        }
+        val equip = object : EquipmentRequest(HttpClient(MockEngine { respond("") })) {
+            override suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+                equipped += itemId to slot
+                return Result.success(Unit)
+            }
+        }
+        try {
+            val lib = GameRuntimeLibrary(
+                skillManager = fakeSkillMgr,
+                inventoryManager = inv,
+                equipmentRequest = equip,
+            )
+            runLib(lib, """cli_execute("cast 1 Scarysauce ^ Scariersauce");""")
+            assertEquals(listOf("Scarysauce" to 1), castCalls)
+            assertEquals(listOf(wandId to EquipmentSlot.WEAPON), equipped)
+        } finally {
+            EffectDatabase.resetForTest()
+        }
     }
 
     @Test
@@ -354,6 +461,536 @@ class GameRuntimeLibraryCliTest {
         )
         runLib(lib, """cli_execute("eat 2 salmon");""")
         assertTrue(engine.requestHistory.isNotEmpty())
+    }
+
+    @Test
+    fun cliExecute_eat_retrievesBeforeEat() {
+        val retrieved = mutableListOf<Pair<Int, Int>>()
+        var eatenId = 0
+        var eatenQty = 0
+        val retrieve = object : RetrieveItemService(
+            null, null, null, null, null, null, null, null, null, null, null,
+        ) {
+            override suspend fun retrieve(itemId: Int, qty: Int): Int {
+                retrieved += itemId to qty
+                return qty
+            }
+        }
+        val eat = object : net.sourceforge.kolmafia.request.EatFoodRequest(
+            HttpClient(MockEngine { respond("ok") }),
+        ) {
+            override suspend fun eat(itemId: Int, quantity: Int): Result<String> {
+                eatenId = itemId
+                eatenQty = quantity
+                return Result.success("ok")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 5, name = "salmon", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            retrieveItemService = retrieve,
+            eatFoodRequest = eat,
+        )
+        runLib(lib, """cli_execute("eat 2 salmon");""")
+        assertEquals(listOf(5 to 2), retrieved)
+        assertEquals(5, eatenId)
+        assertEquals(2, eatenQty)
+    }
+
+    @Test
+    fun cliExecute_eat_retrieveShortfall_skipsEat() {
+        var eaten = false
+        val retrieve = object : RetrieveItemService(
+            null, null, null, null, null, null, null, null, null, null, null,
+        ) {
+            override suspend fun retrieve(itemId: Int, qty: Int): Int = 0
+        }
+        val eat = object : net.sourceforge.kolmafia.request.EatFoodRequest(
+            HttpClient(MockEngine { respond("ok") }),
+        ) {
+            override suspend fun eat(itemId: Int, quantity: Int): Result<String> {
+                eaten = true
+                return Result.success("ok")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 5, name = "salmon", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            retrieveItemService = retrieve,
+            eatFoodRequest = eat,
+        )
+        runLib(lib, """cli_execute("eat 1 salmon");""")
+        assertFalse(eaten)
+        val out = outputLib(lib, "print(cli_execute_output());")
+        assertTrue(out.contains("Unable to retrieve 1x item #5"), out)
+    }
+
+    @Test
+    fun cliExecute_eat_hotDog_doesNotRetrieve() {
+        var retrieved = false
+        var eatenName: String? = null
+        val retrieve = object : RetrieveItemService(
+            null, null, null, null, null, null, null, null, null, null, null,
+        ) {
+            override suspend fun retrieve(itemId: Int, qty: Int): Int {
+                retrieved = true
+                return qty
+            }
+        }
+        val lounge = object : net.sourceforge.kolmafia.request.ClanLoungeRequest(
+            HttpClient(MockEngine { respond("") })
+        ) {
+            override suspend fun eatHotDog(
+                name: String,
+                preferences: net.sourceforge.kolmafia.preferences.Preferences?,
+                state: net.sourceforge.kolmafia.character.CharacterState?,
+            ): Result<String> {
+                eatenName = name
+                return Result.success("ok")
+            }
+        }
+        val lib = GameRuntimeLibrary(
+            clanLoungeRequest = lounge,
+            retrieveItemService = retrieve,
+        )
+        runLib(lib, """cli_execute("eat 1 savage macho dog");""")
+        assertEquals("savage macho dog", eatenName)
+        assertFalse(retrieved, "lounge hot dogs must not call retrieve")
+    }
+
+    @Test
+    fun cliExecute_eat_hotDog_routesToClanLounge() {
+        var eatenName: String? = null
+        val lounge = object : net.sourceforge.kolmafia.request.ClanLoungeRequest(
+            HttpClient(MockEngine { respond("") })
+        ) {
+            override suspend fun eatHotDog(
+                name: String,
+                preferences: net.sourceforge.kolmafia.preferences.Preferences?,
+                state: net.sourceforge.kolmafia.character.CharacterState?,
+            ): Result<String> {
+                eatenName = name
+                return Result.success("ok")
+            }
+        }
+        val eatEngine = MockEngine { respond("ok") }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 5, name = "salmon", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            clanLoungeRequest = lounge,
+            eatFoodRequest = net.sourceforge.kolmafia.request.EatFoodRequest(HttpClient(eatEngine)),
+        )
+        runLib(lib, """cli_execute("eat 1 savage macho dog");""")
+        assertEquals("savage macho dog", eatenName)
+        assertTrue(eatEngine.requestHistory.isEmpty(), "inventory eat must not run for hot dogs")
+    }
+
+    @Test
+    fun cliExecute_drink_speakeasy_routesToClanLounge() {
+        var drunkName: String? = null
+        val lounge = object : net.sourceforge.kolmafia.request.ClanLoungeRequest(
+            HttpClient(MockEngine { respond("") })
+        ) {
+            override suspend fun drinkSpeakeasy(
+                name: String,
+                preferences: net.sourceforge.kolmafia.preferences.Preferences?,
+                state: net.sourceforge.kolmafia.character.CharacterState?,
+            ): Result<String> {
+                drunkName = name
+                return Result.success("ok")
+            }
+        }
+        val drinkEngine = MockEngine { respond("ok") }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 7592, name = "Lucky Lindy", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            clanLoungeRequest = lounge,
+            drinkBoozeRequest = net.sourceforge.kolmafia.request.DrinkBoozeRequest(HttpClient(drinkEngine)),
+        )
+        runLib(lib, """cli_execute("drink 1 Lucky Lindy");""")
+        assertEquals("Lucky Lindy", drunkName)
+        assertTrue(drinkEngine.requestHistory.isEmpty(), "inventory drink must not run for speakeasy")
+    }
+
+    @Test
+    fun cliExecute_eat_cafe_routesToCafePurchase() {
+        var purchasedName: String? = null
+        var purchasedType: net.sourceforge.kolmafia.data.ConcoctionConsumptionType? = null
+        val cafe = cafePurchaseStub(HttpClient(MockEngine { respond("") })) { name, type ->
+            purchasedName = name
+            purchasedType = type
+            Result.success(Unit)
+        }
+        val eatEngine = MockEngine { respond("ok") }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 5, name = "salmon", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            cafePurchaseRequest = cafe,
+            eatFoodRequest = net.sourceforge.kolmafia.request.EatFoodRequest(HttpClient(eatEngine)),
+        )
+        runLib(lib, """cli_execute("eat 1 Peche a la Frog");""")
+        assertEquals("Peche a la Frog", purchasedName)
+        assertEquals(net.sourceforge.kolmafia.data.ConcoctionConsumptionType.EAT, purchasedType)
+        assertTrue(eatEngine.requestHistory.isEmpty(), "inventory eat must not run for cafe food")
+    }
+
+    @Test
+    fun cliExecute_drink_cafe_routesToCafePurchase() {
+        var purchasedName: String? = null
+        var purchasedType: net.sourceforge.kolmafia.data.ConcoctionConsumptionType? = null
+        val cafe = cafePurchaseStub(HttpClient(MockEngine { respond("") })) { name, type ->
+            purchasedName = name
+            purchasedType = type
+            Result.success(Unit)
+        }
+        val drinkEngine = MockEngine { respond("ok") }
+        val lib = GameRuntimeLibrary(
+            cafePurchaseRequest = cafe,
+            drinkBoozeRequest = net.sourceforge.kolmafia.request.DrinkBoozeRequest(HttpClient(drinkEngine)),
+        )
+        runLib(lib, """cli_execute("drink 1 Petite Porter");""")
+        assertEquals("Petite Porter", purchasedName)
+        assertEquals(net.sourceforge.kolmafia.data.ConcoctionConsumptionType.DRINK, purchasedType)
+        assertTrue(drinkEngine.requestHistory.isEmpty(), "inventory drink must not run for cafe drink")
+    }
+
+    @Test
+    fun cliExecute_eat_cafe_printsFailure() {
+        val cafe = cafePurchaseStub(HttpClient(MockEngine { respond("") })) { _, _ ->
+            Result.failure(Exception("You can't go there"))
+        }
+        val lib = GameRuntimeLibrary(cafePurchaseRequest = cafe)
+        runLib(lib, """cli_execute("eat 1 Peche a la Frog");""")
+        val out = outputLib(lib, "print(cli_execute_output());")
+        assertTrue(out.contains("You can't go there"), out)
+    }
+
+    private fun cafePurchaseStub(
+        client: HttpClient,
+        onPurchase: suspend (String, net.sourceforge.kolmafia.data.ConcoctionConsumptionType) -> Result<Unit>,
+    ): net.sourceforge.kolmafia.request.CafePurchaseRequest {
+        val cafeRequest = net.sourceforge.kolmafia.request.CafeRequest(client)
+        val hellKitchen = net.sourceforge.kolmafia.request.HellKitchenRequest(cafeRequest)
+        return object : net.sourceforge.kolmafia.request.CafePurchaseRequest(
+            hellKitchenRequest = hellKitchen,
+            chezSnooteeRequest = net.sourceforge.kolmafia.request.ChezSnooteeRequest(hellKitchen),
+            microBreweryRequest = net.sourceforge.kolmafia.request.MicroBreweryRequest(hellKitchen),
+            crimboCafeRequest = net.sourceforge.kolmafia.request.CrimboCafeRequest(cafeRequest),
+        ) {
+            override suspend fun purchase(
+                name: String,
+                type: net.sourceforge.kolmafia.data.ConcoctionConsumptionType,
+                state: net.sourceforge.kolmafia.character.CharacterState?,
+                prefs: net.sourceforge.kolmafia.preferences.Preferences?,
+                inventoryCountById: (Int) -> Int,
+            ): Result<Unit> = onPurchase(name, type)
+        }
+    }
+
+    @Test
+    fun cliExecute_use_commaList_usesEachItem() {
+        val used = mutableListOf<Pair<Int, Int>>()
+        val useItem = object : net.sourceforge.kolmafia.request.UseItemRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> {
+                used += itemId to quantity
+                return Result.success("ok")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = when {
+                name.equals("Trivial Avocations Card: What?", ignoreCase = true) ->
+                    net.sourceforge.kolmafia.data.ItemData(
+                        id = 5511, name = name, descId = "", image = "",
+                        primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                        secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+                    )
+                name.equals("Trivial Avocations Card: When?", ignoreCase = true) ->
+                    net.sourceforge.kolmafia.data.ItemData(
+                        id = 5512, name = name, descId = "", image = "",
+                        primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                        secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+                    )
+                else -> null
+            }
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, useItemRequest = useItem)
+        runLib(
+            lib,
+            """cli_execute("use 1 Trivial Avocations Card: What?, 1 Trivial Avocations Card: When?");""",
+        )
+        assertEquals(listOf(5511 to 1, 5512 to 1), used)
+    }
+
+    @Test
+    fun cliExecute_use_either_prefersOwnedWithoutRetrieve() {
+        val used = mutableListOf<Pair<Int, Int>>()
+        val retrieved = mutableListOf<Pair<Int, Int>>()
+        val useItem = object : net.sourceforge.kolmafia.request.UseItemRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> {
+                used += itemId to quantity
+                return Result.success("ok")
+            }
+        }
+        val retrieve = object : RetrieveItemService(
+            null, null, null, null, null, null, null, null, null, null, null,
+        ) {
+            override suspend fun retrieve(itemId: Int, qty: Int): Int {
+                retrieved += itemId to qty
+                return qty
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = when {
+                name.equals("serum of sarcasm", ignoreCase = true) ->
+                    net.sourceforge.kolmafia.data.ItemData(
+                        id = 101, name = name, descId = "", image = "",
+                        primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                        secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+                    )
+                name.equals("evil serum of sarcasm", ignoreCase = true) ->
+                    net.sourceforge.kolmafia.data.ItemData(
+                        id = 102, name = name, descId = "", image = "",
+                        primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                        secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+                    )
+                else -> null
+            }
+        }
+        val inv = object : net.sourceforge.kolmafia.inventory.InventoryManager(
+            HttpClient(MockEngine { respond("ok") }),
+            GameEventBus(),
+        ) {
+            override val state = kotlinx.coroutines.flow.MutableStateFlow(
+                net.sourceforge.kolmafia.inventory.InventoryState(
+                    items = mapOf(
+                        102 to net.sourceforge.kolmafia.inventory.InventoryItem(
+                            102, "evil serum of sarcasm", 1,
+                            net.sourceforge.kolmafia.inventory.ItemType.OTHER,
+                        ),
+                    ),
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            useItemRequest = useItem,
+            retrieveItemService = retrieve,
+            inventoryManager = inv,
+        )
+        runLib(
+            lib,
+            """cli_execute("use either 1 serum of sarcasm, 1 evil serum of sarcasm");""",
+        )
+        assertEquals(listOf(102 to 1), used)
+        assertTrue(retrieved.isEmpty(), "owned either candidate must not retrieve")
+    }
+
+    @Test
+    fun cliExecute_use_either_skipsUnresolvedThenRetrieves() {
+        val used = mutableListOf<Pair<Int, Int>>()
+        val retrieved = mutableListOf<Pair<Int, Int>>()
+        val useItem = object : net.sourceforge.kolmafia.request.UseItemRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> {
+                used += itemId to quantity
+                return Result.success("ok")
+            }
+        }
+        val retrieve = object : RetrieveItemService(
+            null, null, null, null, null, null, null, null, null, null, null,
+        ) {
+            override suspend fun retrieve(itemId: Int, qty: Int): Int {
+                retrieved += itemId to qty
+                return qty
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = when {
+                name.equals("evil serum of sarcasm", ignoreCase = true) ->
+                    net.sourceforge.kolmafia.data.ItemData(
+                        id = 102, name = name, descId = "", image = "",
+                        primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                        secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+                    )
+                else -> null
+            }
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            useItemRequest = useItem,
+            retrieveItemService = retrieve,
+        )
+        runLib(
+            lib,
+            """cli_execute("use either 1 unknown serum, 1 evil serum of sarcasm");""",
+        )
+        assertEquals(listOf(102 to 1), used)
+        assertEquals(listOf(102 to 1), retrieved)
+    }
+
+    @Test
+    fun cliExecute_drink_stillsuit_routesToDistill() {
+        var distilledName: String? = null
+        val still = object : net.sourceforge.kolmafia.request.StillSuitRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun distill(
+                name: String,
+                type: net.sourceforge.kolmafia.data.ConcoctionConsumptionType,
+                state: net.sourceforge.kolmafia.character.CharacterState?,
+                prefs: net.sourceforge.kolmafia.preferences.Preferences?,
+                inventoryCountById: (Int) -> Int,
+                isEquipped: (Int) -> Boolean,
+            ): Result<Unit> {
+                distilledName = name
+                return Result.success(Unit)
+            }
+        }
+        val drinkEngine = MockEngine { respond("ok") }
+        val lib = GameRuntimeLibrary(
+            stillSuitRequest = still,
+            drinkBoozeRequest = net.sourceforge.kolmafia.request.DrinkBoozeRequest(HttpClient(drinkEngine)),
+        )
+        runLib(lib, """cli_execute("drink 1 stillsuit distillate");""")
+        assertEquals("stillsuit distillate", distilledName)
+        assertTrue(drinkEngine.requestHistory.isEmpty(), "inventory drink must not run for distillate")
+    }
+
+    @Test
+    fun cliExecute_use_bangPotion_resolvesViaPref() {
+        var usedId = 0
+        var usedQty = 0
+        val useItem = object : net.sourceforge.kolmafia.request.UseItemRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> {
+                usedId = itemId
+                usedQty = quantity
+                return Result.success("ok")
+            }
+        }
+        val p = prefs()
+        p.setString("lastBangPotion819", "explosiveness")
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = null
+            override fun item(id: Int) = null
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            useItemRequest = useItem,
+            preferences = p,
+        )
+        runLib(lib, """cli_execute("use 1 potion of explosiveness");""")
+        assertEquals(819, usedId)
+        assertEquals(1, usedQty)
+    }
+
+    @Test
+    fun cliExecute_use_bangPotion_unresolved_printsIdentify() {
+        var used = false
+        val useItem = object : net.sourceforge.kolmafia.request.UseItemRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> {
+                used = true
+                return Result.success("ok")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = null
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            useItemRequest = useItem,
+            preferences = prefs(),
+        )
+        runLib(lib, """cli_execute("use 1 potion of explosiveness");""")
+        assertFalse(used)
+        val out = outputLib(lib, "print(cli_execute_output());")
+        assertTrue(out.contains("You have not yet identified the potion of explosiveness"), out)
+    }
+
+    @Test
+    fun cliExecute_use_slimeVial_resolvesViaPref() {
+        var usedId = 0
+        val useItem = object : net.sourceforge.kolmafia.request.UseItemRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> {
+                usedId = itemId
+                return Result.success("ok")
+            }
+        }
+        val p = prefs()
+        p.setString("lastSlimeVial3886", "slimy strength")
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = null
+        }
+        val lib = GameRuntimeLibrary(
+            gameDatabase = db,
+            useItemRequest = useItem,
+            preferences = p,
+        )
+        runLib(lib, """cli_execute("use 1 vial of slime: slimy strength");""")
+        assertEquals(3886, usedId)
+    }
+
+    @Test
+    fun cliExecute_use_normalItem_stillWorks() {
+        var usedId = 0
+        val useItem = object : net.sourceforge.kolmafia.request.UseItemRequest(
+            HttpClient(MockEngine { respond("") }),
+        ) {
+            override suspend fun use(itemId: Int, quantity: Int): Result<String> {
+                usedId = itemId
+                return Result.success("ok")
+            }
+        }
+        val db = object : net.sourceforge.kolmafia.data.GameDatabase() {
+            override fun item(name: String) = net.sourceforge.kolmafia.data.ItemData(
+                id = 42, name = "seal tooth", descId = "", image = "",
+                primaryUse = net.sourceforge.kolmafia.data.ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(), access = setOf('t'), autosellPrice = 0, plural = null,
+            )
+        }
+        val lib = GameRuntimeLibrary(gameDatabase = db, useItemRequest = useItem)
+        runLib(lib, """cli_execute("use seal tooth");""")
+        assertEquals(42, usedId)
     }
 
     @Test
@@ -873,17 +1510,20 @@ class GameRuntimeLibraryCliTest {
 
     @Test
     fun cliExecute_pool_callsClanLounge() {
-        var played = false
+        var playedStance = 0
         val lounge = object : net.sourceforge.kolmafia.request.ClanLoungeRequest(
             HttpClient(MockEngine { respond("") })
         ) {
-            override suspend fun playPoolGame(): Result<Unit> {
-                played = true
-                return Result.success(Unit)
+            override suspend fun playPoolGame(
+                stance: Int,
+                preferences: net.sourceforge.kolmafia.preferences.Preferences?,
+            ): Result<String> {
+                playedStance = stance
+                return Result.success("ok")
             }
         }
-        runLib(GameRuntimeLibrary(clanLoungeRequest = lounge), """cli_execute("pool");""")
-        assertTrue(played)
+        runLib(GameRuntimeLibrary(clanLoungeRequest = lounge), """cli_execute("pool 1");""")
+        assertEquals(1, playedStance)
     }
 
     @Test

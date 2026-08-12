@@ -53,6 +53,48 @@ object RabbitHoleAvailability {
     fun teaPartyAvailable(prefs: Preferences?): Boolean =
         prefs?.getBoolean("_madTeaParty", false) != true
 
+    fun hatDataForLength(desiredHatLength: Int): Hat? =
+        HAT_DATA.firstOrNull { it.length == desiredHatLength }
+
+    /** First inventory/equipped hat whose letter-length matches [desiredHatLength]. */
+    fun findHatNameForLength(
+        desiredHatLength: Int,
+        inventoryCount: (Int) -> Int,
+        equippedHatName: String?,
+    ): String? {
+        if (!equippedHatName.isNullOrBlank() && hatLength(equippedHatName) == desiredHatLength) {
+            return equippedHatName
+        }
+        for (item in ItemDatabase.all()) {
+            if (item.primaryUse != ItemPrimaryUse.HAT) continue
+            if (inventoryCount(item.id) <= 0) continue
+            if (hatLength(item.name) == desiredHatLength) return item.name
+        }
+        return null
+    }
+
+    fun findHatIdForLength(
+        desiredHatLength: Int,
+        inventoryCount: (Int) -> Int,
+        equippedHatName: String?,
+    ): Int? {
+        val name = findHatNameForLength(desiredHatLength, inventoryCount, equippedHatName)
+            ?: return null
+        if (!equippedHatName.isNullOrBlank() &&
+            equippedHatName.equals(name, ignoreCase = true) &&
+            hatLength(equippedHatName) == desiredHatLength
+        ) {
+            // Prefer equipped hat's id when name matches equipped
+            ItemDatabase.getByName(equippedHatName)?.id?.let { return it }
+        }
+        return ItemDatabase.getByName(name)?.id
+            ?: ItemDatabase.all().firstOrNull {
+                it.primaryUse == ItemPrimaryUse.HAT &&
+                    inventoryCount(it.id) > 0 &&
+                    hatLength(it.name) == desiredHatLength
+            }?.id
+    }
+
     fun hatLengthAvailable(
         desiredHatLength: Int,
         inventoryCount: (Int) -> Int,

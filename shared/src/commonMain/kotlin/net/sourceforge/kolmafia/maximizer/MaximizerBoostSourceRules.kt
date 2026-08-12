@@ -508,7 +508,10 @@ object MaximizerBoostSourceRules {
                 }
             }
             if (itemData == null) {
-                if (ctx.source.contains(',')) return SourceRuleResult(skip = true)
+                // Desktop Maximizer: unresolved comma cmds (Trivia Master) are kept and emitted.
+                if (ctx.source.contains(',')) {
+                    return SourceRuleResult(cmd = ctx.source, text = ctx.source)
+                }
                 return if (ctx.includeAll) {
                     SourceRuleResult(
                         cmd = "",
@@ -1611,9 +1614,19 @@ object MaximizerBoostSourceRules {
     private fun parseSummonDemonNumber(source: String): Int? =
         source.removePrefix("summon ").trim().split(' ').firstOrNull()?.toIntOrNull()
 
+    /**
+     * Parse item name after use/eat/drink/chew. Strips desktop `either` and takes the first
+     * comma-list segment for gates/duration; emitted cmd stays the original source.
+     */
     private fun parseConsumeTarget(source: String): String? {
-        val rest = source.substringAfter(' ').trim()
-        val qtyMatch = Regex("""^(\d+)\s+(.+)$""").matchEntire(rest) ?: return rest.takeIf { it.isNotBlank() }
+        var rest = source.substringAfter(' ').trim()
+        if (rest.startsWith("either ", ignoreCase = true)) {
+            rest = rest.substring(7).trim()
+            rest = rest.split(Regex("""\s*,\s*"""), limit = 2).firstOrNull()?.trim().orEmpty()
+        }
+        if (rest.isEmpty()) return null
+        val qtyMatch = Regex("""^(\d+)\s+(.+)$""").matchEntire(rest)
+            ?: return rest.takeIf { it.isNotBlank() }
         return qtyMatch.groupValues[2].takeIf { it.isNotBlank() }
     }
 

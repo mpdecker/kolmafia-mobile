@@ -26,6 +26,8 @@ object MayamAvailability {
         "memories of cheesier age" to "yam yam cheese clock",
     )
 
+    const val SYMBOLS_USED_PREF = "_mayamSymbolsUsed"
+
     fun availableResonances(prefs: Preferences?): List<String> {
         val ring1 = unusedForRing(prefs, 1)
         val ring2 = unusedForRing(prefs, 2)
@@ -43,8 +45,39 @@ object MayamAvailability {
         return available
     }
 
+    fun symbolsFor(resonance: String): List<String>? =
+        RESONANCES[resonance.lowercase()]?.split(" ")
+
+    /** Exact key or unique substring match (desktop MayamCommand.resonance). */
+    fun resolveResonance(query: String, prefs: Preferences?): String? {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return null
+        if (RESONANCES.containsKey(q)) return q
+        val potentials = RESONANCES.keys.filter { it.contains(q) }
+        return potentials.singleOrNull()
+    }
+
+    fun positionOnRing(ringIndex: Int, symbol: String): Int? {
+        val ring = SYMBOL_POSITIONS.getOrNull(ringIndex) ?: return null
+        val pos = ring.indexOf(symbol.lowercase())
+        return if (pos >= 0) pos else null
+    }
+
+    fun markSymbolsUsed(prefs: Preferences, symbols: List<String>) {
+        val used = prefs.getString(SYMBOLS_USED_PREF, "")
+            .split(",")
+            .filter { it.isNotBlank() }
+            .toMutableList()
+        symbols.forEachIndexed { index, symbol ->
+            val fromTop = index + 1
+            val nameInPref = if (symbol == "yam") "yam$fromTop" else symbol
+            if (!used.contains(nameInPref)) used += nameInPref
+        }
+        prefs.setString(SYMBOLS_USED_PREF, used.joinToString(","))
+    }
+
     private fun unusedForRing(prefs: Preferences?, ringNumber: Int): List<String> {
-        val symbolsUsed = prefs?.getString("_mayamSymbolsUsed", "").orEmpty()
+        val symbolsUsed = prefs?.getString(SYMBOLS_USED_PREF, "").orEmpty()
             .split(",")
             .filter { it.isNotBlank() }
         val unused = mutableListOf<String>()

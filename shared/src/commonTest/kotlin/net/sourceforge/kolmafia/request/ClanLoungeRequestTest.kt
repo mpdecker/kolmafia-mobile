@@ -17,6 +17,8 @@ import net.sourceforge.kolmafia.data.ConcoctionRefreshContext
 import net.sourceforge.kolmafia.data.FloundryAvailability
 import net.sourceforge.kolmafia.data.HotDogAvailability
 import net.sourceforge.kolmafia.data.SpeakeasyAvailability
+import net.sourceforge.kolmafia.preferences.Preferences
+import com.russhwolf.settings.MapSettings
 
 class ClanLoungeRequestTest {
 
@@ -72,12 +74,19 @@ class ClanLoungeRequestTest {
 
     @Test fun playPoolGame_sendsCorrectFormParams() = runTest {
         var url = ""
+        var body = ""
         val client = HttpClient(MockEngine { req ->
             url = req.url.toString()
-            respond("ok")
+            body = req.body.toByteArray().decodeToString()
+            respond("You take control of the table.")
         })
-        ClanLoungeRequest(client).playPoolGame()
+        val prefs = Preferences(MapSettings())
+        ClanLoungeRequest(client).playPoolGame(stance = 2, preferences = prefs)
         assertTrue(url.contains("clan_viplounge.php"), "url=$url")
+        assertTrue(body.contains("preaction=poolgame"), "body=$body")
+        assertTrue(body.contains("stance=2"), "body=$body")
+        assertTrue(body.contains("whichfloor=2"), "body=$body")
+        assertEquals(1, prefs.getInt("_poolGames", 0))
     }
 
     @Test fun useKlaw_networkError_returnsFailure() = runTest {

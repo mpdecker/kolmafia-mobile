@@ -455,7 +455,10 @@ class BreakfastManagerTest {
                 override suspend fun useKlaw() = Result.success("ok")
                 override suspend fun useLookingGlass() = Result.success(Unit)
                 override suspend fun visitFireworks() = Result.success(Unit)
-                override suspend fun playPoolGame() = Result.success(Unit)
+                override suspend fun playPoolGame(
+                    stance: Int,
+                    preferences: Preferences?,
+                ) = Result.success("ok")
             },
             preferences = p,
             useItemRequest = UseItemRequest(mockClient),
@@ -486,7 +489,10 @@ class BreakfastManagerTest {
                 override suspend fun useKlaw() = Result.success("ok")
                 override suspend fun useLookingGlass() = Result.success(Unit)
                 override suspend fun visitFireworks() = Result.success(Unit)
-                override suspend fun playPoolGame() = Result.success(Unit)
+                override suspend fun playPoolGame(
+                    stance: Int,
+                    preferences: Preferences?,
+                ) = Result.success("ok")
             },
             preferences = p,
             useItemRequest = UseItemRequest(mockClient),

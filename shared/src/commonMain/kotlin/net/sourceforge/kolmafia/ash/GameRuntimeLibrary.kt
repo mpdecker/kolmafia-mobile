@@ -82,11 +82,13 @@ import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
 import net.sourceforge.kolmafia.request.ZapRequest
 import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
+import net.sourceforge.kolmafia.request.CafePurchaseRequest
 import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
+import net.sourceforge.kolmafia.request.StillSuitRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.shop.NpcShopSync
@@ -198,6 +200,8 @@ class GameRuntimeLibrary(
     internal val eatFoodRequest: EatFoodRequest? = null,
     internal val drinkBoozeRequest: DrinkBoozeRequest? = null,
     internal val chewRequest: ChewRequest? = null,
+    internal val cafePurchaseRequest: CafePurchaseRequest? = null,
+    internal val stillSuitRequest: StillSuitRequest? = null,
     internal val autosellRequest: AutosellRequest? = null,
     internal val pulverizeRequest: PulverizeRequest? = null,
     internal val zapRequest: ZapRequest? = null,
@@ -328,7 +332,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase460"
+        const val REVISION = "phase470"
         internal const val CLI_ALIASES_PREF = "cliAliases"
     }
 
@@ -561,28 +565,15 @@ class GameRuntimeLibrary(
             rt.print(value)
         },
 
-        // "cast|skill N skill-name" — cast a skill N times (count form: silent no-op if unknown)
-        Regex("^(?:cast|skill)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val count = m.groupValues[1].toIntOrNull() ?: 1
-            val skillName = m.groupValues[2].trim()
-            val skill = skillManager?.state?.value?.skills
-                ?.find { it.name.equals(skillName, ignoreCase = true) }
-            if (skill != null) {
-                kotlinx.coroutines.runBlocking { skillManager!!.cast(skill, count) }
-            }
-            // skill not found → silent no-op (no echo for count form)
+        // "cast|skill N skill-name [^ effect]" — count form: silent no-op if unknown
+        Regex("^(?:cast|skill)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val parameters = "${m.groupValues[1]} ${m.groupValues[2].trim()}"
+            cliCast(parameters, rt::print, echoUnknown = false)
         },
 
-        // "cast|skill skill-name" — cast a skill once (no count prefix; echo if unknown)
+        // "cast|skill skill-name [^ effect]" — bare form: echo if unknown
         Regex("^(?:cast|skill)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
-            val skillName = m.groupValues[1].trim()
-            val skill = skillManager?.state?.value?.skills
-                ?.find { it.name.equals(skillName, ignoreCase = true) }
-            if (skill != null) {
-                kotlinx.coroutines.runBlocking { skillManager!!.cast(skill, 1) }
-            } else {
-                rt.print("[cli] cast $skillName")  // unknown skill → echo
-            }
+            cliCast(m.groupValues[1].trim(), rt::print, echoUnknown = true)
         },
 
         // "familiar name" — switch to a familiar by species name
@@ -680,52 +671,24 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
         },
 
-        // "use N item" — use item from inventory
-        Regex("^use\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val qty = m.groupValues[1].toIntOrNull() ?: 1
-            val itemName = m.groupValues[2].trim()
-            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
-            kotlinx.coroutines.runBlocking { useItemRequest?.use(itemId, qty) }
+        // "use N item" / "use item" — bang potion / slime resolution
+        Regex("^use(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliUse(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
-        // "use item" — use one copy
-        Regex("^use\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val itemName = m.groupValues[1].trim()
-            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
-            kotlinx.coroutines.runBlocking { useItemRequest?.use(itemId, 1) }
+        // "eat N item" / "eat item" — VIP hot dogs via lounge; else inventory
+        Regex("^eat(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliEat(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
-        // "eat N item" / "eat item"
-        Regex("^eat\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val qty = m.groupValues[1].toIntOrNull() ?: 1
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { eatFoodRequest?.eat(itemId, qty) }
-        },
-        Regex("^eat\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { eatFoodRequest?.eat(itemId, 1) }
+        // "drink N item" / "drink item" — VIP speakeasy via lounge; else inventory
+        Regex("^drink(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliDrink(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
-        // "drink N item" / "drink item"
-        Regex("^drink\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val qty = m.groupValues[1].toIntOrNull() ?: 1
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { drinkBoozeRequest?.drink(itemId, qty) }
-        },
-        Regex("^drink\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { drinkBoozeRequest?.drink(itemId, 1) }
-        },
-
-        // "chew N item" / "chew item"
-        Regex("^chew\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val qty = m.groupValues[1].toIntOrNull() ?: 1
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { chewRequest?.chew(itemId, qty) }
-        },
-        Regex("^chew\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val itemId = gameDatabase?.item(m.groupValues[1].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { chewRequest?.chew(itemId, 1) }
+        // "chew N item" / "chew item" — bang potion / slime resolution
+        Regex("^chew(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliChew(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
         // "ghost N item" / "hobo N item" / "slimeling N item" / "robo item"
@@ -1185,6 +1148,43 @@ class GameRuntimeLibrary(
             cliAprilband(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
+        Regex("^terminal(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliTerminal(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^campaway(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliCampaway(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^loathingidol(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliLoathingidol(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^mayam(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliMayam(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^asdonmartin(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliAsdonmartin(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^beach\\s+head(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val rest = m.groupValues.getOrNull(1)?.trim().orEmpty()
+            cliBeachHead(if (rest.isEmpty()) "head" else "head $rest", rt::print)
+        },
+
+        Regex("^skate(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSkate(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^hatter(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliHatter(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^synthesize(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSynthesize(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
         Regex("^factory$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("guild.php?place=paco", applyQuestHooks = true)
         },
@@ -1277,9 +1277,9 @@ class GameRuntimeLibrary(
             rt.print(preferences?.getString("combatMacro", "") ?: "")
         },
 
-        // jukebox — visit jukebox (campground)
-        Regex("^jukebox$", RegexOption.IGNORE_CASE) to { _, _ ->
-            visitKolPage("campground.php?action=jukebox")
+        // jukebox <song> — clan rumpus jukebox (Maximizer / desktop JukeboxCommand)
+        Regex("^jukebox(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliJukebox(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
         Regex("^(?:adventure|adv)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
@@ -1400,19 +1400,9 @@ class GameRuntimeLibrary(
             }
         },
 
-        // pool <skill> — cast a skill (billiards lounge pool game is bare "pool")
-        Regex("^pool\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val skillName = m.groupValues[1].trim()
-            val skill = skillManager?.state?.value?.skills
-                ?.find { it.name.equals(skillName, ignoreCase = true) }
-            if (skill != null) {
-                kotlinx.coroutines.runBlocking { skillManager!!.cast(skill, 1) }
-            }
-        },
-
-        // pool — play one VIP lounge pool game
-        Regex("^pool$", RegexOption.IGNORE_CASE) to { _, _ ->
-            kotlinx.coroutines.runBlocking { clanLoungeRequest?.playPoolGame() }
+        // pool <stance>[,stance…] — VIP lounge billiards (Maximizer / desktop PoolCommand)
+        Regex("^pool(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliPool(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
         // hottub / soak — clan VIP lounge hot tub

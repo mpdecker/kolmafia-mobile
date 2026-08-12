@@ -30,21 +30,45 @@ open class ClanLoungeRequest(private val client: HttpClient) {
     /** Visit the fireworks shop. */
     open suspend fun visitFireworks(): Result<Unit> = postAction("fireworks").map {}
 
-    /** Play one pool game. */
-    open suspend fun playPoolGame(): Result<Unit> = try {
-        val response = client.submitForm(
-            url = "$KOL_BASE_URL/clan_viplounge.php",
-            formParameters = parameters {
-                append("preaction", "poolgame")
-                append("action", "pooltable")
+    /**
+     * Desktop ClanLoungeRequest(Action.POOL_TABLE, stance).
+     * [stance] 1–3 plays a game; 0 visits the table (breakfast / watch).
+     */
+    open suspend fun playPoolGame(
+        stance: Int = 0,
+        preferences: Preferences? = null,
+    ): Result<String> {
+        if (stance !in 0..3) {
+            return Result.failure(IllegalArgumentException("Invalid pool stance: $stance"))
+        }
+        if (stance != 0 && preferences != null &&
+            preferences.getInt(ClanLoungeVipSync.POOL_GAMES_PREF, 0) >= 3
+        ) {
+            return Result.failure(IllegalStateException("You're kind of pooled out for today."))
+        }
+        return try {
+            val response = client.submitForm(
+                url = "$KOL_BASE_URL/clan_viplounge.php",
+                formParameters = parameters {
+                    if (stance != 0) {
+                        append("preaction", "poolgame")
+                        append("stance", stance.toString())
+                    } else {
+                        append("action", "pooltable")
+                    }
+                    append("whichfloor", "2")
+                },
+            )
+            if (!response.status.isSuccess()) {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            } else {
+                val html = response.bodyAsText()
+                ClanLoungeVipSync.syncPoolGameFromResponse(html, preferences)
+                Result.success(html)
             }
-        )
-        if (!response.status.isSuccess())
-            Result.failure(Exception("HTTP ${response.status.value}"))
-        else
-            Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(e)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     /** Visit the clan VIP lounge fax machine. */
@@ -317,6 +341,8 @@ open class ClanLoungeRequest(private val client: HttpClient) {
         fun findShowerOption(tag: String): Int = ClanLoungeVipOptions.findShowerOption(tag)
 
         fun findSwimmingOption(tag: String): Int = ClanLoungeVipOptions.findSwimmingOption(tag)
+
+        fun findPoolGame(tag: String): Int = ClanLoungeVipOptions.findPoolGame(tag)
 
         internal fun preflightHotDog(
             name: String,

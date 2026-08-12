@@ -36,4 +36,23 @@ class ClanRumpusRequestTest {
         ClanRumpusRequest(client).visit()
         assertTrue(capturedUrl.contains("clan_basement.php"), "url=$capturedUrl")
     }
+
+    @Test
+    fun playJukebox_sendsSongAndSetsPref() = runTest {
+        var url = ""
+        var body = ""
+        val client = HttpClient(MockEngine { req ->
+            url = req.url.toString()
+            body = req.body.toByteArray().decodeToString()
+            respond("ok")
+        })
+        val prefs = net.sourceforge.kolmafia.preferences.Preferences(
+            com.russhwolf.settings.MapSettings(),
+        )
+        ClanRumpusRequest(client).playJukebox(3, prefs)
+        assertTrue(url.contains("clan_rumpus.php"), "url=$url")
+        assertTrue(body.contains("preaction=jukebox"), "body=$body")
+        assertTrue(body.contains("whichsong=3"), "body=$body")
+        assertTrue(prefs.getBoolean("_jukebox", false))
+    }
 }

@@ -9,8 +9,8 @@ import net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.session.ConsumptionHelperState
 
-class EatFoodRequest(private val client: HttpClient) {
-    suspend fun eat(itemId: Int, quantity: Int = 1): Result<String> =
+open class EatFoodRequest(private val client: HttpClient) {
+    open suspend fun eat(itemId: Int, quantity: Int = 1): Result<String> =
         consumeFood(itemId, quantity).fold(
             onSuccess = { outcome ->
                 when (outcome) {

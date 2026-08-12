@@ -9,6 +9,8 @@ object ClanLoungeVipSync {
     const val OLYMPIC_SWIMMING_POOL_PREF = "_olympicSwimmingPool"
     const val OLYMPIC_SWIMMING_POOL_ITEM_FOUND_PREF = "_olympicSwimmingPoolItemFound"
     const val BALLPIT_PREF = "_ballpit"
+    const val POOL_GAMES_PREF = "_poolGames"
+    const val JUKEBOX_PREF = "_jukebox"
 
     fun syncShowerFromResponse(html: String, action: String?, prefs: Preferences?) {
         if (prefs == null) return
@@ -63,6 +65,27 @@ object ClanLoungeVipSync {
         ) {
             prefs.setBoolean(BALLPIT_PREF, true)
         }
+    }
+
+    /** Desktop ClanLoungeRequest poolgame / pooltable response pref sync. */
+    fun syncPoolGameFromResponse(html: String, prefs: Preferences?) {
+        if (prefs == null) return
+        if (html.contains("hands in your pockets") || html.contains("pooled out for today")) {
+            prefs.setInt(POOL_GAMES_PREF, 3)
+            return
+        }
+        if (html.contains("take control of the table") ||
+            html.contains("play a game of pool against yourself") ||
+            html.contains("you are unable to defeat")
+        ) {
+            val current = prefs.getInt(POOL_GAMES_PREF, 0)
+            prefs.setInt(POOL_GAMES_PREF, (current + 1).coerceAtMost(3))
+        }
+    }
+
+    /** Desktop ClanRumpusRequest jukebox response — always marks used after attempt. */
+    fun syncJukeboxFromResponse(prefs: Preferences?) {
+        prefs?.setBoolean(JUKEBOX_PREF, true)
     }
 
     fun syncSwimTreasureFromResponse(html: String, url: String, prefs: Preferences?) {
