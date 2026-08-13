@@ -5,6 +5,22 @@ import net.sourceforge.kolmafia.ash.kolRolloverDayDifference
 /** Desktop [HolidayDatabase] game-calendar holidays for craft gates (SSPD, etc.). */
 object KolGameHolidayCalendar {
 
+    val MONTH_NAMES = listOf(
+        "",
+        "Jarlsuary",
+        "Frankruary",
+        "Starch",
+        "April",
+        "Martinus",
+        "Bill",
+        "Bor",
+        "Petember",
+        "Carlvember",
+        "Porktober",
+        "Boozember",
+        "Dougtember",
+    )
+
     private val GAME_HOLIDAYS = mapOf(
         1 to 1 to "Festival of Jarlsberg",
         2 to 4 to "Valentine's Day",
@@ -29,6 +45,13 @@ object KolGameHolidayCalendar {
         val month = calendarDay / 8 % 12 + 1
         val day = calendarDay % 8 + 1
         return month to day
+    }
+
+    /** Desktop [HolidayDatabase.getCalendarDayAsString] — `"Jarlsuary 1"`. */
+    fun getCalendarDayAsString(calendarDay: Int = dayInKoLYear()): String {
+        val (month, day) = calendarComponents(calendarDay)
+        val monthName = MONTH_NAMES.getOrNull(month) ?: "Jarlsuary"
+        return "$monthName $day"
     }
 
     fun getHoliday(dayDifference: Long = kolRolloverDayDifference()): String {

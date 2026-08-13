@@ -3,7 +3,9 @@ package net.sourceforge.kolmafia.maximizer
 import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
@@ -22,6 +24,7 @@ import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.mall.MallPriceManager
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.event.GameEventBus
@@ -422,6 +425,119 @@ class MaximizerNonEquipmentBoostsTest {
         )
     }
 
+    @Test
+    fun build_mallBuyableEmitsAcquirePrefixBareCmd() {
+        registerFood(8301, "mall muscle serum", fullness = 1)
+        EffectDatabase.registerForTest(
+            StaticEffectData(
+                id = 83001,
+                name = "Mall Muscle Buff",
+                image = "buff.gif",
+                descId = "d83001",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "eat 1 mall muscle serum",
+            ),
+        )
+        ModifierDatabase.injectForTest("Effect", "Mall Muscle Buff", "Muscle: +50")
+        ModifierDatabase.injectForTest(
+            "Item",
+            "mall muscle serum",
+            """Effect: "Mall Muscle Buff", Effect Duration: 5""",
+        )
+        val prefs = Preferences(MapSettings()).apply {
+            setBoolean("autoSatisfyWithMall", true)
+        }
+        val mallPrices = MallPriceManager().apply {
+            cachePrice(8301, price = 100L, quantity = 1, shopId = 1)
+        }
+        val boosts = MaximizerNonEquipmentBoosts.build(
+            nonEquipmentContext(
+                spec = MaximizeSpec(
+                    primary = DoubleModifier.MUS,
+                    evaluator = Evaluator("mus"),
+                    maxPrice = 500,
+                ),
+                preferences = prefs,
+                inventoryCount = { 0 },
+                charState = CharacterState(
+                    equipment = mapOf(EquipmentSlot.HAT to "plain hat"),
+                    level = 15,
+                    meat = 500,
+                ),
+                mallPriceManager = mallPrices,
+                priceLevel = MaximizerPriceLevel.BUYABLE_ONLY,
+                filters = setOf(MaximizerFilterType.FOOD),
+            ),
+        )
+        val boost = boosts.firstOrNull {
+            !it.isEquipment && it.text.contains("mall muscle serum", ignoreCase = true)
+        }
+        assertNotNull(boost, boosts.joinToString { "${it.cmd} :: ${it.text}" })
+        assertTrue(boost.text.startsWith("acquire &"), boost.text)
+        assertEquals("eat 1 mall muscle serum", boost.cmd)
+        assertTrue(boost.text.contains("100 meat"), boost.text)
+    }
+
+    @Test
+    fun build_pullBuyableEmitsBuyUsingStorageCmd() {
+        registerFood(8302, "storage muscle serum", fullness = 1)
+        EffectDatabase.registerForTest(
+            StaticEffectData(
+                id = 83002,
+                name = "Storage Muscle Buff",
+                image = "buff.gif",
+                descId = "d83002",
+                quality = EffectQuality.GOOD,
+                attributes = emptySet(),
+                actions = "eat 1 storage muscle serum",
+            ),
+        )
+        ModifierDatabase.injectForTest("Effect", "Storage Muscle Buff", "Muscle: +50")
+        ModifierDatabase.injectForTest(
+            "Item",
+            "storage muscle serum",
+            """Effect: "Storage Muscle Buff", Effect Duration: 5""",
+        )
+        val prefs = Preferences(MapSettings()).apply {
+            setBoolean("autoSatisfyWithMall", true)
+        }
+        val mallPrices = MallPriceManager().apply {
+            cachePrice(8302, price = 100L, quantity = 1, shopId = 1)
+        }
+        val boosts = MaximizerNonEquipmentBoosts.build(
+            nonEquipmentContext(
+                spec = MaximizeSpec(
+                    primary = DoubleModifier.MUS,
+                    evaluator = Evaluator("mus"),
+                    maxPrice = 500,
+                ),
+                preferences = prefs,
+                inventoryCount = { 0 },
+                charState = CharacterState(
+                    equipment = mapOf(EquipmentSlot.HAT to "plain hat"),
+                    level = 15,
+                    meat = 0,
+                    storageMeat = 500L,
+                ),
+                mallPriceManager = mallPrices,
+                priceLevel = MaximizerPriceLevel.BUYABLE_ONLY,
+                filters = setOf(MaximizerFilterType.FOOD),
+            ),
+        )
+        val boost = boosts.firstOrNull {
+            !it.isEquipment && it.text.contains("storage muscle serum", ignoreCase = true)
+        }
+        assertNotNull(boost, boosts.joinToString { "${it.cmd} :: ${it.text}" })
+        assertTrue(boost.text.startsWith("buy & pull &"), boost.text)
+        assertTrue(
+            boost.cmd.startsWith("buy using storage 1 \u00B68302;pull \u00B68302;"),
+            boost.cmd,
+        )
+        assertTrue(boost.cmd.endsWith("eat 1 storage muscle serum"), boost.cmd)
+        assertTrue(boost.text.contains("100 meat"), boost.text)
+    }
+
     private fun skillManagerFor(skillName: String, skillId: Int): SkillManager {
         val client = HttpClient(MockEngine { _ -> respond("{}", HttpStatusCode.OK) })
         val skills = SkillManager(client, SkillCastRequest(client), GameEventBus())
@@ -449,6 +565,8 @@ class MaximizerNonEquipmentBoostsTest {
         filters: Set<MaximizerFilterType> = MaximizerFilters.allEnabled(),
         includeAll: Boolean = false,
         skillManager: SkillManager? = null,
+        mallPriceManager: MallPriceManager? = null,
+        priceLevel: MaximizerPriceLevel = MaximizerPriceLevel.DONT_CHECK,
     ): MaximizerNonEquipmentBoosts.Context {
         val plan = MaximizerEmitSlot.Plan(
             goal = "init",
@@ -467,8 +585,8 @@ class MaximizerNonEquipmentBoostsTest {
             inventoryCount = inventoryCount,
             gameDatabase = stubDb,
             preferences = preferences,
-            mallPriceManager = null,
-            priceLevel = MaximizerPriceLevel.DONT_CHECK,
+            mallPriceManager = mallPriceManager,
+            priceLevel = priceLevel,
             filters = filters,
             includeAll = includeAll,
             skillManager = skillManager,

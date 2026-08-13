@@ -127,6 +127,7 @@ class KoLCharacter {
             moonPhase = response.moonphase.toIntOrNull() ?: 0,
             moonSign = response.moonsign.toIntOrNull() ?: 0,
             moonDay = response.moonday.toIntOrNull() ?: 0,
+            autoAttackAction = response.autoattack.toIntOrNull() ?: 0,
 
             // Equipment
             equipment = buildEquipmentMap(response, prev.equipment),
@@ -255,6 +256,14 @@ class KoLCharacter {
 
     fun setCurrentRun(run: Int) {
         _state.value = _state.value.copy(currentRun = run)
+    }
+
+    fun setAutoAttackAction(action: Int) {
+        _state.value = _state.value.copy(autoAttackAction = action)
+    }
+
+    fun setZodiacSign(sign: String) {
+        _state.value = _state.value.copy(zodiacSign = sign)
     }
 
     /** Desktop [CharPaneRequest.processValhallaCharacterPane] spirit stat reset (Phase 412). */

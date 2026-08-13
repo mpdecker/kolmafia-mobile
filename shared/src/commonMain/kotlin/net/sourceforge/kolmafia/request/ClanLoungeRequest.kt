@@ -30,6 +30,9 @@ open class ClanLoungeRequest(private val client: HttpClient) {
     /** Visit the fireworks shop. */
     open suspend fun visitFireworks(): Result<Unit> = postAction("fireworks").map {}
 
+    /** Desktop ClanLoungeRequest(Action.CRIMBO_TREE) — visit the VIP Crimbo tree. */
+    open suspend fun visitCrimboTree(): Result<String> = postAction("crimbotree")
+
     /**
      * Desktop ClanLoungeRequest(Action.POOL_TABLE, stance).
      * [stance] 1–3 plays a game; 0 visits the table (breakfast / watch).

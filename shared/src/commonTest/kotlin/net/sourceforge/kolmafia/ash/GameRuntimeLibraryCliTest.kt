@@ -1110,7 +1110,9 @@ class GameRuntimeLibraryCliTest {
             eventBus = net.sourceforge.kolmafia.event.GameEventBus(),
         )
         val lib = GameRuntimeLibrary(adventureManager = mgr)
-        runLib(lib, """cli_execute("abort");""")
+        val ex = runCatching { runLib(lib, """cli_execute("abort");""") }.exceptionOrNull()
+        assertTrue(ex is ScriptException)
+        assertTrue(ex!!.message!!.contains("Script abort."))
     }
 
     @Test
@@ -1648,7 +1650,7 @@ class GameRuntimeLibraryCliTest {
     @Test
     fun cliExecute_version_printsMobileVersion() {
         val lib = GameRuntimeLibrary.forTesting()
-        assertEquals(GameRuntimeLibrary.VERSION, outputLib(lib, """cli_execute("version");"""))
+        assertEquals("KoLmafia Mobile ${GameRuntimeLibrary.REVISION}", outputLib(lib, """cli_execute("version");"""))
     }
 
     @Test

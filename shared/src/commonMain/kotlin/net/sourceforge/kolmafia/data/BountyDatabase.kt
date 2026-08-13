@@ -123,6 +123,27 @@ object BountyDatabase {
 
     fun special(): List<BountyData> = _special
 
+    internal fun registerForTest(bounty: BountyData) {
+        _byName[bounty.name.lowercase()] = bounty
+        when (bounty.type) {
+            BountyType.EASY -> _easy.add(bounty)
+            BountyType.HARD -> _hard.add(bounty)
+            BountyType.SPECIAL -> _special.add(bounty)
+            BountyType.UNKNOWN -> Unit
+        }
+        rebuildCanonicalIndex()
+    }
+
+    internal fun resetForTest() {
+        _byName.clear()
+        _easy.clear()
+        _hard.clear()
+        _special.clear()
+        _canonicalToName.clear()
+        _canonicalNames = emptyArray()
+        loaded = false
+    }
+
     fun forMonster(monsterName: String): List<BountyData> {
         val lower = monsterName.lowercase()
         return _byName.values.filter { it.monster.lowercase() == lower }

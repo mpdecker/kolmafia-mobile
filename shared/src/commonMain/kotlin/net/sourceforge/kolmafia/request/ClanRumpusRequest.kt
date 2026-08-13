@@ -42,6 +42,52 @@ open class ClanRumpusRequest(private val client: HttpClient) {
         Result.failure(e)
     }
 
+    /** Desktop ClanRumpusRequest(RequestType.CHIPS, whichbag). */
+    open suspend fun buyChips(whichbag: Int): Result<String> {
+        if (whichbag !in 1..3) {
+            return Result.failure(IllegalArgumentException("Invalid chip bag: $whichbag"))
+        }
+        return try {
+            val response = client.submitForm(
+                url = "$KOL_BASE_URL/clan_rumpus.php",
+                formParameters = parameters {
+                    append("preaction", "buychips")
+                    append("whichbag", whichbag.toString())
+                },
+            )
+            if (!response.status.isSuccess()) {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            } else {
+                Result.success(response.bodyAsText())
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Desktop ClanRumpusRequest(RequestType.SOFA) — rest on the clan sofa. */
+    open suspend fun nap(turns: Int): Result<String> {
+        if (turns <= 0) {
+            return Result.failure(IllegalArgumentException("Invalid nap turns: $turns"))
+        }
+        return try {
+            val response = client.submitForm(
+                url = "$KOL_BASE_URL/clan_rumpus.php",
+                formParameters = parameters {
+                    append("preaction", "nap")
+                    append("numturns", turns.toString())
+                },
+            )
+            if (!response.status.isSuccess()) {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            } else {
+                Result.success(response.bodyAsText())
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /** Desktop ClanRumpusRequest(RequestType.JUKEBOX, song). */
     open suspend fun playJukebox(
         song: Int,
@@ -71,6 +117,23 @@ open class ClanRumpusRequest(private val client: HttpClient) {
     }
 
     companion object {
+        const val RADIUM = 1
+        const val WINTERGREEN = 2
+        const val ENNUI = 3
+
+        private val CHIP_FLAVORS = listOf(
+            "radium" to RADIUM,
+            "wintergreen" to WINTERGREEN,
+            "ennui" to ENNUI,
+        )
+
+        /** Desktop ClanRumpusRequest.findChips — radium=1, wintergreen=2, ennui=3. */
+        fun findChips(name: String): Int {
+            val trimmed = name.trim()
+            if (trimmed.isEmpty()) return 0
+            return CHIP_FLAVORS.firstOrNull { it.first.equals(trimmed, ignoreCase = true) }?.second ?: 0
+        }
+
         data class Song(val modifier: String, val effect: String, val index: Int)
 
         val SONGS: List<Song> = listOf(

@@ -17,6 +17,12 @@ actual fun currentDateTimeString(): String {
     return fmt.stringFromDate(NSDate.date())
 }
 
+actual fun currentTimeOfDayString(): String {
+    val fmt = NSDateFormatter()
+    fmt.dateFormat = "HH:mm:ss"
+    return fmt.stringFromDate(NSDate.date())
+}
+
 actual fun kolRolloverDayDifference(): Long {
     // KoL rollover uses GMT-0330; approximate via UTC offset for catalog rotation index.
     val epochSeconds = NSDate.date().timeIntervalSince1970

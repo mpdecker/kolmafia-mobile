@@ -188,6 +188,20 @@ class ClanLoungeRequestTest {
         assertTrue(url.contains("clan_viplounge.php"), "url=$url")
     }
 
+    @Test fun visitCrimboTree_sendsAction() = runTest {
+        var url = ""
+        var body = ""
+        val client = HttpClient(MockEngine { req ->
+            url = req.url.toString()
+            body = req.body.toByteArray().decodeToString()
+            respond("tree html")
+        })
+        val result = ClanLoungeRequest(client).visitCrimboTree()
+        assertTrue(result.isSuccess)
+        assertTrue(url.contains("clan_viplounge.php"), "url=$url")
+        assertTrue(body.contains("action=crimbotree"), "body=$body")
+    }
+
     @Test fun useHotTub_parsesHotTubSoaksPref() = runTest {
         val prefs = net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
         val client = HttpClient(MockEngine { respond("""<img src="hottub3.gif">""") })

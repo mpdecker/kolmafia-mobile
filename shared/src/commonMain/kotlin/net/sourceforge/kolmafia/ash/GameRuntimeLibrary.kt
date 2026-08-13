@@ -332,8 +332,9 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase470"
+        const val REVISION = "phase475"
         internal const val CLI_ALIASES_PREF = "cliAliases"
+        internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
@@ -1242,6 +1243,9 @@ class GameRuntimeLibrary(
         },
 
         // ccs / ccprep — combat macro text + optional saved COMBAT script
+        Regex("^ccs$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runCcsStatusCli(rt)
+        },
         Regex("^ccs\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             assignCombatScript(m.groupValues[1].trim())
         },
@@ -1567,9 +1571,9 @@ class GameRuntimeLibrary(
             }
         },
 
-        // version / cli — print mobile version string
+        // version / cli — print mobile revision string
         Regex("^(?:version|cli)$", RegexOption.IGNORE_CASE) to { _, rt ->
-            rt.print(GameRuntimeLibrary.VERSION)
+            runVersionCli(rt)
         },
 
         // charpane — visit character pane
@@ -1595,7 +1599,7 @@ class GameRuntimeLibrary(
             rt.print(if (result.success) "Maximized for $goal" else "No improvement for $goal")
         },
 
-        Regex("^speculate\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+        Regex("^(?:speculate|whatif)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val goal = m.groupValues[1].trim()
             val mgr = maximizerManager ?: run {
                 rt.print("Maximizer unavailable")
@@ -1720,8 +1724,12 @@ class GameRuntimeLibrary(
             }
         },
 
-        // stop / abort / pause — cancel running adventure loop and maximizer search
-        Regex("^(?:stop|abort|pause)$", RegexOption.IGNORE_CASE) to { _, _ ->
+        // abort [message] — stop scripts/automation (desktop AbortCommand)
+        Regex("^abort(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runAbortCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        // stop / pause — cancel running adventure loop and maximizer search
+        Regex("^(?:stop|pause)$", RegexOption.IGNORE_CASE) to { _, _ ->
             net.sourceforge.kolmafia.maximizer.MaximizerContinuation.abort()
             adventureManager?.stop()
         },
@@ -1800,11 +1808,16 @@ class GameRuntimeLibrary(
             }
         },
 
-        // hermit N item — trade with the hermit
-        Regex("^hermit\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+        // hermit N item — trade with the hermit (qty form first so first-match wins)
+        Regex("^hermit\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val qty = m.groupValues[1].toIntOrNull() ?: return@to
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { hermitRequest?.trade(itemId, qty) }
+            runHermitTradeCli(m.groupValues[2], qty, rt)
+        },
+        Regex("^hermit$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runHermitStatusCli(rt)
+        },
+        Regex("^hermit\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runHermitTradeCli(m.groupValues[1], 1, rt)
         },
 
         // config get/set — aliases for get/set prefs
@@ -1971,6 +1984,79 @@ class GameRuntimeLibrary(
         Regex("^zap\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val itemNames = m.groupValues[1].split(',').map { it.trim() }.filter { it.isNotBlank() }
             kotlinx.coroutines.runBlocking { runZapCli(itemNames) }
+        },
+
+        Regex("^(?:fold|squeeze)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking { runFoldCli(m.groupValues[1].trim(), rt) }
+        },
+        Regex("^(?:waitq)\\s*(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runWaitCli(m.groupValues[1], quiet = true, rt)
+        },
+        Regex("^wait\\s*(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runWaitCli(m.groupValues[1], quiet = false, rt)
+        },
+        Regex("^banishes$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runBanishesCli(rt)
+        },
+        Regex("^(recipe|ingredients)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runRecipeCli(m.groupValues[1], m.groupValues[2], rt)
+        },
+        Regex("^(olfact|olfaction|putty)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runOlfactCli(m.groupValues[1], m.groupValues[2], rt)
+        },
+        Regex("^holiday(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runHolidayCli(m.groupValues[1], rt)
+        },
+        Regex("^garden(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking { runGardenCli(m.groupValues[1], rt) }
+        },
+        Regex("^ashq(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runAshCli(m.groupValues.getOrNull(1).orEmpty(), quiet = true, rt)
+        },
+        Regex("^ash(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runAshCli(m.groupValues.getOrNull(1).orEmpty(), quiet = false, rt)
+        },
+        Regex("^(?:aa|autoattack)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runAutoAttackCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^bounty(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runBountyCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^saber(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking { runSaberCli(m.groupValues.getOrNull(1).orEmpty(), rt) }
+        },
+        Regex("^snapper(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking { runSnapperCli(m.groupValues.getOrNull(1).orEmpty(), rt) }
+        },
+        Regex("^(?:eudora|correspondent)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runEudoraCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^mayominder(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking { runMayoMinderCli(m.groupValues.getOrNull(1).orEmpty(), rt) }
+        },
+        Regex("^(?:bang|!)$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runBangPotionsCli(vials = false, rt)
+        },
+        Regex("^vials$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runBangPotionsCli(vials = true, rt)
+        },
+        Regex("^up(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runUpCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^spoon(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking { runSpoonCli(m.groupValues.getOrNull(1).orEmpty(), rt) }
+        },
+        Regex("^dusty$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runDustyCli(rt)
+        },
+        Regex("^chips(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runChipsCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^(?:sofa|sleep)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runSofaCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^crimbotree(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runCrimboTreeCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
         // cleanup / junk — untinker, use boxes, pulverize, autosell junk list
@@ -4368,7 +4454,11 @@ class GameRuntimeLibrary(
         register(scope, "cli_execute", AshType.BOOLEAN, listOf("cmd" to AshType.STRING)) { runtime, args ->
             lastCliOutput.clear()
             val capturing = CliCapturingContext(runtime, lastCliOutput)
-            dispatchCli(args[0].toString(), capturing)
+            try {
+                dispatchCli(args[0].toString(), capturing)
+            } catch (e: ScriptException) {
+                throw e
+            }
             AshValue.of(true)
         }
 

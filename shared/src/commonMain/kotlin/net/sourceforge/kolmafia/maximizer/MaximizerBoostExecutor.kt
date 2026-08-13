@@ -14,6 +14,7 @@ import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
+import net.sourceforge.kolmafia.request.FoldItemRequest
 import net.sourceforge.kolmafia.request.ModeableRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 
@@ -33,6 +34,7 @@ class MaximizerBoostExecutor(
     private val preferences: Preferences? = null,
     private val character: KoLCharacter? = null,
     private val cliExecutor: (suspend (String) -> Boolean)? = null,
+    private val foldItemRequest: FoldItemRequest? = null,
 ) {
     suspend fun execute(cmd: String): Boolean {
         if (cmd.isBlank()) return true
@@ -147,6 +149,10 @@ class MaximizerBoostExecutor(
 
     private suspend fun executeFold(parts: List<String>): Boolean {
         val itemId = itemIdFrom(parts) ?: return false
+        val folder = foldItemRequest
+        if (folder != null) {
+            return folder.fold(itemId).isSuccess
+        }
         val service = retrieveItemService ?: return false
         return service.retrieve(itemId, 1) >= 1
     }

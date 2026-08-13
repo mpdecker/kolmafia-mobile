@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
-import net.sourceforge.kolmafia.data.HolidayCalendar
+import net.sourceforge.kolmafia.data.HolidayNames
+import net.sourceforge.kolmafia.data.KolGameHolidayCalendar
 
 internal fun GameRuntimeLibrary.registerDateTimeQueries(scope: AshScope) {
 
@@ -12,12 +13,20 @@ internal fun GameRuntimeLibrary.registerDateTimeQueries(scope: AshScope) {
         AshValue.of(currentDateTimeString())
     }
 
+    regFn(scope, "time_to_string", AshType.STRING, emptyList()) { _, _ ->
+        AshValue.of(currentTimeOfDayString())
+    }
+
     regFn(scope, "gameday_to_string", AshType.STRING, emptyList()) { _, _ ->
-        AshValue.of(currentDateString())
+        AshValue.of(KolGameHolidayCalendar.getCalendarDayAsString())
+    }
+
+    regFn(scope, "gameday_to_int", AshType.INT, emptyList()) { _, _ ->
+        AshValue.of(KolGameHolidayCalendar.dayInKoLYear().toLong())
     }
 
     regFn(scope, "holiday", AshType.STRING, emptyList()) { _, _ ->
-        AshValue.of(HolidayCalendar.getHoliday())
+        AshValue.of(HolidayNames.getHoliday())
     }
 
     regFn(scope, "rollover", AshType.INT, emptyList()) { _, _ ->
