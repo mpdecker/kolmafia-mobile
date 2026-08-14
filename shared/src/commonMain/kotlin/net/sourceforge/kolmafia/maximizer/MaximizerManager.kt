@@ -65,6 +65,7 @@ open class MaximizerManager(
     private val modeableRequest: ModeableRequest? = null,
     private val effectManager: EffectManager? = null,
     private val characterRequest: CharacterRequest? = null,
+    private val foldItemRequest: net.sourceforge.kolmafia.request.FoldItemRequest? = null,
 ) {
     companion object {
         const val CROWN_OF_THRONES = "Crown of Thrones"
@@ -465,6 +466,7 @@ open class MaximizerManager(
             preferences = preferences,
             character = character,
             cliExecutor = cliExecutor,
+            foldItemRequest = foldItemRequest,
         )
 
     private suspend fun buildMaximizePlan(

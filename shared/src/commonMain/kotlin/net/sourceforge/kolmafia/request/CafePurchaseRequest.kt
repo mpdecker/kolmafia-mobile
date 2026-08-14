@@ -10,14 +10,14 @@ import net.sourceforge.kolmafia.data.MicroBreweryDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /** Desktop cafe purchase dispatch for craft-queue drain (Hell's Kitchen / Chez Snootée / Microbrewery / Crimbo Cafe). */
-class CafePurchaseRequest(
+open class CafePurchaseRequest(
     private val hellKitchenRequest: HellKitchenRequest,
     private val chezSnooteeRequest: ChezSnooteeRequest,
     private val microBreweryRequest: MicroBreweryRequest,
     private val crimboCafeRequest: CrimboCafeRequest,
 ) {
 
-    suspend fun purchase(
+    open suspend fun purchase(
         name: String,
         type: ConcoctionConsumptionType,
         state: CharacterState?,

@@ -1900,6 +1900,48 @@ class MaximizerBoostSourceRulesTest {
     }
 
     @Test
+    fun consumptionRule_keepsTriviaMasterWithCards() {
+        val triviaCmd =
+            "use 1 Trivial Avocations Card: What?, 1 Trivial Avocations Card: When?, " +
+                "1 Trivial Avocations Card: Who?, 1 Trivial Avocations Card: Where?"
+        val ctx = ruleContext(
+            source = triviaCmd,
+            effectId = 990,
+            effectName = "Trivia Master",
+            charState = CharacterState(level = 15, isHardcore = true),
+            inventoryCount = { id ->
+                when (id) {
+                    ItemDatabase.WHAT_CARD,
+                    ItemDatabase.WHEN_CARD,
+                    ItemDatabase.WHO_CARD,
+                    ItemDatabase.WHERE_CARD,
+                    -> 1
+                    else -> 0
+                }
+            },
+        )
+        val result = MaximizerBoostSourceRules.apply(ctx)
+        assertNotNull(result)
+        assertEquals(false, result.skip)
+        assertEquals(triviaCmd, result.cmd)
+    }
+
+    @Test
+    fun consumptionRule_keepsUnresolvedCommaCmd() {
+        val cmd = "use 1 Unknown Alpha, 1 Unknown Beta"
+        val ctx = ruleContext(
+            source = cmd,
+            effectId = 200,
+            effectName = "Comma Effect",
+            charState = CharacterState(level = 15),
+        )
+        val result = MaximizerBoostSourceRules.apply(ctx)
+        assertNotNull(result)
+        assertEquals(false, result.skip)
+        assertEquals(cmd, result.cmd)
+    }
+
+    @Test
     fun consumptionRule_skipsVintnerWineWrongEffect() {
         registerItem(ItemDatabase.VAMPIRE_VINTNER_WINE, "1950 Vampire Vintner wine", ItemPrimaryUse.DRINK)
         val prefs = Preferences(MapSettings())
@@ -2045,6 +2087,29 @@ class MaximizerBoostSourceRulesTest {
         val result = MaximizerBoostSourceRules.apply(ctx)
         assertNotNull(result)
         assertTrue(result.text.orEmpty().contains("(to remove Buff To Remove)"))
+    }
+
+    @Test
+    fun consumptionRule_eitherKeepsCmdAndResolvesFirstItem() {
+        registerItem(9010, "serum of sarcasm", ItemPrimaryUse.POTION)
+        registerItem(9011, "evil serum of sarcasm", ItemPrimaryUse.POTION)
+        ModifierDatabase.injectForTest(
+            "Item",
+            "serum of sarcasm",
+            """Effect: "Superhuman Sarcasm", Effect Duration: 5""",
+        )
+        val source = "use either 1 serum of sarcasm, 1 evil serum of sarcasm"
+        val ctx = ruleContext(
+            source = source,
+            effectId = 31,
+            effectName = "Superhuman Sarcasm",
+            inventoryCount = { id -> if (id == 9010 || id == 9011) 1 else 0 },
+        )
+        val result = MaximizerBoostSourceRules.apply(ctx)
+        assertNotNull(result)
+        assertEquals(false, result.skip)
+        assertEquals(source, result.cmd)
+        assertEquals(5, result.duration)
     }
 
     private fun registerConsumable(name: String, type: ConsumableType, amount: Int) {

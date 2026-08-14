@@ -99,4 +99,62 @@ class TerminalRequestTest {
         assertEquals("1", form["option"])
         assertEquals("extrude -f cram.ext", form["input"])
     }
+
+    @Test
+    fun enquiry_fam_postsEnquiryCommand() = runTest {
+        val bodies = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            bodies += request.body.toByteArray().decodeToString()
+            respond("ok", HttpStatusCode.OK)
+        })
+        val request = TerminalRequest(
+            client = client,
+            campgroundRequest = CampgroundRequest(client),
+            falloutShelterRequest = FalloutShelterRequest(client),
+        )
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean(CampgroundItemSync.CAMPGROUND_HAS_SOURCE_TERMINAL_PREF, true)
+
+        val result = request.enquiry("fam", CharacterState(), prefs)
+        assertTrue(result.isSuccess)
+        assertTrue(bodies.any { it.contains("input=enquiry+familiar.enq") || it.contains("input=enquiry%20familiar.enq") })
+    }
+
+    @Test
+    fun cliExtrude_incrementsDailyUses() = runTest {
+        val client = HttpClient(MockEngine { respond("ok", HttpStatusCode.OK) })
+        val request = TerminalRequest(
+            client = client,
+            campgroundRequest = CampgroundRequest(client),
+            falloutShelterRequest = FalloutShelterRequest(client),
+        )
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean(CampgroundItemSync.CAMPGROUND_HAS_SOURCE_TERMINAL_PREF, true)
+
+        val result = request.cliExtrude("booze", CharacterState(), prefs)
+        assertTrue(result.isSuccess)
+        assertEquals(1, prefs.getInt(TerminalRequest.EXTRUDE_USES_PREF, 0))
+    }
+
+    @Test
+    fun cliExtrude_atLimit_failsWithoutPost() = runTest {
+        var posts = 0
+        val client = HttpClient(MockEngine {
+            posts++
+            respond("ok", HttpStatusCode.OK)
+        })
+        val request = TerminalRequest(
+            client = client,
+            campgroundRequest = CampgroundRequest(client),
+            falloutShelterRequest = FalloutShelterRequest(client),
+        )
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean(CampgroundItemSync.CAMPGROUND_HAS_SOURCE_TERMINAL_PREF, true)
+        prefs.setInt(TerminalRequest.EXTRUDE_USES_PREF, 3)
+
+        val result = request.cliExtrude("booze", CharacterState(), prefs)
+        assertTrue(result.isFailure)
+        assertEquals(0, posts)
+        assertEquals("Source Terminal extrude limit reached", result.exceptionOrNull()?.message)
+    }
 }

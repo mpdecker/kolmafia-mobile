@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.character
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -38,5 +39,14 @@ class ZodiacSignTest {
     fun find_unknown_returnsNull() {
         assertNull(ZodiacSign.find(""))
         assertNull(ZodiacSign.find("bogus"))
+    }
+
+    @Test
+    fun desktopIds_areOneThroughTen() {
+        assertEquals(1, ZodiacSign.MONGOOSE.id)
+        assertEquals(9, ZodiacSign.PACKRAT.id)
+        assertEquals(10, ZodiacSign.BAD_MOON.id)
+        assertEquals(ZodiacSign.WALLABY, ZodiacSign.find(2))
+        assertNull(ZodiacSign.find(0))
     }
 }

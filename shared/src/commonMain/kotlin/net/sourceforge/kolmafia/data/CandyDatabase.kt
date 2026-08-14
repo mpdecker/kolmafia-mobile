@@ -48,6 +48,12 @@ object CandyDatabase {
         return synthesisPairByCount(effectId, inventoryCount).isNotEmpty()
     }
 
+    /** First available candy pair item IDs for [effectId], or empty if none. */
+    fun synthesisPairIds(effectId: Int, inventoryCount: (Int) -> Int): List<Int> {
+        ensureTiersInitialized()
+        return synthesisPairByCount(effectId, inventoryCount)
+    }
+
     private fun ensureTiersInitialized() {
         if (tiersInitialized) return
         for (item in ItemDatabase.all()) {

@@ -10,18 +10,27 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.campground.GardenCropAvailability
 import net.sourceforge.kolmafia.clan.ClanHotdogMenuCache
 import net.sourceforge.kolmafia.clan.ClanLoungeSync
+import net.sourceforge.kolmafia.adventure.choice.OutfitPool
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.OutfitDatabase
+import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.IslandWarActionResponseSync
+import net.sourceforge.kolmafia.quest.IslandWarPaths
+import net.sourceforge.kolmafia.quest.IslandWarVisitSync
+import net.sourceforge.kolmafia.quest.Quest
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
 import net.sourceforge.kolmafia.request.HermitRequest
-import net.sourceforge.kolmafia.familiar.FamiliarManager
-import net.sourceforge.kolmafia.quest.Quest
-import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.shop.NpcShopSync
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 
 open class BreakfastManager(
     private val campgroundRequest: CampgroundRequest,
@@ -33,12 +42,36 @@ open class BreakfastManager(
     private val httpClient: HttpClient,
     private val familiarManager: FamiliarManager? = null,
     private val questDatabase: QuestDatabase? = null,
+    private val outfitManager: OutfitManager? = null,
+    private val inventoryManager: InventoryManager? = null,
 ) {
     companion object {
         const val VIP_LOUNGE_KEY_ID   = 5479
         const val MUS_MANUAL_ID       = 11
         const val MYS_MANUAL_ID       = 172
         const val MOX_MANUAL_ID       = 173
+        const val GUNPOWDER_ID        = 2403
+        const val PREF_HIPPY_MEAT_COLLECTED = "_hippyMeatCollected"
+
+        internal fun sidequestOutfit(
+            property: String,
+            preferences: Preferences,
+            hippyAvailable: Boolean,
+            fratboyAvailable: Boolean,
+        ): WarSideOutfit? =
+            when (preferences.getString(property, "none")) {
+                "hippy" -> if (hippyAvailable) WarSideOutfit.HIPPY else null
+                "fratboy" -> if (fratboyAvailable) WarSideOutfit.FRATBOY else null
+                else -> null
+            }
+
+        internal fun gunpowderCount(inventoryState: InventoryState): Int =
+            inventoryState.items[GUNPOWDER_ID]?.quantity ?: 0
+    }
+
+    enum class WarSideOutfit(val outfitId: Int) {
+        HIPPY(OutfitPool.WAR_HIPPY_OUTFIT),
+        FRATBOY(OutfitPool.WAR_FRAT_OUTFIT),
     }
 
     open suspend fun runBreakfast(charState: CharacterState, inventoryState: InventoryState) {
@@ -55,7 +88,7 @@ open class BreakfastManager(
         collect2002MrStoreCredits(inventoryState)
         collectAprilShowerGlobs(inventoryState)
         useSpinningWheel()
-        visitBigIsland()
+        visitBigIsland(charState, inventoryState)
         visitVolcanoIsland()
         makePocketWishes(inventoryState)
         haveBoxingDaydream()
@@ -369,11 +402,190 @@ open class BreakfastManager(
         }
     }
 
-    private suspend fun visitBigIsland() {
+    private suspend fun visitBigIsland(
+        charState: CharacterState,
+        inventoryState: InventoryState,
+    ) {
         if (preferences.getBoolean(Preferences.BIG_ISLAND_VISITED, false)) return
-        httpGet("bigisland.php").onSuccess {
+
+        if (LimitModeGates.limitZone("Island", charState.limitMode) ||
+            LimitModeGates.limitZone("IsleWar", charState.limitMode)
+        ) {
             preferences.setBoolean(Preferences.BIG_ISLAND_VISITED, true)
+            return
         }
+
+        if (preferences.getInt("lastFilthClearance", -1) == charState.ascensionNumber &&
+            !charState.isFistcore
+        ) {
+            visitHippy(charState.ascensionNumber)
+        }
+
+        if (preferences.getString("warProgress", "unstarted") != "started") {
+            preferences.setBoolean(Preferences.BIG_ISLAND_VISITED, true)
+            return
+        }
+
+        val hippyAvailable = outfitManager?.hasOutfit(OutfitPool.WAR_HIPPY_OUTFIT) == true
+        val fratboyAvailable = outfitManager?.hasOutfit(OutfitPool.WAR_FRAT_OUTFIT) == true
+
+        var lighthouseOutfit =
+            if (gunpowderCount(inventoryState) > 0) {
+                sidequestOutfit(
+                    "sidequestLighthouseCompleted",
+                    preferences,
+                    hippyAvailable,
+                    fratboyAvailable,
+                )
+            } else {
+                null
+            }
+
+        var farmOutfit =
+            if (!preferences.getBoolean(IslandWarActionResponseSync.PREF_FARMER_ITEMS_COLLECTED, false)) {
+                sidequestOutfit(
+                    "sidequestFarmCompleted",
+                    preferences,
+                    hippyAvailable,
+                    fratboyAvailable,
+                )
+            } else {
+                null
+            }
+
+        if (lighthouseOutfit == null && farmOutfit == null) {
+            preferences.setBoolean(Preferences.BIG_ISLAND_VISITED, true)
+            return
+        }
+
+        val equipment = charState.equipment
+
+        if (farmOutfit != null && isWearingWarOutfit(farmOutfit, equipment)) {
+            visitFarmer(charState, inventoryState)
+            farmOutfit = null
+        }
+
+        if (lighthouseOutfit != null && isWearingWarOutfit(lighthouseOutfit, equipment)) {
+            visitPyro(charState, inventoryState)
+            lighthouseOutfit = null
+        }
+
+        var current = nextOutfit(farmOutfit, lighthouseOutfit)
+        if (current == null) {
+            preferences.setBoolean(Preferences.BIG_ISLAND_VISITED, true)
+            return
+        }
+
+        if (current == farmOutfit) {
+            visitFarmer(charState, inventoryState)
+            farmOutfit = null
+        }
+
+        if (current == lighthouseOutfit) {
+            visitPyro(charState, inventoryState)
+            lighthouseOutfit = null
+        }
+
+        current = nextOutfit(farmOutfit, lighthouseOutfit)
+        if (current == null) {
+            preferences.setBoolean(Preferences.BIG_ISLAND_VISITED, true)
+            return
+        }
+
+        if (current == farmOutfit) {
+            visitFarmer(charState, inventoryState)
+        }
+
+        if (current == lighthouseOutfit) {
+            visitPyro(charState, inventoryState)
+        }
+
+        preferences.setBoolean(Preferences.BIG_ISLAND_VISITED, true)
+    }
+
+    private suspend fun visitHippy(ascensionNumber: Int) {
+        if (preferences.getBoolean(PREF_HIPPY_MEAT_COLLECTED, false)) return
+        val url = "shop.php?whichshop=hippy"
+        httpGet(url).onSuccess { html ->
+            NpcShopSync.syncFromStoreHtml("hippy", html, preferences, ascensionNumber, url)
+        }
+    }
+
+    private suspend fun visitFarmer(
+        charState: CharacterState,
+        inventoryState: InventoryState,
+    ) {
+        val island = IslandWarPaths.currentIsland(preferences)
+        if (island == "bogus.php") return
+        val url = "$island?place=farm&action=farmer"
+        httpGet(url).onSuccess { html ->
+            applyIslandVisit(url, html, charState, inventoryState)
+        }
+    }
+
+    private suspend fun visitPyro(
+        charState: CharacterState,
+        inventoryState: InventoryState,
+    ) {
+        val island = IslandWarPaths.currentIsland(preferences)
+        if (island == "bogus.php") return
+        val url = "$island?place=lighthouse&action=pyro"
+        httpGet(url).onSuccess { html ->
+            applyIslandVisit(url, html, charState, inventoryState)
+        }
+    }
+
+    private fun applyIslandVisit(
+        url: String,
+        html: String,
+        charState: CharacterState,
+        inventoryState: InventoryState,
+    ) {
+        val context = islandVisitContext(charState, inventoryState)
+        if (url.contains("postwarisland.php", ignoreCase = true)) {
+            IslandWarVisitSync.applyFromPostwarIslandVisit(url, html, preferences, context)
+        } else {
+            IslandWarVisitSync.applyFromBigIslandVisit(url, html, preferences, context)
+        }
+        IslandWarActionResponseSync.parseActionResponse(url, html, preferences, context)
+    }
+
+    private fun islandVisitContext(
+        charState: CharacterState,
+        inventoryState: InventoryState,
+    ): IslandWarVisitSync.IslandVisitContext {
+        val liveInventory = inventoryManager?.state?.value ?: inventoryState
+        return IslandWarVisitSync.IslandVisitContext(
+            hasItemId = { id -> (liveInventory.items[id]?.quantity ?: 0) > 0 },
+            consumeItem = { itemId, quantity ->
+                inventoryManager?.consumeItemLocally(itemId, quantity)
+            },
+            isWearingWarHippyOutfit = {
+                val outfit = OutfitDatabase.getById(OutfitPool.WAR_HIPPY_OUTFIT)
+                    ?: return@IslandVisitContext false
+                OutfitManager.isWearingPieces(outfit.equipment, charState.equipment)
+            },
+            ascensionNumber = charState.ascensionNumber,
+            itemCount = { id -> liveInventory.items[id]?.quantity ?: 0 },
+        )
+    }
+
+    private fun isWearingWarOutfit(
+        side: WarSideOutfit,
+        equipment: Map<net.sourceforge.kolmafia.character.EquipmentSlot, String>,
+    ): Boolean {
+        val outfit = OutfitDatabase.getById(side.outfitId) ?: return false
+        return OutfitManager.isWearingPieces(outfit.equipment, equipment)
+    }
+
+    private suspend fun nextOutfit(
+        one: WarSideOutfit?,
+        two: WarSideOutfit?,
+    ): WarSideOutfit? {
+        val outfit = one ?: two ?: return null
+        val data = OutfitDatabase.getById(outfit.outfitId) ?: return outfit
+        outfitManager?.wearOutfit(data.name)
+        return outfit
     }
 
     private suspend fun visitVolcanoIsland() {

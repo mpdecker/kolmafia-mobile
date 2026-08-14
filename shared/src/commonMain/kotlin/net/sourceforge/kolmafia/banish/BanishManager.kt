@@ -35,7 +35,26 @@ class BanishManager(private val preferences: Preferences) {
         save()
     }
 
-    /** Returns true if [monsterName] has an active (non-expired) banish at [currentTurn]. */
+    fun formatStatus(currentTurn: Int): String {
+        val active = _state.value.monsters.filter { !it.isExpired(currentTurn) }
+        if (active.isEmpty()) return "No current banishes"
+        return buildString {
+            appendLine("Monsters Banished\tBanished By\tOn Turn\tTurns Left")
+            for (b in active) {
+                val left = when (b.banisher.resetType) {
+                    ResetType.TURNS, ResetType.TURN_ROLLOVER ->
+                        if (b.banisher.turns > 0) {
+                            (b.turnBanished + b.banisher.turns - currentTurn).coerceAtLeast(0).toString()
+                        } else {
+                            "until rollover"
+                        }
+                    ResetType.NEVER -> "never"
+                    else -> "until rollover"
+                }
+                appendLine("${b.monsterName}\t${b.banisher.canonicalName}\t${b.turnBanished}\t$left")
+            }
+        }.trimEnd()
+    }
     fun isBanished(monsterName: String, currentTurn: Int): Boolean =
         _state.value.monsters.any { b ->
             b.monsterName.equals(monsterName, ignoreCase = true) && !b.isExpired(currentTurn)

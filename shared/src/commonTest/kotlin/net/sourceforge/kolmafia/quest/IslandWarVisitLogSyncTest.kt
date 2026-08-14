@@ -158,16 +158,81 @@ class IslandWarVisitLogSyncTest {
     }
 
     @Test
-    fun register_nonBigisland_returnsFalse() {
+    fun register_nonIslandUrl_returnsFalse() {
         val prefs = prefs()
         assertFalse(
             IslandWarVisitLogSync.register(
-                url = "postwarisland.php?action=junkman",
+                url = "charpane.php",
                 html = "",
                 preferences = prefs,
                 context = context(),
                 sessionLogger = null,
             ),
         )
+    }
+
+    @Test
+    fun register_postwarConcertPlace_logsArena() {
+        val prefs = prefs()
+        val logger = sessionLogger(prefs)
+        assertTrue(
+            IslandWarVisitLogSync.register(
+                url = "postwarisland.php?place=concert",
+                html = "",
+                preferences = prefs,
+                context = context(),
+                sessionLogger = logger,
+            ),
+        )
+        assertTrue(sessionLog(prefs).contains("Visiting the Mysterious Island Arena"))
+    }
+
+    @Test
+    fun register_postwarJunkman_logsYossarian() {
+        val prefs = prefs()
+        val logger = sessionLogger(prefs)
+        assertTrue(
+            IslandWarVisitLogSync.register(
+                url = "postwarisland.php?action=junkman",
+                html = "",
+                preferences = prefs,
+                context = context(),
+                sessionLogger = logger,
+            ),
+        )
+        assertTrue(sessionLog(prefs).contains("Visiting Yossarian"))
+    }
+
+    @Test
+    fun register_postwarNuns_logsNunnery() {
+        val prefs = prefs()
+        val logger = sessionLogger(prefs)
+        assertTrue(
+            IslandWarVisitLogSync.register(
+                url = "postwarisland.php?action=nuns",
+                html = "",
+                preferences = prefs,
+                context = context(),
+                sessionLogger = logger,
+            ),
+        )
+        assertTrue(sessionLog(prefs).contains("Visiting Our Lady of Perpetual Indecision "))
+    }
+
+    @Test
+    fun register_postwarCamp_doesNotSetLastCampVisited() = kotlinx.coroutines.runBlocking {
+        net.sourceforge.kolmafia.data.GameDatabase().load()
+        val prefs = prefs()
+        val logger = sessionLogger(prefs)
+        assertTrue(
+            IslandWarVisitLogSync.register(
+                url = "postwarisland.php?place=camp&whichcamp=1",
+                html = "",
+                preferences = prefs,
+                context = context(),
+                sessionLogger = logger,
+            ),
+        )
+        assertEquals("", prefs.getString(IslandWarVisitLogSync.PREF_LAST_CAMP_VISITED, ""))
     }
 }

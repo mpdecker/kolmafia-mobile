@@ -178,6 +178,20 @@ class BanishManagerTest {
         assertEquals(1, manager.state.value.monsters.size)
     }
 
+    @Test fun formatStatus_empty_saysNone() {
+        val manager = BanishManager(prefs())
+        assertEquals("No current banishes", manager.formatStatus(0))
+    }
+
+    @Test fun formatStatus_includesMonsterAndTurnsLeft() {
+        val manager = BanishManager(prefs())
+        manager.banishMonster("dairy goat", Banisher.SNOKEBOMB, currentTurn = 10)
+        val text = manager.formatStatus(12)
+        assertTrue(text.contains("dairy goat"))
+        assertTrue(text.contains("snokebomb"))
+        assertTrue(text.contains("28"))
+    }
+
     // ── Test helper ───────────────────────────────────────────────────────────
 
     private fun prefs(): net.sourceforge.kolmafia.preferences.Preferences =

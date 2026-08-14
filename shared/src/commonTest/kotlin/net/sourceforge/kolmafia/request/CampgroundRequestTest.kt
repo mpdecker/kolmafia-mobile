@@ -45,4 +45,12 @@ class CampgroundRequestTest {
         val body = bodies[0]
         assertTrue(body.contains("action=garden"), "body=$body")
     }
+
+    @Test
+    fun visitAction_sendsActionParam() = runTest {
+        val (client, bodies) = mockClientCapturing()
+        CampgroundRequest(client).visitAction("spinningwheel")
+        val body = bodies[0]
+        assertTrue(body.contains("action=spinningwheel"), "body=$body")
+    }
 }

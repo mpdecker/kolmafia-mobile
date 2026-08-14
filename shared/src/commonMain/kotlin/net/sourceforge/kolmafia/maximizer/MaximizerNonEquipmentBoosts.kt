@@ -339,6 +339,7 @@ object MaximizerNonEquipmentBoosts {
 
         var cmd = ruleResult?.cmd ?: source
         var text = ruleResult?.text ?: source
+        var price = 0L
         val itemId = itemIdFromSource(source, ctx)
         if (itemId != null && ctx.inventoryCount(itemId) == 0) {
             val itemName = ctx.gameDatabase.item(itemId)?.name ?: return null
@@ -369,6 +370,21 @@ object MaximizerNonEquipmentBoosts {
                 method == "pull" -> {
                     text = "pull & $text"
                     cmd = "pull 1 \u00B6$itemId;$cmd"
+                }
+                checked.mallBuyable > 0 -> {
+                    if (!passesAcquireMallGate(checked, itemId, ctx)) return null
+                    text = "acquire & $text"
+                    if (ctx.priceLevel != MaximizerPriceLevel.DONT_CHECK) {
+                        price = ctx.mallPriceManager?.getMallPrice(itemId) ?: 0L
+                    }
+                }
+                checked.pullBuyable > 0 -> {
+                    if (!passesAcquireMallGate(checked, itemId, ctx)) return null
+                    text = "buy & pull & $text"
+                    cmd = "buy using storage 1 \u00B6$itemId;pull \u00B6$itemId;$cmd"
+                    if (ctx.priceLevel != MaximizerPriceLevel.DONT_CHECK) {
+                        price = ctx.mallPriceManager?.getMallPrice(itemId) ?: 0L
+                    }
                 }
                 checked.initial > 0 || method != "have" -> {
                     text = "acquire & $text"
@@ -401,6 +417,9 @@ object MaximizerNonEquipmentBoosts {
             (ruleResult?.extraCosts ?: MaximizerBoostCostSuffix.BoostCosts())
         if (MaximizerBoostCostSuffix.shouldSkipBoost(costs, ctx.preferences)) return null
         text = MaximizerBoostCostSuffix.appendToText(text, costs)
+        if (price > 0L) {
+            text += "${formatMeat(price)} meat, "
+        }
         cmd = MaximizerBoostCostSuffix.applyCapacityGreyout(cmd, costs, ctx.charState)
         text += "${formatDelta(delta)})"
         val itemIdForUses = itemIdFromSource(source, ctx)
@@ -440,6 +459,36 @@ object MaximizerNonEquipmentBoosts {
         )
         return net.sourceforge.kolmafia.request.maximumUses(itemId, name, limitsCtx)
     }
+
+    /**
+     * Desktop Maximizer mallBuyable/pullBuyable emit gates: historical > maxPrice*2 skip,
+     * plus EmitSlot [MaximizerCheckedItem.passesEmitMallCheck] for PriceLevel.ALL.
+     */
+    private fun passesAcquireMallGate(
+        checked: MaximizerCheckedItem,
+        itemId: Int,
+        ctx: Context,
+    ): Boolean {
+        val maxPrice = ctx.plan.spec.maxPrice?.toLong()
+        val mallPrice = ctx.mallPriceManager?.getMallPrice(itemId) ?: 0L
+        val historicalPrice = ctx.mallPriceManager?.getHistoricalPrice(itemId) ?: 0L
+        if (ctx.priceLevel != MaximizerPriceLevel.DONT_CHECK &&
+            maxPrice != null &&
+            historicalPrice > maxPrice * 2
+        ) {
+            return false
+        }
+        return checked.passesEmitMallCheck(
+            priceLevel = ctx.priceLevel,
+            maxPrice = maxPrice,
+            mallPrice = mallPrice,
+            historicalPrice = historicalPrice,
+            tradeable = ItemDatabase.isTradeable(itemId),
+        )
+    }
+
+    private fun formatMeat(price: Long): String =
+        price.toString().reversed().chunked(3).joinToString(",").reversed()
 
     private fun effectBoost(
         cmd: String,

@@ -7,6 +7,8 @@ import io.ktor.http.ParametersBuilder
 import io.ktor.http.isSuccess
 import io.ktor.http.parameters
 import net.sourceforge.kolmafia.clan.ClanLoungeSync
+import net.sourceforge.kolmafia.clan.ClanLoungeVipSync
+import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.ConsumptionEligibility
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
@@ -15,6 +17,7 @@ import net.sourceforge.kolmafia.data.HotDogDatabase
 import net.sourceforge.kolmafia.data.SpeakeasyDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.ClanLoungeVipOptions.CANNONBALL
 
 open class ClanLoungeRequest(private val client: HttpClient) {
 
@@ -27,21 +30,48 @@ open class ClanLoungeRequest(private val client: HttpClient) {
     /** Visit the fireworks shop. */
     open suspend fun visitFireworks(): Result<Unit> = postAction("fireworks").map {}
 
-    /** Play one pool game. */
-    open suspend fun playPoolGame(): Result<Unit> = try {
-        val response = client.submitForm(
-            url = "$KOL_BASE_URL/clan_viplounge.php",
-            formParameters = parameters {
-                append("preaction", "poolgame")
-                append("action", "pooltable")
+    /** Desktop ClanLoungeRequest(Action.CRIMBO_TREE) — visit the VIP Crimbo tree. */
+    open suspend fun visitCrimboTree(): Result<String> = postAction("crimbotree")
+
+    /**
+     * Desktop ClanLoungeRequest(Action.POOL_TABLE, stance).
+     * [stance] 1–3 plays a game; 0 visits the table (breakfast / watch).
+     */
+    open suspend fun playPoolGame(
+        stance: Int = 0,
+        preferences: Preferences? = null,
+    ): Result<String> {
+        if (stance !in 0..3) {
+            return Result.failure(IllegalArgumentException("Invalid pool stance: $stance"))
+        }
+        if (stance != 0 && preferences != null &&
+            preferences.getInt(ClanLoungeVipSync.POOL_GAMES_PREF, 0) >= 3
+        ) {
+            return Result.failure(IllegalStateException("You're kind of pooled out for today."))
+        }
+        return try {
+            val response = client.submitForm(
+                url = "$KOL_BASE_URL/clan_viplounge.php",
+                formParameters = parameters {
+                    if (stance != 0) {
+                        append("preaction", "poolgame")
+                        append("stance", stance.toString())
+                    } else {
+                        append("action", "pooltable")
+                    }
+                    append("whichfloor", "2")
+                },
+            )
+            if (!response.status.isSuccess()) {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            } else {
+                val html = response.bodyAsText()
+                ClanLoungeVipSync.syncPoolGameFromResponse(html, preferences)
+                Result.success(html)
             }
-        )
-        if (!response.status.isSuccess())
-            Result.failure(Exception("HTTP ${response.status.value}"))
-        else
-            Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(e)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     /** Visit the clan VIP lounge fax machine. */
@@ -171,6 +201,73 @@ open class ClanLoungeRequest(private val client: HttpClient) {
         return drinkSpeakeasy(SpeakeasyDatabase.entries[index].loungeId, preferences, state)
     }
 
+    /** Desktop ClanLoungeRequest(Action.APRIL_SHOWER, option). */
+    open suspend fun takeShower(
+        option: Int,
+        preferences: Preferences? = null,
+    ): Result<String> {
+        if (option !in 1..5) {
+            return Result.failure(IllegalArgumentException("Invalid shower option: $option"))
+        }
+        return postLoungeForm(
+            formParams = {
+                append("preaction", "takeshower")
+                append("temperature", option.toString())
+                append("whichfloor", "2")
+            },
+            syncUrlSuffix = "?preaction=takeshower&temperature=$option",
+            preferences = preferences,
+        )
+    }
+
+    /**
+     * Desktop ClanLoungeRequest(Action.SWIMMING_POOL, option).
+     * Cannonball also runs choice 585 flip → treasure → leave.
+     */
+    open suspend fun swimPool(
+        option: Int,
+        preferences: Preferences? = null,
+        choiceRequest: ChoiceRequest? = null,
+    ): Result<String> {
+        val subaction = ClanLoungeVipOptions.swimmingSubaction(option)
+            ?: return Result.failure(IllegalArgumentException("Invalid swimming option: $option"))
+        val result = postLoungeForm(
+            formParams = {
+                append("preaction", "goswimming")
+                append("subaction", subaction)
+                append("whichfloor", "2")
+            },
+            syncUrlSuffix = "?preaction=goswimming&subaction=$subaction",
+            preferences = preferences,
+        )
+        if (result.isFailure) return result
+        if (option != CANNONBALL) return result
+
+        val choice = choiceRequest
+            ?: return Result.failure(IllegalStateException("Choice request is not available."))
+        // Desktop ClanLoungeSwimmingPoolRequest: flip → treasure → leave
+        choice.choose(585, 1, mapOf("action" to "flip")).onFailure { return Result.failure(it) }
+        val treasure = choice.choose(585, 1, mapOf("action" to "treasure"))
+        treasure.onSuccess { (html, url) ->
+            ClanLoungeVipSync.syncSwimTreasureFromResponse(html, url, preferences)
+        }.onFailure { return Result.failure(it) }
+        choice.choose(585, 1, mapOf("action" to "leave")).onFailure { return Result.failure(it) }
+        preferences?.setBoolean(ClanLoungeVipSync.OLYMPIC_SWIMMING_POOL_PREF, true)
+        return result
+    }
+
+    /** Desktop ClanLoungeRequest(Action.FORTUNE) — open love tester for fortune buff. */
+    open suspend fun visitFortuneTeller(
+        preferences: Preferences? = null,
+    ): Result<String> = postLoungeForm(
+        formParams = {
+            append("preaction", "lovetester")
+            append("whichfloor", "2")
+        },
+        syncUrlSuffix = "?preaction=lovetester",
+        preferences = preferences,
+    )
+
     fun findFaxOption(tag: String): Int {
         val normalized = tag.trim().lowercase()
         return when (normalized) {
@@ -243,6 +340,12 @@ open class ClanLoungeRequest(private val client: HttpClient) {
     companion object {
         const val SEND_FAX = 1
         const val RECEIVE_FAX = 2
+
+        fun findShowerOption(tag: String): Int = ClanLoungeVipOptions.findShowerOption(tag)
+
+        fun findSwimmingOption(tag: String): Int = ClanLoungeVipOptions.findSwimmingOption(tag)
+
+        fun findPoolGame(tag: String): Int = ClanLoungeVipOptions.findPoolGame(tag)
 
         internal fun preflightHotDog(
             name: String,

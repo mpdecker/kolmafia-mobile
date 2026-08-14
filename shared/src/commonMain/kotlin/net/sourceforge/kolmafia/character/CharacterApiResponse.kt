@@ -107,6 +107,7 @@ data class CharacterApiResponse(
     val moonphase: String = "0",
     val moonsign: String = "0",
     val moonday: String = "0",
+    val autoattack: String = "0",
 
     // ── Misc ─────────────────────────────────────────────────────────────────
     val mcd: String = "0",                 // mind control device level

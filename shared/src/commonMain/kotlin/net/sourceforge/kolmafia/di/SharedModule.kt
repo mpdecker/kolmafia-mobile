@@ -87,6 +87,7 @@ import net.sourceforge.kolmafia.request.BarrelCreateRequest
 import net.sourceforge.kolmafia.request.JewelCreateRequest
 import net.sourceforge.kolmafia.request.MalusCreateRequest
 import net.sourceforge.kolmafia.request.ModeableRequest
+import net.sourceforge.kolmafia.request.FoldItemRequest
 import net.sourceforge.kolmafia.request.HorseryRequest
 import net.sourceforge.kolmafia.request.BoomBoxRequest
 import net.sourceforge.kolmafia.request.AbsorbRequest
@@ -207,6 +208,21 @@ val sharedModule = module {
             preferences = get(),
             sessionLogger = get(),
             eventBus = get(),
+        )
+    }
+    single {
+        FoldItemRequest(
+            client = get(),
+            useItemRequest = get(),
+            choiceRequest = get(),
+            equipmentRequest = get(),
+            inventoryManager = get(),
+            retrieveItemService = get(),
+            recoveryManager = get(),
+            character = get(),
+            skillManager = get(),
+            preferences = get(),
+            gameDatabase = get(),
         )
     }
     singleOf(::HermitRequest)
@@ -497,6 +513,7 @@ val sharedModule = module {
             modeableRequest = get(),
             effectManager = get(),
             characterRequest = get(),
+            foldItemRequest = get(),
         )
     }
     singleOf(::SessionLogger)
@@ -511,6 +528,8 @@ val sharedModule = module {
             httpClient = get(),
             familiarManager = get(),
             questDatabase = get(),
+            outfitManager = get(),
+            inventoryManager = get(),
         )
     }
     single {
@@ -651,6 +670,8 @@ val sharedModule = module {
             eatFoodRequest   = get(),
             drinkBoozeRequest = get(),
             chewRequest      = get(),
+            cafePurchaseRequest = get(),
+            stillSuitRequest = get(),
             autosellRequest  = get(),
             closetRequest    = get(),
             storageRequest   = get(),

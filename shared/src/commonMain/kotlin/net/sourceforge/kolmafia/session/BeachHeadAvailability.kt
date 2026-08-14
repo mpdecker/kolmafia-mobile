@@ -7,6 +7,8 @@ object BeachHeadAvailability {
 
     const val BEACH_COMB_ID = 10258
     const val DRIFTWOOD_BEACH_COMB_ID = 10291
+    const val HEADS_USED_PREF = "_beachHeadsUsed"
+    const val HEADS_UNLOCKED_PREF = "beachHeadsUnlocked"
 
     data class BeachHead(
         val id: Int,
@@ -31,20 +33,51 @@ object BeachHeadAvailability {
     )
 
     private val effectToBeachHead: Map<String, BeachHead> =
-        BEACH_HEADS.associateBy { it.effect }
+        BEACH_HEADS.associateBy { it.effect.lowercase() }
 
-    fun parseBeachHeadsUsed(prefs: Preferences?): Set<Int> {
-        val raw = prefs?.getString("_beachHeadsUsed", "").orEmpty()
+    private val idToBeachHead: Map<Int, BeachHead> =
+        BEACH_HEADS.associateBy { it.id }
+
+    fun parseBeachHeadsUsed(prefs: Preferences?): Set<Int> =
+        parseIdSet(prefs?.getString(HEADS_USED_PREF, "").orEmpty())
+
+    fun parseBeachHeadsUnlocked(prefs: Preferences?): Set<Int> =
+        parseIdSet(prefs?.getString(HEADS_UNLOCKED_PREF, "").orEmpty())
+
+    fun headAvailable(effectName: String, prefs: Preferences?): Boolean {
+        val head = effectToBeachHead[effectName.lowercase()] ?: return false
+        return head.id !in parseBeachHeadsUsed(prefs)
+    }
+
+    fun headById(id: Int): BeachHead? = idToBeachHead[id]
+
+    /** Resolve NUM, effect name, or keyword (hot/cold/…) to a beach head. */
+    fun resolveHead(query: String): BeachHead? {
+        val q = query.trim()
+        if (q.isEmpty()) return null
+        q.toIntOrNull()?.let { return idToBeachHead[it] }
+        effectToBeachHead[q.lowercase()]?.let { return it }
+        val descMatches = BEACH_HEADS.filter { it.desc.startsWith(q, ignoreCase = true) }
+        if (descMatches.size == 1) return descMatches[0]
+        val effectMatches = BEACH_HEADS.filter {
+            it.effect.contains(q, ignoreCase = true)
+        }
+        return effectMatches.singleOrNull()
+    }
+
+    fun markHeadUsed(prefs: Preferences, headId: Int) {
+        val used = parseBeachHeadsUsed(prefs).toMutableSet()
+        if (used.add(headId)) {
+            prefs.setString(HEADS_USED_PREF, used.sorted().joinToString(","))
+        }
+    }
+
+    private fun parseIdSet(raw: String): Set<Int> {
         if (raw.isBlank()) return emptySet()
         return raw.split(",")
             .mapNotNull { token ->
                 token.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
             }
             .toSet()
-    }
-
-    fun headAvailable(effectName: String, prefs: Preferences?): Boolean {
-        val head = effectToBeachHead[effectName] ?: return false
-        return head.id !in parseBeachHeadsUsed(prefs)
     }
 }

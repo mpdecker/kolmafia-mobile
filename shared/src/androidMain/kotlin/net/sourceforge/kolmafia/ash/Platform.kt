@@ -11,6 +11,7 @@ private val KOL_ROLLOVER = ZoneOffset.of("-03:30")
 actual fun currentTimeMillis(): Long = System.currentTimeMillis()
 actual fun currentDateString(): String = SimpleDateFormat("yyyyMMdd").format(Date())
 actual fun currentDateTimeString(): String = SimpleDateFormat("yyyyMMdd HH:mm:ss").format(Date())
+actual fun currentTimeOfDayString(): String = SimpleDateFormat("HH:mm:ss").format(Date())
 
 actual fun kolRolloverDayDifference(): Long {
     val now = ZonedDateTime.now(KOL_ROLLOVER)

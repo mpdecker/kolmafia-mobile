@@ -9,7 +9,7 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
     val output = StringBuilder()
     private var combatAction = ""
 
-    private val globalScope = AshScope().also { library.registerAll(it) }
+    internal val globalScope = AshScope().also { library.registerAll(it) }
 
     fun execute(script: List<ParseTreeNode>): AshValue {
         controlFlow = ControlFlow.NORMAL

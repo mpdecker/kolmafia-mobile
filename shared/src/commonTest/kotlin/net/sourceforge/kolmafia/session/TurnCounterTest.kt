@@ -69,6 +69,25 @@ class TurnCounterTest {
     }
 
     @Test
+    fun addWarning_stripsLocStar() {
+        val prefs = Preferences(MapSettings())
+        TurnCounter.startCounting(prefs, 0, 5, "Foo loc=*", "watch.gif")
+        TurnCounter.addWarning(prefs, "Foo")
+        val raw = prefs.getString(TurnCounter.PREF_KEY, "")
+        assertTrue(raw.contains("Foo"), raw)
+        assertTrue(!raw.contains("loc=*"), raw)
+    }
+
+    @Test
+    fun removeWarning_appendsLocStar() {
+        val prefs = Preferences(MapSettings())
+        TurnCounter.startCounting(prefs, 0, 5, "Foo", "watch.gif")
+        TurnCounter.removeWarning(prefs, "Foo")
+        val raw = prefs.getString(TurnCounter.PREF_KEY, "")
+        assertTrue(raw.contains("Foo loc=*"), raw)
+    }
+
+    @Test
     fun stopWanderingMonsterWindows_removesKnownLabels() {
         val prefs = Preferences(MapSettings())
         TurnCounter.startCounting(prefs, 0, 10, "Romantic Monster window begin loc=*", "a.gif")

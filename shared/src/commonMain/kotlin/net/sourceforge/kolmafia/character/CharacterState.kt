@@ -128,6 +128,9 @@ data class CharacterState(
     val moonSign: Int = 0,
     val moonDay: Int = 0,
 
+    /** Desktop [KoLCharacter.getAutoAttackAction] — 0 none, 1 attack, 3 steal, else skill id. */
+    val autoAttackAction: Int = 0,
+
     // ── Intrinsic effects ────────────────────────────────────────────────────
     val intrinsics: List<String> = emptyList(),
 
@@ -168,6 +171,8 @@ data class CharacterState(
         get() = ascensionPath == AscensionPath.DISGUISES_DELIMIT
     val isSneakyPete: Boolean
         get() = ascensionPath == AscensionPath.AVATAR_OF_SNEAKY_PETE
+    val isJarlsberg: Boolean
+        get() = ascensionPath == AscensionPath.AVATAR_OF_JARLSBERG
     val inNoobcore: Boolean
         get() = ascensionPath == AscensionPath.GELATINOUS_NOOB
     val inDinocore: Boolean

@@ -139,6 +139,11 @@ object RestoreDatabase {
         loaded = false
     }
 
+    internal fun registerForTest(entry: RestoreData) {
+        byName[entry.name.lowercase()] = entry
+        loaded = true
+    }
+
     private fun parse(text: String) {
         for (raw in text.lines()) {
             val line = raw.trim()
