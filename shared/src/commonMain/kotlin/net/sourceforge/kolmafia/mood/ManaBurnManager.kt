@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.mood
 
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.data.SkillDefinitionProxy
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -374,6 +375,77 @@ class ManaBurnManager(
                 return true
             }
             null -> return false
+        }
+    }
+
+    /**
+     * Desktop [ManaBurnManager.burnExtraMana] with `isManualInvocation=true`.
+     * Skips [shouldBurn] auto-threshold; zombiecore and recovery-limited modes no-op.
+     */
+    suspend fun burnExtraMana(
+        mood: Mood?,
+        effectState: EffectState,
+        skillState: SkillState,
+        charState: CharacterState,
+        moodLibrary: Map<String, Mood> = emptyMap(),
+        currentCharState: () -> CharacterState = { charState },
+    ) {
+        if (charState.inZombiecore) return
+        if (LimitModeGates.limitRecovery(charState.limitMode)) return
+        burnUntilStable(
+            mood, effectState, skillState, currentCharState, moodLibrary,
+            minimumMp = null,
+        )
+    }
+
+    /**
+     * Desktop [ManaBurnManager.burnMana] — keep at least [minimumMp] MP in reserve.
+     */
+    suspend fun burnMana(
+        minimumMp: Long,
+        mood: Mood?,
+        effectState: EffectState,
+        skillState: SkillState,
+        charState: CharacterState,
+        moodLibrary: Map<String, Mood> = emptyMap(),
+        currentCharState: () -> CharacterState = { charState },
+    ) {
+        if (charState.inZombiecore) return
+        burnUntilStable(
+            mood, effectState, skillState, currentCharState, moodLibrary,
+            minimumMp = minimumMp.coerceAtLeast(0),
+        )
+    }
+
+    private suspend fun burnUntilStable(
+        mood: Mood?,
+        effectState: EffectState,
+        skillState: SkillState,
+        currentCharState: () -> CharacterState,
+        moodLibrary: Map<String, Mood>,
+        minimumMp: Long?,
+    ) {
+        var lastMp = -1
+        while (true) {
+            val live = currentCharState()
+            if (live.currentMp == lastMp) return
+            lastMp = live.currentMp
+            if (minimumMp != null && live.currentMp <= minimumMp) return
+            val action = resolveBurnAction(
+                mood, effectState, skillState, live, moodLibrary, preferences,
+                accessibleCount = accessibleCountProvider ?: { 0 },
+                gameDatabase = gameDatabase,
+                manaCostAdjustment = manaCostAdjustmentProvider?.invoke() ?: 0,
+            ) ?: return
+            when (action) {
+                is ManaBurnAction.Cast -> {
+                    skillManager.cast(action.pick.skill, action.pick.quantity)
+                }
+                is ManaBurnAction.Cli -> {
+                    val executor = cliExecutor ?: return
+                    executor(action.command)
+                }
+            }
         }
     }
 }

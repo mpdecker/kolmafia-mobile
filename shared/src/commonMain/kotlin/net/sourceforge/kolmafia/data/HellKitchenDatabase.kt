@@ -21,4 +21,6 @@ object HellKitchenDatabase {
         indexByName[name.lowercase()]?.type == ConsumableType.FOOD
 
     fun resolve(name: String): CafeMenuEntry? = indexByName[name.lowercase()]
+
+    fun find(query: String): CafeMenuEntry? = CafeMenuLookup.find(query, entries, ::resolve)
 }

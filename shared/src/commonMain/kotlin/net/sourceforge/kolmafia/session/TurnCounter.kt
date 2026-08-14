@@ -63,6 +63,30 @@ object TurnCounter {
         save(preferences, entries)
     }
 
+    /** Desktop [TurnCounter.addWarning] — strip ` loc=*` so the counter warns on expiry. */
+    fun addWarning(preferences: Preferences, label: String) {
+        val entries = load(preferences).map { entry ->
+            if (entry.parsedLabel().equals(label, ignoreCase = true) && entry.label.contains(" loc=*")) {
+                entry.copy(label = entry.label.replace(" loc=*", ""))
+            } else {
+                entry
+            }
+        }
+        save(preferences, entries)
+    }
+
+    /** Desktop [TurnCounter.removeWarning] — append ` loc=*` so expiry is silent. */
+    fun removeWarning(preferences: Preferences, label: String) {
+        val entries = load(preferences).map { entry ->
+            if (entry.parsedLabel().equals(label, ignoreCase = true) && !entry.label.contains(" loc=*")) {
+                entry.copy(label = "${entry.label} loc=*")
+            } else {
+                entry
+            }
+        }
+        save(preferences, entries)
+    }
+
     val WANDERING_MONSTER_LABELS = listOf(
         "Romantic Monster window begin",
         "Romantic Monster window end",

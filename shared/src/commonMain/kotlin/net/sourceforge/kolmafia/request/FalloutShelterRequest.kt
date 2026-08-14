@@ -39,6 +39,7 @@ class FalloutShelterRequest(
 
     companion object {
         const val VAULT_TERMINAL = "vault_term"
+        const val VAULT1 = "vault1"
         const val VAULT3 = "vault3"
         const val SPA_USED_PREF = "_falloutShelterSpaUsed"
 

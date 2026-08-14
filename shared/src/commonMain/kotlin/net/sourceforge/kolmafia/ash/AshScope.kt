@@ -62,4 +62,6 @@ class AshScope(val parent: AshScope? = null) {
 
     /** Test-only: total registered overloads across all function names. */
     fun debugFunctionCount(): Int = functions.values.sumOf { it.size }
+
+    fun listFunctions(): List<AshFunction> = functions.values.flatten()
 }

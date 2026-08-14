@@ -9,26 +9,46 @@ import net.sourceforge.kolmafia.campground.CampgroundAvailability
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.campground.GardenCropAvailability
 import net.sourceforge.kolmafia.character.AscensionPath
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.ZodiacSign
 import net.sourceforge.kolmafia.data.BountyDatabase
+import net.sourceforge.kolmafia.data.CafeAccessibility
+import net.sourceforge.kolmafia.data.ChezSnooteeDatabase
+import net.sourceforge.kolmafia.data.ConcoctionConsumptionType
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionMayoQueue
+import net.sourceforge.kolmafia.data.ConsumableType
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.data.FactDatabase
 import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
+import net.sourceforge.kolmafia.data.HellKitchenDatabase
 import net.sourceforge.kolmafia.data.HolidayNames
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.KolGameHolidayCalendar
+import net.sourceforge.kolmafia.data.MicroBreweryDatabase
+import net.sourceforge.kolmafia.data.RestoreData
+import net.sourceforge.kolmafia.data.RestoreDatabase
+import net.sourceforge.kolmafia.data.RestoreType
+import net.sourceforge.kolmafia.inventory.CollectionCacheSync
+import net.sourceforge.kolmafia.item.RetrieveItemSimulator
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.data.SkillDefinitionProxy
 import net.sourceforge.kolmafia.data.craftTypeDescription
+import net.sourceforge.kolmafia.effect.EffectState
+import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.skill.SkillState
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.maximizer.MaximizerContinuation
 import net.sourceforge.kolmafia.mood.MoodRemovalKnownSources
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.FalloutShelterRequest
 import net.sourceforge.kolmafia.request.FoldItemRequest
+import net.sourceforge.kolmafia.session.PirateInsults
+import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.skill.SkillType
 
 internal fun GameRuntimeLibrary.foldItemRequestOrNull(): FoldItemRequest? {
@@ -606,6 +626,93 @@ object LongTailCli {
     fun formatCrimboTreeEmpty(days: Int): String =
         "There's nothing under the Crimbo Tree with your name on it right now. " +
             formatCrimboTreeDays(days)
+
+    enum class NamedCafe { KITCHEN, RESTAURANT, BREWERY }
+
+    data class MallShopPut(
+        val itemName: String,
+        val price: Int,
+        val limit: Int,
+    )
+
+    data class MallShopReprice(
+        val itemName: String,
+        val price: Int,
+        val limit: Int,
+    )
+
+    fun parseCountAndName(parameters: String): Pair<Int, String> {
+        val trimmed = parameters.trim()
+        if (trimmed.isEmpty()) return 1 to ""
+        val space = trimmed.indexOf(' ')
+        if (space == -1) return 1 to trimmed
+        val first = trimmed.substring(0, space)
+        val rest = trimmed.substring(space + 1).trim()
+        val qty = first.toIntOrNull()
+        return if (qty != null) qty to rest else 1 to trimmed
+    }
+
+    fun parseMallShopPuts(parameters: String): List<MallShopPut>? {
+        val specs = mutableListOf<MallShopPut>()
+        for (raw in parameters.split(',').map { it.trim() }.filter { it.isNotEmpty() }) {
+            val at = raw.indexOf('@')
+            val itemName: String
+            var price = 0
+            var limit = 0
+            if (at == -1) {
+                itemName = raw.trim()
+            } else {
+                itemName = raw.substring(0, at).trim()
+                var description = raw.substring(at + 1).trim()
+                val limitIdx = description.indexOf("limit", ignoreCase = true)
+                if (limitIdx != -1) {
+                    limit = description.substring(limitIdx + 5).trim().toIntOrNull() ?: 0
+                    description = description.substring(0, limitIdx).trim()
+                }
+                price = description.replace(",", "").toIntOrNull() ?: 0
+            }
+            if (itemName.isNotEmpty() && itemName.all { it.isDigit() }) return null
+            specs += MallShopPut(itemName, price, limit)
+        }
+        return specs
+    }
+
+    fun parseMallShopReprices(parameters: String): List<MallShopReprice>? {
+        val parts = parameters.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        if (parts.any { !it.contains('@') }) return null
+        return parts.map { raw ->
+            val at = raw.indexOf('@')
+            val itemName = raw.substring(0, at).trim()
+            var description = raw.substring(at + 1).trim()
+            var limit = 0
+            val limitIdx = description.indexOf("limit", ignoreCase = true)
+            if (limitIdx != -1) {
+                limit = description.substring(limitIdx + 5).trim().toIntOrNull() ?: 0
+                description = description.substring(0, limitIdx).trim()
+            }
+            val price = description.replace(",", "").toIntOrNull() ?: 0
+            MallShopReprice(itemName, price, limit)
+        }
+    }
+
+    fun parseShopTake(parameters: String): Pair<Int, List<String>> {
+        val trimmed = parameters.trim()
+        val space = trimmed.indexOf(' ')
+        if (space == -1) return 1 to listOf(trimmed)
+        val first = trimmed.substring(0, space)
+        val rest = trimmed.substring(space + 1).trim()
+        val qty = first.toIntOrNull()
+        val names = (if (qty != null) rest else trimmed)
+            .split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        return (qty ?: 1) to names
+    }
+
+    fun stickerEquipName(token: String): String {
+        val item = token.trim()
+        return if (item.contains("stick", ignoreCase = true)) item else "$item sticker"
+    }
 }
 
 internal fun GameRuntimeLibrary.runEudoraCli(parameters: String, rt: AshRuntimeContext) {
@@ -889,6 +996,696 @@ internal fun GameRuntimeLibrary.runCrimboTreeCli(parameters: String, rt: AshRunt
 
 internal fun GameRuntimeLibrary.runVersionCli(rt: AshRuntimeContext) {
     rt.print("KoLmafia Mobile ${GameRuntimeLibrary.REVISION}")
+}
+
+internal fun GameRuntimeLibrary.runBurnCli(parameters: String, rt: AshRuntimeContext) {
+    val charState = character?.state?.value
+    if (charState?.inZombiecore == true) return
+    val token = parameters.trim().substringBefore(' ').trim()
+    val extra = token.equals("extra", ignoreCase = true)
+    val all = token == "*"
+    val amount = token.toIntOrNull()
+    if (!extra && !all && amount == null) {
+        rt.print("Specify how much mana you want to burn")
+        return
+    }
+    val burner = manaBurnManager ?: return
+    val mood = moodManager?.activeMood
+    val moodLibrary = moodManager?.moodLibrary ?: emptyMap()
+    val effectState = effectManager?.state?.value ?: EffectState()
+    val skillState = skillManager?.state?.value ?: SkillState()
+    kotlinx.coroutines.runBlocking {
+        recoverHpBeforeBurn()
+        val live = { character?.state?.value ?: CharacterState() }
+        val snapshot = live()
+        if (extra) {
+            burner.burnExtraMana(
+                mood, effectState, skillState, snapshot, moodLibrary, live,
+            )
+        } else {
+            var burnAmount = if (all) 0 else amount ?: 0
+            if (burnAmount > 0) burnAmount -= snapshot.currentMp
+            burner.burnMana(
+                (-burnAmount).toLong(),
+                mood, effectState, skillState, snapshot, moodLibrary, live,
+            )
+        }
+    }
+}
+
+private suspend fun GameRuntimeLibrary.recoverHpBeforeBurn() {
+    val rm = recoveryManager ?: return
+    val char = character ?: return
+    rm.recoverIfNeeded(
+        charState = char.state.value,
+        invState = inventoryManager?.state?.value ?: InventoryState(),
+        skillState = skillManager?.state?.value ?: SkillState(),
+    )
+}
+
+internal fun GameRuntimeLibrary.runNamedCafeCli(
+    kind: LongTailCli.NamedCafe,
+    parameters: String,
+    rt: AshRuntimeContext,
+) {
+    val state = character?.state?.value
+    val available = when (kind) {
+        LongTailCli.NamedCafe.KITCHEN -> CafeAccessibility.isHellKitchenAvailable(state)
+        LongTailCli.NamedCafe.RESTAURANT -> CafeAccessibility.isChezSnooteeAvailable(state)
+        LongTailCli.NamedCafe.BREWERY -> CafeAccessibility.isMicroBreweryAvailable(state, preferences)
+    }
+    if (!available) {
+        rt.print(
+            when (kind) {
+                LongTailCli.NamedCafe.KITCHEN -> "Hell's Kitchen not available."
+                LongTailCli.NamedCafe.RESTAURANT -> "Chez Snootée not available."
+                LongTailCli.NamedCafe.BREWERY -> "Microbrewery not available."
+            },
+        )
+        return
+    }
+    val raw = parameters.trim()
+    if (raw.isEmpty()) {
+        rt.print(
+            when (kind) {
+                LongTailCli.NamedCafe.KITCHEN -> "Hell's Kitchen not available."
+                LongTailCli.NamedCafe.RESTAURANT,
+                LongTailCli.NamedCafe.BREWERY,
+                -> "Today's Special unavailable."
+            },
+        )
+        return
+    }
+    val (qty, nameQuery) = LongTailCli.parseCountAndName(raw)
+    if (nameQuery.isEmpty()) {
+        rt.print(
+            when (kind) {
+                LongTailCli.NamedCafe.KITCHEN -> "Hell's Kitchen not available."
+                else -> "Today's Special unavailable."
+            },
+        )
+        return
+    }
+    val entry = when (kind) {
+        LongTailCli.NamedCafe.KITCHEN -> HellKitchenDatabase.find(nameQuery)
+        LongTailCli.NamedCafe.RESTAURANT -> ChezSnooteeDatabase.find(nameQuery)
+        LongTailCli.NamedCafe.BREWERY -> MicroBreweryDatabase.find(nameQuery)
+    }
+    if (entry == null) {
+        rt.print("Unknown cafe item.")
+        return
+    }
+    val consumeType = when (entry.type) {
+        ConsumableType.DRINK -> ConcoctionConsumptionType.DRINK
+        else -> ConcoctionConsumptionType.EAT
+    }
+    val count = if (qty <= 0) 1 else qty
+    cliCafePurchase(entry.name, count, consumeType, rt::print)
+}
+
+internal fun GameRuntimeLibrary.runMallSellCli(parameters: String, rt: AshRuntimeContext) {
+    val specs = LongTailCli.parseMallShopPuts(parameters.trim())
+    if (specs == null) {
+        rt.print("That is not an item. Did you use a comma in the middle of a number?")
+        return
+    }
+    if (specs.isEmpty()) return
+    putMallShopItems(specs, rt)
+}
+
+internal fun GameRuntimeLibrary.runShopCli(parameters: String, rt: AshRuntimeContext) {
+    val raw = parameters.trim()
+    val space = raw.indexOf(' ')
+    val verb = if (space == -1) raw else raw.substring(0, space)
+    val rest = if (space == -1) "" else raw.substring(space + 1).trim()
+    when {
+        verb.equals("put", ignoreCase = true) -> runMallSellCli(rest, rt)
+        verb.equals("take", ignoreCase = true) -> runShopTakeCli(rest, rt)
+        verb.equals("reprice", ignoreCase = true) -> runShopRepriceCli(rest, rt)
+        else -> rt.print("Invalid shop command.")
+    }
+}
+
+private fun GameRuntimeLibrary.putMallShopItems(
+    specs: List<LongTailCli.MallShopPut>,
+    rt: AshRuntimeContext,
+) {
+    val store = manageStoreRequest ?: run {
+        rt.print("Mall store unavailable")
+        return
+    }
+    val resolved = specs.mapNotNull { spec ->
+        val itemId = resolveCliItemId(spec.itemName)
+        if (itemId == null) {
+            rt.print("Unknown item: ${spec.itemName}")
+            null
+        } else {
+            Triple(itemId, spec.price, spec.limit)
+        }
+    }
+    if (resolved.isEmpty()) return
+    kotlinx.coroutines.runBlocking {
+        for ((itemId, price, limit) in resolved) {
+            store.addItem(itemId, price, limit, quantity = 1)
+        }
+    }
+}
+
+private fun GameRuntimeLibrary.runShopTakeCli(parameters: String, rt: AshRuntimeContext) {
+    val (qty, names) = LongTailCli.parseShopTake(parameters)
+    if (names.isEmpty() || names.all { it.isEmpty() }) return
+    val store = manageStoreRequest ?: run {
+        rt.print("Mall store unavailable")
+        return
+    }
+    val resolved = names.mapNotNull { name ->
+        val itemId = resolveCliItemId(name)
+        if (itemId == null) {
+            rt.print("Unknown item: $name")
+            null
+        } else {
+            itemId
+        }
+    }
+    if (resolved.isEmpty()) return
+    kotlinx.coroutines.runBlocking {
+        for (itemId in resolved) {
+            store.removeItem(itemId, qty.coerceAtLeast(1))
+        }
+    }
+}
+
+private fun GameRuntimeLibrary.runShopRepriceCli(parameters: String, rt: AshRuntimeContext) {
+    val specs = LongTailCli.parseMallShopReprices(parameters.trim())
+    if (specs == null) {
+        rt.print("Specify a price with @ for reprice.")
+        return
+    }
+    if (specs.isEmpty()) return
+    val store = manageStoreRequest ?: run {
+        rt.print("Mall store unavailable")
+        return
+    }
+    val resolved = specs.mapNotNull { spec ->
+        val itemId = resolveCliItemId(spec.itemName)
+        if (itemId == null) {
+            rt.print("Unknown item: ${spec.itemName}")
+            null
+        } else {
+            Triple(itemId, spec.price, spec.limit)
+        }
+    }
+    if (resolved.isEmpty()) return
+    kotlinx.coroutines.runBlocking {
+        for ((itemId, price, limit) in resolved) {
+            store.repriceItem(itemId, price, limit)
+        }
+    }
+}
+
+private fun GameRuntimeLibrary.resolveCliItemId(name: String): Int? {
+    val trimmed = name.trim()
+    if (trimmed.isEmpty()) return null
+    return gameDatabase?.item(trimmed)?.id
+        ?: ItemDatabase.getByName(trimmed)?.id
+        ?: ItemDatabase.getByPluralOrName(trimmed)?.id
+}
+
+internal fun GameRuntimeLibrary.runStickersCli(parameters: String, rt: AshRuntimeContext) {
+    val tokens = parameters.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+    if (tokens.isEmpty()) {
+        rt.print("Which stickers?")
+        return
+    }
+    val equipment = character?.state?.value?.equipment ?: emptyMap()
+    var index = 0
+    for (slot in EquipmentSlot.STICKER_SLOTS) {
+        val occupied = equipment[slot]?.isNotBlank() == true
+        if (occupied) continue
+        if (index >= tokens.size) break
+        val name = LongTailCli.stickerEquipName(tokens[index++])
+        cliEquip("${slot.apiKey} $name")
+    }
+}
+
+internal fun GameRuntimeLibrary.runConditionCli(parameters: String, rt: AshRuntimeContext) {
+    val raw = parameters.trim()
+    if (raw.isEmpty()) return
+    val lower = raw.lowercase()
+    when {
+        lower == "clear" -> goalManager?.clearGoals()
+        lower == "substats" -> goalManager?.setSubstatsGoal(true)
+        lower.startsWith("meat ") -> {
+            val n = raw.substringAfter(' ').trim().toIntOrNull() ?: return
+            goalManager?.setMeatGoal(n)
+        }
+        lower.startsWith("level ") -> {
+            val n = raw.substringAfter(' ').trim().toIntOrNull() ?: return
+            goalManager?.setLevelGoal(n)
+        }
+        lower.startsWith("choice ") -> {
+            val n = raw.substringAfter(' ').trim().toIntOrNull() ?: return
+            goalManager?.setChoiceGoal(n)
+        }
+        else -> {
+            val rest = raw.removePrefix("item ").removePrefix("Item ").trim()
+            if (rest.isNotEmpty()) goalManager?.addItemGoalByName(rest)
+        }
+    }
+}
+
+internal fun GameRuntimeLibrary.runRefreshCli(target: String, rt: AshRuntimeContext) {
+    val trimmed = target.trim()
+    val key = trimmed.lowercase()
+    if (key.startsWith("camp")) {
+        visitKolPage("campground.php")
+        return
+    }
+    kotlinx.coroutines.runBlocking {
+        when {
+            key.isEmpty() || key == "all" -> refreshSessionState()
+            key == "status" || key == "effects" -> {
+                characterRequest?.fetchCharacterState()?.onSuccess { resp ->
+                    character?.updateFromApiResponse(resp)
+                }
+                effectManager?.fetchEffects()
+            }
+            key == "gear" || key.startsWith("equip") || key == "outfit" || key.startsWith("stick") -> {
+                equipmentRequest?.syncCharacterEquipment()
+            }
+            key.startsWith("inv") -> {
+                inventoryManager?.fetchInventory()
+                inventoryManager?.syncCharacterEquipment()
+            }
+            key == "storage" -> {
+                val req = storageRequest ?: return@runBlocking
+                val prefs = preferences ?: return@runBlocking
+                CollectionCacheSync.refreshStorage(req, character?.state?.value, prefs)
+            }
+            key == "stash" -> {
+                val req = clanStashRequest ?: return@runBlocking
+                val prefs = preferences ?: return@runBlocking
+                CollectionCacheSync.refreshStash(req, prefs)
+            }
+            key == "closet" -> {
+                val req = closetRequest ?: return@runBlocking
+                val prefs = preferences ?: return@runBlocking
+                CollectionCacheSync.refreshCloset(req, prefs)
+            }
+            key.startsWith("familiar") || key == "terrarium" -> familiarManager?.fetchFamiliars()
+            key == "quests" -> questLogRequest?.syncAll()
+            key == "shop" -> manageStoreRequest?.refreshPrices()
+            key == "concoctions" -> ConcoctionDatabase.refreshConcoctionsNowFromLastContext()
+            else -> rt.print("$trimmed cannot be refreshed.")
+        }
+    }
+}
+
+private suspend fun GameRuntimeLibrary.refreshSessionState() {
+    characterRequest?.fetchCharacterState()?.onSuccess { resp ->
+        character?.updateFromApiResponse(resp)
+    }
+    inventoryManager?.fetchInventory()
+    skillManager?.fetchSkills()
+    effectManager?.fetchEffects()
+    familiarManager?.fetchFamiliars()
+    questLogRequest?.syncAll()
+    checkDynamicModifiers()
+}
+
+internal fun GameRuntimeLibrary.runMpItemsCli(rt: AshRuntimeContext) {
+    val setting = preferences?.getString("mpAutoRecoveryItems", "").orEmpty().lowercase()
+    var count = 0
+    if (setting.isNotEmpty()) {
+        for (restore in RestoreDatabase.mpRestores()) {
+            if (restore.type != RestoreType.ITEM) continue
+            if (setting.indexOf(restore.name.lowercase()) < 0) continue
+            val itemId = gameDatabase?.item(restore.name)?.id
+                ?: ItemDatabase.getByName(restore.name)?.id
+                ?: continue
+            count += inventoryCount(itemId)
+        }
+    }
+    rt.print("$count mana restores remaining.")
+}
+
+internal fun GameRuntimeLibrary.runEchoCli(text: String, rt: AshRuntimeContext) {
+    if (text.equals("timestamp", ignoreCase = true)) {
+        rt.print(KolGameHolidayCalendar.getCalendarDayAsString())
+    } else {
+        rt.print(text)
+    }
+}
+
+internal fun looksLikeVisitUrl(cmd: String): Boolean {
+    val trimmed = cmd.trim()
+    return trimmed.contains(".php", ignoreCase = true) ||
+        trimmed.startsWith("http://", ignoreCase = true) ||
+        trimmed.startsWith("https://", ignoreCase = true)
+}
+
+internal fun normalizeKolVisitPath(raw: String): String {
+    var url = raw.trim()
+    val origins = listOf(
+        "$KOL_BASE_URL/",
+        "https://www.kingdomofloathing.com/",
+        "http://www.kingdomofloathing.com/",
+        "https://kingdomofloathing.com/",
+        "http://kingdomofloathing.com/",
+    )
+    for (origin in origins) {
+        if (url.startsWith(origin, ignoreCase = true)) {
+            url = url.substring(origin.length)
+            break
+        }
+    }
+    return url.trimStart('/')
+}
+
+private fun stripHtmlForCli(html: String): String =
+    html.replace(Regex("<[^>]+>"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+internal fun GameRuntimeLibrary.runVisitUrlCli(rawUrl: String, printHtml: Boolean, rt: AshRuntimeContext) {
+    val path = normalizeKolVisitPath(rawUrl)
+    if (path.isBlank()) return
+    val html = visitKolPage(path)
+    if (printHtml && html != null) {
+        val stripped = stripHtmlForCli(html)
+        if (stripped.isNotBlank()) rt.print(stripped)
+    }
+}
+
+internal fun GameRuntimeLibrary.runAcquireCli(
+    parameters: String,
+    rt: AshRuntimeContext,
+    checkOnly: Boolean = false,
+) {
+    val parts = parameters.split(',').map { it.trim() }.filter { it.isNotBlank() }
+    val simCtx = if (checkOnly) acquireSimulatorContext() else null
+    for (part in parts) {
+        val (qty, name) = parseAcquireQtyItem(part)
+        val itemId = resolveCliItemName(name) ?: continue
+        if (checkOnly && simCtx != null) {
+            val method = RetrieveItemSimulator.simRetrieve(itemId, qty, simCtx)
+            rt.print("$name: $method")
+        } else {
+            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, qty) }
+        }
+    }
+}
+
+private fun GameRuntimeLibrary.acquireSimulatorContext(): RetrieveItemSimulator.Context {
+    val prefs = preferences
+    return RetrieveItemSimulator.Context(
+        inventoryCount = { inventoryCount(it) },
+        closetContents = prefs?.let { CollectionCache.load(it, Preferences.CACHED_CLOSET) } ?: emptyMap(),
+        storageContents = prefs?.let { CollectionCache.load(it, Preferences.CACHED_STORAGE) } ?: emptyMap(),
+        displayContents = prefs?.let { CollectionCache.load(it, Preferences.CACHED_DISPLAY) } ?: emptyMap(),
+        stashContents = prefs?.let { CollectionCache.load(it, Preferences.CACHED_STASH) } ?: emptyMap(),
+    )
+}
+
+internal fun parseAcquireQtyItem(raw: String): Pair<Int, String> {
+    val trimmed = raw.trim()
+    val space = trimmed.indexOf(' ')
+    if (space > 0) {
+        val qty = trimmed.substring(0, space).toIntOrNull()
+        if (qty != null) return qty to trimmed.substring(space + 1).trim()
+    }
+    return 1 to trimmed
+}
+
+internal fun GameRuntimeLibrary.runCountersCli(parameters: String, rt: AshRuntimeContext) {
+    val prefs = preferences ?: return
+    val currentRun = character?.state?.value?.currentRun ?: 0
+    val params = parameters.trim()
+    when {
+        params.equals("clear", ignoreCase = true) -> {
+            TurnCounter.save(prefs, emptyList())
+        }
+        params.startsWith("add ", ignoreCase = true) -> {
+            var rest = params.substring(4).trim()
+            var image = "watch.gif"
+            var title = "Manual"
+            if (rest.endsWith(".gif", ignoreCase = true)) {
+                val lastSpace = rest.lastIndexOf(' ')
+                if (lastSpace >= 0) {
+                    image = rest.substring(lastSpace + 1)
+                    rest = rest.substring(0, lastSpace).trim()
+                }
+            }
+            val spacePos = rest.indexOf(' ')
+            val turns: Int
+            if (spacePos != -1) {
+                title = rest.substring(spacePos + 1)
+                turns = rest.substring(0, spacePos).trim().toIntOrNull() ?: 0
+            } else {
+                turns = rest.toIntOrNull() ?: 0
+            }
+            TurnCounter.startCounting(prefs, currentRun, turns, title, image)
+        }
+        params.startsWith("stop ", ignoreCase = true) -> {
+            TurnCounter.stopCounting(prefs, params.substring(5).trim())
+        }
+        params.startsWith("warn ", ignoreCase = true) -> {
+            TurnCounter.addWarning(prefs, params.substring(5).trim())
+        }
+        params.startsWith("nowarn ", ignoreCase = true) -> {
+            TurnCounter.removeWarning(prefs, params.substring(7).trim())
+        }
+    }
+    val formatted = TurnCounter.formatRelayCounters(prefs, currentRun)
+    if (formatted.isNotBlank()) rt.print(formatted)
+}
+
+internal fun GameRuntimeLibrary.runCampgroundActionCli(parameters: String, rt: AshRuntimeContext) {
+    val tokens = parameters.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    if (tokens.isEmpty()) return
+    val action = tokens[0]
+    if (action.equals("rest", ignoreCase = true)) {
+        runCampgroundRestCli(tokens.drop(1), rt)
+        return
+    }
+    val count = tokens.getOrNull(1)?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+    val state = character?.state?.value
+    val client = httpClient ?: return
+    kotlinx.coroutines.runBlocking {
+        if (state?.inNuclearAutumn == true) {
+            val falloutAction = if (action.equals("terminal", ignoreCase = true)) {
+                FalloutShelterRequest.VAULT_TERMINAL
+            } else {
+                action
+            }
+            repeat(count) {
+                FalloutShelterRequest(client).visitAction(falloutAction)
+            }
+            return@runBlocking
+        }
+        if (state == null || !CampgroundAvailability.haveCampground(state)) {
+            rt.print("You don't have a campground right now.")
+            return@runBlocking
+        }
+        val req = CampgroundRequest(client)
+        repeat(count) {
+            req.visitAction(action)
+        }
+    }
+}
+
+private fun GameRuntimeLibrary.runCampgroundRestCli(restTokens: List<String>, rt: AshRuntimeContext) {
+    val blocked = setOf("chateau", "campaway", "free")
+    if (restTokens.any { it.lowercase() in blocked }) {
+        rt.print("campground rest is not available")
+        return
+    }
+    val count = restTokens.lastOrNull()?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+    val explicitVault = restTokens.any { it.equals("vault", ignoreCase = true) }
+    val state = character?.state?.value
+    val client = httpClient ?: return
+    kotlinx.coroutines.runBlocking {
+        if (explicitVault || state?.inNuclearAutumn == true) {
+            repeat(count) {
+                FalloutShelterRequest(client).visitAction(FalloutShelterRequest.VAULT1)
+            }
+            return@runBlocking
+        }
+        if (state == null || !CampgroundAvailability.haveCampground(state)) {
+            rt.print("You don't have a campground right now.")
+            return@runBlocking
+        }
+        val req = CampgroundRequest(client)
+        repeat(count) {
+            req.visitAction("rest")
+        }
+    }
+}
+
+internal fun GameRuntimeLibrary.runRestoresCli(parameters: String, rt: AshRuntimeContext) {
+    val level = parameters.trim().ifBlank { "available" }.lowercase()
+    if (level !in setOf("all", "available", "obtainable")) {
+        rt.print("Valid parameters are all, available or obtainable")
+        return
+    }
+    val cached = restoreCachedCounts()
+    for (restore in RestoreDatabase.all()) {
+        if (!restoreMatchesLevel(restore, level, cached)) continue
+        val uses = restore.usesLeftExpr.ifBlank { "Unlimited" }
+        rt.print(
+            "${restore.name} | ${restore.type} | ${restore.hpMinExpr}-${restore.hpMaxExpr} | " +
+                "${restore.mpMinExpr}-${restore.mpMaxExpr} | ${restore.advCost} | $uses | ${restore.notes}",
+        )
+    }
+}
+
+private fun GameRuntimeLibrary.restoreCachedCounts(): Map<String, Map<Int, Int>> {
+    val prefs = preferences ?: return emptyMap()
+    return mapOf(
+        "closet" to CollectionCache.load(prefs, Preferences.CACHED_CLOSET),
+        "storage" to CollectionCache.load(prefs, Preferences.CACHED_STORAGE),
+        "display" to CollectionCache.load(prefs, Preferences.CACHED_DISPLAY),
+        "stash" to CollectionCache.load(prefs, Preferences.CACHED_STASH),
+    )
+}
+
+private fun GameRuntimeLibrary.restoreMatchesLevel(
+    restore: RestoreData,
+    level: String,
+    cached: Map<String, Map<Int, Int>>,
+): Boolean {
+    if (level == "all") return true
+    return when (restore.type) {
+        RestoreType.ITEM -> {
+            val itemId = resolveCliItemName(restore.name) ?: return false
+            if (inventoryCount(itemId) > 0) return true
+            if (level != "obtainable") return false
+            cached.values.any { (it[itemId] ?: 0) > 0 }
+        }
+        RestoreType.SKILL -> {
+            skillManager?.state?.value?.skills?.any {
+                it.name.equals(restore.name, ignoreCase = true)
+            } == true
+        }
+        RestoreType.LOC, RestoreType.UNKNOWN -> false
+    }
+}
+
+internal fun GameRuntimeLibrary.runAshRefCli(filter: String, rt: AshRuntimeContext) {
+    val scope = AshScope()
+    registerAll(scope)
+    val needle = filter.trim().lowercase()
+    for (fn in scope.listFunctions()) {
+        val matches = needle.isEmpty() ||
+            fn.name.lowercase().contains(needle) ||
+            fn.params.any { it.second.toString().lowercase().contains(needle) }
+        if (!matches) continue
+        val args = fn.params.joinToString(", ") { (pname, ptype) -> "$ptype $pname" }
+        rt.print("${fn.returnType} ${fn.name}( $args )")
+    }
+}
+
+internal fun GameRuntimeLibrary.runInsultsCli(rt: AshRuntimeContext) {
+    val prefs = preferences ?: return
+    rt.print("Known insults:")
+    val known = PirateInsults.knownRetorts(prefs)
+    if (known.isEmpty()) {
+        rt.print("None.")
+    } else {
+        rt.print("")
+        known.forEach { rt.print(it) }
+    }
+    val count = known.size
+    val noun = if (count == 1) "insult" else "insults"
+    val odds = PirateInsults.formatOddsPercent(count)
+    rt.print("")
+    rt.print(
+        "Since you know $count $noun, you have a $odds% chance of winning at Insult Beer Pong.",
+    )
+}
+
+internal fun GameRuntimeLibrary.runRecoverCli(target: String, rt: AshRuntimeContext) {
+    val rm = recoveryManager ?: return
+    val char = character ?: return
+    val key = target.trim().lowercase()
+    val doHp = key == "hp" || key == "health" || key == "both"
+    val doMp = key == "mp" || key == "mana" || key == "both"
+    kotlinx.coroutines.runBlocking {
+        if (doHp) {
+            val cs = char.state.value
+            rm.checkpointedRecoverHp(
+                cs.currentHp + 1,
+                cs,
+                inventoryManager?.state?.value ?: InventoryState(),
+                skillManager?.state?.value ?: SkillState(),
+            ) { refreshCharacterStates() }
+        }
+        if (doMp) {
+            val cs = char.state.value
+            rm.checkpointedRecoverMp(
+                cs.currentMp + 1,
+                cs,
+                inventoryManager?.state?.value ?: InventoryState(),
+                skillManager?.state?.value ?: SkillState(),
+            ) { refreshCharacterStates() }
+        }
+        characterRequest?.fetchCharacterState()?.onSuccess { char.updateFromApiResponse(it) }
+    }
+}
+
+internal fun GameRuntimeLibrary.runChoiceCli(parameters: String, rt: AshRuntimeContext) {
+    val raw = parameters.trim()
+    if (raw.isEmpty()) return
+    var tokens = raw.split(Regex("\\s+")).filter { it.isNotBlank() }
+    var always = false
+    if (tokens.lastOrNull()?.equals("always", ignoreCase = true) == true) {
+        always = true
+        tokens = tokens.dropLast(1)
+    }
+    if (tokens.isEmpty()) return
+    val extras = linkedMapOf<String, String>()
+    val numeric = mutableListOf<Int>()
+    for (tok in tokens) {
+        val eq = tok.indexOf('=')
+        if (eq > 0) {
+            extras[tok.substring(0, eq)] = tok.substring(eq + 1)
+        } else {
+            val n = tok.toIntOrNull()
+            if (n != null) {
+                numeric.add(n)
+            } else {
+                rt.print("Field '$tok' must have a value; ignoring.")
+            }
+        }
+    }
+    val choiceId: Int
+    val option: Int
+    when (numeric.size) {
+        2 -> {
+            choiceId = numeric[0]
+            option = numeric[1]
+        }
+        1 -> {
+            choiceId = preferences?.getInt(AdventureManager.LAST_CHOICE_ID, 0) ?: 0
+            if (choiceId <= 0) return
+            option = numeric[0]
+        }
+        else -> return
+    }
+    if (always) {
+        val prefs = preferences
+        if (prefs != null) {
+            val pref = "choiceAdventure$choiceId"
+            val value = if (extras.isEmpty()) {
+                option.toString()
+            } else {
+                option.toString() + "&" + extras.entries.joinToString("&") { "${it.key}=${it.value}" }
+            }
+            prefs.setString(pref, value)
+            rt.print("$pref => $value")
+        }
+    }
+    cliChoice(choiceId, option, extras)
 }
 
 private fun GameRuntimeLibrary.hasAccessibleItem(itemId: Int): Boolean {

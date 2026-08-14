@@ -43,11 +43,14 @@ open class CampgroundRequest(private val client: HttpClient) {
     }
 
     /** POSTs campground.php?action=spinningwheel — uses the workshed spinning wheel. */
-    open suspend fun useSpinningWheel(): Result<String> = try {
+    open suspend fun useSpinningWheel(): Result<String> = visitAction("spinningwheel")
+
+    /** POSTs campground.php?action=&lt;token&gt; for generic campground CLI actions. */
+    open suspend fun visitAction(action: String): Result<String> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/campground.php",
             formParameters = parameters {
-                append("action", "spinningwheel")
+                append("action", action)
             }
         )
         if (!response.status.isSuccess())

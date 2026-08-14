@@ -56,6 +56,14 @@ class ExoticBoostCliV5SupportTest {
     }
 
     @Test
+    fun spacegate_parseDestination() {
+        assertEquals("random", SpacegateRequest.parseDestination("destination random"))
+        assertEquals("ABCDEFG", SpacegateRequest.parseDestination("destination ABCDEFG"))
+        assertEquals("", SpacegateRequest.parseDestination("destination"))
+        assertNull(SpacegateRequest.parseDestination("vaccine 1"))
+    }
+
+    @Test
     fun daycare_findSpaOption() {
         assertEquals(1, DaycareRequest.findSpaOption("muscle"))
         assertEquals(2, DaycareRequest.findSpaOption("moxie"))

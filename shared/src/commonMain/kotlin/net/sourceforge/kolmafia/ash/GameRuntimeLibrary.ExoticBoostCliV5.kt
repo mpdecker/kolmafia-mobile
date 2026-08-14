@@ -40,8 +40,13 @@ internal fun GameRuntimeLibrary.cliGap(parameters: String, print: (String) -> Un
 
 internal fun GameRuntimeLibrary.cliSpacegate(parameters: String, print: (String) -> Unit) {
     val vaccine = SpacegateRequest.parseVaccine(parameters)
-    if (vaccine == 0) {
-        print("Usage: spacegate vaccine <1|2|3>")
+    val destination = SpacegateRequest.parseDestination(parameters)
+    if (vaccine == 0 && destination == null) {
+        print(SpacegateRequest.USAGE)
+        return
+    }
+    if (destination != null && destination.isEmpty()) {
+        print(SpacegateRequest.USAGE)
         return
     }
     val client = httpClient ?: run {
@@ -53,9 +58,13 @@ internal fun GameRuntimeLibrary.cliSpacegate(parameters: String, print: (String)
         return
     }
     runBlocking {
-        SpacegateRequest(client, choice)
-            .takeVaccine(vaccine, preferences)
-            .onFailure { print(it.message ?: "Spacegate vaccine failed.") }
+        val request = SpacegateRequest(client, choice)
+        val result = if (vaccine != 0) {
+            request.takeVaccine(vaccine, preferences)
+        } else {
+            request.chooseDestination(destination.orEmpty(), preferences)
+        }
+        result.onFailure { print(it.message ?: "Spacegate command failed.") }
     }
 }
 

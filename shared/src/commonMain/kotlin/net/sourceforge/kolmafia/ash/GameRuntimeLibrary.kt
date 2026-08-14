@@ -332,7 +332,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase475"
+        const val REVISION = "phase479"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -657,19 +657,12 @@ class GameRuntimeLibrary(
                 ?: rt.print("Only Ed the Undying has entombed servants!")
         },
 
-        // "retrieve N item" — compound retrieve chain
-        Regex("^retrieve\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val count = m.groupValues[1].toIntOrNull() ?: return@to
-            val itemName = m.groupValues[2].trim()
-            val itemId = gameDatabase?.item(itemName)?.id ?: return@to
-            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+        // "retrieve N item" / acquire / find — compound retrieve (qty optional, comma lists)
+        Regex("^(?:acquire|find|retrieve)\\?\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runAcquireCli(m.groupValues[1].trim(), rt, checkOnly = true)
         },
-
-        // acquire / find — aliases for retrieve
-        Regex("^(?:acquire|find)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val count = m.groupValues[1].toIntOrNull() ?: return@to
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { retrieveItemService?.retrieve(itemId, count) }
+        Regex("^(?:retrieve|acquire|find)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runAcquireCli(m.groupValues[1].trim(), rt)
         },
 
         // "use N item" / "use item" — bang potion / slime resolution
@@ -952,6 +945,9 @@ class GameRuntimeLibrary(
             val formatted = net.sourceforge.kolmafia.session.TurnCounter.formatRelayCounters(prefs, currentRun)
             if (formatted.isNotBlank()) rt.print(formatted)
         },
+        Regex("^counters\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runCountersCli(m.groupValues[1].trim(), rt)
+        },
         Regex("^counters$", RegexOption.IGNORE_CASE) to { _, rt ->
             val prefs = preferences ?: return@to
             for (name in prefs.counterNames()) {
@@ -969,13 +965,8 @@ class GameRuntimeLibrary(
             }
         },
 
-        Regex("^choice\\s+(\\d+)\\s+(\\d+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            cliChoice(m.groupValues[1].toIntOrNull() ?: return@to, m.groupValues[2].toIntOrNull() ?: return@to)
-        },
-        Regex("^choice\\s+(\\d+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val choiceId = preferences?.getInt(AdventureManager.LAST_CHOICE_ID, 0) ?: return@to
-            if (choiceId <= 0) return@to
-            cliChoice(choiceId, m.groupValues[1].toIntOrNull() ?: return@to)
+        Regex("^choice(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runChoiceCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
         Regex("^thralls$", RegexOption.IGNORE_CASE) to { _, rt ->
@@ -1139,6 +1130,9 @@ class GameRuntimeLibrary(
 
         Regex("^campground\\s+vault3$", RegexOption.IGNORE_CASE) to { _, rt ->
             cliCampgroundVault3(rt::print)
+        },
+        Regex("^(?:campground|camp)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runCampgroundActionCli(m.groupValues[1].trim(), rt)
         },
 
         Regex("^grim(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
@@ -1326,19 +1320,9 @@ class GameRuntimeLibrary(
             }
         },
 
-        // refresh — sync character, inventory, skills, effects, familiars, quest log
-        Regex("^refresh$", RegexOption.IGNORE_CASE) to { _, _ ->
-            kotlinx.coroutines.runBlocking {
-                characterRequest?.fetchCharacterState()?.onSuccess { resp ->
-                    character?.updateFromApiResponse(resp)
-                }
-                inventoryManager?.fetchInventory()
-                skillManager?.fetchSkills()
-                effectManager?.fetchEffects()
-                familiarManager?.fetchFamiliars()
-                questLogRequest?.syncAll()
-                checkDynamicModifiers()
-            }
+        // refresh [target] — desktop RefreshStatusCommand (bare refresh stays full sync)
+        Regex("^refresh(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runRefreshCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
         // questlog / quests — sync quest log pages
@@ -1444,8 +1428,8 @@ class GameRuntimeLibrary(
             rt.print("That's funny.")
         },
 
-        // refreshshop / refresh shop — refresh mall store prices
-        Regex("^refresh\\s*shop$", RegexOption.IGNORE_CASE) to { _, _ ->
+        // refreshshop — compact alias (spaced "refresh shop" is handled above)
+        Regex("^refreshshop$", RegexOption.IGNORE_CASE) to { _, _ ->
             kotlinx.coroutines.runBlocking { manageStoreRequest?.refreshPrices() }
         },
 
@@ -1663,6 +1647,10 @@ class GameRuntimeLibrary(
             dispatchCli("refresh", rt)
         },
 
+        // recover / restore / check hp|mp|both — desktop RecoverCommand
+        Regex("^(?:recover|restore|check)\\s+(hp|health|mp|mana|both)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runRecoverCli(m.groupValues[1], rt)
+        },
         // recover / rest / restore / check — force recovery loop once
         Regex("^(?:recover|rest|restore|check)$", RegexOption.IGNORE_CASE) to { _, _ ->
             val rm = recoveryManager ?: return@to
@@ -1708,9 +1696,21 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { drinkBoozeRequest?.drink(itemId, qty) }
         },
 
-        // echo / print — output text to CLI stream
+        // echo / print — output text to CLI stream (`timestamp` → KoL calendar day)
         Regex("^(?:echo|print)\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
-            rt.print(m.groupValues[1])
+            runEchoCli(m.groupValues[1], rt)
+        },
+        Regex("^text\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runVisitUrlCli(m.groupValues[1].trim(), printHtml = true, rt)
+        },
+        Regex("^mpitems$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runMpItemsCli(rt)
+        },
+        Regex("^restores(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runRestoresCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^insults$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runInsultsCli(rt)
         },
 
         // status — one-line character summary
@@ -2013,6 +2013,9 @@ class GameRuntimeLibrary(
         Regex("^ashq(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runAshCli(m.groupValues.getOrNull(1).orEmpty(), quiet = true, rt)
         },
+        Regex("^ashref(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runAshRefCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
         Regex("^ash(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runAshCli(m.groupValues.getOrNull(1).orEmpty(), quiet = false, rt)
         },
@@ -2057,6 +2060,30 @@ class GameRuntimeLibrary(
         },
         Regex("^crimbotree(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runCrimboTreeCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^burn(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runBurnCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^(?:kitchen|hellkitchen|hellskitchen)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runNamedCafeCli(LongTailCli.NamedCafe.KITCHEN, m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^restaurant(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runNamedCafeCli(LongTailCli.NamedCafe.RESTAURANT, m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^(?:brewery|microbrewery)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runNamedCafeCli(LongTailCli.NamedCafe.BREWERY, m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^mallsell(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runMallSellCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^shop(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runShopCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^stickers(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runStickersCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^(?:condition|objective|conditions|objectives)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runConditionCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
         // cleanup / junk — untinker, use boxes, pulverize, autosell junk list
@@ -2968,7 +2995,11 @@ class GameRuntimeLibrary(
         return attachments
     }
 
-    internal fun cliChoice(choiceId: Int, option: Int) {
+    internal fun cliChoice(
+        choiceId: Int,
+        option: Int,
+        extraFormFields: Map<String, String> = emptyMap(),
+    ) {
         val req = choiceRequest ?: return
         val db = questDatabase ?: return
         val prefs = preferences
@@ -2978,7 +3009,7 @@ class GameRuntimeLibrary(
             BastilleBattalionSync.syncPreChoice(choiceId, option, prefs, bastilleContext)
         }
         kotlinx.coroutines.runBlocking {
-            req.choose(choiceId, option).onSuccess { (html, _) ->
+            req.choose(choiceId, option, extraFormFields).onSuccess { (html, _) ->
                 QuestLogSync.processResponse(html, db, questLogRequest, buildQuestSyncContext())
                 if (prefs != null && BastilleBattalionSync.isBastilleChoice(choiceId)) {
                     val effectNames = effectManager?.state?.value?.effects?.map { it.name }?.toSet()
@@ -3365,14 +3396,16 @@ class GameRuntimeLibrary(
         visitKolPage(path)
     }
 
-    internal fun visitKolPage(path: String, applyQuestHooks: Boolean = false) {
-        val client = httpClient ?: return
+    internal fun visitKolPage(path: String, applyQuestHooks: Boolean = false): String? {
+        val client = httpClient ?: return null
         val db = questDatabase
+        var htmlOut: String? = null
         kotlinx.coroutines.runBlocking {
             try {
                 val response = client.get("$KOL_BASE_URL/$path")
                 if (!response.status.isSuccess()) return@runBlocking
                 val html = response.bodyAsText()
+                htmlOut = html
                 processVisitResponseHooks(html, "$KOL_BASE_URL/$path")
                 if (path.equals("charpane.php", ignoreCase = true) ||
                     path.endsWith("/charpane.php", ignoreCase = true)
@@ -3393,6 +3426,7 @@ class GameRuntimeLibrary(
                 // best-effort page visit
             }
         }
+        return htmlOut
     }
 
     internal fun uneffectByName(name: String) {
@@ -3556,6 +3590,8 @@ class GameRuntimeLibrary(
         val matched = cliDispatch.firstOrNull { (regex, _) -> regex.matches(expanded) }
         if (matched != null) {
             matched.second(matched.first.find(expanded)!!, rt)
+        } else if (looksLikeVisitUrl(expanded)) {
+            runVisitUrlCli(expanded, printHtml = false, rt)
         } else {
             rt.print("[cli] $expanded")
         }

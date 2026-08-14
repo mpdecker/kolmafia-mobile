@@ -35,6 +35,28 @@ class ExoticBoostCliV6SupportTest {
     }
 
     @Test
+    fun terminal_resolveEnquiryEducateExtrude_aliases() {
+        val p = prefs {
+            putString("sourceTerminalEnquiryKnown", "protect.enq,stats.enq")
+            putString("sourceTerminalEducateKnown", "compress.edu,duplicate.edu,portscan.edu,turbo.edu")
+            putString("sourceTerminalExtrudeKnown", "familiar.ext,cram.ext")
+        }
+        assertEquals("enquiry familiar.enq", TerminalRequest.resolveEnquiryCommand("fam", p))
+        assertEquals("enquiry monsters.enq", TerminalRequest.resolveEnquiryCommand("monsters", p))
+        assertEquals("enquiry protect.enq", TerminalRequest.resolveEnquiryCommand("protect", p))
+        assertEquals("educate digitize.edu", TerminalRequest.resolveEducateCommand("digit", p))
+        assertEquals("educate extract.edu", TerminalRequest.resolveEducateCommand("extract", p))
+        assertEquals("educate compress.edu", TerminalRequest.resolveEducateCommand("compr", p))
+        assertEquals("extrude -f booze.ext", TerminalRequest.resolveExtrudeCommand("gibson", p))
+        assertEquals("extrude -f food.ext", TerminalRequest.resolveExtrudeCommand("cookie", p))
+        assertEquals("extrude -f goggles.ext", TerminalRequest.resolveExtrudeCommand("goggles", p))
+        assertEquals("extrude -f familiar.ext", TerminalRequest.resolveExtrudeCommand("fam", p))
+        assertNull(TerminalRequest.resolveEnquiryCommand("dance", p))
+        assertNull(TerminalRequest.resolveEducateCommand("enhance", p))
+        assertNull(TerminalRequest.resolveExtrudeCommand("spam", p))
+    }
+
+    @Test
     fun terminal_enhanceLimit_cram_scram() {
         assertEquals(1, TerminalRequest.enhanceLimit(prefs()))
         assertEquals(

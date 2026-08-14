@@ -16,8 +16,8 @@ import net.sourceforge.kolmafia.request.DisplayCaseRequest
 class GameRuntimeLibraryAshP428Test {
 
     @Test
-    fun revision_phase475() {
-        assertEquals("phase475", GameRuntimeLibrary.REVISION)
+    fun revision_phase479() {
+        assertEquals("phase479", GameRuntimeLibrary.REVISION)
     }
 
     @Test

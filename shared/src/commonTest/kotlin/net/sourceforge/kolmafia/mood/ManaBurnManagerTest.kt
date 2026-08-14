@@ -765,6 +765,35 @@ class ManaBurnManagerTest {
         mpCost = mpCost, dailyLimit = dailyLimit, timesCast = timesCast,
     )
 
+    @Test fun burnExtraMana_zombiecore_noops() = runTest {
+        val casts = mutableListOf<Int>()
+        val mgr = ManaBurnManager(fakeCastSkillManager(casts), prefs(enabled = true))
+        mgr.burnExtraMana(
+            mood = null,
+            effectState = EffectState(),
+            skillState = SkillState(),
+            charState = CharacterState(
+                challengePath = "Zombie Slayer",
+                currentMp = 100,
+                maxMp = 100,
+            ),
+        )
+        assertTrue(casts.isEmpty())
+    }
+
+    @Test fun burnMana_noNextCast_completesWithoutCasting() = runTest {
+        val casts = mutableListOf<Int>()
+        val mgr = ManaBurnManager(fakeCastSkillManager(casts), prefs(enabled = true))
+        mgr.burnMana(
+            minimumMp = 0,
+            mood = null,
+            effectState = EffectState(),
+            skillState = SkillState(),
+            charState = CharacterState(currentMp = 50, maxMp = 100),
+        )
+        assertTrue(casts.isEmpty())
+    }
+
     private fun fakeCastSkillManager(cast: MutableList<Int>): SkillManager {
         val fakeClient = io.ktor.client.HttpClient(MockEngine { _ -> respond("") })
         val fakeRequest = SkillCastRequest(fakeClient)

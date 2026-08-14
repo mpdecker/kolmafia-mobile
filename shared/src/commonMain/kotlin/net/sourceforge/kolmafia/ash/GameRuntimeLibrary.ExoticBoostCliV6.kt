@@ -12,10 +12,11 @@ import net.sourceforge.kolmafia.request.TerminalRequest
 
 internal fun GameRuntimeLibrary.cliTerminal(parameters: String, print: (String) -> Unit) {
     val parts = parameters.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-    if (parts.size < 2 || !parts[0].equals("enhance", ignoreCase = true)) {
-        print("Usage: terminal enhance <meat.enh|items.enh|init.enh|substats.enh|damage.enh|critical.enh>")
+    if (parts.size < 2) {
+        print("Usage: terminal enhance|enquiry|educate|extrude <target>")
         return
     }
+    val verb = parts[0].lowercase()
     val target = parts.drop(1).joinToString(" ")
     val client = httpClient ?: run {
         print("HTTP client is not available.")
@@ -24,17 +25,42 @@ internal fun GameRuntimeLibrary.cliTerminal(parameters: String, print: (String) 
     val counts: (Int) -> Int = { id ->
         inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
     }
+    val request = TerminalRequest(
+        client = client,
+        campgroundRequest = CampgroundRequest(client),
+        falloutShelterRequest = FalloutShelterRequest(client),
+    )
     runBlocking {
-        TerminalRequest(
-            client = client,
-            campgroundRequest = CampgroundRequest(client),
-            falloutShelterRequest = FalloutShelterRequest(client),
-        ).enhance(
-            target = target,
-            state = character?.state?.value,
-            preferences = preferences,
-            accessibleCount = counts,
-        ).onFailure { print(it.message ?: "Terminal enhance failed.") }
+        val result = when (verb) {
+            "enhance" -> request.enhance(
+                target = target,
+                state = character?.state?.value,
+                preferences = preferences,
+                accessibleCount = counts,
+            )
+            "enquiry" -> request.enquiry(
+                target = target,
+                state = character?.state?.value,
+                preferences = preferences,
+                accessibleCount = counts,
+            )
+            "educate" -> request.educate(
+                target = target,
+                state = character?.state?.value,
+                preferences = preferences,
+                accessibleCount = counts,
+            )
+            "extrude" -> request.cliExtrude(
+                target = target,
+                state = character?.state?.value,
+                preferences = preferences,
+                accessibleCount = counts,
+            )
+            else -> Result.failure(
+                IllegalArgumentException("$verb is not a valid terminal command."),
+            )
+        }
+        result.onFailure { print(it.message ?: "Terminal $verb failed.") }
     }
 }
 
