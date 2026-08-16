@@ -16,8 +16,8 @@ import net.sourceforge.kolmafia.request.ClosetRequest
 class GameRuntimeLibraryAshP426Test {
 
     @Test
-    fun revision_phase479() {
-        assertEquals("phase479", GameRuntimeLibrary.REVISION)
+    fun revision_phase480() {
+        assertEquals("phase490", GameRuntimeLibrary.REVISION)
     }
 
     @Test

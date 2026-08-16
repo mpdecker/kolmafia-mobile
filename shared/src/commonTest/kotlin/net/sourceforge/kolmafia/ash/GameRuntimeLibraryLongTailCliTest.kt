@@ -50,6 +50,8 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.session.EventHistory
+import net.sourceforge.kolmafia.session.EventHistoryTest
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.skill.SkillCastRequest
@@ -69,6 +71,7 @@ class GameRuntimeLibraryLongTailCliTest {
         EffectDatabase.resetForTest()
         MoodRemovalKnownSources.clear()
         RestoreDatabase.resetForTest()
+        EventHistory.resetForTest()
     }
 
     @Test
@@ -1251,5 +1254,135 @@ class GameRuntimeLibraryLongTailCliTest {
         val out = outputLib(lib, """cli_execute("acquire? seal tooth");""")
         assertEquals(emptyList(), retrieved)
         assertTrue(out.contains("seal tooth: fail") || out.contains("seal tooth: have"), out)
+    }
+
+    @Test
+    fun rest_postsAction() {
+        val bodies = mutableListOf<String>()
+        val urls = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            urls += request.url.toString()
+            bodies += request.body.toByteArray().decodeToString()
+            respond("ok", HttpStatusCode.OK)
+        })
+        val lib = GameRuntimeLibrary(httpClient = client, character = KoLCharacter())
+        outputLib(lib, """cli_execute("rest");""")
+        assertTrue(urls.any { it.contains("campground.php") }, urls.toString())
+        assertTrue(bodies.any { it.contains("action=rest") }, bodies.toString())
+    }
+
+    @Test
+    fun rest_chateau_printsUnavailable() {
+        val lib = GameRuntimeLibrary(
+            httpClient = HttpClient(MockEngine { respond("ok") }),
+            character = KoLCharacter(),
+        )
+        val out = outputLib(lib, """cli_execute("rest chateau");""")
+        assertTrue(out.contains("campground rest is not available"), out)
+    }
+
+    @Test
+    fun restores_all_stillListsAfterRestAlias() {
+        RestoreDatabase.registerForTest(
+            RestoreData("grog", RestoreType.ITEM, "10", "20", "0", "0", 0, "", "notes"),
+        )
+        ItemDatabase.registerForTest(
+            ItemData(201, "grog", "d", "img", ItemPrimaryUse.USABLE, emptySet(), emptySet(), 0, null),
+        )
+        val lib = GameRuntimeLibrary()
+        val out = outputLib(lib, """cli_execute("restores all");""")
+        assertTrue(out.contains("grog"), out)
+    }
+
+    @Test
+    fun second_equipsOffhand() {
+        assertOffhandAlias("second")
+    }
+
+    @Test
+    fun hold_equipsOffhand() {
+        assertOffhandAlias("hold")
+    }
+
+    @Test
+    fun dualwield_equipsOffhand() {
+        assertOffhandAlias("dualwield")
+    }
+
+    @Test
+    fun equip_offHand_token_accepted() {
+        assertOffhandAlias("equip off-hand seal tooth", commandIsFull = true)
+    }
+
+    @Test
+    fun colorecho_printsTextNotColor() {
+        val lib = GameRuntimeLibrary.forTesting()
+        val out = outputLib(lib, """cli_execute("colorecho red hello");""")
+        assertTrue(out.contains("hello"), out)
+        assertTrue(!out.contains("red hello"), out)
+    }
+
+    @Test
+    fun events_printsParsedText_andClearEmpties() {
+        EventHistory.checkForNewEvents(EventHistoryTest.ORANGE_EVENTS_HTML)
+        val lib = GameRuntimeLibrary.forTesting()
+        val listed = outputLib(lib, """cli_execute("events");""")
+        assertTrue(listed.contains("You found a thing."), listed)
+        outputLib(lib, """cli_execute("events clear");""")
+        val after = outputLib(lib, """cli_execute("events");""")
+        assertTrue(!after.contains("You found a thing."), after)
+    }
+
+    @Test
+    fun prefref_listsSetPref() {
+        val p = Preferences(MapSettings())
+        p.setString("someKey", "someValue")
+        val lib = GameRuntimeLibrary(preferences = p)
+        val out = outputLib(lib, """cli_execute("prefref someKey");""")
+        assertTrue(out.contains("someKey"), out)
+        assertTrue(out.contains("someValue"), out)
+    }
+
+    @Test
+    fun prefref_unknown_printsNothingMatching() {
+        val p = Preferences(MapSettings())
+        p.setString("otherKey", "v")
+        val lib = GameRuntimeLibrary(preferences = p)
+        val out = outputLib(lib, """cli_execute("prefref nosuch");""")
+        assertTrue(!out.contains("otherKey"), out)
+        assertTrue(!out.contains("nosuch"), out)
+    }
+
+    @Test
+    fun poolskill_printsEstimateFromInebrietyAndPref() {
+        val p = Preferences(MapSettings())
+        p.setInt("poolSkill", 3)
+        p.setInt("poolSharkCount", 0)
+        val char = KoLCharacter().also { it.updateConsumables(0, 5, 0) }
+        val lib = GameRuntimeLibrary(preferences = p, character = char)
+        val out = outputLib(lib, """cli_execute("poolskill");""")
+        assertTrue(out.contains("Pool Skill is estimated at : 8."), out)
+        assertTrue(out.contains("5 from having 5 inebriety"), out)
+        assertTrue(out.contains("3 hustling training"), out)
+    }
+
+    private fun assertOffhandAlias(command: String, commandIsFull: Boolean = false) {
+        val bodies = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            bodies += request.body.toByteArray().decodeToString()
+            respond("ok", HttpStatusCode.OK)
+        })
+        val inv = object : InventoryManager(client, GameEventBus()) {
+            init {
+                _state.value = InventoryState(
+                    items = mapOf(2 to InventoryItem(2, "seal tooth", 1, ItemType.OTHER)),
+                )
+            }
+        }
+        val lib = GameRuntimeLibrary(inventoryManager = inv)
+        val cli = if (commandIsFull) command else "$command seal tooth"
+        outputLib(lib, """cli_execute("$cli");""")
+        assertTrue(bodies.any { it.contains("slot=offhand") }, bodies.toString())
+        assertTrue(bodies.any { it.contains("whichitem=2") }, bodies.toString())
     }
 }

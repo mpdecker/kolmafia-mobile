@@ -228,7 +228,7 @@ class GameRuntimeLibraryAshP118Test {
 
     @Test
     fun revision_phase417() {
-        assertEquals("phase479", GameRuntimeLibrary.REVISION)
+        assertEquals("phase490", GameRuntimeLibrary.REVISION)
     }
 
     private fun apiClient(statusJson: String): HttpClient = HttpClient(
