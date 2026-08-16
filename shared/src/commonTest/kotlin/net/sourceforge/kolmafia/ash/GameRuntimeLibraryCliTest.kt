@@ -1092,9 +1092,9 @@ class GameRuntimeLibraryCliTest {
         )
         val lib = GameRuntimeLibrary(character = char)
         val out = outputLib(lib, """cli_execute("status");""")
-        assertTrue(out.contains("TestPlayer"))
-        assertTrue(out.contains("Level 5"))
-        assertTrue(out.contains("12 adventures"))
+        assertTrue(out.contains("Name: TestPlayer"))
+        assertTrue(out.contains("Lv: 5"))
+        assertTrue(out.contains("Advs: 12"))
     }
 
     @Test

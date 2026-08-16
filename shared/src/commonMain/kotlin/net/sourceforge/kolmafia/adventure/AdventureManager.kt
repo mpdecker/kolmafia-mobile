@@ -78,7 +78,7 @@ import net.sourceforge.kolmafia.ash.ScriptHookRunner
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
 
-class AdventureManager(
+open class AdventureManager(
     private val adventureRequest: AdventureRequest,
     private val fightRequest: FightRequest,
     private val choiceRequest: ChoiceRequest,
@@ -171,7 +171,7 @@ class AdventureManager(
         scriptHookRunner?.onTurnConsumed()
     }
 
-    fun runAdventures(location: AdventureLocation, turns: Int, scope: CoroutineScope): Job =
+    open fun runAdventures(location: AdventureLocation, turns: Int, scope: CoroutineScope): Job =
         scope.launch {
             _isRunning.value = true
             try {

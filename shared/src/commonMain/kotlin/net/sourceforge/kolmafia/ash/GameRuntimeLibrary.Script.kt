@@ -78,6 +78,30 @@ internal fun GameRuntimeLibrary.registerScriptFunctions(scope: AshScope) {
     }
 }
 
+internal fun GameRuntimeLibrary.runCallScriptCli(parameters: String, rt: AshRuntimeContext) {
+    var params = parameters.trim()
+    if (params.isEmpty()) return
+    var runCount = 1
+    val firstSpace = params.indexOf(' ')
+    val firstToken = if (firstSpace < 0) params else params.substring(0, firstSpace)
+    if (firstToken.length > 1 &&
+        firstToken.endsWith("x", ignoreCase = true) &&
+        firstToken.dropLast(1).all { it.isDigit() }
+    ) {
+        runCount = firstToken.dropLast(1).toIntOrNull() ?: 0
+        if (runCount <= 0) return
+        if (firstSpace < 0) return
+        params = params.substring(firstSpace + 1).trim()
+        if (params.isEmpty()) return
+    }
+    repeat(runCount) {
+        if (!runSavedScript(params, rt)) {
+            rt.print("Script '$params' not found")
+            return
+        }
+    }
+}
+
 internal fun GameRuntimeLibrary.runSavedScript(
     name: String,
     outputContext: AshRuntimeContext? = null,

@@ -50,7 +50,7 @@ sealed class SessionState {
     data class Error(val message: String) : SessionState()
 }
 
-class SessionManager(
+open class SessionManager(
     private val loginRequest: LoginRequest,
     private val characterRequest: CharacterRequest,
     private val character: KoLCharacter,
@@ -214,7 +214,7 @@ class SessionManager(
         }
     }
 
-    fun logout() {
+    open fun logout() {
         ClanManager.clearCache(newCharacter = true)
         CharpaneValhallaSync.reset()
         PvpManager.reset()

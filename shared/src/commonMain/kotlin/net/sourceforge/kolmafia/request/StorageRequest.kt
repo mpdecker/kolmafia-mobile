@@ -31,6 +31,38 @@ open class StorageRequest(private val client: HttpClient) {
         }
     }
 
+    open suspend fun emptyStorage(): Result<String> {
+        return try {
+            val response = client.get("$KOL_BASE_URL/storage.php") {
+                parameter("action", "pullall")
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.bodyAsText())
+            } else {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Desktop [StorageRequestType.PULL_MEAT_FROM_STORAGE] — storage.php?action=takemeat&amt=N. */
+    open suspend fun pullMeat(quantity: Int): Result<String> {
+        return try {
+            val response = client.get("$KOL_BASE_URL/storage.php") {
+                parameter("action", "takemeat")
+                parameter("amt", quantity)
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.bodyAsText())
+            } else {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     open suspend fun deposit(itemId: Int, quantity: Int): Result<String> {
         return try {
             val response = client.get("$KOL_BASE_URL/storage.php") {
