@@ -108,6 +108,10 @@ object SkillDefinitionProxy {
 
     fun isBuff(skillId: Int): Boolean = hasTag(skillId, "other")
 
+    fun isSelf(skillId: Int): Boolean = hasTag(skillId, "self")
+
+    fun isNonCombat(skillId: Int): Boolean = hasTag(skillId, "nc")
+
     /** Desktop [SkillDatabase.isTurtleTamerBuff]. */
     fun isTurtleTamerBuff(skillId: Int): Boolean =
         skillId in 2001..2999 && isBuff(skillId)

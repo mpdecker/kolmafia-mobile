@@ -334,7 +334,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase485"
+        const val REVISION = "phase490"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -568,6 +568,12 @@ class GameRuntimeLibrary(
             rt.print(value)
         },
 
+        // bare cast lists castable skills; bare skill lists all (desktop UseSkillCommand)
+        Regex("^(cast|skill)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val filter = if (m.groupValues[1].equals("cast", ignoreCase = true)) "cast" else ""
+            cliSkills(filter, rt)
+        },
+
         // "cast|skill N skill-name [^ effect]" — count form: silent no-op if unknown
         Regex("^(?:cast|skill)\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val parameters = "${m.groupValues[1]} ${m.groupValues[2].trim()}"
@@ -577,6 +583,14 @@ class GameRuntimeLibrary(
         // "cast|skill skill-name [^ effect]" — bare form: echo if unknown
         Regex("^(?:cast|skill)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliCast(m.groupValues[1].trim(), rt::print, echoUnknown = true)
+        },
+
+        // familiar / familiar list [filter] — desktop FamiliarCommand listing
+        Regex("^familiar$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliFamiliars("", rt)
+        },
+        Regex("^familiar\\s+list(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFamiliars(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
         // "familiar name" — switch to a familiar by species name
@@ -836,12 +850,25 @@ class GameRuntimeLibrary(
                 refreshClosetCacheAfter(closetRequest?.takeOut(itemId, qty))
             }
         },
+        Regex("^closet(?:\\s+list(?:\\s+(.*))?)?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliCloset(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
         Regex("^storage\\s+take\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
             val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
             kotlinx.coroutines.runBlocking {
                 refreshStorageCacheAfter(storageRequest?.withdraw(itemId, qty))
             }
+        },
+        Regex("^storage\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            val qty = m.groupValues[1].toIntOrNull() ?: 1
+            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
+            kotlinx.coroutines.runBlocking {
+                refreshStorageCacheAfter(storageRequest?.deposit(itemId, qty))
+            }
+        },
+        Regex("^storage(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliStorage(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
         Regex("^display\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
@@ -856,6 +883,9 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking {
                 refreshDisplayCacheAfter(displayCaseRequest?.takeOut(itemId, qty))
             }
+        },
+        Regex("^display(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliDisplay(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
         Regex("^stash\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val qty = m.groupValues[1].toIntOrNull() ?: 1
@@ -1351,24 +1381,24 @@ class GameRuntimeLibrary(
             }
         },
 
-        // skills / effects / inv — refresh cached state
-        Regex("^skills$", RegexOption.IGNORE_CASE) to { _, _ ->
-            kotlinx.coroutines.runBlocking { skillManager?.fetchSkills() }
+        // skills [filter] — fetch then list owned skills (desktop ShowDataCommand)
+        Regex("^skills(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSkills(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
-        Regex("^effects$", RegexOption.IGNORE_CASE) to { _, _ ->
-            kotlinx.coroutines.runBlocking { effectManager?.fetchEffects() }
+        Regex("^(?:pass|passive)$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliSkills("passive", rt)
         },
-        Regex("^inv$", RegexOption.IGNORE_CASE) to { _, _ ->
-            kotlinx.coroutines.runBlocking {
-                inventoryManager?.fetchInventory()
-                inventoryManager?.syncCharacterEquipment()
-            }
+        Regex("^self$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliSkills("self", rt)
         },
-        Regex("^inventory$", RegexOption.IGNORE_CASE) to { _, _ ->
-            kotlinx.coroutines.runBlocking {
-                inventoryManager?.fetchInventory()
-                inventoryManager?.syncCharacterEquipment()
-            }
+        Regex("^combat$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliSkills("combat", rt)
+        },
+        Regex("^effects(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliEffects(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^(?:inv|inventory)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliInventory(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
         // contacts / mail — visit common KoL pages
@@ -1465,22 +1495,14 @@ class GameRuntimeLibrary(
             visitKolPage("mallstore.php")
         },
 
-        // familiars — refresh familiar list
-        Regex("^familiars$", RegexOption.IGNORE_CASE) to { _, _ ->
-            kotlinx.coroutines.runBlocking { familiarManager?.fetchFamiliars() }
+        // familiars [filter] — desktop ShowDataCommand listing
+        Regex("^familiars(?:\\s+(?:list\\s+)?(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFamiliars(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
-        // steal N item — familiar steal
-        Regex("^steal\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val qty = m.groupValues[1].toIntOrNull() ?: return@to
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            val req = familiarRequest ?: return@to
-            kotlinx.coroutines.runBlocking {
-                repeat(qty) {
-                    if (req.stealItem(itemId).isFailure) return@runBlocking
-                    inventoryManager?.fetchInventory()
-                }
-            }
+        // steal — desktop PvpStealCommand alias; `steal N item` still familiar-steals
+        Regex("^steal(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSteal(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt)
         },
 
         // sendmsg channel message — public chat
@@ -1497,9 +1519,9 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { chatSender?.sendPrivate(recipient, message) }
         },
 
-        // buff — desktop alias for skills list refresh (must precede buff bot skill pattern)
-        Regex("^buff$", RegexOption.IGNORE_CASE) to { _, _ ->
-            kotlinx.coroutines.runBlocking { skillManager?.fetchSkills() }
+        // buff — desktop CommandAlias skills buff (fetch + list; must precede buff bot skill)
+        Regex("^buff$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliSkills("buff", rt)
         },
 
         // buff bot skill [turns] — PM buffbot request protocol
@@ -1682,15 +1704,6 @@ class GameRuntimeLibrary(
                     force      = true,
                 )
                 characterRequest?.fetchCharacterState()?.onSuccess { char.updateFromApiResponse(it) }
-            }
-        },
-
-        // storage put N item
-        Regex("^storage\\s+put\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val qty = m.groupValues[1].toIntOrNull() ?: 1
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking {
-                refreshStorageCacheAfter(storageRequest?.deposit(itemId, qty))
             }
         },
 

@@ -101,6 +101,39 @@ internal object PvpStealParser {
     }
 }
 
+private val familiarStealArgsPattern = Regex("""^\d+\s+\S""")
+
+/** Route `steal N item` to familiar steal when args are not a PvP mission. */
+internal fun shouldFallbackToFamiliarSteal(parameters: String): Boolean {
+    val trimmed = parameters.trim()
+    if (trimmed.isEmpty()) return false
+    val parsed = PvpStealParser.parse(trimmed, canInteract = true)
+    if (parsed !is PvpStealParseResult.Error) return false
+    if (parsed.message != "What do you want to steal?") return false
+    return familiarStealArgsPattern.containsMatchIn(trimmed)
+}
+
+internal fun GameRuntimeLibrary.cliSteal(parameters: String, rt: AshRuntimeContext) {
+    if (shouldFallbackToFamiliarSteal(parameters)) {
+        cliFamiliarSteal(parameters)
+        return
+    }
+    cliPvp(parameters, rt::print)
+}
+
+internal fun GameRuntimeLibrary.cliFamiliarSteal(parameters: String) {
+    val match = Regex("""^(\d+)\s+(.+)$""").find(parameters.trim()) ?: return
+    val qty = match.groupValues[1].toIntOrNull() ?: return
+    val itemId = gameDatabase?.item(match.groupValues[2].trim())?.id ?: return
+    val req = familiarRequest ?: return
+    runBlocking {
+        repeat(qty) {
+            if (req.stealItem(itemId).isFailure) return@runBlocking
+            inventoryManager?.fetchInventory()
+        }
+    }
+}
+
 internal fun GameRuntimeLibrary.cliPvp(parameters: String, print: (String) -> Unit) {
     val client = httpClient
     runBlocking {
