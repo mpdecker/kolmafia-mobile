@@ -61,4 +61,21 @@ class InventoryManagerTest {
         manager.fetchInventory()
         assertFalse(manager.state.value.isStale)
     }
+
+    @Test
+    fun gainItemLocally_addsMissingItem() {
+        val manager = makeManager()
+        manager.gainItemLocally(1, 2)
+        assertEquals(2, manager.state.value.items[1]?.quantity)
+        manager.gainItemLocally(1, 3)
+        assertEquals(5, manager.state.value.items[1]?.quantity)
+    }
+
+    @Test
+    fun gainItemLocally_ignoresNonPositiveCount() {
+        val manager = makeManager()
+        manager.gainItemLocally(1, 0)
+        manager.gainItemLocally(1, -2)
+        assertTrue(manager.state.value.items.isEmpty())
+    }
 }

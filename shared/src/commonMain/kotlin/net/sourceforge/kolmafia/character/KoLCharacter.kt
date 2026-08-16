@@ -10,6 +10,16 @@ class KoLCharacter {
     private val _state = MutableStateFlow(CharacterState())
     val state: StateFlow<CharacterState> = _state.asStateFlow()
 
+    companion object {
+        const val MAX_BASEPOINTS = 65535
+
+        /** Desktop `KoLCharacter.calculateBasePoints`: `min(65535, (int) sqrt(subpoints))`. */
+        fun calculateBasePoints(subpoints: Long): Int {
+            val safe = if (subpoints < 0L) 0L else subpoints
+            return minOf(MAX_BASEPOINTS, kotlin.math.sqrt(safe.toDouble()).toInt())
+        }
+    }
+
     fun updateFromApiResponse(response: CharacterApiResponse) {
         val prev = _state.value
         _state.value = CharacterState(
@@ -168,6 +178,29 @@ class KoLCharacter {
 
     fun updateAdventuresLeft(adventures: Int) {
         _state.value = _state.value.copy(adventuresLeft = adventures)
+    }
+
+    fun updatePvp(attacksLeft: Int, hippyStoneBroken: Boolean) {
+        _state.value = _state.value.copy(
+            pvpFightsLeft = attacksLeft,
+            hippyStoneBroken = hippyStoneBroken,
+        )
+    }
+
+    fun adjustSubstats(musDelta: Long = 0, mysDelta: Long = 0, moxDelta: Long = 0) {
+        if (musDelta == 0L && mysDelta == 0L && moxDelta == 0L) return
+        val prev = _state.value
+        val muscSubpoints = prev.muscSubpoints + musDelta
+        val mystSubpoints = prev.mystSubpoints + mysDelta
+        val moxieSubpoints = prev.moxieSubpoints + moxDelta
+        _state.value = prev.copy(
+            muscSubpoints = muscSubpoints,
+            mystSubpoints = mystSubpoints,
+            moxieSubpoints = moxieSubpoints,
+            baseMusc = calculateBasePoints(muscSubpoints),
+            baseMyst = calculateBasePoints(mystSubpoints),
+            baseMoxie = calculateBasePoints(moxieSubpoints),
+        )
     }
 
     fun updateConsumables(fullness: Int, inebriety: Int, spleenUsed: Int) {

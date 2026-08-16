@@ -11,8 +11,8 @@ import net.sourceforge.kolmafia.quest.DispensarySync
 class GameRuntimeLibraryAshP431Test {
 
     @Test
-    fun revision_phase479() {
-        assertEquals("phase479", GameRuntimeLibrary.REVISION)
+    fun revision_phase480() {
+        assertEquals("phase485", GameRuntimeLibrary.REVISION)
     }
 
     @Test

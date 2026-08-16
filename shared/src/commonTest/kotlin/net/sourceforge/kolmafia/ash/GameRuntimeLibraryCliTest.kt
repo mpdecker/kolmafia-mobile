@@ -1892,7 +1892,7 @@ class GameRuntimeLibraryCliTest {
     fun cliExecute_pvpAttack_doesNotEchoUnknown() {
         val lib = GameRuntimeLibrary.forTesting()
         val out = outputLib(lib, """cli_execute("pvp attack someone");""")
-        assertTrue(out.contains("PvP not available"))
+        assertTrue(out.contains("Cannot determine valid stances"))
         assertFalse(out.contains("[cli]"))
     }
 

@@ -19,6 +19,7 @@ import net.sourceforge.kolmafia.character.CharacterStatusRefresh
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.shop.StandardRewardCurrencySync
 
 open class InventoryManager(
@@ -186,6 +187,19 @@ open class InventoryManager(
         }
     } catch (e: Exception) {
         Result.failure(e)
+    }
+
+    /** Local inventory gain after PvP loot / visit parse (no HTTP round-trip). */
+    open fun gainItemLocally(itemId: Int, quantity: Int = 1) {
+        if (quantity <= 0 || itemId < 0) return
+        val current = _state.value
+        val existing = current.items[itemId]
+        val name = existing?.name
+            ?: ItemDatabase.getItemName(itemId).ifEmpty { "Item #$itemId" }
+        val type = existing?.type ?: ItemType.OTHER
+        val updated = current.items.toMutableMap()
+        updated[itemId] = InventoryItem(itemId, name, (existing?.quantity ?: 0) + quantity, type)
+        _state.value = current.copy(items = updated)
     }
 
     /** Local inventory adjustment after NC consumption (no HTTP round-trip). */

@@ -217,6 +217,7 @@ class SessionManager(
     fun logout() {
         ClanManager.clearCache(newCharacter = true)
         CharpaneValhallaSync.reset()
+        PvpManager.reset()
         character.reset()
     }
 

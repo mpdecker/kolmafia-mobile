@@ -19,6 +19,7 @@ import net.sourceforge.kolmafia.data.ConcoctionConsumptionType
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionMayoQueue
 import net.sourceforge.kolmafia.data.ConsumableType
+import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.data.FactDatabase
 import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
@@ -47,6 +48,8 @@ import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
 import net.sourceforge.kolmafia.request.FalloutShelterRequest
 import net.sourceforge.kolmafia.request.FoldItemRequest
+import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.session.EventHistory
 import net.sourceforge.kolmafia.session.PirateInsults
 import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.skill.SkillType
@@ -1494,7 +1497,12 @@ internal fun GameRuntimeLibrary.runCampgroundActionCli(parameters: String, rt: A
     }
 }
 
-private fun GameRuntimeLibrary.runCampgroundRestCli(restTokens: List<String>, rt: AshRuntimeContext) {
+internal fun GameRuntimeLibrary.runRestCli(parameters: String, rt: AshRuntimeContext) {
+    val tokens = parameters.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    runCampgroundRestCli(tokens, rt)
+}
+
+internal fun GameRuntimeLibrary.runCampgroundRestCli(restTokens: List<String>, rt: AshRuntimeContext) {
     val blocked = setOf("chateau", "campaway", "free")
     if (restTokens.any { it.lowercase() in blocked }) {
         rt.print("campground rest is not available")
@@ -1583,6 +1591,69 @@ internal fun GameRuntimeLibrary.runAshRefCli(filter: String, rt: AshRuntimeConte
         val args = fn.params.joinToString(", ") { (pname, ptype) -> "$ptype $pname" }
         rt.print("${fn.returnType} ${fn.name}( $args )")
     }
+}
+
+internal fun GameRuntimeLibrary.runColorEchoCli(parameters: String, rt: AshRuntimeContext) {
+    val spaceIndex = parameters.indexOf(' ')
+    if (spaceIndex == -1) return
+    rt.print(parameters.substring(spaceIndex + 1))
+}
+
+internal fun GameRuntimeLibrary.runEventsCli(parameters: String, rt: AshRuntimeContext) {
+    if (parameters.trim().equals("clear", ignoreCase = true)) {
+        EventHistory.clear()
+        return
+    }
+    for (line in EventHistory.texts()) {
+        rt.print(line)
+    }
+}
+
+internal fun GameRuntimeLibrary.runPrefRefCli(parameters: String, rt: AshRuntimeContext) {
+    val prefs = preferences ?: return
+    val tokens = parameters.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    val searchText = tokens.firstOrNull().orEmpty()
+    val isRegex = tokens.any { it.equals("regex", ignoreCase = true) }
+    val pattern = if (isRegex) {
+        try {
+            Regex(searchText)
+        } catch (_: IllegalArgumentException) {
+            return
+        }
+    } else {
+        null
+    }
+    val needle = searchText.lowercase()
+    for (name in prefs.storedKeys().sorted()) {
+        val matches = if (pattern != null) {
+            pattern.containsMatchIn(name)
+        } else {
+            needle.isEmpty() || name.lowercase().contains(needle)
+        }
+        if (!matches) continue
+        val value = prefs.getString(name)
+        val default = if (DefaultsDatabase.has(name)) DefaultsDatabase.getString(name) else "N/A"
+        rt.print("$name = $value ($default)")
+    }
+}
+
+internal fun GameRuntimeLibrary.runPoolSkillCli(rt: AshRuntimeContext) {
+    val drunk = character?.state?.value?.inebriety ?: 0
+    val drunkBonus = drunk - if (drunk > 10) (drunk - 10) * 3 else 0
+    val equip = buildCurrentModifiers().values.get(DoubleModifier.POOL_SKILL).toInt()
+    val poolsSharked = preferences?.getInt("poolSharkCount", 0) ?: 0
+    val poolSharkBonus = when {
+        poolsSharked > 25 -> 10
+        poolsSharked > 0 -> kotlin.math.floor(2 * kotlin.math.sqrt(poolsSharked.toDouble())).toInt()
+        else -> 0
+    }
+    val training = preferences?.getInt("poolSkill", 0) ?: 0
+    val poolSkill = equip + training + poolSharkBonus + drunkBonus
+    rt.print("Pool Skill is estimated at : $poolSkill.")
+    rt.print(
+        "$equip from equipment, $drunkBonus from having $drunk inebriety, " +
+            "$training hustling training and $poolSharkBonus learning from $poolsSharked sharks.",
+    )
 }
 
 internal fun GameRuntimeLibrary.runInsultsCli(rt: AshRuntimeContext) {

@@ -76,6 +76,9 @@ class AshCompatibilityCorpusTest {
         assertEquals("The Spooky Forest", outputLib(lib, "print(my_location());"))
         assertEquals("false", outputLib(lib, """print(to_string(pvp_attack("someone")));"""))
         assertEquals("false", outputLib(lib, "print(to_string(ranked_fam()));"))
+        assertEquals("0", outputLib(lib, "print(pvp_attacks_left());"))
+        assertEquals("false", outputLib(lib, "print(hippy_stone_broken());"))
+        assertEquals("0", outputLib(lib, "print(count(current_pvp_stances()));"))
     }
 
     @Test

@@ -148,6 +148,8 @@ import net.sourceforge.kolmafia.session.DreadScrollManager
 import net.sourceforge.kolmafia.session.MerkinQuestSync
 import net.sourceforge.kolmafia.session.SeaMerkinSync
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
+import net.sourceforge.kolmafia.session.EventHistory
+import net.sourceforge.kolmafia.session.PeeVPeeSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
 import net.sourceforge.kolmafia.session.CargoCultManager
@@ -332,7 +334,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase479"
+        const val REVISION = "phase485"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -1405,9 +1407,26 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { useItemRequest?.use(itemId, 1) }
         },
 
-        // pvp attack <player> — PvP out of scope; must not crash scripts
-        Regex("^pvp\\s+attack\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, rt ->
-            rt.print("PvP not available on mobile (target=${m.groupValues[1]}).")
+        // attack <target> stance= — directed PvP (desktop PvpAttackCommand)
+        Regex("^attack(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliPvpAttack(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt)
+        },
+
+        // pvp attack — mobile alias; must precede generic pvp
+        Regex("^pvp\\s+attack(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliPvpAttack(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt)
+        },
+
+        Regex("^pvp(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliPvp(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        Regex("^flowers$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliFlowers(rt::print)
+        },
+
+        Regex("^swagger$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliFlowers(rt::print)
         },
 
         // tags — list registered counter/mood tag names
@@ -1651,8 +1670,8 @@ class GameRuntimeLibrary(
         Regex("^(?:recover|restore|check)\\s+(hp|health|mp|mana|both)$", RegexOption.IGNORE_CASE) to { m, rt ->
             runRecoverCli(m.groupValues[1], rt)
         },
-        // recover / rest / restore / check — force recovery loop once
-        Regex("^(?:recover|rest|restore|check)$", RegexOption.IGNORE_CASE) to { _, _ ->
+        // recover / restore / check — force recovery loop once (`rest` is campground)
+        Regex("^(?:recover|restore|check)$", RegexOption.IGNORE_CASE) to { _, _ ->
             val rm = recoveryManager ?: return@to
             val char = character ?: return@to
             kotlinx.coroutines.runBlocking {
@@ -1700,6 +1719,9 @@ class GameRuntimeLibrary(
         Regex("^(?:echo|print)\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
             runEchoCli(m.groupValues[1], rt)
         },
+        Regex("^(?:colorecho|cecho)\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runColorEchoCli(m.groupValues[1], rt)
+        },
         Regex("^text\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             runVisitUrlCli(m.groupValues[1].trim(), printHtml = true, rt)
         },
@@ -1708,6 +1730,18 @@ class GameRuntimeLibrary(
         },
         Regex("^restores(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runRestoresCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^rest(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runRestCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^events(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runEventsCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^prefref(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runPrefRefCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^poolskill$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runPoolSkillCli(rt)
         },
         Regex("^insults$", RegexOption.IGNORE_CASE) to { _, rt ->
             runInsultsCli(rt)
@@ -1954,6 +1988,9 @@ class GameRuntimeLibrary(
         // wear / wield — aliases for equip
         Regex("^(?:wear|wield)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             cliEquip(m.groupValues[1].trim())
+        },
+        Regex("^(?:second|hold|dualwield)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
+            cliEquip("offhand ${m.groupValues[1].trim()}")
         },
 
         // "equip [<slot>] <item-name>" — equip item, optionally into a named slot.
@@ -2276,6 +2313,7 @@ class GameRuntimeLibrary(
     }
 
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
+        EventHistory.checkForNewEvents(html)
         if (url?.contains("familiar.php", ignoreCase = true) == true &&
             url.contains("ajax=1", ignoreCase = true) != true
         ) {
@@ -2485,11 +2523,12 @@ class GameRuntimeLibrary(
                 NpcShopSync.applyShopVisit(html, url, prefs, ascension)
             }
         }
-        if (url != null && url.contains("peevpee.php", ignoreCase = true) &&
-            url.contains("place=shop", ignoreCase = true)
-        ) {
-            preferences?.let {
-                SwaggerShopSync.applyVisitShop(html, url, it, sessionLogger, character?.state?.value)
+        if (url != null && url.contains("peevpee.php", ignoreCase = true)) {
+            PeeVPeeSync.apply(html, url, character, preferences, sessionLogger, inventoryManager)
+            if (url.contains("place=shop", ignoreCase = true)) {
+                preferences?.let {
+                    SwaggerShopSync.applyVisitShop(html, url, it, sessionLogger, character?.state?.value)
+                }
             }
         }
         if (url != null && url.contains("place.php", ignoreCase = true) &&
@@ -3157,10 +3196,10 @@ class GameRuntimeLibrary(
             val afterFirst = rest.substring(spaceIdx + 1).trim()
             val knownSlot = EquipmentSlot.entries.find { s ->
                 s.apiKey.equals(firstToken, ignoreCase = true)
-            } ?: if (firstToken.equals("familiar", ignoreCase = true)) {
-                EquipmentSlot.FAMILIAR
-            } else {
-                null
+            } ?: when {
+                firstToken.equals("familiar", ignoreCase = true) -> EquipmentSlot.FAMILIAR
+                firstToken.equals("off-hand", ignoreCase = true) -> EquipmentSlot.OFFHAND
+                else -> null
             }
             if (knownSlot != null) {
                 val item = inventoryManager?.state?.value?.items?.values
@@ -3975,6 +4014,7 @@ class GameRuntimeLibrary(
         registerAshP429Batch(scope)
         registerAshP430Batch(scope)
         registerAshP432Batch(scope)
+        registerAshP481Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }
