@@ -1,7 +1,9 @@
 package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.data.MayamAvailability
 import net.sourceforge.kolmafia.request.AsdonMartinRequest
 import net.sourceforge.kolmafia.request.CampAwayRequest
 import net.sourceforge.kolmafia.request.CampgroundRequest
@@ -105,9 +107,20 @@ internal fun GameRuntimeLibrary.cliLoathingidol(parameters: String, print: (Stri
 }
 
 internal fun GameRuntimeLibrary.cliMayam(parameters: String, print: (String) -> Unit) {
+    val trimmed = parameters.trim()
+    val lower = trimmed.lowercase()
+    if (trimmed.isEmpty() || lower == "list" || lower == "rings" || lower == "status") {
+        val available = MayamAvailability.availableResonances(preferences)
+        if (available.isEmpty()) {
+            print("No Mayam resonances available.")
+        } else {
+            available.forEach { print(it) }
+        }
+        return
+    }
     val query = MayamRequest.parseResonanceQuery(parameters)
     if (query == null) {
-        print("Usage: mayam resonance <name>")
+        print("Usage: mayam [list|rings|resonance <name>]")
         return
     }
     val useReq = useItemRequest ?: run {
@@ -143,20 +156,71 @@ internal fun GameRuntimeLibrary.cliMayam(parameters: String, print: (String) -> 
 }
 
 internal fun GameRuntimeLibrary.cliAsdonmartin(parameters: String, print: (String) -> Unit) {
-    val styleId = AsdonMartinRequest.parseDriveStyle(parameters)
-    if (styleId < 0) {
-        print("Usage: asdonmartin drive <obnoxiously|stealthily|wastefully|safely|recklessly|quickly|intimidatingly|observantly|waterproofly>")
-        return
-    }
-    val client = httpClient ?: run {
-        print("HTTP client is not available.")
-        return
-    }
-    val currentStyle = currentAsdonDriveStyle()
-    runBlocking {
-        AsdonMartinRequest(client)
-            .drive(styleId, preferences, currentStyle)
-            .onFailure { print(it.message ?: "Asdon Martin drive failed.") }
+    val trimmed = parameters.trim()
+    val lower = trimmed.lowercase()
+    val parts = trimmed.split(Regex("\\s+")).filter { it.isNotEmpty() }
+    when {
+        trimmed.isEmpty() || lower == "status" -> {
+            val fuel = CampgroundItemSync.asdonMartinFuel(preferences)
+            val styleId = currentAsdonDriveStyle()
+            val style = AsdonMartinRequest.driveStyleName(styleId) ?: "none"
+            print("Asdon Martin fuel: $fuel")
+            print("Drive style: $style")
+        }
+        lower == "clear" || lower == "drive clear" -> {
+            val styleId = currentAsdonDriveStyle()
+            if (styleId !in 0..8) {
+                print("You are not currently driving.")
+                return
+            }
+            val client = httpClient ?: run {
+                print("HTTP client is not available.")
+                return
+            }
+            runBlocking {
+                AsdonMartinRequest(client)
+                    .clearDrive(styleId)
+                    .onFailure { print(it.message ?: "Asdon Martin clear failed.") }
+            }
+        }
+        parts.firstOrNull().equals("fuel", ignoreCase = true) -> {
+            val rest = parts.drop(1).joinToString(" ")
+            val (qty, name) = parseConsumeQtyName(rest) ?: run {
+                print("Usage: asdonmartin fuel [N] <item>")
+                return
+            }
+            val itemId = gameDatabase?.item(name)?.id ?: run {
+                print("$name cannot be used as fuel.")
+                return
+            }
+            if (!retrieveForCliConsume(itemId, qty, print)) return
+            val client = httpClient ?: run {
+                print("HTTP client is not available.")
+                return
+            }
+            runBlocking {
+                AsdonMartinRequest(client)
+                    .fuel(itemId, qty)
+                    .onFailure { print(it.message ?: "Asdon Martin fuel failed.") }
+            }
+        }
+        else -> {
+            val styleId = AsdonMartinRequest.parseDriveStyle(parameters)
+            if (styleId < 0) {
+                print("Usage: asdonmartin [status|clear|drive <style>|fuel [N] item]")
+                return
+            }
+            val client = httpClient ?: run {
+                print("HTTP client is not available.")
+                return
+            }
+            val currentStyle = currentAsdonDriveStyle()
+            runBlocking {
+                AsdonMartinRequest(client)
+                    .drive(styleId, preferences, currentStyle)
+                    .onFailure { print(it.message ?: "Asdon Martin drive failed.") }
+            }
+        }
     }
 }
 

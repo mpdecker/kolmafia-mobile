@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.preferences.Preferences
+
 /** Quest step bumps from item acquisition and inventory counts. */
 object QuestItemRules {
 
@@ -29,6 +31,7 @@ object QuestItemRules {
         questDatabase: QuestDatabase,
         hasItemId: (Int) -> Boolean = { false },
         consumeItem: (itemId: Int, quantity: Int) -> Unit = { _, _ -> },
+        preferences: Preferences? = null,
     ): Boolean {
         var advanced = false
         for (name in itemsGained) {
@@ -79,6 +82,36 @@ object QuestItemRules {
                 advanced = setIfBetter(questDatabase, Quest.WAREHOUSE, QuestDatabase.FINISHED) || advanced
             }
             advanced = applyHiddenHospitalItemName(name, questDatabase) || advanced
+            if (preferences != null) {
+                advanced = HiddenCityItemSync.applyItemName(
+                    name,
+                    questDatabase,
+                    preferences,
+                    consumeItem,
+                ) || advanced
+            }
+            val lower = name.lowercase()
+            when {
+                lower.contains("copperhead charm") && !lower.contains("rampant") ->
+                    advanced = ShenSync.applyItemAcquire(
+                        ShenSync.COPPERHEAD_CHARM,
+                        questDatabase,
+                        hasItemId,
+                    ) || advanced
+                lower.contains("copperhead charm (rampant)") ||
+                    lower.contains("copperhead charm rampant") ->
+                    advanced = ShenSync.applyItemAcquire(
+                        ShenSync.COPPERHEAD_CHARM_RAMPANT,
+                        questDatabase,
+                        hasItemId,
+                    ) || advanced
+                lower.contains("talisman o' namsilat") || lower == "talisman o' namsilat" ->
+                    advanced = ShenSync.applyItemAcquire(
+                        ShenSync.TALISMAN,
+                        questDatabase,
+                        hasItemId,
+                    ) || advanced
+            }
         }
         advanced = maybeAdvanceWorshipStep4(questDatabase) || advanced
         return advanced

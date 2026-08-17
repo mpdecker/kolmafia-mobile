@@ -15,6 +15,8 @@ object QuestChoiceRules {
         preferences: Preferences? = null,
         inventoryManager: InventoryManager? = null,
         optionLabel: String? = null,
+        ascensionNumber: Int = 0,
+        dayCount: Int = 0,
     ): Boolean {
         var advanced = false
         if (choiceId in 1347..1385) {
@@ -161,6 +163,37 @@ object QuestChoiceRules {
                 preferences?.let {
                     RufusManager(it).handleShadowRiftNC(choiceId, inventoryManager)
                 }
+            }
+            ShenSync.CHOICE_NIGHTCLUB,
+            ShenSync.CHOICE_JERK,
+            ShenSync.CHOICE_HUGE_JERK,
+            ShenSync.CHOICE_WORLDS_BIGGEST,
+            -> {
+                advanced = ShenSync.applyPostChoice(
+                    choiceId = choiceId,
+                    html = responseText,
+                    questDatabase = questDatabase,
+                    preferences = preferences,
+                    dayCount = dayCount,
+                    consumeItem = { itemId -> inventoryManager?.consumeItemLocally(itemId, 1) },
+                ) || advanced
+            }
+            in 780..789, 791 -> {
+                advanced = HiddenCityChoiceSync.applyPostChoice(
+                    choiceId = choiceId,
+                    html = responseText,
+                    decision = decision,
+                    questDatabase = questDatabase,
+                    preferences = preferences,
+                    ascensionNumber = ascensionNumber,
+                    consumeItem = { itemId -> inventoryManager?.consumeItemLocally(itemId, 1) },
+                    itemCount = { id ->
+                        inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
+                    },
+                ) || advanced
+            }
+            in 1545..1550 -> {
+                advanced = CyberRealmSync.applyFromChoice(choiceId, preferences) || advanced
             }
         }
         return advanced

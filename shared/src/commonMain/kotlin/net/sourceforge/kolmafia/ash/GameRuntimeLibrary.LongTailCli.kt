@@ -30,6 +30,7 @@ import net.sourceforge.kolmafia.data.HolidayNames
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.NpcStoreDatabase
 import net.sourceforge.kolmafia.data.NpcStoreItem
+import net.sourceforge.kolmafia.data.OceanDatabase
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
 import net.sourceforge.kolmafia.request.StoragePullRules
 import net.sourceforge.kolmafia.shop.FolderHolderAccessibility
@@ -2040,12 +2041,15 @@ private fun GameRuntimeLibrary.resolveCliItemId(name: String): Int? {
 }
 
 internal fun GameRuntimeLibrary.runStickersCli(parameters: String, rt: AshRuntimeContext) {
+    val equipment = character?.state?.value?.equipment ?: emptyMap()
     val tokens = parameters.split(',').map { it.trim() }.filter { it.isNotEmpty() }
     if (tokens.isEmpty()) {
-        rt.print("Which stickers?")
+        for ((index, slot) in EquipmentSlot.STICKER_SLOTS.withIndex()) {
+            val name = equipment[slot].orEmpty()
+            rt.print("Sticker ${index + 1}: ${name.ifBlank { "(empty)" }}")
+        }
         return
     }
-    val equipment = character?.state?.value?.equipment ?: emptyMap()
     var index = 0
     for (slot in EquipmentSlot.STICKER_SLOTS) {
         val occupied = equipment[slot]?.isNotBlank() == true
@@ -2053,6 +2057,109 @@ internal fun GameRuntimeLibrary.runStickersCli(parameters: String, rt: AshRuntim
         if (index >= tokens.size) break
         val name = LongTailCli.stickerEquipName(tokens[index++])
         cliEquip("${slot.apiKey} $name")
+    }
+}
+
+/**
+ * Card sleeve list/equip CLI — mirrors stickers/folders sub-slot helpers.
+ */
+internal fun GameRuntimeLibrary.runCardsleeveCli(parameters: String, rt: AshRuntimeContext) {
+    val equipment = character?.state?.value?.equipment ?: emptyMap()
+    val current = equipment[EquipmentSlot.CARDSLEEVE].orEmpty()
+    val arg = parameters.trim()
+    if (arg.isEmpty()) {
+        rt.print("Card Sleeve: ${current.ifBlank { "(empty)" }}")
+        return
+    }
+    cliEquip("${EquipmentSlot.CARDSLEEVE.apiKey} $arg", rt)
+}
+
+/**
+ * Cowboy-boot sub-slot CLI — bare status or equip into bootskin/bootspur.
+ */
+internal fun GameRuntimeLibrary.runBootSubSlotCli(
+    slot: EquipmentSlot,
+    parameters: String,
+    rt: AshRuntimeContext,
+) {
+    val equipment = character?.state?.value?.equipment ?: emptyMap()
+    val current = equipment[slot].orEmpty()
+    val arg = parameters.trim()
+    if (arg.isEmpty()) {
+        rt.print("${slot.displayName}: ${current.ifBlank { "(empty)" }}")
+        return
+    }
+    cliEquip("${slot.apiKey} $arg", rt)
+}
+
+/**
+ * Mobile ocean destination/action prefs CLI (desktop ChoiceOptionsPanel Pirate ocean selects).
+ * Prefs drive [OceanManager] automation on Poop Deck redirects.
+ */
+internal fun GameRuntimeLibrary.runOceanCli(parameters: String, rt: AshRuntimeContext) {
+    val prefs = preferences ?: return
+    val raw = parameters.trim()
+    val lower = raw.lowercase()
+    when {
+        raw.isEmpty() || lower == "status" -> {
+            val dest = prefs.getString("oceanDestination", "manual")
+            val action = prefs.getString("oceanAction", "savecontinue")
+            rt.print("Ocean destination: $dest")
+            rt.print("Ocean action: $action")
+        }
+        lower == "list" -> {
+            rt.print("Destinations: muscle, mysticality, moxie, sand, altar, sphere, plinth, random, manual, ignore, lon,lat")
+            rt.print("Actions: continue, show, stop, savecontinue, saveshow, savestop")
+        }
+        lower.startsWith("dest ") || lower.startsWith("destination ") -> {
+            val value = raw.substringAfter(' ').trim()
+            val normalized = normalizeOceanDestination(value)
+            if (normalized == null) {
+                rt.print("($value) are not valid ocean coordinates")
+                return
+            }
+            prefs.setString("oceanDestination", normalized)
+            rt.print("oceanDestination = $normalized")
+        }
+        lower.startsWith("action ") -> {
+            val value = raw.substringAfter(' ').trim()
+            val normalized = normalizeOceanAction(value)
+            if (normalized == null) {
+                rt.print("Unknown ocean action: $value")
+                return
+            }
+            prefs.setString("oceanAction", normalized)
+            rt.print("oceanAction = $normalized")
+        }
+        else -> {
+            rt.print("Usage: ocean [status|list|dest <value>|action <value>]")
+        }
+    }
+}
+
+internal fun normalizeOceanDestination(raw: String): String? {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return null
+    val lower = trimmed.lowercase()
+    when (lower) {
+        "muscle", "mysticality", "moxie", "sand", "altar", "sphere", "plinth",
+        "random", "manual", "ignore",
+        -> return lower
+    }
+    val point = OceanDatabase.OceanPoint.parse(trimmed) ?: return null
+    return point.toString()
+}
+
+internal fun normalizeOceanAction(raw: String): String? {
+    val compact = raw.trim().lowercase().replace(Regex("\\s+"), "")
+    return when (compact) {
+        "continue" -> "continue"
+        "show" -> "show"
+        "stop" -> "stop"
+        "savecontinue", "saveandcontinue" -> "savecontinue"
+        "saveshow", "saveandshow" -> "saveshow"
+        "savestop", "saveandstop" -> "savestop"
+        else -> null
     }
 }
 
@@ -2650,19 +2757,25 @@ internal fun GameRuntimeLibrary.runPoolSkillCli(rt: AshRuntimeContext) {
 
 internal val IMPLEMENTED_CLI_COMMANDS = listOf(
     "aa", "abort", "absorb", "accordions", "acquire", "adv", "adventure", "alias", "alliedradio", "ash", "ashq", "ashref",
-    "ashwiki", "attack", "autoattack", "automall", "autosell", "backupcamera", "banishes", "bang", "bjornify", "boombox",
-    "bounty", "breakfast", "budget", "buff", "burn", "buy", "call", "campground", "cargo", "cast", "ccs", "checkpoint",
-    "cheat", "cheapest", "chew", "chips", "choice", "cleanup", "closet", "coinmaster", "condref", "condition", "council",
-    "counters", "create", "csend", "demons", "display", "donate", "drink", "dusty", "eat", "echo", "edpiece", "effects",
+    "ashwiki", "attack", "autoattack", "automall", "autosell", "backupcamera", "bake", "banishes", "bang", "bjornify", "boombox",
+    "bootskin", "bootspur", "bounty", "breakfast", "budget", "buff", "burn", "buy", "call", "campground", "cardsleeve", "cargo",
+    "cast", "ccs", "checkpoint",
+    "cheat", "cheapest", "chew", "chewqueue", "chips", "choice", "cleanup", "closet", "coinmaster", "condref", "condition", "council",
+    "counters", "create", "createqueue", "csend", "demons", "display", "donate", "drink", "drinkqueue", "drinksilent", "dusty",
+    "eat", "eatqueue", "eatsilent", "echo", "edpiece", "effects",
     "else", "elseif", "enthrone", "equip", "events", "exit", "expensive", "fax", "faxbot", "fecho", "find", "fold",
-    "folders", "fprint", "garden", "get", "gift", "gong", "grandpa", "hagnk", "help", "hermit", "holiday", "horsery",
+    "folders", "fprint", "garden", "get", "gift", "ghostqueue", "gong", "grandpa", "hagnk", "help", "hermit", "hoboqueue", "holiday",
+    "horsery",
     "hottub", "if", "ingredients", "inv", "inventory", "jillcandle", "journey", "junk", "kmail", "ledcandle", "locations",
-    "logecho", "logprint", "lookup", "logout", "macro", "make", "mallbuy", "mallsell", "maximize", "mcd", "mind-control",
-    "modref", "modifiers", "monsters", "mood", "moon", "moons", "note", "numberology", "outfit", "parka", "play",
+    "logecho", "logprint", "lookup", "logout", "macro", "make", "mallbuy", "mallsell", "maximize", "mayam", "mcd", "mind-control",
+    "mix", "modref", "modifiers", "monsters", "mood", "moon", "moons", "note", "numberology", "ocean", "outfit", "overdrink",
+    "parka", "play", "ply",
     "prefref", "print", "pull", "pulverize", "pvp", "quark", "quit", "raffle", "recipe", "recover", "refresh", "reminisce",
-    "remove", "repeat", "rest", "restore", "retrieve", "retrocape", "safe", "searchmall", "sell", "send", "set", "skill",
-    "skills", "smash", "snowsuit", "soak", "speculate", "stash", "status", "stickers", "storage", "summon", "terminal",
-    "timeout", "try", "umbrella", "unalias", "uneffect", "unequip", "untinker", "use", "version", "volcano", "wait",
+    "remove", "repeat", "rest", "restore", "retrieve", "retrocape", "roboequeue", "safe", "searchmall", "sell", "send", "set",
+    "skill",
+    "skills", "slimelingqueue", "smash", "smith", "snowsuit", "soak", "speculate", "stash", "status", "stickers", "storage",
+    "summon", "terminal", "tinker",
+    "timeout", "try", "umbrella", "unalias", "uneffect", "unequip", "untinker", "use", "usequeue", "version", "volcano", "wait",
     "waitq", "which", "while", "wiki", "witchess", "zap",
 )
 

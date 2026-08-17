@@ -26,9 +26,30 @@ import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.SessionMeatSync
 import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.quest.DesertCombatSync
+import net.sourceforge.kolmafia.quest.BlackForestSync
+import net.sourceforge.kolmafia.quest.ZeppelinRonSync
+import net.sourceforge.kolmafia.quest.WhiteCitadelSync
+import net.sourceforge.kolmafia.quest.HiddenCityCombatSync
+import net.sourceforge.kolmafia.quest.ShenSync
+import net.sourceforge.kolmafia.quest.HiddenCityChoiceSync
+import net.sourceforge.kolmafia.quest.SpacegateAdventureSync
+import net.sourceforge.kolmafia.quest.GingerbreadCitySync
+import net.sourceforge.kolmafia.quest.ClancyNcSync
+import net.sourceforge.kolmafia.quest.TowerRuinsSync
+import net.sourceforge.kolmafia.quest.ExtremeSlopeSync
+import net.sourceforge.kolmafia.quest.PirateNcSync
+import net.sourceforge.kolmafia.quest.FarmDuckSync
+import net.sourceforge.kolmafia.quest.ElVibratoSync
+import net.sourceforge.kolmafia.quest.FriarsQuestSync
+import net.sourceforge.kolmafia.quest.CyberRealmSync
+import net.sourceforge.kolmafia.quest.FantasyRealmCombatSync
 import net.sourceforge.kolmafia.quest.FinalQuestCombatSync
 import net.sourceforge.kolmafia.quest.GuzzlrCombatSync
 import net.sourceforge.kolmafia.quest.IslandWarCombatSync
+import net.sourceforge.kolmafia.quest.PalindomeSync
+import net.sourceforge.kolmafia.quest.PyramidCombatSync
+import net.sourceforge.kolmafia.quest.SpookyravenCombatSync
 import net.sourceforge.kolmafia.quest.ToppingPeakCombatSync
 import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
 import net.sourceforge.kolmafia.quest.ShadowRiftSync
@@ -457,6 +478,7 @@ open class AdventureManager(
                 consumeItem = { itemId, quantity ->
                     inventory?.consumeItemLocally(itemId, quantity)
                 },
+                preferences = preferences,
             )
             GuzzlrCombatSync.applyCombatWin(
                 questDatabase = it,
@@ -520,6 +542,103 @@ open class AdventureManager(
                 monster = result.monster,
                 responseText = fightHtml,
                 won = result.won,
+            )
+            SpookyravenCombatSync.applyCombatWin(
+                questDatabase = it,
+                preferences = preferences,
+                monster = result.monster,
+                won = result.won,
+                hasItemId = { id -> inventory?.state?.value?.items?.containsKey(id) == true },
+            )
+            PyramidCombatSync.applyChamberProgress(
+                questDatabase = it,
+                preferences = preferences,
+                adventureId = location.id,
+                responseText = fightHtml,
+            )
+            PalindomeSync.applyCombatWin(
+                questDatabase = it,
+                preferences = preferences,
+                monster = result.monster,
+                won = result.won,
+            )
+            DesertCombatSync.applyCombatWin(
+                questDatabase = it,
+                preferences = preferences,
+                adventureId = location.id,
+                responseText = fightHtml,
+                won = result.won,
+                context = DesertCombatSync.DesertCombatContext(
+                    hasEquipped = { id ->
+                        character.state.value.equipment.values.any { name ->
+                            gameDatabase?.item(name)?.id == id
+                        }
+                    },
+                    hasEffect = { effectId ->
+                        effects?.state?.value?.effects?.any { e -> e.id == effectId } == true
+                    },
+                    familiarId = character.state.value.familiarId,
+                ),
+            )
+            BlackForestSync.applyCombatWin(
+                questDatabase = it,
+                preferences = preferences,
+                adventureId = location.id,
+                responseText = fightHtml,
+                won = result.won,
+            )
+            ZeppelinRonSync.applyFromAdventure(
+                url = null,
+                html = fightHtml,
+                questDatabase = it,
+                preferences = preferences,
+                adventureId = location.id,
+                won = result.won,
+            )
+            WhiteCitadelSync.applyFromAdventure(
+                adventureId = location.id,
+                html = fightHtml,
+                questDatabase = it,
+            )
+            ClancyNcSync.applyFromAdventure(location.id, fightHtml, it)
+            TowerRuinsSync.applyFromAdventure(location.id, fightHtml, it)
+            ExtremeSlopeSync.applyFromAdventure(location.id, fightHtml, preferences)
+            PirateNcSync.applyFromAdventure(location.id, fightHtml, it, preferences)
+            FarmDuckSync.applyFromAdventure(location.id, fightHtml, preferences)
+            ElVibratoSync.applyFromAdventure(location.id, preferences)
+            FriarsQuestSync.applyFromAdventure(
+                adventureId = location.id,
+                html = fightHtml,
+                preferences = preferences,
+                getTurns = { name -> adventureSpentTracker?.getTurns(name) ?: 0 },
+            )
+            CyberRealmSync.applyFromAdventure(location.id, fightHtml, preferences)
+            FantasyRealmCombatSync.applyCombatWin(
+                monsterName = result.monster,
+                adventureId = location.id,
+                preferences = preferences,
+                won = result.won,
+            )
+            HiddenCityCombatSync.applyCombatWin(
+                questDatabase = it,
+                preferences = preferences,
+                adventureId = location.id,
+                monster = result.monster,
+                responseText = fightHtml,
+                won = result.won,
+                ascensionNumber = character.state.value.ascensionNumber,
+                itemCount = { id -> inventory?.state?.value?.items?.get(id)?.quantity ?: 0 },
+            )
+            SpacegateAdventureSync.applyFromAdventure(
+                url = null,
+                html = fightHtml,
+                preferences = preferences,
+                adventureId = location.id,
+            )
+            GingerbreadCitySync.applyFromVisit(
+                url = "adventure.php?snarfblat=${location.id}",
+                html = fightHtml,
+                preferences = preferences,
             )
         }
         emitItemEvents(result.itemsGained)
@@ -598,6 +717,8 @@ open class AdventureManager(
             if (currentChoiceId == BarrelChoiceMapper.CHOICE_ID) {
                 BarrelShrineSync.syncFromVisit(currentResponseText, preferences)
             }
+            ShenSync.applyVisitChoice(currentChoiceId, currentResponseText, preferences)
+            HiddenCityChoiceSync.applyVisitChoice(currentChoiceId, currentResponseText, preferences)
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
                 val bastilleContext = bastilleSyncContext()
                 BastilleBattalionSync.syncVisit(
@@ -693,7 +814,15 @@ open class AdventureManager(
             }
             questDatabase?.let {
                 QuestChoiceRules.apply(
-                    currentChoiceId, html, it, option, preferences, inventory, optionLabel,
+                    currentChoiceId,
+                    html,
+                    it,
+                    option,
+                    preferences,
+                    inventory,
+                    optionLabel,
+                    ascensionNumber = character.state.value.ascensionNumber,
+                    dayCount = character.state.value.dayCount,
                 )
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))

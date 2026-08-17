@@ -530,6 +530,7 @@ val sharedModule = module {
             questDatabase = get(),
             outfitManager = get(),
             inventoryManager = get(),
+            skillManager = get(),
         )
     }
     single {

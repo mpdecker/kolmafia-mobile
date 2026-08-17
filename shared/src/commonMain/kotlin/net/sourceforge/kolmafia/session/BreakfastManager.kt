@@ -31,6 +31,9 @@ import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.shop.NpcShopSync
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.mood.BreakfastBurnSkills
+import net.sourceforge.kolmafia.skill.SkillManager
+import net.sourceforge.kolmafia.skill.SkillState
 
 open class BreakfastManager(
     private val campgroundRequest: CampgroundRequest,
@@ -44,6 +47,7 @@ open class BreakfastManager(
     private val questDatabase: QuestDatabase? = null,
     private val outfitManager: OutfitManager? = null,
     private val inventoryManager: InventoryManager? = null,
+    private val skillManager: SkillManager? = null,
 ) {
     companion object {
         const val VIP_LOUNGE_KEY_ID   = 5479
@@ -79,6 +83,9 @@ open class BreakfastManager(
 
         val suffix = if (charState.isHardcore) "Hardcore" else "Softcore"
 
+        castSkills(charState)
+        castBookSkills(charState)
+
         harvestGarden(suffix)
         checkRumpusRoom(suffix)
         checkVIPLounge(suffix, charState, inventoryState)
@@ -103,6 +110,137 @@ open class BreakfastManager(
         collectSeaJelly(suffix, charState)
 
         preferences.setBoolean(Preferences.BREAKFAST_COMPLETED, true)
+    }
+
+    /**
+     * Desktop [BreakfastManager.castSkills] — breakfastAlways + breakfast{Soft,Hard}core.
+     * Phase 553: no MP restore; clamp casts to available MP.
+     */
+    open suspend fun castSkills(charState: CharacterState, manaRemaining: Long = 0L) {
+        val manager = skillManager ?: return
+        val skillState = manager.state.value
+        val alwaysSetting = preferences.getString("breakfastAlways", "")
+        for (skillName in BreakfastBurnSkills.breakfastAlwaysSkills) {
+            if (!BreakfastBurnSkills.prefContainsSkill(alwaysSetting, skillName)) continue
+            castBreakfastSkill(skillName, Long.MAX_VALUE, allowRestore = false, manaRemaining, charState, skillState)
+        }
+
+        val suffix = if (charState.isHardcore) "Hardcore" else "Softcore"
+        val skillSetting = preferences.getString("breakfast$suffix", "")
+        if (skillSetting.isBlank()) return
+        val pathedSummons = preferences.getBoolean("pathedSummons$suffix", false)
+        val skills = skillState.skills
+
+        for (skillName in BreakfastBurnSkills.breakfastSkills) {
+            if (!BreakfastBurnSkills.prefContainsSkill(skillSetting, skillName)) continue
+            if (BreakfastBurnSkills.findSkill(skillState, skillName) == null) continue
+            if (pathedSummons && !passesPathedSummonGate(skillName, charState, skills)) continue
+            if (!BreakfastBurnSkills.canCastBreakfastSkill(skillName, charState, skills)) continue
+            castBreakfastSkill(skillName, Long.MAX_VALUE, allowRestore = false, manaRemaining, charState, skillState)
+        }
+    }
+
+    /**
+     * Desktop [BreakfastManager.castBookSkills] — tome / grimoire / libram pref lists.
+     * Phase 554: no MP restore; tome/grimoire use remaining daily casts; libram uses remaining MP.
+     */
+    open suspend fun castBookSkills(charState: CharacterState, manaRemaining: Int = 0) {
+        val manager = skillManager ?: return
+        val skillState = manager.state.value
+        val tome = BreakfastBurnSkills.getBreakfastBookSkills(
+            preferences, "tomeSkills", BreakfastBurnSkills.tomeSkills, skillState, charState.isHardcore,
+        )
+        val grimoire = BreakfastBurnSkills.getBreakfastBookSkills(
+            preferences, "grimoireSkills", BreakfastBurnSkills.grimoireSkills, skillState, charState.isHardcore,
+        )
+        val libram = BreakfastBurnSkills.getBreakfastLibramSkills(preferences, skillState, charState)
+
+        castBookSkillList(tome, BookType.TOME, charState, manaRemaining.toLong())
+        castBookSkillList(grimoire, BookType.GRIMOIRE, charState, manaRemaining.toLong())
+        castBookSkillList(libram, BookType.LIBRAM, charState, manaRemaining.toLong())
+    }
+
+    private enum class BookType { TOME, GRIMOIRE, LIBRAM }
+
+    private suspend fun castBookSkillList(
+        castable: List<String>,
+        type: BookType,
+        charState: CharacterState,
+        manaRemaining: Long,
+    ) {
+        if (castable.isEmpty()) return
+        val skillState = skillManager?.state?.value ?: return
+        val skillCount = castable.size
+        val totalCasts = when (type) {
+            BookType.TOME -> if (charState.isHardcore) 3L else skillCount * 3L
+            BookType.GRIMOIRE -> skillCount.toLong()
+            BookType.LIBRAM -> {
+                var available = (charState.currentMp - manaRemaining).coerceAtLeast(0)
+                var casts = 0L
+                // Approximate libram casts from remaining MP using first skill cost when available.
+                val sample = BreakfastBurnSkills.findSkill(skillState, castable.first())
+                val cost = (sample?.mpCost ?: 1).coerceAtLeast(1)
+                while (available >= cost) {
+                    casts++
+                    available -= cost
+                }
+                casts
+            }
+        }
+        if (totalCasts <= 0) return
+        if (skillCount == 1) {
+            castBreakfastSkill(castable[0], totalCasts, allowRestore = false, manaRemaining, charState, skillState)
+            return
+        }
+        val nextCast = totalCasts / skillCount
+        var cast = nextCast + totalCasts - (nextCast * skillCount)
+        for (skillName in castable) {
+            castBreakfastSkill(skillName, cast, allowRestore = false, manaRemaining, charState, skillState)
+            cast = nextCast
+        }
+    }
+
+    private fun passesPathedSummonGate(
+        skillName: String,
+        charState: CharacterState,
+        skills: List<net.sourceforge.kolmafia.skill.SkillData>,
+    ): Boolean {
+        when (skillName) {
+            "Pastamastery", "Lunch Break", "Spaghetti Breakfast" ->
+                if (!net.sourceforge.kolmafia.character.ConsumptionEligibility.canEat(charState, skills)) return false
+            "Advanced Cocktailcrafting", "Grab a Cold One" ->
+                if (!net.sourceforge.kolmafia.character.ConsumptionEligibility.canDrink(charState, skills) ||
+                    charState.inKoLHS
+                ) {
+                    return false
+                }
+            "Summon Crimbo Candy" -> if (charState.inBeecore) return false
+        }
+        if (skillName == "Spaghetti Breakfast" && charState.inBeecore) return false
+        return true
+    }
+
+    private suspend fun castBreakfastSkill(
+        name: String,
+        casts: Long,
+        allowRestore: Boolean,
+        manaRemaining: Long,
+        charState: CharacterState,
+        skillState: SkillState,
+    ) {
+        val manager = skillManager ?: return
+        val skill = BreakfastBurnSkills.findSkill(skillState, name) ?: return
+        var castCount = minOf(casts, BreakfastBurnSkills.maximumCastRemaining(skill))
+        if (castCount <= 0) return
+        if (!allowRestore) {
+            val available = (charState.currentMp - manaRemaining).coerceAtLeast(0)
+            val perCast = skill.mpCost.toLong()
+            if (perCast > 0) {
+                castCount = minOf(castCount, available / perCast)
+            }
+        }
+        if (castCount <= 0) return
+        manager.cast(skill, castCount.toInt().coerceAtLeast(1))
     }
 
     open fun clearBreakfastPrefs() {
