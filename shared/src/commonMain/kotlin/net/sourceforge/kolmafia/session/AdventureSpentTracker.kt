@@ -57,6 +57,11 @@ class AdventureSpentTracker(private val preferences: Preferences) {
         return totalTrackedTurns
     }
 
+    fun visited(): Map<String, Int> {
+        ensureLoaded()
+        return turnsByLocation.toMap()
+    }
+
     fun resetTurns() {
         turnsByLocation = mutableMapOf()
         totalTrackedTurns = 0

@@ -36,6 +36,15 @@ open class MallManager(
         return offers.minOfOrNull { it.price } ?: -1L
     }
 
+    /** Desktop [MallPriceManager.searchMall] listing rows for CLI `searchmall`. */
+    open suspend fun searchListings(itemName: String, limit: Int): List<MallListing> {
+        val max = if (limit <= 0) 40 else limit
+        val offers = searchRequest.search(itemName, max)
+        val itemId = gameDatabase?.item(itemName)?.id
+        if (itemId != null) cacheCheapest(itemId, offers)
+        return offers
+    }
+
     private fun cacheCheapest(itemId: Int, offers: List<MallListing>) {
         val best = offers.minByOrNull { it.price } ?: return
         priceManager?.cachePrice(itemId, best.price, best.quantity, best.shopId)

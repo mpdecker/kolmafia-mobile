@@ -77,4 +77,22 @@ class StorageRequestTest {
         val result = StorageRequest(client).withdraw(itemId = 1, quantity = 1)
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun emptyStorage_sendsPullallAction() = runTest {
+        val capturedPaths = mutableListOf<String>()
+        val client = makeClient { request ->
+            capturedPaths += request.url.fullPath
+            respond(
+                content = "<html>Storage emptied.</html>",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "text/html"),
+            )
+        }
+        StorageRequest(client).emptyStorage()
+        assertTrue(
+            capturedPaths.any { it.contains("action=pullall") },
+            "Expected action=pullall in request path but got: $capturedPaths",
+        )
+    }
 }

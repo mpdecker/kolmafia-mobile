@@ -50,6 +50,10 @@ object ConcoctionCreatableRegistry {
     fun get(resultName: String): ConcoctionCreatableEntry? =
         entriesByResult[resultName.lowercase()]
 
+    internal fun seedForTest(entry: ConcoctionCreatableEntry) {
+        entriesByResult[entry.resultName.lowercase()] = entry
+    }
+
     internal fun resetForTest() {
         entriesByResult.clear()
     }
