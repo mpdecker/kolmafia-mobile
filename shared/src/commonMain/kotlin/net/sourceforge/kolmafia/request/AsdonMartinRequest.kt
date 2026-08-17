@@ -10,11 +10,11 @@ import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.preferences.Preferences
 
-/** Desktop [AsdonMartinCommand] drive path — campground.php preaction=drive. */
-class AsdonMartinRequest(
+/** Desktop [AsdonMartinCommand] drive / undrive / fuel paths — campground.php. */
+open class AsdonMartinRequest(
     private val client: HttpClient,
 ) {
-    suspend fun drive(
+    open suspend fun drive(
         styleId: Int,
         preferences: Preferences?,
         currentStyleId: Int = -1,
@@ -31,7 +31,7 @@ class AsdonMartinRequest(
         }
         return try {
             if (currentStyleId in 0..8 && currentStyleId != styleId) {
-                undrive(currentStyleId).exceptionOrNull()?.let { return Result.failure(it) }
+                clearDrive(currentStyleId).exceptionOrNull()?.let { return Result.failure(it) }
             }
             val response = client.submitForm(
                 url = "$KOL_BASE_URL/campground.php",
@@ -48,7 +48,8 @@ class AsdonMartinRequest(
         }
     }
 
-    private suspend fun undrive(styleId: Int): Result<String> = try {
+    /** Desktop undrive — stop the current drive buff. */
+    open suspend fun clearDrive(styleId: Int): Result<String> = try {
         val name = driveStyleName(styleId) ?: return Result.failure(
             IllegalArgumentException("Unknown drive style"),
         )
@@ -68,6 +69,32 @@ class AsdonMartinRequest(
         throw e
     } catch (e: Exception) {
         Result.failure(e)
+    }
+
+    /** Desktop fuelconvertor — convert inventory item into Asdon fuel. */
+    open suspend fun fuel(itemId: Int, quantity: Int): Result<String> {
+        if (quantity <= 0) {
+            return Result.failure(IllegalArgumentException("Fuel quantity must be positive"))
+        }
+        return try {
+            val response = client.submitForm(
+                url = "$KOL_BASE_URL/campground.php",
+                formParameters = parameters {
+                    append("action", "fuelconvertor")
+                    append("qty", quantity.toString())
+                    append("iid", itemId.toString())
+                },
+            )
+            if (!response.status.isSuccess()) {
+                Result.failure(IllegalStateException("Asdon Martin fuel failed."))
+            } else {
+                Result.success(response.bodyAsText())
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     companion object {
@@ -94,7 +121,7 @@ class AsdonMartinRequest(
         fun driveStyleName(index: Int): String? =
             DRIVE_STYLES.getOrNull(index)
 
-        /** Parse `drive <style>` from CLI parameters. */
+        /** Parse `drive <style>` from CLI parameters (style-only remnant). */
         fun parseDriveStyle(parameters: String): Int {
             val parts = parameters.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
             if (parts.isEmpty()) return -1

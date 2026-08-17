@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.campground
 
 import net.sourceforge.kolmafia.ash.CollectionCache
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.ElVibratoSync
 
 /** Pref-backed campground item inventory for `get_campground()` ASH. */
 object CampgroundInventorySync {
@@ -68,6 +69,7 @@ object CampgroundInventorySync {
         syncTelescope(html, prefs)
         syncKitchen(html, prefs)
         syncJungGate(html, prefs)
+        ElVibratoSync.applyFromCampground(html, prefs)
     }
 
     private fun syncTelescope(html: String, prefs: Preferences) {

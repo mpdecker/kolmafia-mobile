@@ -9,6 +9,11 @@ import net.sourceforge.kolmafia.skill.SkillState
 /** Desktop [net.sourceforge.kolmafia.request.UseSkillRequest] breakfast/libram skill lists. */
 object BreakfastBurnSkills {
 
+    val breakfastAlwaysSkills = arrayOf(
+        "Summon Annoyance",
+        "Communism!",
+    )
+
     val breakfastSkills = arrayOf(
         "Advanced Cocktailcrafting",
         "Advanced Saucecrafting",
@@ -28,6 +33,22 @@ object BreakfastBurnSkills {
         "Bowl Full of Jelly",
         "Eye and a Twist",
         "Chubby and Plump",
+    )
+
+    val tomeSkills = arrayOf(
+        "Summon Snowcones",
+        "Summon Stickers",
+        "Summon Sugar Sheets",
+        "Summon Rad Libs",
+        "Summon Smithsness",
+    )
+
+    val grimoireSkills = arrayOf(
+        "Summon Hilarious Objects",
+        "Summon Tasteful Items",
+        "Summon Alice's Army Cards",
+        "Summon Geeky Gifts",
+        "Summon Confiscated Things",
     )
 
     val libramSkills = arrayOf(
@@ -54,25 +75,41 @@ object BreakfastBurnSkills {
             else -> true
         }
 
+    fun prefContainsSkill(setting: String, skillName: String): Boolean =
+        setting.contains(skillName, ignoreCase = true)
+
+    /** Desktop [BreakfastManager.getBreakfastBookSkills]. */
+    fun getBreakfastBookSkills(
+        prefs: Preferences,
+        settingPrefix: String,
+        catalog: Array<String>,
+        skillState: SkillState,
+        isHardcore: Boolean,
+    ): List<String> {
+        val suffix = if (isHardcore) "Hardcore" else "Softcore"
+        var name = prefs.getString("$settingPrefix$suffix", "none")
+        if (name.equals("none", ignoreCase = true) || name.isBlank()) return emptyList()
+        if (name.equals("Summon Candy Hearts", ignoreCase = true)) {
+            name = "Summon Candy Heart"
+            prefs.setString("$settingPrefix$suffix", name)
+        }
+        val castAll = name.equals("all", ignoreCase = true)
+        return catalog.filter { skillName ->
+            (castAll || skillName.equals(name, ignoreCase = true)) &&
+                findSkill(skillState, skillName) != null
+        }
+    }
+
     /** Desktop [BreakfastManager.getBreakfastLibramSkills]. */
     fun getBreakfastLibramSkills(
         prefs: Preferences,
         skillState: SkillState,
         charState: CharacterState,
-    ): List<String> {
-        val prefName = prefs.getString(Preferences.libramSkillsPrefKey(charState.isHardcore), "none")
-        if (prefName.equals("none", ignoreCase = true) || prefName.isBlank()) return emptyList()
-
-        val normalized = if (prefName.equals("Summon Candy Hearts", ignoreCase = true)) {
-            "Summon Candy Heart"
-        } else {
-            prefName
-        }
-
-        val castAll = normalized.equals("all", ignoreCase = true)
-        return libramSkills.filter { skillName ->
-            (castAll || skillName.equals(normalized, ignoreCase = true)) &&
-                findSkill(skillState, skillName) != null
-        }
-    }
+    ): List<String> = getBreakfastBookSkills(
+        prefs = prefs,
+        settingPrefix = "libramSkills",
+        catalog = libramSkills,
+        skillState = skillState,
+        isHardcore = charState.isHardcore,
+    )
 }

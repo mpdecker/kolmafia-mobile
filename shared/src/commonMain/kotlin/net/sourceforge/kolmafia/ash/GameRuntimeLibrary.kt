@@ -46,6 +46,7 @@ import net.sourceforge.kolmafia.character.FamTeamSync
 import net.sourceforge.kolmafia.character.FightPokefamSync
 import net.sourceforge.kolmafia.character.PokefamBoostSync
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.character.ZodiacSign
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.equipment.ModeableState
@@ -96,7 +97,11 @@ import net.sourceforge.kolmafia.shop.NpcShopSync
 import net.sourceforge.kolmafia.shop.ShopInventorySync
 import net.sourceforge.kolmafia.shop.SwaggerShopSync
 import net.sourceforge.kolmafia.shop.SeptEmberSync
-import net.sourceforge.kolmafia.shop.SleazeAirportSync
+import net.sourceforge.kolmafia.quest.AirportSync
+import net.sourceforge.kolmafia.quest.GingerbreadCitySync
+import net.sourceforge.kolmafia.quest.SpacegateVisitSync
+import net.sourceforge.kolmafia.quest.SpacegateTerminalSync
+import net.sourceforge.kolmafia.quest.SpacegateAdventureSync
 import net.sourceforge.kolmafia.shop.TimeTowerSync
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.item.RetrieveItemService
@@ -126,7 +131,36 @@ import net.sourceforge.kolmafia.quest.DispensarySync
 import net.sourceforge.kolmafia.quest.IslandWarActionResponseSync
 import net.sourceforge.kolmafia.quest.IslandWarVisitLogSync
 import net.sourceforge.kolmafia.quest.IslandWarVisitSync
+import net.sourceforge.kolmafia.quest.PalindomeSync
+import net.sourceforge.kolmafia.quest.PyramidVisitSync
+import net.sourceforge.kolmafia.quest.DesertVisitSync
+import net.sourceforge.kolmafia.quest.BlackForestSync
+import net.sourceforge.kolmafia.quest.HiddenCityVisitSync
+import net.sourceforge.kolmafia.quest.GarbageBeanstalkSync
+import net.sourceforge.kolmafia.quest.ZeppelinRonSync
+import net.sourceforge.kolmafia.quest.WhiteCitadelSync
+import net.sourceforge.kolmafia.quest.ClancyNcSync
+import net.sourceforge.kolmafia.quest.TowerRuinsSync
+import net.sourceforge.kolmafia.quest.ExtremeSlopeSync
+import net.sourceforge.kolmafia.quest.PirateNcSync
+import net.sourceforge.kolmafia.quest.FarmDuckSync
+import net.sourceforge.kolmafia.quest.ElVibratoSync
+import net.sourceforge.kolmafia.quest.FriarsQuestSync
+import net.sourceforge.kolmafia.quest.FantasyRealmSync
+import net.sourceforge.kolmafia.quest.SwampQuestSync
+import net.sourceforge.kolmafia.quest.CyberRealmSync
+import net.sourceforge.kolmafia.quest.TownUnlockSync
+import net.sourceforge.kolmafia.quest.ToppingPlaceSync
+import net.sourceforge.kolmafia.quest.BatholeSync
+import net.sourceforge.kolmafia.quest.PlainsVisitSync
+import net.sourceforge.kolmafia.quest.FantasyRealmCombatSync
+import net.sourceforge.kolmafia.quest.MelvinShirtSync
+import net.sourceforge.kolmafia.quest.Cell37EscapeSync
+import net.sourceforge.kolmafia.quest.ShenSync
+import net.sourceforge.kolmafia.request.PortalRequest
+import net.sourceforge.kolmafia.quest.HiddenCityChoiceSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
+import net.sourceforge.kolmafia.quest.SpookyravenManorVisitSync
 import net.sourceforge.kolmafia.quest.TelescopeSync
 import net.sourceforge.kolmafia.quest.TowerSync
 import net.sourceforge.kolmafia.request.QuestLogRequest
@@ -341,7 +375,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase550"
+        const val REVISION = "phase605"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -727,24 +761,40 @@ class GameRuntimeLibrary(
             runAcquireCli(m.groupValues[1].trim(), rt)
         },
 
-        // "use N item" / "use item" — bang potion / slime resolution
-        Regex("^use(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
-            cliUse(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        // "use[?] N item" / "use item" — bang potion / slime resolution; ? = check-only
+        Regex("^use(\\?)?(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliUse(
+                m.groupValues.getOrNull(2)?.trim().orEmpty(),
+                rt::print,
+                checkOnly = m.groupValues.getOrNull(1) == "?",
+            )
         },
 
-        // "eat N item" / "eat item" — VIP hot dogs via lounge; else inventory
-        Regex("^eat(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
-            cliEat(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        // "eat[?] N item" / "eat item" — VIP hot dogs via lounge; else inventory; ? = check-only
+        Regex("^eat(\\?)?(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliEat(
+                m.groupValues.getOrNull(2)?.trim().orEmpty(),
+                rt::print,
+                checkOnly = m.groupValues.getOrNull(1) == "?",
+            )
         },
 
-        // "drink N item" / "drink item" — VIP speakeasy via lounge; else inventory
-        Regex("^drink(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
-            cliDrink(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        // "drink[?] N item" / "drink item" — VIP speakeasy via lounge; else inventory; ? = check-only
+        Regex("^drink(\\?)?(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliDrink(
+                m.groupValues.getOrNull(2)?.trim().orEmpty(),
+                rt::print,
+                checkOnly = m.groupValues.getOrNull(1) == "?",
+            )
         },
 
-        // "chew N item" / "chew item" — bang potion / slime resolution
-        Regex("^chew(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
-            cliChew(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        // "chew[?] N item" / "chew item" — bang potion / slime resolution; ? = check-only
+        Regex("^chew(\\?)?(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliChew(
+                m.groupValues.getOrNull(2)?.trim().orEmpty(),
+                rt::print,
+                checkOnly = m.groupValues.getOrNull(1) == "?",
+            )
         },
 
         // "ghost N item" / "hobo N item" / "slimeling N item" / "robo item"
@@ -863,16 +913,12 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking { drainCreateQueues() }
         },
 
-        // "eatsilent N item" / "drinksilent N item"
-        Regex("^eatsilent\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val qty = m.groupValues[1].toIntOrNull() ?: 1
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { eatFoodRequest?.eat(itemId, qty) }
+        // "eatsilent [N] item" / "drinksilent [N] item" — qty optional (desktop UseItemCommand)
+        Regex("^eatsilent(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliEat(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
-        Regex("^drinksilent\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val qty = m.groupValues[1].toIntOrNull() ?: 1
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { drinkBoozeRequest?.drink(itemId, qty) }
+        Regex("^drinksilent(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliDrink(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
         // "visit <coinmaster>" — open coinmaster shop page
@@ -1711,11 +1757,9 @@ class GameRuntimeLibrary(
             }
         },
 
-        // overdrink N item
-        Regex("^overdrink\\s+(\\d+)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            val qty = m.groupValues[1].toIntOrNull() ?: 1
-            val itemId = gameDatabase?.item(m.groupValues[2].trim())?.id ?: return@to
-            kotlinx.coroutines.runBlocking { drinkBoozeRequest?.drink(itemId, qty) }
+        // overdrink [N] item — qty optional; same drink path as drinksilent on mobile
+        Regex("^overdrink(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliDrink(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
         // echo / print — output text to CLI stream (`timestamp` → KoL calendar day)
@@ -1846,13 +1890,19 @@ class GameRuntimeLibrary(
             visitKolPage("campground.php")
         },
 
-        // breakfast — run daily breakfast sequence
-        Regex("^breakfast$", RegexOption.IGNORE_CASE) to { _, _ ->
+        // breakfast — full daily sequence, or skills/books-only subcommands
+        Regex("^breakfast(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             val mgr = breakfastManager ?: return@to
             val char = character ?: return@to
             val inv = inventoryManager ?: return@to
+            val sub = m.groupValues.getOrNull(1)?.trim().orEmpty().lowercase()
             kotlinx.coroutines.runBlocking {
-                mgr.runBreakfast(char.state.value, inv.state.value)
+                when {
+                    sub.isEmpty() -> mgr.runBreakfast(char.state.value, inv.state.value)
+                    sub == "skills" -> mgr.castSkills(char.state.value)
+                    sub == "books" -> mgr.castBookSkills(char.state.value)
+                    else -> rt.print("Usage: breakfast [skills|books]")
+                }
             }
         },
 
@@ -2200,6 +2250,26 @@ class GameRuntimeLibrary(
         Regex("^folders(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runFoldersCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
+        Regex("^ocean(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runOceanCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^cardsleeve(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runCardsleeveCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^bootskin(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runBootSubSlotCli(
+                EquipmentSlot.BOOTSKIN,
+                m.groupValues.getOrNull(1).orEmpty(),
+                rt,
+            )
+        },
+        Regex("^bootspur(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runBootSubSlotCli(
+                EquipmentSlot.BOOTSPUR,
+                m.groupValues.getOrNull(1).orEmpty(),
+                rt,
+            )
+        },
         Regex("^(?:condition|objective|conditions|objectives)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runConditionCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
@@ -2356,8 +2426,8 @@ class GameRuntimeLibrary(
 
     internal fun applyItemUseResponse(itemId: Int, html: String) {
         when (itemId) {
-            SleazeAirportSync.SPRING_BEACH_TICKET ->
-                preferences?.let { SleazeAirportSync.syncFromSpringBeachTicketUse(html, it) }
+            AirportSync.SPRING_BEACH_TICKET ->
+                preferences?.let { AirportSync.syncFromSpringBeachTicketUse(html, it) }
             in FamiliarSoupSync.protogeneticSoupIds ->
                 FamiliarSoupSync.applyProtogeneticSoupUse(
                     itemId = itemId,
@@ -2548,6 +2618,14 @@ class GameRuntimeLibrary(
         if (url != null && url.contains("campground.php", ignoreCase = true)) {
             character?.let { GardenSync.apply(it, html, preferences) }
             CampgroundItemSync.apply(preferences, html, url, character)
+            preferences?.let { prefs ->
+                PortalRequest.parseResponse(
+                    url = url,
+                    html = html,
+                    preferences = prefs,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                )
+            }
         }
         if (url != null && url.contains("closet.php", ignoreCase = true)) {
             character?.let { ClosetMeatSync.apply(it, html, url) }
@@ -2599,10 +2677,26 @@ class GameRuntimeLibrary(
         }
         if (url != null && (
                 url.contains("adventure.php", ignoreCase = true) ||
-                url.contains("place.php", ignoreCase = true)
+                url.contains("place.php", ignoreCase = true) ||
+                url.contains("choice.php", ignoreCase = true)
             )
         ) {
-            preferences?.let { SleazeAirportSync.syncFromVisit(html, url, it) }
+            preferences?.let { prefs ->
+                if (url.contains("adventure.php", ignoreCase = true) ||
+                    url.contains("place.php", ignoreCase = true)
+                ) {
+                    AirportSync.syncFromVisit(
+                        html = html,
+                        url = url,
+                        prefs = prefs,
+                        consumeItem = { itemId -> inventoryManager?.consumeItemLocally(itemId, 1) },
+                    )
+                    GingerbreadCitySync.applyFromVisit(url, html, prefs)
+                    SpacegateVisitSync.applyFromVisit(url, html, prefs)
+                    SpacegateAdventureSync.applyFromAdventure(url, html, prefs)
+                }
+                SpacegateTerminalSync.applyFromTerminal(url, html, prefs)
+            }
         }
         if (url != null && url.contains("knoll_mushrooms.php", ignoreCase = true)) {
             character?.let { MushroomPlotSync.apply(preferences, it, html, url) }
@@ -2629,6 +2723,15 @@ class GameRuntimeLibrary(
         ) {
             BarrelShrineSync.syncFromVisit(html, preferences)
         }
+        run {
+            val choiceId = url?.let { WHICH_CHOICE_URL_PATTERN.find(it)?.groupValues?.getOrNull(1)?.toIntOrNull() }
+                ?: ChoiceUtilities.extractChoiceId(html)
+            if (choiceId != null && preferences != null) {
+                ShenSync.applyVisitChoice(choiceId, html, preferences)
+                HiddenCityChoiceSync.applyVisitChoice(choiceId, html, preferences)
+                CyberRealmSync.applyFromChoice(choiceId, preferences)
+            }
+        }
         if (url != null && url.contains("guild.php", ignoreCase = true)) {
             GuildVisitSync.syncStoreOpen(html, character, preferences)
             GuildVisitSync.parseFromVisit(
@@ -2647,6 +2750,281 @@ class GameRuntimeLibrary(
         character?.let { SessionMeatSync.apply(it, html) }
         character?.state?.value?.let { state ->
             DispensarySync.applyFromResponse(html, state, preferences)
+        }
+        if (url != null && (
+                url.contains("whichplace=manor", ignoreCase = true) ||
+                    url.contains("snarfblat=${SpookyravenManorVisitSync.HAUNTED_BILLIARDS_ROOM}") ||
+                    url.contains("snarfblat=${SpookyravenManorVisitSync.HAUNTED_BALLROOM}") ||
+                    (url.contains("manor", ignoreCase = true) && !url.contains("whichplace=", ignoreCase = true))
+            )
+        ) {
+            preferences?.let { prefs ->
+                questDatabase?.let { db ->
+                    SpookyravenManorVisitSync.applyFromVisit(
+                        url = url,
+                        html = html,
+                        questDatabase = db,
+                        preferences = prefs,
+                        context = SpookyravenManorVisitSync.ManorVisitContext(
+                            ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                            hasItemId = { id ->
+                                inventoryManager?.state?.value?.items?.containsKey(id) == true
+                            },
+                            consumeItem = { itemId, quantity ->
+                                inventoryManager?.consumeItemLocally(itemId, quantity)
+                            },
+                        ),
+                    )
+                }
+            }
+        }
+        if (url != null && (
+                url.contains("whichplace=desertbeach", ignoreCase = true) ||
+                    url.contains("whichplace=exploathing_beach", ignoreCase = true)
+            )
+        ) {
+            preferences?.let { prefs ->
+                DesertVisitSync.applyFromVisit(
+                    url = url,
+                    html = html,
+                    questDatabase = questDatabase,
+                    preferences = prefs,
+                )
+            }
+        }
+        if (url != null && (
+                url.contains("whichplace=pyramid", ignoreCase = true) ||
+                    url.contains("action=db_pyramid1", ignoreCase = true) ||
+                    url.contains("action=expl_pyramidpre", ignoreCase = true) ||
+                    url.contains("action=pyramid_state", ignoreCase = true) ||
+                    url.contains("snarfblat=${PyramidVisitSync.UPPER_CHAMBER}") ||
+                    url.contains("snarfblat=${PyramidVisitSync.MIDDLE_CHAMBER}")
+            )
+        ) {
+            preferences?.let { prefs ->
+                questDatabase?.let { db ->
+                    PyramidVisitSync.applyFromVisit(
+                        url = url,
+                        html = html,
+                        questDatabase = db,
+                        preferences = prefs,
+                        context = PyramidVisitSync.PyramidVisitContext(
+                            consumeItem = { itemId, quantity ->
+                                inventoryManager?.consumeItemLocally(itemId, quantity)
+                            },
+                        ),
+                    )
+                }
+            }
+        }
+        if (url != null && (
+                url.contains("whichplace=palindome", ignoreCase = true) ||
+                    url.contains("action=pal_mr", ignoreCase = true) ||
+                    url.contains("snarfblat=${PalindomeSync.PALINDOME_ADVENTURE}")
+            )
+        ) {
+            preferences?.let { prefs ->
+                questDatabase?.let { db ->
+                    PalindomeSync.applyFromVisit(
+                        url = url,
+                        html = html,
+                        questDatabase = db,
+                        preferences = prefs,
+                        context = PalindomeSync.PalindomeVisitContext(
+                            consumeItem = { itemId, quantity ->
+                                inventoryManager?.consumeItemLocally(itemId, quantity)
+                            },
+                        ),
+                    )
+                }
+            }
+        }
+        if (url != null && (
+                url.contains("woods.php", ignoreCase = true) ||
+                    url.contains("whichplace=woods", ignoreCase = true)
+            )
+        ) {
+            preferences?.let { prefs ->
+                BlackForestSync.applyWoodsVisit(
+                    url = url,
+                    html = html,
+                    questDatabase = questDatabase,
+                    preferences = prefs,
+                    ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                    consumeItem = { itemId ->
+                        inventoryManager?.consumeItemLocally(itemId, 1)
+                    },
+                )
+            }
+        }
+        if (url != null && (
+                url.contains("whichplace=hiddencity", ignoreCase = true) ||
+                    url.contains("whichshop=hiddentavern", ignoreCase = true) ||
+                    html.contains("snarfblat=341") ||
+                    html.contains("snarfblat=342") ||
+                    html.contains("snarfblat=343") ||
+                    html.contains("snarfblat=344")
+            )
+        ) {
+            preferences?.let { prefs ->
+                HiddenCityVisitSync.applyFromVisit(
+                    url = url,
+                    html = html,
+                    preferences = prefs,
+                    ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                )
+            }
+        }
+        if (url != null && url.contains("adventure.php", ignoreCase = true)) {
+            preferences?.let { prefs ->
+                val asc = character?.state?.value?.ascensionNumber ?: 0
+                GarbageBeanstalkSync.applyFromAdventure(
+                    url = url,
+                    html = html,
+                    questDatabase = questDatabase,
+                    preferences = prefs,
+                    ascensionNumber = asc,
+                )
+                ZeppelinRonSync.applyFromAdventure(
+                    url = url,
+                    html = html,
+                    questDatabase = questDatabase,
+                    preferences = prefs,
+                    won = true,
+                )
+                WhiteCitadelSync.applyFromAdventure(
+                    adventureId = null,
+                    html = html,
+                    questDatabase = questDatabase,
+                    url = url,
+                )
+                ClancyNcSync.applyFromAdventure(null, html, questDatabase, url)
+                TowerRuinsSync.applyFromAdventure(null, html, questDatabase, url)
+                ExtremeSlopeSync.applyFromAdventure(null, html, prefs, url)
+                PirateNcSync.applyFromAdventure(null, html, questDatabase, prefs, url)
+                FarmDuckSync.applyFromAdventure(null, html, prefs, url)
+                ElVibratoSync.applyFromAdventure(null, prefs, url)
+                FriarsQuestSync.applyFromAdventure(
+                    adventureId = null,
+                    html = html,
+                    preferences = prefs,
+                    getTurns = { name -> adventureSpentTracker?.getTurns(name) ?: 0 },
+                    url = url,
+                )
+                CyberRealmSync.applyFromAdventure(null, html, prefs, url)
+                // Non-combat black forest progress texts also arrive on adventure.php
+                if (url.contains("snarfblat=${BlackForestSync.BLACK_FOREST}")) {
+                    questDatabase?.let { db ->
+                        BlackForestSync.applyCombatWin(
+                            questDatabase = db,
+                            preferences = prefs,
+                            adventureId = BlackForestSync.BLACK_FOREST.toString(),
+                            responseText = html,
+                            won = true,
+                        )
+                    }
+                }
+            }
+        }
+        if (url != null && url.contains("friars.php", ignoreCase = true)) {
+            FriarsQuestSync.applyCeremony(
+                url = url,
+                html = html,
+                questDatabase = questDatabase,
+                preferences = preferences,
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+            )
+        }
+        if (url != null && url.contains("whichplace=realm_fantasy", ignoreCase = true)) {
+            preferences?.let { FantasyRealmSync.applyFromFantasyPlace(url, html, it) }
+        }
+        if (url != null && url.contains("whichplace=monorail", ignoreCase = true)) {
+            preferences?.let { prefs ->
+                FantasyRealmSync.applyFromMonorail(url, html, prefs)
+                CyberRealmSync.applyFromMonorail(url, html, prefs)
+            }
+        }
+        if (url != null && (
+                url.contains("whichplace=canadia", ignoreCase = true) ||
+                    url.contains("action=lc_marty", ignoreCase = true)
+            )
+        ) {
+            SwampQuestSync.applyFromCanadia(url, html, questDatabase)
+        }
+        if (url != null && url.contains("whichplace=marais", ignoreCase = true)) {
+            preferences?.let { SwampQuestSync.applyFromMarais(url, html, questDatabase, it) }
+        }
+        if (url != null && (
+                url.contains("whichplace=serverroom", ignoreCase = true) ||
+                    url.contains("action=serverroom", ignoreCase = true)
+            )
+        ) {
+            preferences?.let { CyberRealmSync.applyFromServerRoom(url, html, it) }
+        }
+        if (url != null && url.contains("whichplace=town", ignoreCase = true)) {
+            preferences?.let { prefs ->
+                val inBadMoon = ZodiacSign.find(character?.state?.value?.zodiacSign.orEmpty())?.isBadMoon == true
+                TownUnlockSync.applyFromTownRight(url, html, prefs, inBadMoon)
+                TownUnlockSync.applyFromTownWrong(url, html, prefs, inBadMoon)
+                TownUnlockSync.applyFromTownMarket(url, html, prefs, inBadMoon)
+                TownUnlockSync.applyFromTown(url, html, prefs)
+            }
+        }
+        if (url != null && url.contains("speakeasy", ignoreCase = true)) {
+            preferences?.let { TownUnlockSync.applyFromSpeakeasy(url, html, it) }
+        }
+        if (url != null && (
+                url.contains("whichplace=orc_chasm", ignoreCase = true) ||
+                    url.contains("whichplace=highlands", ignoreCase = true)
+            )
+        ) {
+            preferences?.let { prefs ->
+                ToppingPlaceSync.applyFromChasm(
+                    url = url,
+                    html = html,
+                    questDatabase = questDatabase,
+                    itemCount = { id -> inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0 },
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                )
+                ToppingPlaceSync.applyFromHighlands(url, html, questDatabase, prefs)
+            }
+        }
+        if (url != null && url.contains("bathole", ignoreCase = true)) {
+            BatholeSync.applyFromVisit(url, html, questDatabase)
+        }
+        if (url != null && url.contains("whichplace=plains", ignoreCase = true)) {
+            PlainsVisitSync.applyFromVisit(
+                url = url,
+                html = html,
+                questDatabase = questDatabase,
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+            )
+        }
+        if (url != null && url.contains("whichplace=mountains", ignoreCase = true)) {
+            MelvinShirtSync.applyFromVisit(
+                url = url,
+                html = html,
+                questDatabase = questDatabase,
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+            )
+        }
+        if (url != null && url.contains("cell37", ignoreCase = true)) {
+            Cell37EscapeSync.applyFromVisit(
+                url = url,
+                html = html,
+                questDatabase = questDatabase,
+                itemCount = { id -> inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0 },
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+            )
+        }
+        if (url != null && (
+                url.contains("whichplace=mclargehuge", ignoreCase = true) ||
+                    url.contains("cloudypeak", ignoreCase = true)
+            )
+        ) {
+            preferences?.let { prefs ->
+                ExtremeSlopeSync.applyCloudyPeak(url, html, questDatabase, prefs)
+            }
         }
         if (url?.contains("bigisland.php", ignoreCase = true) == true) {
             preferences?.let { prefs ->
@@ -3116,7 +3494,10 @@ class GameRuntimeLibrary(
                 if (prefs != null && choiceId == BarrelChoiceMapper.CHOICE_ID) {
                     BarrelShrineSync.syncPostChoice(option, prefs)
                 }
-                QuestChoiceRules.apply(choiceId, html, db, option, preferences, inventoryManager)
+                QuestChoiceRules.apply(choiceId, html, db, option, preferences, inventoryManager,
+                    ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                    dayCount = character?.state?.value?.dayCount ?: 0,
+                )
             }
         }
     }

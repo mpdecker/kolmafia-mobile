@@ -222,11 +222,47 @@ internal fun GameRuntimeLibrary.runEitherConsume(
 }
 
 /**
+ * Desktop UseItemCommand check-only (`eat?` / `drink?` / `use?` / `chew?`) —
+ * print resolved matches without retrieve/HTTP.
+ */
+internal fun GameRuntimeLibrary.cliConsumeCheckOnly(parameters: String, print: (String) -> Unit) {
+    val (_, rest) = stripEitherConsumePrefix(parameters)
+    val items = parseConsumeItemList(rest)
+    if (items.isEmpty()) return
+    for ((qty, name) in items) {
+        val display = resolveCliConsumeCheckOnlyName(name) ?: continue
+        print(if (qty == 1) display else "$qty $display")
+    }
+}
+
+internal fun GameRuntimeLibrary.resolveCliConsumeCheckOnlyName(name: String): String? {
+    if (HotDogDatabase.isHotDog(name) ||
+        SpeakeasyDatabase.isSpeakeasyDrink(name) ||
+        isCafePurchaseMenuItem(name) ||
+        StillSuitRequest.isDistillate(name)
+    ) {
+        return name
+    }
+    val itemId = resolveCliConsumeItemId(name) { } ?: return null
+    return gameDatabase?.item(itemId)?.name
+        ?: gameDatabase?.item(name)?.name
+        ?: name
+}
+
+/**
  * Desktop UseItemCommand / RestaurantCommand.makeHotDogStandRequest —
  * VIP hot dogs go through lounge HTTP; cafe menu via CafePurchaseRequest; else inventory eat.
  * Supports comma-separated item lists (Trivia-style multi consume) and `either` first-success.
  */
-internal fun GameRuntimeLibrary.cliEat(parameters: String, print: (String) -> Unit) {
+internal fun GameRuntimeLibrary.cliEat(
+    parameters: String,
+    print: (String) -> Unit,
+    checkOnly: Boolean = false,
+) {
+    if (checkOnly) {
+        cliConsumeCheckOnly(parameters, print)
+        return
+    }
     val (either, rest) = stripEitherConsumePrefix(parameters)
     val items = parseConsumeItemList(rest)
     if (items.isEmpty()) {
@@ -296,7 +332,15 @@ internal fun GameRuntimeLibrary.cliEatOne(
  * StillSuit distillate via StillSuitRequest; else inventory drink.
  * Supports comma-separated item lists and `either` first-success.
  */
-internal fun GameRuntimeLibrary.cliDrink(parameters: String, print: (String) -> Unit) {
+internal fun GameRuntimeLibrary.cliDrink(
+    parameters: String,
+    print: (String) -> Unit,
+    checkOnly: Boolean = false,
+) {
+    if (checkOnly) {
+        cliConsumeCheckOnly(parameters, print)
+        return
+    }
     val (either, rest) = stripEitherConsumePrefix(parameters)
     val items = parseConsumeItemList(rest)
     if (items.isEmpty()) {
@@ -433,7 +477,15 @@ internal fun GameRuntimeLibrary.cliStillSuitDistill(
 }
 
 /** Desktop UseItemCommand — inventory use with bang potion / slime vial resolution. */
-internal fun GameRuntimeLibrary.cliUse(parameters: String, print: (String) -> Unit) {
+internal fun GameRuntimeLibrary.cliUse(
+    parameters: String,
+    print: (String) -> Unit,
+    checkOnly: Boolean = false,
+) {
+    if (checkOnly) {
+        cliConsumeCheckOnly(parameters, print)
+        return
+    }
     val (either, rest) = stripEitherConsumePrefix(parameters)
     val items = parseConsumeItemList(rest)
     if (items.isEmpty()) {
@@ -473,7 +525,15 @@ internal fun GameRuntimeLibrary.cliUseOne(
 }
 
 /** Inventory chew with bang potion / slime vial resolution. */
-internal fun GameRuntimeLibrary.cliChew(parameters: String, print: (String) -> Unit) {
+internal fun GameRuntimeLibrary.cliChew(
+    parameters: String,
+    print: (String) -> Unit,
+    checkOnly: Boolean = false,
+) {
+    if (checkOnly) {
+        cliConsumeCheckOnly(parameters, print)
+        return
+    }
     val (either, rest) = stripEitherConsumePrefix(parameters)
     val items = parseConsumeItemList(rest)
     if (items.isEmpty()) {

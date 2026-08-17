@@ -73,6 +73,26 @@ class QuestDatabase(private val preferences: Preferences) {
     fun isQuestStep(quest: Quest, step: String): Boolean =
         getProgress(quest) == step
 
+    /**
+     * Desktop [QuestDatabase.advanceQuest] — bump one step toward finished.
+     * Without quest-log step tables, stepN advances to step(N+1); callers that know
+     * a quest's terminal step (e.g. Shen) may finish explicitly after advance.
+     */
+    fun advanceQuest(quest: Quest) {
+        val current = getProgress(quest)
+        val next = when {
+            current == UNSTARTED -> STARTED
+            current == STARTED -> "step1"
+            current.startsWith("step") -> {
+                val n = current.removePrefix("step").substringBefore('.').toIntOrNull() ?: return
+                "step${n + 1}"
+            }
+            current == FINISHED -> return
+            else -> return
+        }
+        setProgress(quest, next)
+    }
+
     /** Desktop QuestDatabase.setQuestIfBetter — advance quest progress without regressing. */
     fun setQuestIfBetter(quest: Quest, step: String) =
         setQuestIfBetterByPrefKey(quest.prefKey, step)
