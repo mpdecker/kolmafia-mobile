@@ -36,6 +36,8 @@ import net.sourceforge.kolmafia.quest.HiddenCityChoiceSync
 import net.sourceforge.kolmafia.quest.SpacegateAdventureSync
 import net.sourceforge.kolmafia.quest.GingerbreadCitySync
 import net.sourceforge.kolmafia.quest.ClancyNcSync
+import net.sourceforge.kolmafia.quest.SeaVisitSync
+import net.sourceforge.kolmafia.quest.SneakyPeteDiscardSync
 import net.sourceforge.kolmafia.quest.TowerRuinsSync
 import net.sourceforge.kolmafia.quest.ExtremeSlopeSync
 import net.sourceforge.kolmafia.quest.PirateNcSync
@@ -51,6 +53,10 @@ import net.sourceforge.kolmafia.quest.PalindomeSync
 import net.sourceforge.kolmafia.quest.PyramidCombatSync
 import net.sourceforge.kolmafia.quest.SpookyravenCombatSync
 import net.sourceforge.kolmafia.quest.ToppingPeakCombatSync
+import net.sourceforge.kolmafia.quest.ToppingPeakNcSync
+import net.sourceforge.kolmafia.quest.TavernCellarSync
+import net.sourceforge.kolmafia.quest.ProtonicGhostSync
+import net.sourceforge.kolmafia.quest.QuestFightStartedSync
 import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
 import net.sourceforge.kolmafia.quest.ShadowRiftSync
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -455,6 +461,15 @@ open class AdventureManager(
         }
         questDatabase?.let {
             QuestFightRules.applyFightStarted(it, result.monster)
+            QuestFightStartedSync.apply(
+                monster = result.monster,
+                html = fightHtml,
+                preferences = preferences,
+                turnsPlayed = character.state.value.turnsPlayed,
+                equipment = character.state.value.equipment,
+                clearSlot = { slot -> character.updateEquipment(slot, "") },
+                consumeItem = { itemId, qty -> inventory?.consumeItemLocally(itemId, qty) },
+            )
             val itemIdsGained = result.itemsGained.mapNotNull { name -> gameDatabase?.item(name)?.id }
             val combatResult = QuestFightRules.applyCombat(
                 it, result.monster, result.won, result.itemsGained, itemIdsGained,
@@ -465,6 +480,7 @@ open class AdventureManager(
                         gameDatabase?.item(name)?.id == id
                     }
                 },
+                ascensionNumber = character.state.value.ascensionNumber,
             )
             if (combatResult.resyncQuestLogPage1) {
                 questLogRequest?.syncPage(1)
@@ -601,6 +617,7 @@ open class AdventureManager(
                 questDatabase = it,
             )
             ClancyNcSync.applyFromAdventure(location.id, fightHtml, it)
+            SeaVisitSync.applyFromAdventure(location.id, fightHtml, it)
             TowerRuinsSync.applyFromAdventure(location.id, fightHtml, it)
             ExtremeSlopeSync.applyFromAdventure(location.id, fightHtml, preferences)
             PirateNcSync.applyFromAdventure(location.id, fightHtml, it, preferences)
@@ -639,6 +656,33 @@ open class AdventureManager(
                 url = "adventure.php?snarfblat=${location.id}",
                 html = fightHtml,
                 preferences = preferences,
+            )
+            SneakyPeteDiscardSync.applyFromAdventure(
+                html = fightHtml,
+                inebriety = character.state.value.inebriety,
+                equipment = character.state.value.equipment,
+                clearSlot = { slot -> character.updateEquipment(slot, "") },
+                consumeItem = { itemId, qty -> inventory?.consumeItemLocally(itemId, qty) },
+            )
+            ToppingPeakNcSync.applyFromAdventure(
+                url = "adventure.php?snarfblat=${location.id}",
+                html = fightHtml,
+                preferences = preferences,
+                adventureId = location.id,
+            )
+            TavernCellarSync.applyFromVisit(
+                url = "fight.php",
+                html = fightHtml,
+                preferences = preferences,
+                questDatabase = it,
+                ascensionNumber = character.state.value.ascensionNumber,
+            )
+            ProtonicGhostSync.applyFromFight(
+                html = fightHtml,
+                questDatabase = it,
+                preferences = preferences,
+                turnsPlayed = character.state.value.turnsPlayed,
+                equipment = character.state.value.equipment,
             )
         }
         emitItemEvents(result.itemsGained)
@@ -823,6 +867,8 @@ open class AdventureManager(
                     optionLabel,
                     ascensionNumber = character.state.value.ascensionNumber,
                     dayCount = character.state.value.dayCount,
+                    hasCandyCaneSwordEquipped = character.state.value.equipment.values
+                        .any { name -> name.contains("candy cane sword", ignoreCase = true) },
                 )
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))

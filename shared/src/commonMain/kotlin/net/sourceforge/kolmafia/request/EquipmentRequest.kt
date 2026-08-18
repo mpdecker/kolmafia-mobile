@@ -12,11 +12,14 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.quest.QuestItemEquippedSync
 
 open class EquipmentRequest(
     private val client: HttpClient,
     private val characterRequest: CharacterRequest? = null,
     private val character: KoLCharacter? = null,
+    private val questDatabase: QuestDatabase? = null,
 ) {
     companion object {
         private val OUTFIT_SELECT_PATTERN = Regex(
@@ -87,6 +90,7 @@ open class EquipmentRequest(
                 }
             )
             syncCharacterEquipment()
+            QuestItemEquippedSync.apply(itemId, questDatabase)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

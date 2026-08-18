@@ -62,4 +62,22 @@ object GarbageBeanstalkSync {
             else -> false
         }
     }
+
+    /** Desktop place=beanstalk beanstalk.gif → GARBAGE step1. */
+    fun applyFromPlace(
+        url: String?,
+        html: String,
+        questDatabase: QuestDatabase?,
+    ): Boolean {
+        if (questDatabase == null) return false
+        if (url != null &&
+            !url.contains("whichplace=beanstalk", ignoreCase = true) &&
+            !url.contains("place=beanstalk", ignoreCase = true)
+        ) {
+            return false
+        }
+        if (!html.contains("otherimages/stalktop/beanstalk.gif")) return false
+        questDatabase.setQuestIfBetter(Quest.GARBAGE, "step1")
+        return true
+    }
 }

@@ -252,7 +252,7 @@ class QuestFightRulesTest {
         db.setProgress(Quest.GHOST, QuestDatabase.STARTED)
         assertFalse(
             QuestFightRules.applyCombat(
-                db, "screambat", won = true, preferences = prefs,
+                db, "spooky vampire", won = true, preferences = prefs,
             ).advanced,
         )
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.GHOST))

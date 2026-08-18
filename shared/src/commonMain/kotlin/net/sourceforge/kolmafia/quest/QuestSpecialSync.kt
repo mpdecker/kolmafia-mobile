@@ -589,7 +589,7 @@ object QuestSpecialSync {
         "You freed the Kingdom of the tyranny of the Naughty Sorceress" to QuestDatabase.FINISHED,
     )
 
-    private fun appendCyrusAdjective(preferences: Preferences?, adjective: String) {
+    internal fun appendCyrusAdjective(preferences: Preferences?, adjective: String) {
         if (adjective.isBlank() || preferences == null) return
         val current = preferences.getString("cyrusAdjectives", "")
         if (current.contains(adjective, ignoreCase = true)) return
