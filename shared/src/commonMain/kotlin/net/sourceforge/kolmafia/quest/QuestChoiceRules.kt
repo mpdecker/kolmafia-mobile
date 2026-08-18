@@ -17,8 +17,16 @@ object QuestChoiceRules {
         optionLabel: String? = null,
         ascensionNumber: Int = 0,
         dayCount: Int = 0,
+        hasCandyCaneSwordEquipped: Boolean = false,
     ): Boolean {
         var advanced = false
+        advanced = CandyCaneSwordSync.applyFromChoice(
+            choiceId = choiceId,
+            decision = decision,
+            preferences = preferences,
+            html = responseText,
+            hasCandyCaneSwordEquipped = hasCandyCaneSwordEquipped,
+        ) || advanced
         if (choiceId in 1347..1385) {
             advanced = PirateRealmSync.applyChoice(
                 choiceId,

@@ -10,6 +10,10 @@ import io.ktor.http.parameters
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.ProtonicGhostSync
+import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.quest.QuestItemUsedSync
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.session.DreadScrollManager
 import net.sourceforge.kolmafia.session.SessionLogger
 
@@ -18,6 +22,8 @@ open class UseItemRequest(
     private val preferences: Preferences? = null,
     private val sessionLogger: SessionLogger? = null,
     private val eventBus: GameEventBus? = null,
+    private val questDatabase: QuestDatabase? = null,
+    private val character: KoLCharacter? = null,
 ) {
     /**
      * Uses an item via inv_use.php.
@@ -38,6 +44,15 @@ open class UseItemRequest(
                     DreadScrollManager.handleKnucklebone(body, preferences, sessionLogger)
                 } else if (itemId == DreadScrollManager.DREADSCROLL_ID) {
                     DreadScrollManager.parseDreadscrollUse(body, preferences, eventBus, sessionLogger)
+                } else if (itemId == ProtonicGhostSync.WALKIE_TALKIE) {
+                    ProtonicGhostSync.applyFromWalkieTalkie(
+                        html = body,
+                        questDatabase = questDatabase,
+                        preferences = preferences,
+                        turnsPlayed = character?.state?.value?.turnsPlayed ?: 0,
+                    )
+                } else {
+                    QuestItemUsedSync.apply(itemId, body, questDatabase, preferences)
                 }
                 Result.success(body)
             } else {

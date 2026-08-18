@@ -71,6 +71,7 @@ object QuestFightRules {
         adventureId: String = "",
         responseText: String = "",
         hasItemEquipped: (Int) -> Boolean = { false },
+        ascensionNumber: Int = 0,
     ): QuestCombatResult {
         var advanced = false
         var resyncQuestLogPage1 = false
@@ -96,6 +97,17 @@ object QuestFightRules {
                     if (partyFair.advanced) advanced = true
                     if (partyFair.resyncQuestLogPage1) resyncQuestLogPage1 = true
                 }
+                if (QuestCombatWinExtrasSync.apply(
+                        monster, questDatabase, preferences, ascensionNumber,
+                    )
+                ) {
+                    advanced = true
+                }
+                if (AirportCombatSync.apply(monster, responseText, questDatabase, preferences)) {
+                    advanced = true
+                }
+            } else {
+                QuestFightLostSync.apply(monster, responseText, questDatabase, preferences)
             }
         }
         if (itemsGained.any { it.contains("volcano map", ignoreCase = true) } ||

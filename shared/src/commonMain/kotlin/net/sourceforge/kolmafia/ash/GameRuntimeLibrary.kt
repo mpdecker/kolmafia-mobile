@@ -7,6 +7,7 @@ import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
+import net.sourceforge.kolmafia.adventure.AdventureParser
 import net.sourceforge.kolmafia.adventure.AdventureRequest
 import net.sourceforge.kolmafia.adventure.MacroStrategy
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
@@ -153,11 +154,27 @@ import net.sourceforge.kolmafia.quest.TownUnlockSync
 import net.sourceforge.kolmafia.quest.ToppingPlaceSync
 import net.sourceforge.kolmafia.quest.BatholeSync
 import net.sourceforge.kolmafia.quest.PlainsVisitSync
+import net.sourceforge.kolmafia.quest.SeaVisitSync
+import net.sourceforge.kolmafia.quest.TrapperCabinSync
+import net.sourceforge.kolmafia.quest.SneakyPeteDiscardSync
+import net.sourceforge.kolmafia.quest.TrickOrTreatSync
+import net.sourceforge.kolmafia.quest.PandamoniumVisitSync
+import net.sourceforge.kolmafia.quest.CouncilVisitSync
+import net.sourceforge.kolmafia.quest.IslandUnlockSync
+import net.sourceforge.kolmafia.quest.FernruinVisitSync
+import net.sourceforge.kolmafia.quest.TavernVisitSync
+import net.sourceforge.kolmafia.quest.TavernCellarSync
+import net.sourceforge.kolmafia.quest.DetectiveCaseSync
+import net.sourceforge.kolmafia.quest.ToppingPeakNcSync
+import net.sourceforge.kolmafia.quest.ProtonicGhostSync
+import net.sourceforge.kolmafia.quest.QuestFightStartedSync
+import net.sourceforge.kolmafia.quest.QuestItemUsedSync
 import net.sourceforge.kolmafia.quest.FantasyRealmCombatSync
 import net.sourceforge.kolmafia.quest.MelvinShirtSync
 import net.sourceforge.kolmafia.quest.Cell37EscapeSync
 import net.sourceforge.kolmafia.quest.ShenSync
 import net.sourceforge.kolmafia.request.PortalRequest
+import net.sourceforge.kolmafia.request.ElvmachineRequest
 import net.sourceforge.kolmafia.quest.HiddenCityChoiceSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.SpookyravenManorVisitSync
@@ -182,6 +199,7 @@ import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DreadScrollManager
 import net.sourceforge.kolmafia.session.MerkinQuestSync
 import net.sourceforge.kolmafia.session.SeaMerkinSync
+import net.sourceforge.kolmafia.session.ElVibratoManager
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.EventHistory
 import net.sourceforge.kolmafia.session.PeeVPeeSync
@@ -375,7 +393,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase605"
+        const val REVISION = "phase635"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -2544,7 +2562,12 @@ class GameRuntimeLibrary(
                 }
             }
         }
-        if (url != null && (url.contains("fight.php") || html.contains("You're fighting"))) {
+        if (url != null && (
+                url.contains("fight.php") ||
+                    url.contains("fambattle.php") ||
+                    html.contains("You're fighting")
+            )
+        ) {
             character?.let { ClassResourceCombatSync.apply(it, html) }
             character?.let { char ->
                 FightPokefamSync.apply(char, html, familiarManager, preferences, sessionLogger)
@@ -2563,6 +2586,48 @@ class GameRuntimeLibrary(
             }
             DreadScrollManager.handleKillscroll(html, preferences, sessionLogger)
             DreadScrollManager.handleHealscroll(html, preferences, sessionLogger)
+            ElVibratoManager.parseResponse(
+                url = url,
+                html = html,
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+            )
+            val charState = character?.state?.value
+            TavernCellarSync.applyFromVisit(
+                url = url,
+                html = html,
+                preferences = preferences,
+                questDatabase = questDatabase,
+                ascensionNumber = charState?.ascensionNumber ?: 0,
+                shouldSkipExplore = { shouldSkipTavernExplore(charState) },
+            )
+            ProtonicGhostSync.applyFromFight(
+                html = html,
+                questDatabase = questDatabase,
+                preferences = preferences,
+                turnsPlayed = charState?.turnsPlayed ?: 0,
+                equipment = charState?.equipment ?: emptyMap(),
+            )
+            QuestFightStartedSync.apply(
+                monster = AdventureParser.parseEncounterMonsterName(html).orEmpty(),
+                html = html,
+                preferences = preferences,
+                turnsPlayed = charState?.turnsPlayed ?: 0,
+                equipment = charState?.equipment ?: emptyMap(),
+                clearSlot = { slot -> character?.updateEquipment(slot, "") },
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                allowUnequippedConsume = !QuestFightStartedSync.isCombatActionUrl(url),
+            )
+            extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
+                QuestItemUsedSync.apply(itemId, html, questDatabase, preferences)
+            }
+        }
+        if (url != null && url.contains("elvmachine.php", ignoreCase = true)) {
+            ElvmachineRequest.parseResponse(
+                url = url,
+                html = html,
+                sessionLogger = sessionLogger,
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+            )
         }
         if (url != null && url.contains("whichchoice=704", ignoreCase = true)) {
             DreadScrollManager.handleLibrary(html, preferences, sessionLogger)
@@ -2600,6 +2665,22 @@ class GameRuntimeLibrary(
             url.contains("whichitem=${DreadScrollManager.KNUCKLEBONE_ID}")
         ) {
             DreadScrollManager.handleKnucklebone(html, preferences, sessionLogger)
+        }
+        if (url != null &&
+            url.contains("inv_use.php", ignoreCase = true) &&
+            url.contains("whichitem=${ProtonicGhostSync.WALKIE_TALKIE}")
+        ) {
+            ProtonicGhostSync.applyFromWalkieTalkie(
+                html = html,
+                questDatabase = questDatabase,
+                preferences = preferences,
+                turnsPlayed = character?.state?.value?.turnsPlayed ?: 0,
+            )
+        }
+        if (url != null && url.contains("inv_use.php", ignoreCase = true)) {
+            extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
+                QuestItemUsedSync.apply(itemId, html, questDatabase, preferences)
+            }
         }
         if (url != null &&
             url.contains("skills.php", ignoreCase = true) &&
@@ -2876,6 +2957,19 @@ class GameRuntimeLibrary(
             }
         }
         if (url != null && url.contains("adventure.php", ignoreCase = true)) {
+            val charState = character?.state?.value
+            SneakyPeteDiscardSync.applyFromAdventure(
+                html = html,
+                inebriety = charState?.inebriety ?: 0,
+                equipment = charState?.equipment ?: emptyMap(),
+                clearSlot = { slot -> character?.updateEquipment(slot, "") },
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+            )
+            ToppingPeakNcSync.applyFromAdventure(
+                url = url,
+                html = html,
+                preferences = preferences,
+            )
             preferences?.let { prefs ->
                 val asc = character?.state?.value?.ascensionNumber ?: 0
                 GarbageBeanstalkSync.applyFromAdventure(
@@ -2899,6 +2993,7 @@ class GameRuntimeLibrary(
                     url = url,
                 )
                 ClancyNcSync.applyFromAdventure(null, html, questDatabase, url)
+                SeaVisitSync.applyFromAdventure(null, html, questDatabase, url)
                 TowerRuinsSync.applyFromAdventure(null, html, questDatabase, url)
                 ExtremeSlopeSync.applyFromAdventure(null, html, prefs, url)
                 PirateNcSync.applyFromAdventure(null, html, questDatabase, prefs, url)
@@ -2992,6 +3087,26 @@ class GameRuntimeLibrary(
         if (url != null && url.contains("bathole", ignoreCase = true)) {
             BatholeSync.applyFromVisit(url, html, questDatabase)
         }
+        if (url != null && (
+                url.contains("whichplace=sea_oldman", ignoreCase = true) ||
+                    url.contains("monkeycastle.php", ignoreCase = true) ||
+                    url.contains("seafloor.php", ignoreCase = true) ||
+                    url.contains("sea_merkin.php", ignoreCase = true) ||
+                    url.contains("action=oldman_oldman", ignoreCase = true) ||
+                    url.contains("action=grandpastory", ignoreCase = true)
+            )
+        ) {
+            val cls = character?.state?.value?.characterClassEnum
+            SeaVisitSync.applyFromVisit(
+                url = url,
+                html = html,
+                questDatabase = questDatabase,
+                preferences = preferences,
+                isMuscleClass = cls?.isMuscleBased == true,
+                isMysticalityClass = cls?.isMysticality == true,
+                isMoxieClass = cls?.isMoxieBased == true,
+            )
+        }
         if (url != null && url.contains("whichplace=plains", ignoreCase = true)) {
             PlainsVisitSync.applyFromVisit(
                 url = url,
@@ -2999,6 +3114,68 @@ class GameRuntimeLibrary(
                 questDatabase = questDatabase,
                 consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
             )
+        }
+        if (url != null && (
+                url.contains("whichplace=beanstalk", ignoreCase = true) ||
+                    url.contains("place=beanstalk", ignoreCase = true)
+            )
+        ) {
+            GarbageBeanstalkSync.applyFromPlace(url, html, questDatabase)
+        }
+        if (url != null && url.contains("trickortreat", ignoreCase = true)) {
+            val charState = character?.state?.value
+            TrickOrTreatSync.applyFromVisit(
+                url = url,
+                html = html,
+                equipment = charState?.equipment ?: emptyMap(),
+                clearSlot = { slot -> character?.updateEquipment(slot, "") },
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+            )
+        }
+        if (url != null && url.contains("pandamonium.php", ignoreCase = true)) {
+            PandamoniumVisitSync.applyFromVisit(url, questDatabase)
+        }
+        if (url != null && CouncilVisitSync.isCouncilUrl(url)) {
+            CouncilVisitSync.applyFromVisit(
+                url = url,
+                html = html,
+                questDatabase = questDatabase,
+                preferences = preferences,
+                level = character?.state?.value?.level ?: 1,
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+            )
+        }
+        if (url != null && url.contains("main.php", ignoreCase = true)) {
+            IslandUnlockSync.applyFromMain(
+                url = url,
+                html = html,
+                preferences = preferences,
+                ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+            )
+        }
+        if (url != null && url.contains("fernruin", ignoreCase = true)) {
+            FernruinVisitSync.applyFromVisit(url, questDatabase)
+        }
+        if (url != null && url.contains("tavern.php", ignoreCase = true)) {
+            TavernVisitSync.applyFromVisit(url, html, questDatabase)
+        }
+        if (url != null && (
+                url.contains("cellar.php", ignoreCase = true) ||
+                    url.contains("choice.php", ignoreCase = true)
+            )
+        ) {
+            val charState = character?.state?.value
+            TavernCellarSync.applyFromVisit(
+                url = url,
+                html = html,
+                preferences = preferences,
+                questDatabase = questDatabase,
+                ascensionNumber = charState?.ascensionNumber ?: 0,
+                shouldSkipExplore = { shouldSkipTavernExplore(charState) },
+            )
+        }
+        if (url != null && url.contains("wham.php", ignoreCase = true)) {
+            DetectiveCaseSync.applyFromVisit(url, html, preferences)
         }
         if (url != null && url.contains("whichplace=mountains", ignoreCase = true)) {
             MelvinShirtSync.applyFromVisit(
@@ -3024,6 +3201,14 @@ class GameRuntimeLibrary(
         ) {
             preferences?.let { prefs ->
                 ExtremeSlopeSync.applyCloudyPeak(url, html, questDatabase, prefs)
+                TrapperCabinSync.applyFromVisit(
+                    url = url,
+                    html = html,
+                    questDatabase = questDatabase,
+                    preferences = prefs,
+                    ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                )
             }
         }
         if (url?.contains("bigisland.php", ignoreCase = true) == true) {
@@ -3109,6 +3294,13 @@ class GameRuntimeLibrary(
                 )
             }
         }
+    }
+
+    private fun shouldSkipTavernExplore(state: CharacterState?): Boolean {
+        if (state == null) return false
+        return state.adventuresLeft == 0 ||
+            state.currentHp == 0 ||
+            state.inebriety > state.inebrietyLimit
     }
 
     private fun extractDescItemId(url: String): String? =
@@ -3497,6 +3689,8 @@ class GameRuntimeLibrary(
                 QuestChoiceRules.apply(choiceId, html, db, option, preferences, inventoryManager,
                     ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
                     dayCount = character?.state?.value?.dayCount ?: 0,
+                    hasCandyCaneSwordEquipped = character?.state?.value?.equipment?.values
+                        ?.any { it.contains("candy cane sword", ignoreCase = true) } == true,
                 )
             }
         }

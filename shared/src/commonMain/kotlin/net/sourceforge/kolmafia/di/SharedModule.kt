@@ -208,6 +208,8 @@ val sharedModule = module {
             preferences = get(),
             sessionLogger = get(),
             eventBus = get(),
+            questDatabase = get(),
+            character = get(),
         )
     }
     single {
