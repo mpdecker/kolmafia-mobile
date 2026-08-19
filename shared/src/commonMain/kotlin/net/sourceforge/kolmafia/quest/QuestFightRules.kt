@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.quest
 
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.BugbearManager
+import net.sourceforge.kolmafia.session.CryptManager
 
 /** Quest step bumps from combat win/loss and item drops. */
 object QuestFightRules {
@@ -22,6 +24,7 @@ object QuestFightRules {
     )
 
     private val TELEGRAM_STAGE_MONSTERS = setOf(
+        "drunk cowpoke", "surly gambler", "wannabe gunslinger", "cow cultist",
         "hired gun", "camp cook", "skeletal gunslinger", "restless ghost",
         "buzzard", "mountain lion", "grizzled bear", "diamondback rattler",
         "coal snake", "frontwinder", "caugr", "pyrobove", "spidercow", "moomy",
@@ -71,10 +74,23 @@ object QuestFightRules {
         adventureId: String = "",
         responseText: String = "",
         hasItemEquipped: (Int) -> Boolean = { false },
+        hasItemId: (Int) -> Boolean = { false },
         ascensionNumber: Int = 0,
     ): QuestCombatResult {
         var advanced = false
         var resyncQuestLogPage1 = false
+        if (CryptManager.handleFightEvilness(responseText, adventureId, preferences)) {
+            advanced = true
+        }
+        if (FireExtinguisherCombatSync.apply(responseText, adventureId, preferences, questDatabase)) {
+            advanced = true
+        }
+        if (BugbearManager.handleKeyotron(responseText, monster, preferences)) {
+            advanced = true
+        }
+        if (NewYouCombatSync.apply(responseText, questDatabase, preferences)) {
+            advanced = true
+        }
         if (won && adventureId == PirateRealmSync.PIRATEREALM_ISLAND_ADVENTURE.toString()) {
             advanced = PirateRealmSync.applyIslandCombatWin(questDatabase, preferences) || advanced
         }
@@ -82,7 +98,7 @@ object QuestFightRules {
             nemesisStep(monster, won)?.let {
                 if (advance(questDatabase, Quest.NEMESIS, it)) advanced = true
             }
-            citadelStep(monster, won, preferences)?.let {
+            citadelStep(monster, won, preferences, responseText)?.let {
                 if (advance(questDatabase, Quest.CITADEL, it)) advanced = true
             }
             armorerStep(monster, won)?.let {
@@ -103,11 +119,47 @@ object QuestFightRules {
                 ) {
                     advanced = true
                 }
+                if (ZeppelinRonSync.applyCabinProgress(
+                        monster, responseText, questDatabase, preferences,
+                    )
+                ) {
+                    advanced = true
+                }
+                if (PirateRealmSync.applyNamedBossWin(monster, questDatabase, preferences)) {
+                    advanced = true
+                }
+                if (SeaCombatSync.apply(monster, questDatabase, preferences, hasItemEquipped)) {
+                    advanced = true
+                }
                 if (AirportCombatSync.apply(monster, responseText, questDatabase, preferences)) {
+                    advanced = true
+                }
+                if (SmutOrcCombatSync.apply(monster, responseText, preferences)) {
+                    advanced = true
+                }
+                if (CryptManager.defeatBoss(monster, questDatabase, preferences)) {
                     advanced = true
                 }
             } else {
                 QuestFightLostSync.apply(monster, responseText, questDatabase, preferences)
+            }
+        }
+        if (won) {
+            if (DailyDungeonCombatSync.apply(adventureId, preferences)) advanced = true
+            if (WalfordBucketCombatSync.apply(adventureId, responseText, questDatabase, preferences)) {
+                advanced = true
+            }
+            if (QuestLocationCombatSync.apply(adventureId, monster, preferences)) {
+                advanced = true
+            }
+            if (DinseyCombatSync.apply(adventureId, responseText, questDatabase, preferences)) {
+                advanced = true
+            }
+            if (ManorDrawerCombatSync.apply(adventureId, responseText, preferences, hasItemId)) {
+                advanced = true
+            }
+            if (MerkinColosseumCombatSync.apply(adventureId, monster, preferences)) {
+                advanced = true
             }
         }
         if (itemsGained.any { it.contains("volcano map", ignoreCase = true) } ||
@@ -165,11 +217,13 @@ object QuestFightRules {
         responseText: String,
         hasItemEquipped: (Int) -> Boolean,
     ): PartyFairCombatResult? {
-        val progress = questDatabase.getProgress(Quest.PARTY_FAIR)
-        if (progress != "step1" && progress != "step2") return null
         val lower = monster.lowercase()
         if (lower !in PARTY_FAIR_MONSTERS) return null
         val prefs = preferences ?: return null
+        val freeTurns = (prefs.getInt("_neverendingPartyFreeTurns", 0) + 1).coerceAtMost(10)
+        prefs.setInt("_neverendingPartyFreeTurns", freeTurns)
+        val progress = questDatabase.getProgress(Quest.PARTY_FAIR)
+        if (progress != "step1" && progress != "step2") return PartyFairCombatResult()
         when (prefs.getString("_questPartyFairQuest", "")) {
             "partiers" -> {
                 val kills = if (hasItemEquipped(INTIMIDATING_CHAINSAW_ID)) 2 else 1
@@ -233,12 +287,14 @@ object QuestFightRules {
         monster: String,
         won: Boolean,
         preferences: Preferences?,
+        responseText: String = "",
     ): String? {
         if (!won) return null
         val lower = monster.lowercase()
         if (lower == "pair of burnouts") {
             val prefs = preferences ?: return "step4"
-            val next = (prefs.getInt(BURNOUTS_DEFEATED_PREF, 0) + 1).coerceAtMost(BURNOUTS_GOAL)
+            val increment = if (responseText.contains("throw the opium grenade")) 3 else 1
+            val next = (prefs.getInt(BURNOUTS_DEFEATED_PREF, 0) + increment).coerceAtMost(BURNOUTS_GOAL)
             prefs.setInt(BURNOUTS_DEFEATED_PREF, next)
             return if (next >= BURNOUTS_GOAL) "step4" else null
         }

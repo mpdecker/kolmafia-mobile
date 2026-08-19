@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.quest
 
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.CryptManager
 
 /** Quest step bumps from item acquisition and inventory counts. */
 object QuestItemRules {
@@ -32,8 +33,14 @@ object QuestItemRules {
         hasItemId: (Int) -> Boolean = { false },
         consumeItem: (itemId: Int, quantity: Int) -> Unit = { _, _ -> },
         preferences: Preferences? = null,
+        itemIdsGained: List<Int> = emptyList(),
     ): Boolean {
         var advanced = false
+        if (CryptManager.EVILOMETER in itemIdsGained ||
+            itemsGained.any { it.contains("Evilometer", ignoreCase = true) }
+        ) {
+            advanced = CryptManager.acquireEvilometer(questDatabase, preferences) || advanced
+        }
         for (name in itemsGained) {
             if (isGuildManualName(name)) {
                 QuestLogSync.consumeEgoBookTurnInItems(

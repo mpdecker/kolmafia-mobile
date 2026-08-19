@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.quest
 import net.sourceforge.kolmafia.adventure.RufusManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.CryptManager
 
 /** Quest step bumps from choice adventure response text. */
 object QuestChoiceRules {
@@ -18,6 +19,7 @@ object QuestChoiceRules {
         ascensionNumber: Int = 0,
         dayCount: Int = 0,
         hasCandyCaneSwordEquipped: Boolean = false,
+        inPokefam: Boolean = false,
     ): Boolean {
         var advanced = false
         advanced = CandyCaneSwordSync.applyFromChoice(
@@ -38,8 +40,78 @@ object QuestChoiceRules {
             ) || advanced
         }
         when (choiceId) {
+            142, 146 -> {
+                advanced = IslandWarVisitSync.applyFromEnlistChoice(
+                    decision, questDatabase, preferences, inPokefam,
+                ) || advanced
+            }
+            523 -> {
+                if (decision == 5 &&
+                    responseText.contains("Your Evilometer beeps 11 times.")
+                ) {
+                    preferences?.let { CryptManager.decreaseEvilness(CryptManager.DEFILED_CRANNY, 11, it) }
+                    advanced = true
+                }
+            }
+            AirportNpcChoiceSync.JIMMY_CHOICE,
+            AirportNpcChoiceSync.TACO_DAN_CHOICE,
+            AirportNpcChoiceSync.BRODEN_CHOICE,
+            -> {
+                advanced = AirportNpcChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    questDatabase = questDatabase,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            AirportRadioChoiceSync.CHOICE_ID -> {
+                advanced = AirportRadioChoiceSync.apply(
+                    html = responseText,
+                    questDatabase = questDatabase,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                    itemCount = { id ->
+                        inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
+                    },
+                ) || advanced
+            }
             189 -> {
                 advanced = setIfBetter(questDatabase, Quest.NEMESIS, "step26") || advanced
+            }
+            571, 572, 573, 576, 577 -> {
+                advanced = ClancyNcSync.applyFromChoice(choiceId, questDatabase) || advanced
+            }
+            TwinPeakChoiceSync.ROOM_237,
+            TwinPeakChoiceSync.GO_CHECK_IT_OUT,
+            TwinPeakChoiceSync.HE_IS_THE_ARM,
+            TwinPeakChoiceSync.NOW_ITS_DARK,
+            TwinPeakChoiceSync.CABIN_FEVER,
+            TwinPeakChoiceSync.NOW_ITS_DARK_ALT,
+            -> {
+                advanced = TwinPeakChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            DailyDungeonChoiceSync.FINAL_REWARD,
+            DailyDungeonChoiceSync.FIRST_CHEST,
+            DailyDungeonChoiceSync.SECOND_CHEST,
+            DailyDungeonChoiceSync.I_WANNA_BE_A_DOOR,
+            DailyDungeonChoiceSync.ALMOST_CERTAINLY_A_TRAP,
+            -> {
+                advanced = DailyDungeonChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    decision = decision,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            921 -> {
+                advanced = setIfBetter(questDatabase, Quest.MANOR, "step1") || advanced
             }
             542 -> {
                 if (responseText.contains("oddly chilly", ignoreCase = true)) {

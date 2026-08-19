@@ -63,6 +63,55 @@ object ZeppelinRonSync {
         return true
     }
 
+    private val CABIN_MONSTERS = setOf(
+        "man with the red buttons",
+        "red butler",
+        "red skeleton",
+        "red fox",
+    )
+
+    /**
+     * Desktop [QuestManager.updateQuestData] Red Zeppelin cabin progress from combat HTML.
+     */
+    fun applyCabinProgress(
+        monster: String,
+        html: String,
+        questDatabase: QuestDatabase?,
+        preferences: Preferences?,
+    ): Boolean {
+        if (monster.trim().lowercase() !in CABIN_MONSTERS) return false
+        val prefs = preferences ?: return false
+        val db = questDatabase ?: return false
+        return when {
+            html.contains("you do get a slightly better sense of the ship") -> {
+                prefs.setInt("zeppelinProgress", 1)
+                true
+            }
+            html.contains("looking for a clue as to the leader") -> {
+                prefs.setInt("zeppelinProgress", 2)
+                true
+            }
+            html.contains("cabin is probably one of the best ones") -> {
+                prefs.setInt("zeppelinProgress", 3)
+                true
+            }
+            html.contains("unlock every door on the zeppelin") -> {
+                prefs.setInt("zeppelinProgress", 4)
+                true
+            }
+            html.contains("you finally manage to figure out where the nicer cabins are") -> {
+                prefs.setInt("zeppelinProgress", 5)
+                true
+            }
+            html.contains("inevitable confrontation with Ron Copperhead") -> {
+                prefs.setInt("zeppelinProgress", 6)
+                db.setProgress(Quest.RON, "step4")
+                true
+            }
+            else -> false
+        }
+    }
+
     fun applyRedZeppelin(html: String, questDatabase: QuestDatabase): Boolean {
         if (html.contains("sneak aboard the Zeppelin")) {
             questDatabase.setProgress(Quest.RON, "step3")

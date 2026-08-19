@@ -8,6 +8,15 @@ import net.sourceforge.kolmafia.preferences.Preferences
  */
 object QuestCombatWinExtrasSync {
 
+    private val RUFUS_SHADOW_BOSSES = setOf(
+        "shadow spire",
+        "shadow orrery",
+        "shadow tongue",
+        "shadow scythe",
+        "shadow cauldron",
+        "shadow matrix",
+    )
+
     fun apply(
         monster: String,
         questDatabase: QuestDatabase?,
@@ -21,6 +30,31 @@ object QuestCombatWinExtrasSync {
                 val db = questDatabase ?: return false
                 if (db.isQuestLaterThan(Quest.BAT, "step2")) return false
                 db.advanceQuest(Quest.BAT)
+                true
+            }
+            "boss bat" -> {
+                val db = questDatabase ?: return false
+                db.setQuestIfBetter(Quest.BAT, "step4")
+                true
+            }
+            "knob goblin king" -> {
+                val db = questDatabase ?: return false
+                db.setQuestIfBetter(Quest.GOBLIN, QuestDatabase.FINISHED)
+                true
+            }
+            "groar" -> {
+                val db = questDatabase ?: return false
+                db.setQuestIfBetter(Quest.TRAPPER, "step5")
+                true
+            }
+            "panicking knott yeti" -> {
+                val db = questDatabase ?: return false
+                db.setQuestIfBetter(Quest.TRAPPER, "step4")
+                true
+            }
+            "hulking bridge troll" -> {
+                val prefs = preferences ?: return false
+                prefs.setInt("chasmBridgeProgress", 0)
                 true
             }
             "source agent" -> {
@@ -39,6 +73,21 @@ object QuestCombatWinExtrasSync {
                 TavernCellarSync.addTavernLocation(prefs, square, '6', ascensionNumber)
                 true
             }
+            "protector spectre" -> {
+                val db = questDatabase ?: return false
+                db.setProgress(Quest.WORSHIP, QuestDatabase.FINISHED)
+                true
+            }
+            "wu tang the betrayer" -> {
+                val prefs = preferences ?: return false
+                prefs.setInt("lastWuTangDefeated", ascensionNumber)
+                true
+            }
+            "the superconductor" -> {
+                val prefs = preferences ?: return false
+                prefs.setBoolean("superconductorDefeated", true)
+                true
+            }
             "x-32-f combat training snowman" -> {
                 val prefs = preferences ?: return false
                 val parts = prefs.getInt("_snojoParts", 0)
@@ -55,7 +104,13 @@ object QuestCombatWinExtrasSync {
                 }
                 true
             }
-            else -> false
+            else -> if (lower in RUFUS_SHADOW_BOSSES) {
+                val db = questDatabase ?: return false
+                db.setQuestIfBetter(Quest.RUFUS, "step1")
+                true
+            } else {
+                false
+            }
         }
     }
 }

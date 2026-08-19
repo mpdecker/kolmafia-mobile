@@ -42,4 +42,21 @@ object ClancyNcSync {
             else -> false
         }
     }
+
+    /**
+     * Desktop [ChoiceControl] minstrel choices 571–577.
+     */
+    fun applyFromChoice(choiceId: Int, questDatabase: QuestDatabase?): Boolean {
+        if (questDatabase == null) return false
+        val step = when (choiceId) {
+            571 -> QuestDatabase.STARTED
+            572 -> "step2"
+            573 -> "step4"
+            576 -> "step6"
+            577 -> "step8"
+            else -> return false
+        }
+        questDatabase.setProgress(Quest.CLANCY, step)
+        return true
+    }
 }

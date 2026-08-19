@@ -199,6 +199,11 @@ import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DreadScrollManager
 import net.sourceforge.kolmafia.session.MerkinQuestSync
 import net.sourceforge.kolmafia.session.SeaMerkinSync
+import net.sourceforge.kolmafia.session.VoteMonsterManager
+import net.sourceforge.kolmafia.quest.FireExtinguisherCombatSync
+import net.sourceforge.kolmafia.quest.NewYouCombatSync
+import net.sourceforge.kolmafia.session.BugbearManager
+import net.sourceforge.kolmafia.session.CryptManager
 import net.sourceforge.kolmafia.session.ElVibratoManager
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.EventHistory
@@ -393,7 +398,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase635"
+        const val REVISION = "phase671"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -2617,8 +2622,21 @@ class GameRuntimeLibrary(
                 consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
                 allowUnequippedConsume = !QuestFightStartedSync.isCombatActionUrl(url),
             )
+            VoteMonsterManager.checkCounter(preferences, charState?.turnsPlayed ?: 0)
+            CryptManager.handleFightEvilness(html, "", preferences)
+            FireExtinguisherCombatSync.apply(html, "", preferences, questDatabase)
+            val fightMonster = AdventureParser.parseEncounterMonsterName(html).orEmpty()
+            BugbearManager.handleKeyotron(html, fightMonster, preferences)
+            NewYouCombatSync.apply(html, questDatabase, preferences)
             extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
-                QuestItemUsedSync.apply(itemId, html, questDatabase, preferences)
+                QuestItemUsedSync.apply(
+                    itemId,
+                    html,
+                    questDatabase,
+                    preferences,
+                    consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
+                    count = extractUseQuantity(url),
+                )
             }
         }
         if (url != null && url.contains("elvmachine.php", ignoreCase = true)) {
@@ -2679,9 +2697,18 @@ class GameRuntimeLibrary(
         }
         if (url != null && url.contains("inv_use.php", ignoreCase = true)) {
             extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
-                QuestItemUsedSync.apply(itemId, html, questDatabase, preferences)
+                QuestItemUsedSync.apply(
+                    itemId,
+                    html,
+                    questDatabase,
+                    preferences,
+                    consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
+                    count = extractUseQuantity(url),
+                )
             }
         }
+        CryptManager.applyAcquireFromHtml(html, questDatabase, preferences)
+        CryptManager.applyFromVisit(url, html, preferences)
         if (url != null &&
             url.contains("skills.php", ignoreCase = true) &&
             url.contains("whichskill=${DreadScrollManager.DEEP_DARK_VISIONS_SKILL}")
@@ -3063,6 +3090,9 @@ class GameRuntimeLibrary(
                 TownUnlockSync.applyFromTownWrong(url, html, prefs, inBadMoon)
                 TownUnlockSync.applyFromTownMarket(url, html, prefs, inBadMoon)
                 TownUnlockSync.applyFromTown(url, html, prefs)
+                if (url.contains("action=townright_vote", ignoreCase = true)) {
+                    VoteMonsterManager.applyFromVisit(url, html, prefs)
+                }
             }
         }
         if (url != null && url.contains("speakeasy", ignoreCase = true)) {
@@ -3305,6 +3335,9 @@ class GameRuntimeLibrary(
 
     private fun extractDescItemId(url: String): String? =
         Regex("""whichitem=(\d+)""").find(url)?.groupValues?.getOrNull(1)
+
+    private fun extractUseQuantity(url: String): Int =
+        Regex("""quantity=(\d+)""").find(url)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
 
     private fun extractDescEffectId(url: String): String? =
         Regex("""whicheffect=([0-9a-zA-Z]+)""").find(url)?.groupValues?.getOrNull(1)
@@ -3691,6 +3724,7 @@ class GameRuntimeLibrary(
                     dayCount = character?.state?.value?.dayCount ?: 0,
                     hasCandyCaneSwordEquipped = character?.state?.value?.equipment?.values
                         ?.any { it.contains("candy cane sword", ignoreCase = true) } == true,
+                    inPokefam = character?.state?.value?.inPokefam == true,
                 )
             }
         }
