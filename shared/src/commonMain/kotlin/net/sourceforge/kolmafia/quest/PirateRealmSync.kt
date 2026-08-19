@@ -163,6 +163,50 @@ object PirateRealmSync {
         }
     }
 
+    /**
+     * Desktop [FightRequest] PirateRealm named combat-win unlocks.
+     */
+    fun applyNamedBossWin(
+        monster: String,
+        questDatabase: QuestDatabase?,
+        preferences: Preferences?,
+    ): Boolean {
+        val prefs = preferences ?: return false
+        val db = questDatabase ?: return false
+        return when (monster.trim().lowercase()) {
+            "glass jack hummel" -> {
+                prefs.setBoolean("pirateRealmUnlockedSpyglass", true)
+                db.setQuestIfBetter(Quest.PIRATEREALM, "step16")
+                true
+            }
+            "red roger" -> {
+                prefs.setBoolean("pirateRealmUnlockedFlag", true)
+                db.setQuestIfBetter(Quest.PIRATEREALM, "step16")
+                true
+            }
+            "giant giant crab" -> {
+                prefs.setBoolean("pirateRealmUnlockedCrabsicle", true)
+                db.setQuestIfBetter(Quest.PIRATEREALM, "step6")
+                true
+            }
+            "jungle titan" -> {
+                prefs.setBoolean("pirateRealmUnlockedBreastplate", true)
+                db.setQuestIfBetter(Quest.PIRATEREALM, "step11")
+                true
+            }
+            "pirate radio" -> {
+                prefs.setBoolean("pirateRealmUnlockedRadioRing", true)
+                db.setQuestIfBetter(Quest.PIRATEREALM, "step16")
+                true
+            }
+            "plastic pirate" -> {
+                incrementCappedPref(prefs, "pirateRealmPlasticPiratesDefeated", 50)
+                true
+            }
+            else -> false
+        }
+    }
+
     fun applyWindicleUse(
         questDatabase: QuestDatabase,
         preferences: Preferences?,

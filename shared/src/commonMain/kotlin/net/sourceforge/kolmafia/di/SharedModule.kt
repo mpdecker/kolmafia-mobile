@@ -210,6 +210,7 @@ val sharedModule = module {
             eventBus = get(),
             questDatabase = get(),
             character = get(),
+            inventoryManager = get(),
         )
     }
     single {

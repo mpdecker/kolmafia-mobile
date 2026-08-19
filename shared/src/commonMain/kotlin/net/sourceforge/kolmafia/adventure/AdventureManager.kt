@@ -57,6 +57,7 @@ import net.sourceforge.kolmafia.quest.ToppingPeakNcSync
 import net.sourceforge.kolmafia.quest.TavernCellarSync
 import net.sourceforge.kolmafia.quest.ProtonicGhostSync
 import net.sourceforge.kolmafia.quest.QuestFightStartedSync
+import net.sourceforge.kolmafia.quest.ThingWithNoNameSync
 import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
 import net.sourceforge.kolmafia.quest.ShadowRiftSync
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -77,6 +78,7 @@ import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
 import net.sourceforge.kolmafia.session.TurnCounter
+import net.sourceforge.kolmafia.session.VoteMonsterManager
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
@@ -480,6 +482,7 @@ open class AdventureManager(
                         gameDatabase?.item(name)?.id == id
                     }
                 },
+                hasItemId = { id -> inventory?.state?.value?.items?.containsKey(id) == true },
                 ascensionNumber = character.state.value.ascensionNumber,
             )
             if (combatResult.resyncQuestLogPage1) {
@@ -487,6 +490,16 @@ open class AdventureManager(
                 val woots = preferences.getString("_questPartyFairProgress", "0")
                 sessionLogger?.appendRawLine("The Party is at $woots/100 woots.")
             }
+            ThingWithNoNameSync.apply(
+                monster = result.monster,
+                won = result.won,
+                questDatabase = it,
+                preferences = preferences,
+                ascensionNumber = character.state.value.ascensionNumber,
+                consumeItem = { itemId, quantity ->
+                    inventory?.consumeItemLocally(itemId, quantity)
+                },
+            )
             QuestItemRules.applyItemsGained(
                 result.itemsGained,
                 it,
@@ -495,6 +508,7 @@ open class AdventureManager(
                     inventory?.consumeItemLocally(itemId, quantity)
                 },
                 preferences = preferences,
+                itemIdsGained = itemIdsGained,
             )
             GuzzlrCombatSync.applyCombatWin(
                 questDatabase = it,
@@ -685,6 +699,7 @@ open class AdventureManager(
                 equipment = character.state.value.equipment,
             )
         }
+        VoteMonsterManager.checkCounter(preferences, character.state.value.turnsPlayed)
         emitItemEvents(result.itemsGained)
         if (preferences.getString(Preferences.LAST_LOCATION, "").let { ShadowRiftSync.isShadowRiftLocation(it) }) {
             RufusManager(preferences).handleShadowRiftFight(result.monster)
@@ -869,6 +884,7 @@ open class AdventureManager(
                     dayCount = character.state.value.dayCount,
                     hasCandyCaneSwordEquipped = character.state.value.equipment.values
                         .any { name -> name.contains("candy cane sword", ignoreCase = true) },
+                    inPokefam = character.state.value.inPokefam,
                 )
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))

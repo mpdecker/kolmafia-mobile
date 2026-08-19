@@ -2,8 +2,12 @@ package net.sourceforge.kolmafia.quest
 
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.RestrictedItemType
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.StandardRequest
+import net.sourceforge.kolmafia.session.CryptManager
 import net.sourceforge.kolmafia.session.TurnCounter
+import net.sourceforge.kolmafia.session.VoteMonsterManager
 
 /**
  * Desktop [QuestManager.updateQuestFightStarted] extras beyond volcanic NEMESIS / Cake Lord.
@@ -38,8 +42,15 @@ object QuestFightStartedSync {
         clearSlot: (EquipmentSlot) -> Unit = {},
         consumeItem: (Int, Int) -> Unit = { _, _ -> },
         allowUnequippedConsume: Boolean = true,
+        isAllowed: (RestrictedItemType, String) -> Boolean = { type, key ->
+            StandardRequest.isAllowed(type, key, null)
+        },
     ): Boolean {
-        if (monster.isBlank()) return false
+        var advanced = false
+        if (allowUnequippedConsume) {
+            advanced = DailyDungeonCombatSync.applyFightStart(html, preferences) || advanced
+        }
+        if (monster.isBlank()) return advanced
         val trimmed = monster.trim()
         val lower = trimmed.lowercase()
         return when {
@@ -70,9 +81,20 @@ object QuestFightStartedSync {
                 prefs.setInt("lastVoteMonsterTurn", turnsPlayed)
                 prefs.setString("_voteMonster", trimmed)
                 TurnCounter.stopCounting(prefs, "Vote Monster")
+                VoteMonsterManager.checkCounter(prefs, turnsPlayed, isAllowed)
                 true
             }
-            else -> false
+            CryptManager.bossZone(lower) != null ->
+                CryptManager.encounterBoss(trimmed, preferences)
+            lower == "cyrus the virus" -> {
+                if (preferences == null) {
+                    advanced
+                } else {
+                    preferences.setInt("aminoAcidsUsed", 0)
+                    true
+                }
+            }
+            else -> advanced
         }
     }
 }

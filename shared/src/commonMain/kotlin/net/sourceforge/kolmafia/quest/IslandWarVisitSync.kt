@@ -28,6 +28,26 @@ object IslandWarVisitSync {
         val itemCount: (Int) -> Int = { id -> if (hasItemId(id)) 1 else 0 },
     )
 
+    /**
+     * Desktop [ChoiceControl] choices 142/146 — start the Island War.
+     */
+    fun applyFromEnlistChoice(
+        decision: Int,
+        questDatabase: QuestDatabase?,
+        preferences: Preferences?,
+        inPokefam: Boolean = false,
+    ): Boolean {
+        if (decision != 3) return false
+        val db = questDatabase ?: return false
+        db.setProgress(Quest.ISLAND_WAR, "step1")
+        preferences?.setString("warProgress", "started")
+        if (inPokefam) {
+            preferences?.setInt("hippiesDefeated", 500)
+            preferences?.setInt("fratboysDefeated", 500)
+        }
+        return true
+    }
+
     private const val JAM_BAND_FLYERS = 2404
     private const val ROCK_BAND_FLYERS = 2405
     private const val FILTHWORM_QUEEN_HEART = 2347

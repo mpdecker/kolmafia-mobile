@@ -10,6 +10,7 @@ import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.VoteMonsterManager
 import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
@@ -168,8 +169,8 @@ class RecoveryManager(
     ): Boolean {
         if (CharpaneValhallaSync.inValhalla) return false
         isRecoveryActive = true
+        var state = charState
         try {
-            var state = charState
             var inventory = invState
             var skills = skillState
             val target = hpRecoveryTarget(amount, state, preferences)
@@ -188,6 +189,7 @@ class RecoveryManager(
             return state.currentHp >= target
         } finally {
             isRecoveryActive = false
+            VoteMonsterManager.checkCounter(preferences, state.turnsPlayed)
         }
     }
 
@@ -200,8 +202,8 @@ class RecoveryManager(
     ): Boolean {
         if (CharpaneValhallaSync.inValhalla) return false
         isRecoveryActive = true
+        var state = charState
         try {
-            var state = charState
             var inventory = invState
             var skills = skillState
             val target = mpRecoveryTarget(amount, state, preferences)
@@ -220,6 +222,7 @@ class RecoveryManager(
             return state.currentMp >= target
         } finally {
             isRecoveryActive = false
+            VoteMonsterManager.checkCounter(preferences, state.turnsPlayed)
         }
     }
 

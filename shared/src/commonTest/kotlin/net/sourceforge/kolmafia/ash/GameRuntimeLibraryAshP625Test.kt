@@ -14,7 +14,7 @@ class GameRuntimeLibraryAshP625Test {
 
     @Test
     fun revision_phase629() {
-        assertEquals("phase635", GameRuntimeLibrary.REVISION)
+        assertEquals("phase671", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -94,6 +94,7 @@ class GameRuntimeLibraryAshP625Test {
     @Test
     fun voteMonster_incrementsAndStopsCounter() {
         val prefs = Preferences(MapSettings())
+        prefs.setString("trackVoteMonster", "false")
         TurnCounter.startCounting(prefs, 0, 11, "Vote Monster", "vote.gif")
         assertTrue(
             QuestFightStartedSync.apply(

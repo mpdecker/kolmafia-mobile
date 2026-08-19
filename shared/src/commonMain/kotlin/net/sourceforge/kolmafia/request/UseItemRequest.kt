@@ -9,6 +9,7 @@ import io.ktor.http.isSuccess
 import io.ktor.http.parameters
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.ProtonicGhostSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
@@ -24,6 +25,7 @@ open class UseItemRequest(
     private val eventBus: GameEventBus? = null,
     private val questDatabase: QuestDatabase? = null,
     private val character: KoLCharacter? = null,
+    private val inventoryManager: InventoryManager? = null,
 ) {
     /**
      * Uses an item via inv_use.php.
@@ -52,7 +54,14 @@ open class UseItemRequest(
                         turnsPlayed = character?.state?.value?.turnsPlayed ?: 0,
                     )
                 } else {
-                    QuestItemUsedSync.apply(itemId, body, questDatabase, preferences)
+                    QuestItemUsedSync.apply(
+                        itemId,
+                        body,
+                        questDatabase,
+                        preferences,
+                        consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
+                        count = quantity,
+                    )
                 }
                 Result.success(body)
             } else {
@@ -76,7 +85,16 @@ open class UseItemRequest(
                 },
             )
             if (response.status.isSuccess()) {
-                Result.success(response.bodyAsText())
+                val body = response.bodyAsText()
+                QuestItemUsedSync.apply(
+                    itemId,
+                    body,
+                    questDatabase,
+                    preferences,
+                    consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
+                    count = quantity,
+                )
+                Result.success(body)
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))
             }

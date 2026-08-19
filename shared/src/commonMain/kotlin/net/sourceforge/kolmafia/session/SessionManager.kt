@@ -95,6 +95,7 @@ open class SessionManager(
                             charState.ascensionNumber,
                         )
                         IslandWarResetSync.ensureUpdated(charState.ascensionNumber, preferences)
+                        VoteMonsterManager.checkCounter(preferences, charState.turnsPlayed)
                         dailyResourceTracker.syncDay(charState.dayCount)
 
                         // Gate rollover clear on day change or rollover timestamp gap (desktop parity)
