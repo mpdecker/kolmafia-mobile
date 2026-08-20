@@ -76,9 +76,23 @@ object QuestFightRules {
         hasItemEquipped: (Int) -> Boolean = { false },
         hasItemId: (Int) -> Boolean = { false },
         ascensionNumber: Int = 0,
+        combatItemId: Int? = null,
+        consumeItem: (Int, Int) -> Unit = { _, _ -> },
+        currentRun: Int = 0,
     ): QuestCombatResult {
         var advanced = false
         var resyncQuestLogPage1 = false
+        if (FightItemPrefSync.apply(
+                html = responseText,
+                monster = monster,
+                preferences = preferences,
+                combatItemId = combatItemId,
+                consumeItem = consumeItem,
+                currentRun = currentRun,
+            )
+        ) {
+            advanced = true
+        }
         if (CryptManager.handleFightEvilness(responseText, adventureId, preferences)) {
             advanced = true
         }

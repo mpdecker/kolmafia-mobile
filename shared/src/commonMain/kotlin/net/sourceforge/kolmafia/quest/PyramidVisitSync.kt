@@ -11,6 +11,10 @@ object PyramidVisitSync {
     const val UPPER_CHAMBER = 406
     const val MIDDLE_CHAMBER = 407
     const val ANCIENT_BOMB = 2318
+    const val CRUMBLING_WHEEL = 7511
+    const val TOMB_RATCHET = 2540
+    const val LETS_MAKE_A_DEAL = 132
+    const val CONTROL_FREAK = 929
 
     private val LOWER_CHAMBER_PATTERN = Regex("""action=pyramid_state(\d+)""", RegexOption.IGNORE_CASE)
 
@@ -141,5 +145,47 @@ object PyramidVisitSync {
             context.consumeItem(ANCIENT_BOMB, 1)
         }
         return true
+    }
+
+    fun applyFromChoice(
+        choiceId: Int,
+        decision: Int,
+        html: String,
+        questDatabase: QuestDatabase?,
+        preferences: Preferences?,
+        consumeItem: (Int, Int) -> Unit = { _, _ -> },
+    ): Boolean {
+        if (questDatabase == null) return false
+        return when (choiceId) {
+            LETS_MAKE_A_DEAL -> {
+                if (decision != 2) return false
+                questDatabase.setProgress(Quest.PYRAMID, "step1")
+                true
+            }
+            CONTROL_FREAK -> {
+                if (preferences == null) return false
+                when {
+                    decision == 1 && html.contains("wooden wheel disintegrating") -> {
+                        consumeItem(CRUMBLING_WHEEL, 1)
+                        advancePyramidPosition(preferences)
+                        true
+                    }
+                    decision == 2 && html.contains("snap the ratchet onto the peg") -> {
+                        consumeItem(TOMB_RATCHET, 1)
+                        advancePyramidPosition(preferences)
+                        true
+                    }
+                    else -> false
+                }
+            }
+            else -> false
+        }
+    }
+
+    fun advancePyramidPosition(preferences: Preferences): Int {
+        var position = preferences.getInt("pyramidPosition", 0) + 1
+        if (position > 5) position = 1
+        preferences.setInt("pyramidPosition", position)
+        return position
     }
 }

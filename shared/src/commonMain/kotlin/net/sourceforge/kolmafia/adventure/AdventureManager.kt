@@ -21,6 +21,7 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.character.FightPokefamSync
 import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ZoneLookup
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
@@ -33,6 +34,19 @@ import net.sourceforge.kolmafia.quest.WhiteCitadelSync
 import net.sourceforge.kolmafia.quest.HiddenCityCombatSync
 import net.sourceforge.kolmafia.quest.ShenSync
 import net.sourceforge.kolmafia.quest.HiddenCityChoiceSync
+import net.sourceforge.kolmafia.quest.PartyFairChoiceSync
+import net.sourceforge.kolmafia.quest.LightsOutChoiceSync
+import net.sourceforge.kolmafia.quest.SnojoChoiceSync
+import net.sourceforge.kolmafia.quest.SpoopyChoiceSync
+import net.sourceforge.kolmafia.quest.MonorailChoiceSync
+import net.sourceforge.kolmafia.quest.SpacegateVaccinatorChoiceSync
+import net.sourceforge.kolmafia.quest.VillainLairChoiceSync
+import net.sourceforge.kolmafia.quest.TrickOrTreatChoiceSync
+import net.sourceforge.kolmafia.quest.ArchSpadeChoiceSync
+import net.sourceforge.kolmafia.quest.DeckChoiceSync
+import net.sourceforge.kolmafia.quest.AutomatedFutureChoiceSync
+import net.sourceforge.kolmafia.quest.MobiusChoiceSync
+import net.sourceforge.kolmafia.quest.BaseballChoiceSync
 import net.sourceforge.kolmafia.quest.SpacegateAdventureSync
 import net.sourceforge.kolmafia.quest.GingerbreadCitySync
 import net.sourceforge.kolmafia.quest.ClancyNcSync
@@ -484,6 +498,8 @@ open class AdventureManager(
                 },
                 hasItemId = { id -> inventory?.state?.value?.items?.containsKey(id) == true },
                 ascensionNumber = character.state.value.ascensionNumber,
+                consumeItem = { itemId, qty -> inventory?.consumeItemLocally(itemId, qty) },
+                currentRun = character.state.value.currentRun,
             )
             if (combatResult.resyncQuestLogPage1) {
                 questLogRequest?.syncPage(1)
@@ -778,6 +794,51 @@ open class AdventureManager(
             }
             ShenSync.applyVisitChoice(currentChoiceId, currentResponseText, preferences)
             HiddenCityChoiceSync.applyVisitChoice(currentChoiceId, currentResponseText, preferences)
+            PartyFairChoiceSync.applyVisit(currentChoiceId, currentResponseText, preferences)
+            LightsOutChoiceSync.applyVisit(
+                currentChoiceId,
+                preferences,
+                character.state.value.turnsPlayed,
+            )
+            SnojoChoiceSync.applyVisit(currentChoiceId, currentResponseText, preferences)
+            SpoopyChoiceSync.applyVisit(currentChoiceId, currentResponseText, preferences)
+            VillainLairChoiceSync.applyVisit(currentChoiceId, currentResponseText, preferences)
+            MonorailChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            ) { itemId, qty -> inventory?.consumeItemLocally(itemId, qty) }
+            SpacegateVaccinatorChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            TrickOrTreatChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            ArchSpadeChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            DeckChoiceSync.applyVisit(currentChoiceId, currentResponseText, preferences)
+            AutomatedFutureChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            MobiusChoiceSync.applyVisit(
+                currentChoiceId,
+                preferences,
+                character.state.value.turnsPlayed,
+            )
+            BaseballChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
                 val bastilleContext = bastilleSyncContext()
                 BastilleBattalionSync.syncVisit(
@@ -872,6 +933,7 @@ open class AdventureManager(
                 }
             }
             questDatabase?.let {
+                val equipped = character.state.value.equipment.values
                 QuestChoiceRules.apply(
                     currentChoiceId,
                     html,
@@ -882,9 +944,21 @@ open class AdventureManager(
                     optionLabel,
                     ascensionNumber = character.state.value.ascensionNumber,
                     dayCount = character.state.value.dayCount,
-                    hasCandyCaneSwordEquipped = character.state.value.equipment.values
+                    hasCandyCaneSwordEquipped = equipped
                         .any { name -> name.contains("candy cane sword", ignoreCase = true) },
                     inPokefam = character.state.value.inPokefam,
+                    visitHtml = currentResponseText,
+                    hasItemEquipped = { itemId ->
+                        val name = ItemDatabase.getById(itemId)?.name ?: return@apply false
+                        equipped.any { it.equals(name, ignoreCase = true) }
+                    },
+                    turnsPlayed = character.state.value.turnsPlayed,
+                    currentRun = character.state.value.currentRun,
+                    resyncQuestLogPage1 = {
+                        kotlinx.coroutines.runBlocking { questLogRequest?.syncPage(1) }
+                    },
+                    setLimitMode = { mode -> character.updateLimitMode(mode) },
+                    choiceUrl = url,
                 )
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))

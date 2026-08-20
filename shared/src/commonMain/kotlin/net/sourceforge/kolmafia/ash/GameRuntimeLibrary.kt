@@ -173,9 +173,24 @@ import net.sourceforge.kolmafia.quest.FantasyRealmCombatSync
 import net.sourceforge.kolmafia.quest.MelvinShirtSync
 import net.sourceforge.kolmafia.quest.Cell37EscapeSync
 import net.sourceforge.kolmafia.quest.ShenSync
+import net.sourceforge.kolmafia.request.PeeVPeeRequest
+import net.sourceforge.kolmafia.request.ProfileRequest
 import net.sourceforge.kolmafia.request.PortalRequest
 import net.sourceforge.kolmafia.request.ElvmachineRequest
 import net.sourceforge.kolmafia.quest.HiddenCityChoiceSync
+import net.sourceforge.kolmafia.quest.PartyFairChoiceSync
+import net.sourceforge.kolmafia.quest.LightsOutChoiceSync
+import net.sourceforge.kolmafia.quest.SnojoChoiceSync
+import net.sourceforge.kolmafia.quest.SpoopyChoiceSync
+import net.sourceforge.kolmafia.quest.MonorailChoiceSync
+import net.sourceforge.kolmafia.quest.SpacegateVaccinatorChoiceSync
+import net.sourceforge.kolmafia.quest.VillainLairChoiceSync
+import net.sourceforge.kolmafia.quest.TrickOrTreatChoiceSync
+import net.sourceforge.kolmafia.quest.ArchSpadeChoiceSync
+import net.sourceforge.kolmafia.quest.DeckChoiceSync
+import net.sourceforge.kolmafia.quest.AutomatedFutureChoiceSync
+import net.sourceforge.kolmafia.quest.MobiusChoiceSync
+import net.sourceforge.kolmafia.quest.BaseballChoiceSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.SpookyravenManorVisitSync
 import net.sourceforge.kolmafia.quest.TelescopeSync
@@ -201,6 +216,7 @@ import net.sourceforge.kolmafia.session.MerkinQuestSync
 import net.sourceforge.kolmafia.session.SeaMerkinSync
 import net.sourceforge.kolmafia.session.VoteMonsterManager
 import net.sourceforge.kolmafia.quest.FireExtinguisherCombatSync
+import net.sourceforge.kolmafia.quest.FightItemPrefSync
 import net.sourceforge.kolmafia.quest.NewYouCombatSync
 import net.sourceforge.kolmafia.session.BugbearManager
 import net.sourceforge.kolmafia.session.CryptManager
@@ -398,7 +414,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase671"
+        const val REVISION = "phase743"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -2628,6 +2644,18 @@ class GameRuntimeLibrary(
             val fightMonster = AdventureParser.parseEncounterMonsterName(html).orEmpty()
             BugbearManager.handleKeyotron(html, fightMonster, preferences)
             NewYouCombatSync.apply(html, questDatabase, preferences)
+            val combatItemId = extractDescItemId(url)?.toIntOrNull()
+            val lastMonster = fightMonster.ifBlank {
+                preferences?.getString(Preferences.LAST_MONSTER, "").orEmpty()
+            }
+            FightItemPrefSync.apply(
+                html = html,
+                monster = lastMonster,
+                preferences = preferences,
+                combatItemId = combatItemId,
+                consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                currentRun = character?.state?.value?.currentRun ?: 0,
+            )
             extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
                 QuestItemUsedSync.apply(
                     itemId,
@@ -2766,12 +2794,16 @@ class GameRuntimeLibrary(
             }
         }
         if (url != null && url.contains("peevpee.php", ignoreCase = true)) {
+            PeeVPeeRequest.registerRequest(url, sessionLogger)
             PeeVPeeSync.apply(html, url, character, preferences, sessionLogger, inventoryManager)
             if (url.contains("place=shop", ignoreCase = true)) {
                 preferences?.let {
                     SwaggerShopSync.applyVisitShop(html, url, it, sessionLogger, character?.state?.value)
                 }
             }
+        }
+        if (url != null && url.contains("showplayer.php", ignoreCase = true)) {
+            ProfileRequest.applyFromVisit(html, url, character)
         }
         if (url != null && url.contains("place.php", ignoreCase = true) &&
             url.contains("place=twitch", ignoreCase = true)
@@ -2837,6 +2869,31 @@ class GameRuntimeLibrary(
             if (choiceId != null && preferences != null) {
                 ShenSync.applyVisitChoice(choiceId, html, preferences)
                 HiddenCityChoiceSync.applyVisitChoice(choiceId, html, preferences)
+                PartyFairChoiceSync.applyVisit(choiceId, html, preferences)
+                LightsOutChoiceSync.applyVisit(
+                    choiceId,
+                    preferences,
+                    character?.state?.value?.turnsPlayed ?: 0,
+                )
+                SnojoChoiceSync.applyVisit(choiceId, html, preferences)
+                SpoopyChoiceSync.applyVisit(choiceId, html, preferences)
+                VillainLairChoiceSync.applyVisit(choiceId, html, preferences)
+                MonorailChoiceSync.applyVisit(
+                    choiceId,
+                    html,
+                    preferences,
+                ) { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) }
+                SpacegateVaccinatorChoiceSync.applyVisit(choiceId, html, preferences)
+                TrickOrTreatChoiceSync.applyVisit(choiceId, html, preferences)
+                ArchSpadeChoiceSync.applyVisit(choiceId, html, preferences)
+                DeckChoiceSync.applyVisit(choiceId, html, preferences)
+                AutomatedFutureChoiceSync.applyVisit(choiceId, html, preferences)
+                MobiusChoiceSync.applyVisit(
+                    choiceId,
+                    preferences,
+                    character?.state?.value?.turnsPlayed ?: 0,
+                )
+                BaseballChoiceSync.applyVisit(choiceId, html, preferences)
                 CyberRealmSync.applyFromChoice(choiceId, preferences)
             }
         }
@@ -3725,6 +3782,18 @@ class GameRuntimeLibrary(
                     hasCandyCaneSwordEquipped = character?.state?.value?.equipment?.values
                         ?.any { it.contains("candy cane sword", ignoreCase = true) } == true,
                     inPokefam = character?.state?.value?.inPokefam == true,
+                    hasItemEquipped = { itemId ->
+                        val name = ItemDatabase.getById(itemId)?.name ?: return@apply false
+                        character?.state?.value?.equipment?.values
+                            ?.any { it.equals(name, ignoreCase = true) } == true
+                    },
+                    turnsPlayed = character?.state?.value?.turnsPlayed ?: 0,
+                    currentRun = character?.state?.value?.currentRun ?: 0,
+                    resyncQuestLogPage1 = {
+                        kotlinx.coroutines.runBlocking { questLogRequest?.syncPage(1) }
+                    },
+                    setLimitMode = { mode -> character?.updateLimitMode(mode) },
+                    choiceUrl = extraFormFields.entries.joinToString("&") { "${it.key}=${it.value}" },
                 )
             }
         }

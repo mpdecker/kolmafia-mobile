@@ -140,12 +140,26 @@ class RufusManager(private val preferences: Preferences) {
 
     /**
      * Shadow Rift non-combat choices do not advance the zone turn counter.
-     * Choice 1500 consumes Rufus's shadow lodestone.
+     * Choice 1500 consumes Rufus's shadow lodestone and writes forge/forest prefs
+     * (desktop ChoiceControl preChoice / postChoice2).
      */
-    fun handleShadowRiftNC(choiceId: Int, inventoryManager: InventoryManager? = null) {
+    fun handleShadowRiftNC(
+        choiceId: Int,
+        inventoryManager: InventoryManager? = null,
+        decision: Int = 0,
+        currentRun: Int = 0,
+    ) {
         when (choiceId) {
             1499 -> preferences.setInt("encountersUntilSRChoice", DEFAULT_SR_ENCOUNTERS)
-            1500 -> inventoryManager?.consumeItemLocally(ItemPool.RUFUS_SHADOW_LODESTONE, 1)
+            1500 -> {
+                inventoryManager?.consumeItemLocally(ItemPool.RUFUS_SHADOW_LODESTONE, 1)
+                if (decision == 1) {
+                    preferences.setInt("lastShadowForgeUnlockAdventure", currentRun)
+                }
+                if (decision == 3) {
+                    preferences.setBoolean("_shadowForestLooted", true)
+                }
+            }
         }
     }
 

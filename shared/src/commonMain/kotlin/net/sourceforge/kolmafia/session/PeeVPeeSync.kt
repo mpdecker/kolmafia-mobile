@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.shop.SwaggerShopSync
 
 /**
  * Desktop [net.sourceforge.kolmafia.request.PeeVPeeRequest.parseResponse]
@@ -46,18 +47,24 @@ object PeeVPeeSync {
         preferences: Preferences? = null,
         sessionLogger: SessionLogger? = null,
         inventoryManager: InventoryManager? = null,
+        print: (String) -> Unit = {},
     ) {
         val location = url.lowercase()
         if (!location.contains("peevpee.php")) return
         if (!location.contains("lid=")) {
             parseItems(html, inventoryManager, sessionLogger)
         }
-        if (location.contains("place=shop") || location.contains("action=buy")) return
+        if (location.contains("place=shop") || location.contains("action=buy")) {
+            if (location.contains("action=buy")) {
+                SwaggerShopSync.applyBuy(html, url, preferences, inventoryManager, sessionLogger)
+            }
+            return
+        }
 
         if (location.contains("place=fight")) {
             parseAttacksAndStone(html, character)
             if (location.contains("action=fight")) {
-                parseFightResult(html, character, preferences, sessionLogger)
+                parseFightResult(html, character, preferences, sessionLogger, print)
             } else if (!PvpManager.stancesKnown) {
                 PvpManager.parseStances(html)
             }
@@ -90,12 +97,14 @@ object PeeVPeeSync {
         character: KoLCharacter?,
         preferences: Preferences?,
         sessionLogger: SessionLogger?,
+        print: (String) -> Unit,
     ) {
         if (html.contains("<tr><td>You may not") ||
             html.contains("<tr><td>You can't") ||
             html.contains("<tr><td>You know") ||
             html.contains("<tr><td>Sorry")
         ) {
+            print("Invalid target")
             return
         }
 
@@ -167,12 +176,13 @@ object PeeVPeeSync {
             }
         }
         sessionLogger?.appendRawLine(message)
+        print(message)
 
         if (won && preferences != null) {
             val existing = preferences.getString("currentPvpVictories", "")
             preferences.setString("currentPvpVictories", existing + you + ",")
         } else if (!won && !compactResults) {
-            parseStatLoss(html, character, sessionLogger)
+            parseStatLoss(html, character, sessionLogger, print)
         }
     }
 
@@ -180,6 +190,7 @@ object PeeVPeeSync {
         html: String,
         character: KoLCharacter?,
         sessionLogger: SessionLogger?,
+        print: (String) -> Unit,
     ) {
         val username = character?.state?.value?.name.orEmpty()
         if (username.isEmpty()) return
@@ -202,6 +213,7 @@ object PeeVPeeSync {
             if (token in mysSubstat) mysDelta += statsLost
             if (token in moxSubstat) moxDelta += statsLost
             sessionLogger?.appendRawLine(printed)
+            print(printed)
         }
         character?.adjustSubstats(musDelta, mysDelta, moxDelta)
     }

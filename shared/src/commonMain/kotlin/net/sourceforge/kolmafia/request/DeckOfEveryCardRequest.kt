@@ -43,9 +43,11 @@ class DeckOfEveryCardRequest(
         return if (card == null) {
             choiceRequest.choose(RANDOM_CHOICE, 1).map { (html, _) ->
                 preferences?.setInt(DRAWS_PREF, drawsUsed + 1)
+                parseCardEncounter(html, preferences)
                 html
             }
         } else {
+            parseAvailableCards(useHtml, preferences)
             if (!useHtml.contains(card.name, ignoreCase = false) &&
                 !useHtml.contains(card.name, ignoreCase = true)
             ) {
@@ -66,6 +68,7 @@ class DeckOfEveryCardRequest(
             }
             choiceRequest.choose(RANDOM_CHOICE, 1).map { (html, _) ->
                 preferences?.setInt(DRAWS_PREF, drawsUsed + 5)
+                parseCardEncounter(html, preferences)
                 html
             }
         }
@@ -94,8 +97,75 @@ class DeckOfEveryCardRequest(
         const val DECK_ID = 8382
         const val REPLICA_DECK_ID = 11230
         const val DRAWS_PREF = "_deckCardsDrawn"
+        const val SEEN_PREF = "_deckCardsSeen"
         const val RANDOM_CHOICE = 1085
         const val CHEAT_CHOICE = 1086
+
+        private val CHEAT_SELECT_PATTERN =
+            Regex("""<select name="which".*?</select>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+        private val AVAILABLE_CARD_PATTERN =
+            Regex("""<option [^>]*>(.*?)</option>""", RegexOption.IGNORE_CASE)
+        private val DRAW_CARD_PATTERN =
+            Regex(
+                """<div id="blurb">.*?You draw a card: <b>(.*?)</b><p>(.*?)</div>""",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+            )
+
+        /** Desktop [DeckOfEveryCardRequest.allCardNames] — full cheat deck roster. */
+        val ALL_CARD_NAMES: Set<String> = setOf(
+            "X of Clubs", "X of Diamonds", "X of Hearts", "X of Spades",
+            "X of Papayas", "X of Kumquats", "X of Salads", "X of Cups",
+            "X of Coins", "X of Swords", "X of Wands",
+            "XVI - The Tower", "Professor Plum", "Spare Tire", "Extra Tank",
+            "Sheep", "Year of Plenty", "Mine", "Laboratory",
+            "Plains", "Swamp", "Mountain", "Forest", "Island",
+            "Lead Pipe", "Rope", "Wrench", "Candlestick", "Knife", "Revolver",
+            "Gift Card", "1952 Mickey Mantle",
+            "XXI - The World", "III - The Empress", "VI - The Lovers",
+            "Healing Salve", "Dark Ritual", "Lightning Bolt", "Giant Growth", "Ancestral Recall",
+            "XI - Strength", "I - The Magician", "0 - The Fool",
+            "X - The Wheel of Fortune", "The Race Card",
+            "Green Card", "IV - The Emperor", "IX - The Hermit",
+            "Werewolf", "The Hive", "XVII - The Star", "VII - The Chariot",
+            "XV - The Devil", "V - The Hierophant", "Fire Elemental", "Christmas Card",
+            "Go Fish", "Goblin Sapper", "II - The High Priestess", "XIV - Temperance",
+            "XVIII - The Moon", "Hunky Fireman Card", "Aquarius Horoscope",
+            "XII - The Hanged Man", "Suit Warehouse Discount Card", "Pirate Birthday Card",
+            "Plantable Greeting Card", "Slimer Trading Card", "XIII - Death", "Unstable Portal",
+        )
+
+        /**
+         * Desktop [DeckOfEveryCardRequest.parseAvailableCards] —
+         * cards missing from the cheat dropdown are already drawn today.
+         */
+        fun parseAvailableCards(html: String, preferences: Preferences?): Boolean {
+            if (preferences == null) return false
+            val select = CHEAT_SELECT_PATTERN.find(html)?.value ?: return false
+            val available = AVAILABLE_CARD_PATTERN.findAll(select)
+                .map { it.groupValues[1].trim() }
+                .filter { it.isNotEmpty() }
+                .toSet()
+            val drawn = ALL_CARD_NAMES.filter { it !in available }.sorted()
+            preferences.setString(SEEN_PREF, drawn.joinToString("|"))
+            return true
+        }
+
+        /**
+         * Desktop [DeckOfEveryCardRequest.parseCardEncounter] —
+         * append munged drawn card name to `_deckCardsSeen`.
+         */
+        fun parseCardEncounter(html: String, preferences: Preferences?): String? {
+            if (preferences == null) return null
+            val cardName = DRAW_CARD_PATTERN.find(html)?.groupValues?.getOrNull(1) ?: return null
+            val of = cardName.indexOf(" of ")
+            val munged = if (of == -1) cardName else "X" + cardName.substring(of)
+            val prior = preferences.getString(SEEN_PREF, "")
+            preferences.setString(
+                SEEN_PREF,
+                if (prior.isEmpty()) munged else "$prior|$munged",
+            )
+            return cardName
+        }
 
         val STRENGTH = EveryCard(51, "XI - Strength")
         val MAGICIAN = EveryCard(50, "I - The Magician")

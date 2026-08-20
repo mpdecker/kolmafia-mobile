@@ -77,6 +77,21 @@ object TrackManager {
     )
 
     /**
+     * Desktop [TrackManager.trackMonster] — append/replace a tracked monster entry.
+     */
+    fun trackMonster(
+        preferences: Preferences,
+        monsterName: String,
+        tracker: Tracker,
+        currentTurn: Int,
+    ) {
+        val entries = loadEntries(preferences, PREF_TRACKED_MONSTERS).toMutableList()
+        entries.removeAll { it.tracked.equals(monsterName, ignoreCase = true) && it.tracker == tracker }
+        entries.add(TrackedEntry(monsterName, tracker, currentTurn))
+        saveEntries(preferences, PREF_TRACKED_MONSTERS, entries)
+    }
+
+    /**
      * Desktop [net.sourceforge.kolmafia.session.TrackManager.resetRollover] — remove spent
      * rollover tracks from monster and phylum prefs. Unknown tracker names are preserved.
      */

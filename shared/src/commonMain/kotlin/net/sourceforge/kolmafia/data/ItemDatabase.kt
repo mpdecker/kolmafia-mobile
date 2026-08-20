@@ -122,6 +122,27 @@ object ItemDatabase {
 
     fun getItemName(itemId: Int): String = getById(itemId)?.name ?: ""
 
+    /** Desktop [ItemDatabase.registerItem] — visit-learned swagger shop names. */
+    fun registerItem(itemId: Int, name: String, descId: String) {
+        if (itemId <= 0 || name.isBlank()) return
+        val existing = byId[itemId]
+        if (existing != null && existing.name == name) return
+        val item = ItemData(
+            id = itemId,
+            name = name,
+            descId = descId.ifEmpty { existing?.descId.orEmpty() },
+            image = existing?.image.orEmpty(),
+            primaryUse = existing?.primaryUse ?: ItemPrimaryUse.NONE,
+            secondaryUses = existing?.secondaryUses ?: emptySet(),
+            access = existing?.access ?: emptySet(),
+            autosellPrice = existing?.autosellPrice ?: 0,
+            plural = existing?.plural,
+        )
+        byId[itemId] = item
+        byName[name.lowercase()] = item
+        if (item.descId.isNotEmpty()) byDescId[item.descId] = item
+    }
+
     /** Desktop ItemDatabase.unusableInBeecore — beeosity gate with explicit usable exceptions. */
     fun unusableInBeecore(itemId: Int): Boolean =
         when (itemId) {

@@ -10,6 +10,7 @@ object PalindomeSync {
 
     const val PALINDOME_ADVENTURE = 386
     const val PALINDROME_BOOK_2 = 7270
+    const val DRAWN_ONWARD = 872
 
     private val PALINDOME_DUDES = setOf(
         "drab bard",
@@ -73,6 +74,30 @@ object PalindomeSync {
         val current = preferences.getInt("palindomeDudesDefeated", 0)
         if (current >= 20) return false
         preferences.setInt("palindomeDudesDefeated", current + 1)
+        return true
+    }
+
+    fun applyFromChoice(questDatabase: QuestDatabase?): Boolean {
+        if (questDatabase == null) return false
+        questDatabase.setQuestIfBetter(Quest.PALINDOME, "step3")
+        return true
+    }
+
+    fun applyFromEdChoice(
+        html: String,
+        questDatabase: QuestDatabase?,
+        itemCount: (Int) -> Int = { 0 },
+        consumeItem: (Int, Int) -> Unit = { _, _ -> },
+    ): Boolean {
+        if (questDatabase == null) return false
+        if (!html.contains("Rot in a jar of dog paws!")) return false
+        questDatabase.setProgress(Quest.PALINDOME, QuestDatabase.FINISHED)
+        consumeItem(SpookyravenManorVisitSync.ED_FATS_STAFF, 1)
+        if (itemCount(SpookyravenManorVisitSync.ED_EYE) == 0 &&
+            itemCount(SpookyravenManorVisitSync.ED_AMULET) == 0
+        ) {
+            questDatabase.setProgress(Quest.MACGUFFIN, QuestDatabase.FINISHED)
+        }
         return true
     }
 }

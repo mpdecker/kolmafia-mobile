@@ -253,4 +253,30 @@ object SeaVisitSync {
         }
         return false
     }
+
+    fun applyFromChoice(
+        choiceId: Int,
+        decision: Int,
+        questDatabase: QuestDatabase?,
+        preferences: Preferences?,
+        turnsPlayed: Int = 0,
+    ): Boolean {
+        if (questDatabase == null) return false
+        return when (choiceId) {
+            299 -> {
+                if (decision != 1) return false
+                if (preferences?.getBoolean("bigBrotherRescued", false) == true) {
+                    preferences.setInt("_lastFitzsimmonsHatch", turnsPlayed)
+                }
+                questDatabase.setQuestIfBetter(Quest.SEA_MONKEES, "step2")
+                preferences?.setBoolean("bigBrotherRescued", true)
+                true
+            }
+            302, 303, 306, 307, 308 -> {
+                questDatabase.setQuestIfBetter(Quest.SEA_MONKEES, "step5")
+                true
+            }
+            else -> false
+        }
+    }
 }

@@ -24,6 +24,8 @@ object QuestItemRules {
     const val SCORCHED_STONE_SPHERE_ID = 6700
     const val ANCIENT_AMULET_ID = 2180
     const val DESERT_PAMPHLET_ID = 6854
+    const val ELIZABETH_DOLLIE = 7319
+    const val STEPHEN_LAB_COAT = 7321
     const val DOC_HERB_COUNT = 3
     const val SPORE_POD_COUNT = 6
 
@@ -40,6 +42,20 @@ object QuestItemRules {
             itemsGained.any { it.contains("Evilometer", ignoreCase = true) }
         ) {
             advanced = CryptManager.acquireEvilometer(questDatabase, preferences) || advanced
+        }
+        if (preferences != null) {
+            if (ELIZABETH_DOLLIE in itemIdsGained ||
+                itemsGained.any { it.contains("Elizabeth's Dollie", ignoreCase = true) }
+            ) {
+                preferences.setString("nextSpookyravenElizabethRoom", "none")
+                advanced = true
+            }
+            if (STEPHEN_LAB_COAT in itemIdsGained ||
+                itemsGained.any { it.contains("Stephen's lab coat", ignoreCase = true) }
+            ) {
+                preferences.setString("nextSpookyravenStephenRoom", "none")
+                advanced = true
+            }
         }
         for (name in itemsGained) {
             if (isGuildManualName(name)) {

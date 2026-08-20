@@ -11,6 +11,10 @@ object GarbageBeanstalkSync {
     const val CASTLE_BASEMENT = 322
     const val CASTLE_GROUND = 323
     const val CASTLE_TOP = 324
+    const val KEEP_ON_TURNIN = 679
+    const val MELON_COLLIE = 675
+    const val DRUM_N_BASS_RECORD = 6295
+    val GROUND_FLOOR_UNLOCK = setOf(669, 670, 671)
 
     fun applyFromAdventure(
         url: String?,
@@ -78,6 +82,32 @@ object GarbageBeanstalkSync {
         }
         if (!html.contains("otherimages/stalktop/beanstalk.gif")) return false
         questDatabase.setQuestIfBetter(Quest.GARBAGE, "step1")
+        return true
+    }
+
+    fun applyFromChoice(
+        choiceId: Int,
+        questDatabase: QuestDatabase?,
+        html: String = "",
+        preferences: Preferences? = null,
+        ascensionNumber: Int = 0,
+        decision: Int = 0,
+        consumeItem: (Int, Int) -> Unit = { _, _ -> },
+    ): Boolean {
+        if (choiceId == MELON_COLLIE) {
+            if (decision != 2) return false
+            consumeItem(DRUM_N_BASS_RECORD, 1)
+            return true
+        }
+        if (questDatabase == null) return false
+        if (choiceId == KEEP_ON_TURNIN) {
+            questDatabase.setProgress(Quest.GARBAGE, "step10")
+            return true
+        }
+        if (choiceId !in GROUND_FLOOR_UNLOCK) return false
+        if (!html.contains("New Area Unlocked") || !html.contains("The Ground Floor")) return false
+        preferences?.setInt("lastCastleGroundUnlock", ascensionNumber)
+        questDatabase.setProgress(Quest.GARBAGE, "step8")
         return true
     }
 }

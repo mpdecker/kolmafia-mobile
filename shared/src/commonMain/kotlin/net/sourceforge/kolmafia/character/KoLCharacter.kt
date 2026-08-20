@@ -149,6 +149,10 @@ class KoLCharacter {
 
     // ── Partial update helpers — avoid full API round-trips for frequent changes ──
 
+    fun updateLimitMode(mode: String) {
+        _state.value = _state.value.copy(limitMode = mode)
+    }
+
     fun updateHpMp(currentHp: Int, maxHp: Int, currentMp: Int, maxMp: Int) {
         _state.value = _state.value.copy(
             currentHp = currentHp, maxHp = maxHp,

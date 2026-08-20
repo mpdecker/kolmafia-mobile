@@ -87,7 +87,12 @@ open class CoinmasterManager(
         val rowOrItemId = if (master.useItemField) itemId else row.rowId
         val response = coinmasterRequest.buy(master, rowOrItemId, quantity)
         if (response.isFailure) return 0
-        applyCampCoinmasterResponse(master, master.buyAction, itemId, quantity, response.getOrThrow())
+        val html = response.getOrThrow()
+        if (master.nickname.equals("swagger", ignoreCase = true)) {
+            val url = "${master.buyUrl ?: "peevpee.php"}?place=shop&action=buy&whichitem=$itemId&howmany=$quantity"
+            SwaggerShopSync.applyBuy(html, url, preferences, inventoryManager, sessionLogger)
+        }
+        applyCampCoinmasterResponse(master, master.buyAction, itemId, quantity, html)
         inventoryManager?.fetchInventory()
         val after = inventoryCount(itemId)
         val bought = (after - before).coerceAtLeast(0)
