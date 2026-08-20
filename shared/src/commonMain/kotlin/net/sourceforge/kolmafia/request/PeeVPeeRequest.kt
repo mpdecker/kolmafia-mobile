@@ -72,6 +72,7 @@ object PeeVPeeRequest {
         sessionLogger: SessionLogger? = null,
         ranked: String? = null,
         inventoryManager: InventoryManager? = null,
+        print: (String) -> Unit = {},
     ): Result<String> {
         val rankedValue = ranked ?: if (tougher) "2" else "1"
         val win = winMessage(preferences)
@@ -96,7 +97,9 @@ object PeeVPeeRequest {
                 return Result.failure(Exception("HTTP ${response.status.value}"))
             }
             val html = response.bodyAsText()
-            PeeVPeeSync.apply(html, relativeUrl, character, preferences, sessionLogger, inventoryManager)
+            PeeVPeeSync.apply(
+                html, relativeUrl, character, preferences, sessionLogger, inventoryManager, print,
+            )
             Result.success(html)
         } catch (e: Exception) {
             Result.failure(e)
@@ -122,6 +125,46 @@ object PeeVPeeRequest {
 
     internal fun stanceLabel(stance: Int): String =
         PvpManager.findStance(stance) ?: "an unknown stance"
+
+    /**
+     * Desktop [PeeVPeeRequest.registerRequest] — claim peevpee.php visits for session-log.
+     * Returns true when the URL is claimed (even if no line is written).
+     */
+    fun registerRequest(url: String, sessionLogger: SessionLogger?): Boolean {
+        val path = url.substringAfterLast('/').substringBefore('#')
+        if (!path.startsWith("peevpee.php")) return false
+
+        val place = queryField(url, "place")
+        val action = queryField(url, "action")
+        if (place == null && action == null) return true
+        if (place == null) return false
+        if (place.equals("rules", ignoreCase = true) ||
+            place.equals("boards", ignoreCase = true) ||
+            place.equals("logs", ignoreCase = true)
+        ) {
+            return true
+        }
+        if (place.equals("shop", ignoreCase = true)) {
+            return net.sourceforge.kolmafia.shop.SwaggerShopSync.registerRequest(url, sessionLogger)
+        }
+        if (action == null) return true
+        if (place.equals("fight", ignoreCase = true)) {
+            if (action.equals("fight", ignoreCase = true)) {
+                val ranked = queryField(url, "ranked").orEmpty()
+                val who = queryField(url, "who").orEmpty()
+                val stance = queryField(url, "stance")?.toIntOrNull() ?: 0
+                val mission = queryField(url, "attacktype") ?: queryField(url, "mission").orEmpty()
+                sessionLogger?.appendRawLine(fightStartMessage(who, ranked, mission, stance))
+            }
+            return true
+        }
+        return false
+    }
+
+    internal fun queryField(url: String, name: String): String? {
+        val match = Regex("(?:^|[?&])${Regex.escape(name)}=([^&]*)", RegexOption.IGNORE_CASE).find(url)
+        return match?.groupValues?.get(1)
+    }
 
     private fun fightUrl(opponent: String, stance: Int, mission: String, ranked: String): String =
         "peevpee.php?action=fight&place=fight&attacktype=$mission&ranked=$ranked&stance=$stance&who=$opponent"

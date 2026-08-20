@@ -8,6 +8,7 @@ import io.ktor.http.parameters
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.SpacegateVaccinatorChoiceSync
 
 /** Desktop SpacegateCommand vaccine path — vaccinator + choice 1234. */
 class SpacegateRequest(
@@ -40,13 +41,15 @@ class SpacegateRequest(
             if (!visit.status.isSuccess()) {
                 return Result.failure(IllegalStateException("Spacegate vaccinator visit failed."))
             }
-            // Desktop parses unlock prefs from visit HTML; honor existing prefs this phase.
+            val visitHtml = visit.bodyAsText()
+            SpacegateVaccinatorChoiceSync.applyVisit(CHOICE_ID, visitHtml, prefs)
             if (!prefs.getBoolean("spacegateVaccine$vaccine", false)) {
                 return Result.failure(
                     IllegalStateException("You have not unlocked that vaccine yet"),
                 )
             }
             choiceRequest.choose(CHOICE_ID, vaccine).map { (html, _) ->
+                SpacegateVaccinatorChoiceSync.apply(CHOICE_ID, vaccine, html, prefs)
                 prefs.setBoolean(VACCINE_USED_PREF, true)
                 html
             }

@@ -130,6 +130,7 @@ object PvpManager {
                 preferences = preferences,
                 sessionLogger = sessionLogger,
                 inventoryManager = inventoryManager,
+                print = print,
             )
             if (result.isFailure) {
                 abortReason = result.exceptionOrNull()?.message ?: "PvP fight failed"
@@ -206,6 +207,7 @@ object PvpManager {
                 sessionLogger = sessionLogger,
                 ranked = "0",
                 inventoryManager = inventoryManager,
+                print = print,
             )
             if (result.isFailure) {
                 abortReason = result.exceptionOrNull()?.message ?: "PvP fight failed"

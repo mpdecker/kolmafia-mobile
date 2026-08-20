@@ -85,6 +85,34 @@ object BugbearManager {
         return BUGBEAR_DATA.firstOrNull { it.bugbear.equals(name, ignoreCase = true) }
     }
 
+    fun shipZoneToData(zone: String): Bugbear? {
+        val name = zone.trim()
+        if (name.isBlank()) return null
+        return BUGBEAR_DATA.firstOrNull { it.shipZone.equals(name, ignoreCase = true) }
+    }
+
+    fun clearShipZone(zone: String, preferences: Preferences?) {
+        if (preferences == null) return
+        val data = shipZoneToData(zone) ?: return
+        val statusSetting = data.status
+        if (preferences.getString(statusSetting, "").equals("cleared", ignoreCase = true)) return
+        preferences.setString(statusSetting, "cleared")
+        val level = data.level
+        val allCleared = BUGBEAR_DATA
+            .filter { it.level == level }
+            .all { preferences.getString(it.status, "").equals("cleared", ignoreCase = true) }
+        if (!allCleared) return
+        preferences.setInt("mothershipProgress", level)
+        if (level == 3) return
+        val nextLevel = level + 1
+        for (zoneData in BUGBEAR_DATA) {
+            if (zoneData.level != nextLevel) continue
+            if (preferences.getString(zoneData.status, "").equals("unlocked", ignoreCase = true)) {
+                preferences.setString(zoneData.status, "open")
+            }
+        }
+    }
+
     fun setBiodata(data: Bugbear?, count: Int, preferences: Preferences) {
         if (data == null) return
         val statusSetting = data.status
