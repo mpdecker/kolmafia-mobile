@@ -34,8 +34,8 @@ class GameRuntimeLibraryAshP720Test {
         prefs.getString(SessionLogger.SESSION_LOG_KEY, "")
 
     @Test
-    fun revision_phase814() {
-        assertEquals("phase814", GameRuntimeLibrary.REVISION)
+    fun revision_phase826() {
+        assertEquals("phase826", GameRuntimeLibrary.REVISION)
     }
 
     @Test

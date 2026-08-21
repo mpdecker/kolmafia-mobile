@@ -4,7 +4,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * Desktop [ChoiceControl] Boxing Daycare Lobby 1334 + Spa 1335.
- * Defers full Daycare 1336 recruit/scavenge pile.
+ * Full Daycare 1336 recruit/scavenge/hire/spar is [DaycareChoiceSync].
  */
 object DaycareLobbyChoiceSync {
 

@@ -39,6 +39,7 @@ import net.sourceforge.kolmafia.inventory.StorageMeatSync
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.CharacterStatusRefresh
 import net.sourceforge.kolmafia.character.ClassResourceCharpaneSync
 import net.sourceforge.kolmafia.clan.ClanIdSync
 import net.sourceforge.kolmafia.character.ClassResourceCombatSync
@@ -222,6 +223,12 @@ import net.sourceforge.kolmafia.quest.VoteBallotChoiceSync
 import net.sourceforge.kolmafia.quest.MotorbikeChoiceSync
 import net.sourceforge.kolmafia.quest.GenieChoiceSync
 import net.sourceforge.kolmafia.quest.ControlPanelChoiceSync
+import net.sourceforge.kolmafia.quest.DartPerksChoiceSync
+import net.sourceforge.kolmafia.quest.DaycareChoiceSync
+import net.sourceforge.kolmafia.quest.GnasirChoiceSync
+import net.sourceforge.kolmafia.quest.HashingChoiceSync
+import net.sourceforge.kolmafia.quest.HybridizationChoiceSync
+import net.sourceforge.kolmafia.quest.IceHouseChoiceSync
 import net.sourceforge.kolmafia.quest.MonkeyPawChoiceSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.SpookyravenManorVisitSync
@@ -447,7 +454,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase814"
+        const val REVISION = "phase826"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -2992,6 +2999,13 @@ class GameRuntimeLibrary(
                     preferences = preferences,
                     questDatabase = questDatabase,
                 )
+                IceHouseChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    html = html,
+                    banishManager = banishManager,
+                    currentTurn = character?.state?.value?.currentRun ?: 0,
+                )
+                DaycareChoiceSync.applyVisit(choiceId, html, preferences)
                 CyberRealmSync.applyFromChoice(choiceId, preferences)
             }
         }
@@ -3916,6 +3930,34 @@ class GameRuntimeLibrary(
                     lastVisitedLocationName = preferences?.getString(Preferences.LAST_LOCATION, "").orEmpty(),
                     setKingLiberated = { character?.setKingLiberated(true) },
                     sessionLog = { line -> sessionLogger?.appendRawLine(line) },
+                    checkDartPerks = {
+                        val db = gameDatabase ?: return@apply
+                        val visits = DynamicItemModifierSync.checkOwnedItemDescriptions(
+                            buildCheckContext(),
+                            db,
+                            listOf(DartPerksChoiceSync.HOLSTER_NAME),
+                        )
+                        for (visit in visits) {
+                            visitKolPage(visit.path)
+                        }
+                    },
+                    banishManager = banishManager,
+                    currentFamiliarId = { familiarManager?.state?.value?.activeFamiliar?.id },
+                    clearActiveFamiliar = { familiarManager?.clearActiveFamiliarLocally() },
+                    refreshStatus = {
+                        val char = character ?: return@apply
+                        kotlinx.coroutines.runBlocking {
+                            CharacterStatusRefresh.refreshWithQuantumPreflight(
+                                characterRequest = characterRequest,
+                                character = char,
+                                effectManager = effectManager,
+                                preferences = preferences,
+                                familiarManager = familiarManager,
+                            )
+                        }
+                    },
+                    hasBoxingDayBreakfast = effectManager?.state?.value?.effects
+                        ?.any { it.name.equals("Boxing Day Breakfast", ignoreCase = true) } == true,
                 )
             }
         }

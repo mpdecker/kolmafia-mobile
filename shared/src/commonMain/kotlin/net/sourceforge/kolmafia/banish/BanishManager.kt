@@ -111,6 +111,23 @@ class BanishManager(private val preferences: Preferences) {
         save()
     }
 
+    /**
+     * Desktop [net.sourceforge.kolmafia.session.BanishManager.removeBanishByBanisher] —
+     * removes every active banish recorded with [banisher] (e.g. freeing Ice House).
+     * @return number of banishes removed
+     */
+    fun removeBanishByBanisher(banisher: Banisher): Int {
+        val before = _state.value.monsters.size
+        _state.value = _state.value.copy(
+            monsters = _state.value.monsters.filter { it.banisher != banisher },
+        )
+        val cleared = before - _state.value.monsters.size
+        if (cleared > 0) {
+            save()
+        }
+        return cleared
+    }
+
     /** Serializes [state] to [Preferences.BANISHED_MONSTERS]. */
     fun save() {
         val serialized = _state.value.monsters.joinToString("|") { b ->

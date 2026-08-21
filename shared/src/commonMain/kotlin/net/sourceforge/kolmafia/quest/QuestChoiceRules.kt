@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.quest
 
 import net.sourceforge.kolmafia.adventure.RufusManager
+import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -42,6 +43,12 @@ object QuestChoiceRules {
         },
         setKingLiberated: () -> Unit = {},
         sessionLog: (String) -> Unit = {},
+        checkDartPerks: () -> Unit = {},
+        banishManager: BanishManager? = null,
+        currentFamiliarId: () -> Int? = { null },
+        clearActiveFamiliar: () -> Unit = {},
+        refreshStatus: () -> Unit = {},
+        hasBoxingDayBreakfast: Boolean = false,
     ): Boolean {
         var advanced = false
         advanced = CandyCaneSwordSync.applyFromChoice(
@@ -900,6 +907,73 @@ object QuestChoiceRules {
                     decision = decision,
                     html = responseText,
                     preferences = preferences,
+                ) || advanced
+            }
+            DartPerksChoiceSync.CHOICE_ID -> {
+                advanced = DartPerksChoiceSync.apply(
+                    choiceId = choiceId,
+                    checkDartPerks = checkDartPerks,
+                ) || advanced
+            }
+            HashingChoiceSync.CHOICE_ID -> {
+                advanced = HashingChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    choiceUrl = choiceUrl,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            HybridizationChoiceSync.CHOICE_ID -> {
+                advanced = HybridizationChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    choiceUrl = choiceUrl,
+                    currentFamiliarId = currentFamiliarId,
+                    clearActiveFamiliar = clearActiveFamiliar,
+                    refreshStatus = refreshStatus,
+                ) || advanced
+            }
+            GnasirChoiceSync.CHOICE_ID -> {
+                advanced = GnasirChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            IceHouseChoiceSync.CHOICE_ID -> {
+                advanced = IceHouseChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    banishManager = banishManager,
+                ) || advanced
+            }
+            DaycareChoiceSync.CHOICE_ID -> {
+                advanced = DaycareChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    hasBoxingDayBreakfast = hasBoxingDayBreakfast,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            in LanguageFluencyChoiceSync.CHOICE_IDS -> {
+                advanced = LanguageFluencyChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            in FantasyRealmChoiceSync.CHOICE_IDS -> {
+                advanced = FantasyRealmChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
                 ) || advanced
             }
             TrickOrTreatChoiceSync.CHOICE_ID -> {

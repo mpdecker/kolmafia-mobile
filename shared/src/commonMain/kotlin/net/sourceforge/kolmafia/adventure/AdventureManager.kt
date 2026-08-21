@@ -1026,6 +1026,9 @@ open class AdventureManager(
                             spleenUsed = (s.spleenUsed + delta).coerceAtLeast(0),
                         )
                     },
+                    banishManager = banishManager,
+                    currentFamiliarId = { familiarManager?.state?.value?.activeFamiliar?.id },
+                    clearActiveFamiliar = { familiarManager?.clearActiveFamiliarLocally() },
                 )
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
