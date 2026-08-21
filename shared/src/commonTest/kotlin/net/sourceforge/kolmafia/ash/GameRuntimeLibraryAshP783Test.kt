@@ -10,8 +10,8 @@ import net.sourceforge.kolmafia.quest.LeprecondoChoiceSync
 class GameRuntimeLibraryAshP783Test {
 
     @Test
-    fun revision_phase826() {
-        assertEquals("phase826", GameRuntimeLibrary.REVISION)
+    fun revision_phase848() {
+        assertEquals("phase1070", GameRuntimeLibrary.REVISION)
     }
 
     @Test

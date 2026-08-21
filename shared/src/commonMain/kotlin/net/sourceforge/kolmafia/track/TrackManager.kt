@@ -177,4 +177,10 @@ object TrackManager {
 
     private fun countKnownEntries(preferences: Preferences, prefKey: String): Int =
         loadEntries(preferences, prefKey).size
+
+    /** Desktop [TrackManager.trackedBy] — tracker display names for a monster. */
+    fun trackedBy(preferences: Preferences, monsterName: String): List<String> =
+        loadEntries(preferences, PREF_TRACKED_MONSTERS)
+            .filter { it.tracked.equals(monsterName, ignoreCase = true) }
+            .map { it.tracker.displayName }
 }

@@ -6,6 +6,7 @@ import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
 internal fun GameRuntimeLibrary.registerWebRequests(scope: AshScope) {
 
@@ -31,6 +32,7 @@ internal fun GameRuntimeLibrary.registerWebRequests(scope: AshScope) {
     fun doPost(url: String, postData: String, encoded: Boolean): String {
         val client = httpClient ?: return ""
         val fullUrl = if (encoded) url else "$KOL_BASE_URL/${url.trimStart('/')}"
+        ChoiceCombatAshState.setFormFieldsFromPostData(postData)
         return runBlocking {
             try {
                 val response = client.submitForm(

@@ -49,8 +49,66 @@ object QuestChoiceRules {
         clearActiveFamiliar: () -> Unit = {},
         refreshStatus: () -> Unit = {},
         hasBoxingDayBreakfast: Boolean = false,
+        setMindControlLevel: (Int) -> Unit = {},
+        hasSkill: (Int) -> Boolean = { false },
+        learnSkill: (Int) -> Unit = {},
+        forgetSkill: (Int) -> Unit = {},
+        forgetSkillByName: (String) -> Unit = {},
+        currentMonsterName: String = "",
+        autoCreateBonerdagonNecklace: (() -> Unit)? = null,
+        itemIdForName: (String) -> Int? = { ItemDatabase.getByName(it)?.id },
+        itemNameForId: (Int) -> String? = { ItemDatabase.getById(it)?.name },
+        lastItemUsed: Int? = null,
+        gainItem: (Int, Int) -> Unit = { id, qty -> inventoryManager?.gainItemLocally(id, qty) },
+        resetAfterAvatar: (String) -> Unit = {},
     ): Boolean {
         var advanced = false
+        when (choiceId) {
+            FloristFriarChoiceSync.CHOICE_ID ->
+                advanced = FloristFriarChoiceSync.apply(choiceId, choiceUrl, responseText, preferences) || advanced
+            TalesOfDreadChoiceSync.CHOICE_ID ->
+                advanced = TalesOfDreadChoiceSync.apply(choiceId) || advanced
+            FolderHolderChoiceSync.CHOICE_ID ->
+                advanced = FolderHolderChoiceSync.apply(
+                    choiceId, decision, choiceUrl, responseText,
+                    { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            KrampusFacilityChoiceSync.CHOICE_ID ->
+                advanced = KrampusFacilityChoiceSync.apply(
+                    choiceId, decision, choiceUrl, responseText,
+                    { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            UnpermeryChoiceSync.CHOICE_ID ->
+                advanced = UnpermeryChoiceSync.apply(
+                    choiceId, decision, responseText, preferences, forgetSkillByName,
+                ) || advanced
+            BarelyTalesChoiceSync.CHOICE_ID ->
+                advanced = BarelyTalesChoiceSync.apply(choiceId, decision, preferences) || advanced
+            OddJobsBoardChoiceSync.CHOICE_ID ->
+                advanced = OddJobsBoardChoiceSync.apply(choiceId) || advanced
+            SurvivorEncampmentChoiceSync.CHOICE_ID ->
+                advanced = SurvivorEncampmentChoiceSync.apply(
+                    choiceId, choiceUrl, responseText,
+                    { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            CommunityServiceChoiceSync.CHOICE_ID ->
+                advanced = CommunityServiceChoiceSync.apply(choiceId, decision, responseText, preferences) || advanced
+            WlfBunkerChoiceSync.CHOICE_ID ->
+                advanced = WlfBunkerChoiceSync.apply(
+                    choiceId, decision, responseText, preferences,
+                    { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            in SpacegateLeftoversChoiceSync.CHOICE_IDS ->
+                advanced = SpacegateLeftoversChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                    sessionLog = sessionLog,
+                    resetAfterAvatar = resetAfterAvatar,
+                ) || advanced
+        }
         advanced = CandyCaneSwordSync.applyFromChoice(
             choiceId = choiceId,
             decision = decision,
@@ -58,6 +116,64 @@ object QuestChoiceRules {
             html = responseText,
             hasCandyCaneSwordEquipped = hasCandyCaneSwordEquipped,
         ) || advanced
+        advanced = SaberChoiceSync.apply(
+            choiceId = choiceId,
+            decision = decision,
+            html = responseText,
+            preferences = preferences,
+            currentMonsterName = currentMonsterName,
+            currentTurn = currentRun,
+            banishManager = banishManager,
+            autoCreateBonerdagonNecklace = autoCreateBonerdagonNecklace,
+            sessionLog = sessionLog,
+        ) || advanced
+        advanced = BeachCombChoiceSync.apply(
+            choiceId = choiceId,
+            decision = decision,
+            html = responseText,
+            preferences = preferences,
+            choiceUrl = choiceUrl,
+        ) || advanced
+        val consumeOne: (Int) -> Unit = { inventoryManager?.consumeItemLocally(it, 1) }
+        advanced = ExploathingCouncilChoiceSync.apply(choiceId, responseText, setKingLiberated) || advanced
+        advanced = IslandWarRationChoiceSync.apply(
+            choiceId, choiceUrl, responseText, preferences, consumeOne,
+        ) || advanced
+        advanced = DecorateTentChoiceSync.apply(
+            choiceId, decision, responseText, preferences, consumeOne,
+        ) || advanced
+        advanced = SmokeSignalChoiceSync.apply(choiceId, decision, responseText, consumeOne) || advanced
+        advanced = CrimboSpiritChoiceSync.apply(choiceId, decision, responseText, preferences) || advanced
+        advanced = GovernmentShipmentChoiceSync.apply(choiceId, responseText, consumeOne) || advanced
+        advanced = GuzzlrChoiceSync.apply(
+            choiceId, decision, responseText, preferences, questDatabase,
+            itemIdFromDesc, itemNameForId, itemCount, resyncQuestLogPage1,
+        ) || advanced
+        advanced = AfterAvatarChoiceSync.apply(choiceId, decision, resetAfterAvatar) || advanced
+        advanced = GreyYouLabChoiceSync.apply(
+            choiceId, decision, responseText,
+        ) { id, qty -> inventoryManager?.consumeItemLocally(id, qty) } || advanced
+        advanced = SiteAlphaLabChoiceSync.apply(choiceId, decision, preferences, consumeOne) || advanced
+        advanced = RufusCallChoiceSync.apply(
+            choiceId, decision, responseText, preferences, questDatabase,
+            itemIdForName, itemCount,
+        ) { id, qty -> inventoryManager?.consumeItemLocally(id, qty) } || advanced
+        advanced = ShadowForestChoiceSync.apply(choiceId, decision, preferences) || advanced
+        advanced = TreasureHouseChoiceSync.apply(choiceId, decision, preferences) || advanced
+        advanced = SitTrainingChoiceSync.apply(choiceId, decision, responseText, preferences) || advanced
+        advanced = MimicEggDifferentiateChoiceSync.apply(
+            choiceId, choiceUrl, preferences, consumeOne,
+        ) || advanced
+        advanced = LoathingIdolChoiceSync.apply(
+            choiceId, responseText, lastItemUsed, consumeOne, { gainItem(it, 1) },
+        ) || advanced
+        advanced = PhotoBoothLeftoverChoiceSync.apply(choiceId, preferences) || advanced
+        advanced = EternityCodpieceChoiceSync.apply(
+            choiceId, responseText, itemIdForName, consumeOne, { gainItem(it, 1) }, refreshStatus,
+        ) || advanced
+        advanced = FleshWorkbenchChoiceSync.apply(choiceId, decision, preferences) || advanced
+        advanced = AminoSacChoiceSync.apply(choiceId, decision, responseText, preferences) || advanced
+        advanced = StillSuitChoiceSync.apply(choiceId, decision, responseText, preferences) || advanced
         if (choiceId in 1347..1385) {
             advanced = PirateRealmSync.applyChoice(
                 choiceId,
@@ -869,6 +985,68 @@ object QuestChoiceRules {
                     sessionLog = sessionLog,
                 ) || advanced
             }
+            LatteChoiceSync.CHOICE_ID -> {
+                advanced = LatteChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    sessionLog = sessionLog,
+                ) || advanced
+            }
+            in CanadianWildlifeChoiceSync.CHOICE_IDS -> {
+                advanced = CanadianWildlifeChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            CanadianMcdChoiceSync.CHOICE_ID -> {
+                advanced = CanadianMcdChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    choiceUrl = choiceUrl,
+                    html = responseText,
+                    setMindControlLevel = setMindControlLevel,
+                ) || advanced
+            }
+            CanadianInstituteChoiceSync.CHOICE_ID -> {
+                advanced = CanadianInstituteChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    sessionLog = sessionLog,
+                ) || advanced
+            }
+            DoctorBagCureChoiceSync.CHOICE_ID -> {
+                advanced = DoctorBagCureChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    questDatabase = questDatabase,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            TorporChoiceSync.CHOICE_ID -> {
+                advanced = TorporChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    choiceUrl = choiceUrl,
+                    hasSkill = hasSkill,
+                    learnSkill = learnSkill,
+                    forgetSkill = forgetSkill,
+                    sessionLog = sessionLog,
+                ) || advanced
+            }
+            LyleFavoredChoiceSync.CHOICE_ID -> {
+                advanced = LyleFavoredChoiceSync.apply(
+                    choiceId = choiceId,
+                    preferences = preferences,
+                    hasCandyCaneSwordEquipped = hasCandyCaneSwordEquipped,
+                ) || advanced
+            }
             GrimChoiceSync.CHOICE_ID -> {
                 advanced = GrimChoiceSync.apply(
                     choiceId = choiceId,
@@ -1218,15 +1396,7 @@ object QuestChoiceRules {
                     QuestSpecialSync.abandonDoctorBag(questDatabase, preferences)
                 } || advanced
             }
-            1341 -> {
-                if (decision == 1) {
-                    advanced = QuestSpecialSync.completeDoctorBagDelivery(
-                        responseText,
-                        questDatabase,
-                        preferences,
-                    ) || advanced
-                }
-            }
+            // 1341 handled above via DoctorBagCureChoiceSync
             1412 -> {
                 if (decision == 1) {
                     advanced = QuestSpecialSync.abandonGuzzlr(questDatabase, preferences) || advanced

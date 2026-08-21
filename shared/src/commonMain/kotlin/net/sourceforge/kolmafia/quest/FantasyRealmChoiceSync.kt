@@ -3,7 +3,8 @@ package net.sourceforge.kolmafia.quest
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
- * Desktop [ChoiceControl] FantasyRealm hour/area unlock choices 1280–1299.
+ * Desktop [ChoiceControl] FantasyRealm hour/area unlock choices 1280–1307
+ * (skips 1287 and 1306 — no desktop cases).
  * Place visit unlocks remain in [FantasyRealmSync].
  */
 object FantasyRealmChoiceSync {
@@ -11,6 +12,7 @@ object FantasyRealmChoiceSync {
     val CHOICE_IDS = setOf(
         1280, 1281, 1282, 1283, 1284, 1285, 1286,
         1288, 1289, 1290, 1291, 1292, 1293, 1294, 1295, 1296, 1297, 1298, 1299,
+        1300, 1301, 1302, 1303, 1304, 1305, 1307,
     )
 
     const val FR_KEY = 9844
@@ -18,9 +20,13 @@ object FantasyRealmChoiceSync {
     const val FR_TAINTED_MARSHMALLOW = 9846
     const val FR_CHESWICKS_NOTES = 9847
     const val FR_DRAGON_ORE = 9851
+    const val FR_POISONED_SMORE = 9853
     const val FR_DRUIDIC_ORB = 9854
     const val FR_HOLY_WATER = 9856
+    const val FR_CHESWICKS_COMPASS = 9865
     const val FR_ARREST_WARRANT = 9866
+    const val FR_CHARGED_ORB = 9895
+    const val FR_NOTARIZED_WARRANT = 9897
 
     fun apply(
         choiceId: Int,
@@ -100,6 +106,41 @@ object FantasyRealmChoiceSync {
                 changed
             }
             1299 -> applyLeaveArea(decision, preferences, "The Dragon's Moor,", leaveDecision = 6, burnHours = false)
+            1300 -> applyLeaveArea(decision, preferences, "Duke Vampire's Chateau,", leaveDecision = 6, burnHours = false)
+            1301 -> applyLeaveArea(decision, preferences, "The Spider Queen's Lair,", leaveDecision = 6, burnHours = false)
+            1302 -> {
+                var changed = applyLeaveArea(decision, preferences, "The Archwizard's Tower,", leaveDecision = 6, burnHours = false)
+                if (decision == 1) {
+                    consumeItem(FR_CHARGED_ORB, 1)
+                    changed = true
+                }
+                changed
+            }
+            1303 -> {
+                var changed = applyLeaveArea(decision, preferences, "The Ley Nexus,", leaveDecision = 6, burnHours = false)
+                if (decision == 1) {
+                    consumeItem(FR_CHESWICKS_COMPASS, 1)
+                    changed = true
+                }
+                changed
+            }
+            1304 -> applyLeaveArea(decision, preferences, "The Ghoul King's Catacomb,", leaveDecision = 6, burnHours = false)
+            1305 -> {
+                var changed = applyLeaveArea(decision, preferences, "The Ogre Chieftain's Keep,", leaveDecision = 6, burnHours = false)
+                if (decision == 1) {
+                    consumeItem(FR_POISONED_SMORE, 1)
+                    changed = true
+                }
+                changed
+            }
+            1307 -> {
+                var changed = applyLeaveArea(decision, preferences, "The Master Thief's Chalet,", leaveDecision = 6, burnHours = false)
+                if (decision == 1) {
+                    consumeItem(FR_NOTARIZED_WARRANT, 1)
+                    changed = true
+                }
+                changed
+            }
             else -> false
         }
     }

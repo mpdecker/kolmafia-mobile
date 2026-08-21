@@ -71,6 +71,7 @@ import net.sourceforge.kolmafia.modifiers.ModifierParser
 import kotlin.math.abs
 import net.sourceforge.kolmafia.session.EventHistory
 import net.sourceforge.kolmafia.session.NumberologyManager
+import net.sourceforge.kolmafia.session.GreyYouManager
 import net.sourceforge.kolmafia.session.PirateInsults
 import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.skill.SkillType
@@ -1827,6 +1828,24 @@ internal fun GameRuntimeLibrary.runVersionCli(rt: AshRuntimeContext) {
     rt.print("KoLmafia Mobile ${GameRuntimeLibrary.REVISION}")
 }
 
+internal fun GameRuntimeLibrary.runGreyYouCli(parameters: String, rt: AshRuntimeContext) {
+    val filter = parameters.trim().lowercase()
+    GreyYouManager.loadRegistry()
+    val rows = GreyYouManager.allAbsorptions.values
+        .filter {
+            filter.isBlank() ||
+                it.monsterName.lowercase().contains(filter) ||
+                it.skillName.orEmpty().lowercase().contains(filter)
+        }
+        .sortedBy { it.monsterName.lowercase() }
+    rows.forEach {
+        val status = if (GreyYouManager.haveAbsorbed(it.monsterId)) "[x]" else "[ ]"
+        val reward = it.skillName ?: "${it.type} +${it.value}"
+        rt.print("$status ${it.monsterName}: $reward")
+    }
+    if (rows.isEmpty()) rt.print("No Grey You absorptions matched.")
+}
+
 internal fun GameRuntimeLibrary.runBurnCli(parameters: String, rt: AshRuntimeContext) {
     val charState = character?.state?.value
     if (charState?.inZombiecore == true) return
@@ -2756,27 +2775,32 @@ internal fun GameRuntimeLibrary.runPoolSkillCli(rt: AshRuntimeContext) {
 }
 
 internal val IMPLEMENTED_CLI_COMMANDS = listOf(
-    "aa", "abort", "absorb", "accordions", "acquire", "adv", "adventure", "alias", "alliedradio", "ash", "ashq", "ashref",
-    "ashwiki", "attack", "autoattack", "automall", "autosell", "backupcamera", "bake", "banishes", "bang", "bjornify", "boombox",
-    "bootskin", "bootspur", "bounty", "breakfast", "budget", "buff", "burn", "buy", "call", "campground", "cardsleeve", "cargo",
-    "cast", "ccs", "checkpoint",
-    "cheat", "cheapest", "chew", "chewqueue", "chips", "choice", "cleanup", "closet", "coinmaster", "condref", "condition", "council",
-    "counters", "create", "createqueue", "csend", "demons", "display", "donate", "drink", "drinkqueue", "drinksilent", "dusty",
-    "eat", "eatqueue", "eatsilent", "echo", "edpiece", "effects",
-    "else", "elseif", "enthrone", "equip", "events", "exit", "expensive", "fax", "faxbot", "fecho", "find", "fold",
-    "folders", "fprint", "garden", "get", "gift", "ghostqueue", "gong", "grandpa", "hagnk", "help", "hermit", "hoboqueue", "holiday",
-    "horsery",
-    "hottub", "if", "ingredients", "inv", "inventory", "jillcandle", "journey", "junk", "kmail", "ledcandle", "locations",
-    "logecho", "logprint", "lookup", "logout", "macro", "make", "mallbuy", "mallsell", "maximize", "mayam", "mcd", "mind-control",
-    "mix", "modref", "modifiers", "monsters", "mood", "moon", "moons", "note", "numberology", "ocean", "outfit", "overdrink",
-    "parka", "play", "ply",
-    "prefref", "print", "pull", "pulverize", "pvp", "quark", "quit", "raffle", "recipe", "recover", "refresh", "reminisce",
-    "remove", "repeat", "rest", "restore", "retrieve", "retrocape", "roboequeue", "safe", "searchmall", "sell", "send", "set",
-    "skill",
-    "skills", "slimelingqueue", "smash", "smith", "snowsuit", "soak", "speculate", "stash", "status", "stickers", "storage",
-    "summon", "terminal", "tinker",
-    "timeout", "try", "umbrella", "unalias", "uneffect", "unequip", "untinker", "use", "usequeue", "version", "volcano", "wait",
-    "waitq", "which", "while", "wiki", "witchess", "zap",
+    "aa", "abort", "absorb", "absorptions", "accordions", "acquire", "adv", "adventure", "alias", "alliedradio",
+    "ash", "ashq", "ashref", "ashwiki", "attack", "autoattack", "automall", "autosell", "autumnaton", "backupcamera",
+    "badmoon", "bake", "bang", "banishes", "baron", "basement", "beach", "bjornify", "boombox", "bootskin",
+    "bootspur", "bounty", "breakfast", "budget", "buff", "buffbot", "bugbears", "burn", "buy", "cache",
+    "call", "campground", "cardsleeve", "cargo", "cast", "ccs", "cheapest", "cheat", "checkpoint", "chew",
+    "chewqueue", "chibi", "chips", "choice", "cleanup", "closet", "cmc", "coinmaster", "condition", "condref",
+    "council", "counters", "create", "createqueue", "crimbotrain", "csend", "demons", "devilcandyegg", "display", "donate",
+    "drink", "drinkqueue", "drinksilent", "dusty", "dvorak", "eat", "eatqueue", "eatsilent", "echo", "editmood",
+    "edpiece", "effects", "else", "elseif", "encounters", "enthrone", "equip", "events", "exit", "expensive",
+    "fallguy", "fax", "faxbot", "fecho", "field", "find", "flicker", "florist", "fold", "folders",
+    "fprint", "garden", "get", "ghostqueue", "gift", "gong", "gooskills", "gourd", "grandpa", "greyyou",
+    "hagnk", "heist", "help", "hermit", "hoboqueue", "holiday", "horsery", "hottub", "if", "ingredients",
+    "inv", "inventory", "jillcandle", "journey", "junk", "kmail", "latte", "leaves", "ledcandle", "leprecondo",
+    "location", "locations", "logecho", "logout", "logprint", "lookup", "macro", "mail", "make", "mallbuy",
+    "mallsell", "maximize", "mayam", "mcd", "min", "mind-control", "mix", "modifiers", "modifies", "modref",
+    "monsters", "mood", "moon", "moons", "mummery", "nemesis", "note", "numberology", "ocean", "olfact",
+    "olfaction", "outfit", "overdrink", "panda", "parka", "play", "ply", "prefref", "print", "profile",
+    "pull", "pulverize", "putty", "pvp", "quark", "quit", "raffle", "recipe", "recover", "refresh",
+    "relog", "relogin", "remedy", "reminisce", "remove", "repeat", "reprice", "rest", "restore", "retrieve",
+    "retrocape", "roboequeue", "saber", "safe", "searchmall", "sell", "send", "servant", "servants", "session",
+    "set", "shrug", "skeeball", "skill", "skills", "slimelingqueue", "smash", "smith", "snapper", "snowsuit",
+    "soak", "speculate", "spookyraven", "squeeze", "stash", "status", "stickers", "storage", "summary", "summon",
+    "sven", "taleofdread", "tavern", "teatree", "terminal", "thralls", "throw", "timein", "timeout", "timespinner",
+    "tinker", "train", "trigger", "try", "umbrella", "unalias", "undercut", "uneffect", "unequip", "untinker",
+    "use", "usequeue", "validate", "verify", "version", "vise", "volcano", "wait", "waitq", "which",
+    "while", "wiki", "witchess", "zap",
 )
 
 internal fun GameRuntimeLibrary.runHelpCli(parameters: String, rt: AshRuntimeContext) {

@@ -69,6 +69,7 @@ import net.sourceforge.kolmafia.quest.ElVibratoSync
 import net.sourceforge.kolmafia.quest.FriarsQuestSync
 import net.sourceforge.kolmafia.quest.CyberRealmSync
 import net.sourceforge.kolmafia.quest.FantasyRealmCombatSync
+import net.sourceforge.kolmafia.quest.LatteChoiceSync
 import net.sourceforge.kolmafia.quest.FinalQuestCombatSync
 import net.sourceforge.kolmafia.quest.GuzzlrCombatSync
 import net.sourceforge.kolmafia.quest.IslandWarCombatSync
@@ -123,6 +124,8 @@ import net.sourceforge.kolmafia.session.OceanManager
 import net.sourceforge.kolmafia.session.WereProfessorResearchSync
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
+import net.sourceforge.kolmafia.session.GreyYouManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
@@ -420,6 +423,7 @@ open class AdventureManager(
             is AdventureResult.Combat -> resolveCombat(location)
             is AdventureResult.Choice -> {
                 preferences.setInt(LAST_CHOICE_ID, parsed.choiceId)
+                ChoiceCombatAshState.noteChoiceVisit(parsed.choiceId, parsed.responseText)
                 val choiceResult = resolveChoice(parsed.choiceId, parsed.responseText)
                 if (_fightFollowsChoice && _inMultiFight) resolveCombat(location) ?: choiceResult
                 else choiceResult
@@ -437,6 +441,9 @@ open class AdventureManager(
         }
         if (lastTurnResponseText.isNotBlank()) {
             lastFightHtml = lastTurnResponseText
+            if (ChoiceCombatAshState.currentRound <= 0) {
+                ChoiceCombatAshState.noteFightStart(lastTurnResponseText)
+            }
         }
         prepareCombatMonster(lastTurnResponseText)
         val macro = combatMacroResolver?.invoke(location.id)
@@ -446,9 +453,22 @@ open class AdventureManager(
             return null
         }
         lastFightHtml = fightHtml
+        ChoiceCombatAshState.noteFightRound(fightHtml)
         FightPokefamSync.apply(character, fightHtml, familiarManager, preferences, sessionLogger)
         _inMultiFight = AdventureParser.isInMultiFight(fightHtml)
+        ChoiceCombatAshState.inMultiFight = _inMultiFight
         val result = AdventureParser.parseFightResult(fightHtml)
+        if (result.won) {
+            gameDatabase?.monster(result.monster)?.id?.let { monsterId ->
+                GreyYouManager.absorbMonster(
+                    monsterId,
+                    fightHtml,
+                    character.state.value.ascensionPath ==
+                        net.sourceforge.kolmafia.character.AscensionPath.GREY_YOU,
+                    preferences,
+                )
+            }
+        }
         SessionMeatSync.apply(character, fightHtml)
         SkillLearnFromResponse.learnSkillFromResponse(
             fightHtml,
@@ -456,7 +476,13 @@ open class AdventureManager(
             skills,
             inventory,
         )
-        if (!_inMultiFight) _fightFollowsChoice = false
+        if (!_inMultiFight) {
+            _fightFollowsChoice = false
+            ChoiceCombatAshState.noteFightEnd(fightHtml)
+            ChoiceCombatAshState.fightFollowsChoice = false
+        }
+        ChoiceCombatAshState.inMultiFight = _inMultiFight
+        ChoiceCombatAshState.fightFollowsChoice = _fightFollowsChoice
         dreadKissesTracker?.updateFromFight(location.name, fightHtml)
         intergnatDemonNameSync?.updateFromFight(
             fightHtml,
@@ -675,6 +701,7 @@ open class AdventureManager(
                 preferences = preferences,
                 won = result.won,
             )
+            LatteChoiceSync.applyFight(location.name, fightHtml, preferences)
             HiddenCityCombatSync.applyCombatWin(
                 questDatabase = it,
                 preferences = preferences,
@@ -777,10 +804,13 @@ open class AdventureManager(
         initialResponseText: String,
     ): AdventureResult.Choice {
         _inChoiceResolution = true
+        ChoiceCombatAshState.handlingChoice = true
+        ChoiceCombatAshState.noteChoiceVisit(choiceId, initialResponseText)
         try {
             return resolveChoiceLoop(choiceId, initialResponseText)
         } finally {
             _inChoiceResolution = false
+            ChoiceCombatAshState.handlingChoice = false
         }
     }
 
@@ -920,6 +950,7 @@ open class AdventureManager(
             // skillUses decremented once per step — each choice interaction costs one skill use budget unit
             if (option > 0 && skillUses > 0) skillUses--
             lastChosenOption = option
+            ChoiceCombatAshState.noteChoiceDecision(option)
 
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
                 val bastilleContext = bastilleSyncContext()
@@ -1072,6 +1103,7 @@ open class AdventureManager(
             is AdventureResult.Combat -> resolveCombat(location)
             is AdventureResult.Choice -> {
                 preferences.setInt(LAST_CHOICE_ID, parsed.choiceId)
+                ChoiceCombatAshState.noteChoiceVisit(parsed.choiceId, parsed.responseText)
                 val choiceResult = resolveChoice(parsed.choiceId, parsed.responseText)
                 if (_fightFollowsChoice && _inMultiFight) resolveCombat(location) ?: choiceResult
                 else choiceResult
