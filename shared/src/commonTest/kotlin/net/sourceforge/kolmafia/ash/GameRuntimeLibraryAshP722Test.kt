@@ -30,8 +30,8 @@ class GameRuntimeLibraryAshP722Test {
     """.trimIndent()
 
     @Test
-    fun revision_phase743() {
-        assertEquals("phase743", GameRuntimeLibrary.REVISION)
+    fun revision_phase814() {
+        assertEquals("phase814", GameRuntimeLibrary.REVISION)
     }
 
     @Test

@@ -17,6 +17,7 @@ import net.sourceforge.kolmafia.adventure.runTowerDoor
 import net.sourceforge.kolmafia.adventure.TowerDoorConfig
 import net.sourceforge.kolmafia.adventure.TowerDoorStatus
 import net.sourceforge.kolmafia.data.AdventureDatabase
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.DescriptionCache
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
@@ -191,6 +192,37 @@ import net.sourceforge.kolmafia.quest.DeckChoiceSync
 import net.sourceforge.kolmafia.quest.AutomatedFutureChoiceSync
 import net.sourceforge.kolmafia.quest.MobiusChoiceSync
 import net.sourceforge.kolmafia.quest.BaseballChoiceSync
+import net.sourceforge.kolmafia.quest.MushyCenterChoiceSync
+import net.sourceforge.kolmafia.quest.HorseryChoiceSync
+import net.sourceforge.kolmafia.quest.MimicDnaChoiceSync
+import net.sourceforge.kolmafia.quest.StalagmiteChoiceSync
+import net.sourceforge.kolmafia.quest.PowerPlantChoiceSync
+import net.sourceforge.kolmafia.quest.ColdMedicineChoiceSync
+import net.sourceforge.kolmafia.quest.PlumberShopChoiceSync
+import net.sourceforge.kolmafia.quest.BackupCameraChoiceSync
+import net.sourceforge.kolmafia.quest.CrystalBallChoiceSync
+import net.sourceforge.kolmafia.quest.AutumnatonChoiceSync
+import net.sourceforge.kolmafia.quest.TrainsetChoiceSync
+import net.sourceforge.kolmafia.quest.BurningLeavesChoiceSync
+import net.sourceforge.kolmafia.quest.YouRobotChoiceSync
+import net.sourceforge.kolmafia.quest.MayamChoiceSync
+import net.sourceforge.kolmafia.quest.TakerSpaceChoiceSync
+import net.sourceforge.kolmafia.quest.SpecimenBenchChoiceSync
+import net.sourceforge.kolmafia.quest.LeprecondoChoiceSync
+import net.sourceforge.kolmafia.quest.PerilChoiceSync
+import net.sourceforge.kolmafia.quest.PeridotChoiceSync
+import net.sourceforge.kolmafia.quest.CrimboPastChoiceSync
+import net.sourceforge.kolmafia.quest.CoolerYetiChoiceSync
+import net.sourceforge.kolmafia.quest.CartographyChoiceSync
+import net.sourceforge.kolmafia.quest.SausageGrinderChoiceSync
+import net.sourceforge.kolmafia.quest.BoomBoxChoiceSync
+import net.sourceforge.kolmafia.quest.RedSnapperChoiceSync
+import net.sourceforge.kolmafia.quest.DoctorBagChoiceSync
+import net.sourceforge.kolmafia.quest.VoteBallotChoiceSync
+import net.sourceforge.kolmafia.quest.MotorbikeChoiceSync
+import net.sourceforge.kolmafia.quest.GenieChoiceSync
+import net.sourceforge.kolmafia.quest.ControlPanelChoiceSync
+import net.sourceforge.kolmafia.quest.MonkeyPawChoiceSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.SpookyravenManorVisitSync
 import net.sourceforge.kolmafia.quest.TelescopeSync
@@ -241,6 +273,7 @@ import net.sourceforge.kolmafia.quest.ItemDescriptionConsequenceSync
 import net.sourceforge.kolmafia.quest.CrownBjornDescSync
 import net.sourceforge.kolmafia.quest.Crimbo23ZoneSync
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
 import net.sourceforge.kolmafia.session.SummoningChamberManager
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.YegDemonNameSync
@@ -414,7 +447,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase743"
+        const val REVISION = "phase814"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -1574,9 +1607,14 @@ class GameRuntimeLibrary(
             cliFamiliars(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
-        // steal — desktop PvpStealCommand alias; `steal N item` still familiar-steals
+        // steal — desktop PvpStealCommand alias; `steal N item` still familiar-steals (dual-route)
         Regex("^steal(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliSteal(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt)
+        },
+
+        // famsteal / familiarsteal — explicit familiar steal (same path as steal dual-route fallback)
+        Regex("^(?:famsteal|familiarsteal)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFamiliarStealAlias(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt)
         },
 
         // sendmsg channel message — public chat
@@ -2894,6 +2932,66 @@ class GameRuntimeLibrary(
                     character?.state?.value?.turnsPlayed ?: 0,
                 )
                 BaseballChoiceSync.applyVisit(choiceId, html, preferences)
+                MushyCenterChoiceSync.applyVisit(choiceId, html, preferences)
+                HorseryChoiceSync.applyVisit(choiceId, html, preferences)
+                MimicDnaChoiceSync.applyVisit(choiceId, html, preferences)
+                StalagmiteChoiceSync.applyVisit(choiceId, preferences)
+                PowerPlantChoiceSync.applyVisit(choiceId, html, preferences)
+                ColdMedicineChoiceSync.applyVisit(choiceId, html, preferences)
+                PlumberShopChoiceSync.applyVisit(choiceId, html, preferences)
+                BackupCameraChoiceSync.applyVisit(choiceId, html, preferences)
+                CrystalBallChoiceSync.applyVisit(
+                    choiceId,
+                    html,
+                    preferences,
+                    currentRun = character?.state?.value?.currentRun ?: 0,
+                )
+                AutumnatonChoiceSync.applyVisit(choiceId, html, preferences)
+                TrainsetChoiceSync.applyVisit(choiceId, html, preferences)
+                BurningLeavesChoiceSync.applyVisit(choiceId, html, preferences)
+                YouRobotChoiceSync.applyVisit(choiceId, html, preferences, url.orEmpty())
+                MayamChoiceSync.applyVisit(choiceId, html, preferences)
+                TakerSpaceChoiceSync.applyVisit(choiceId, html, preferences) {
+                    ConcoctionDatabase.refreshConcoctionsNowFromLastContext()
+                }
+                SpecimenBenchChoiceSync.applyVisit(choiceId, html, preferences)
+                LeprecondoChoiceSync.applyVisit(choiceId, html, preferences)
+                PerilChoiceSync.applyVisit(choiceId, html, preferences)
+                PeridotChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    preferences = preferences,
+                    lastVisitedLocationName = preferences?.getString(
+                        Preferences.LAST_LOCATION,
+                        "",
+                    ).orEmpty(),
+                )
+                CrimboPastChoiceSync.applyVisit(choiceId, html, preferences)
+                MonkeyPawChoiceSync.applyVisit(choiceId, html, preferences)
+                CoolerYetiChoiceSync.applyVisit(choiceId, html, preferences)
+                CartographyChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    preferences = preferences,
+                    ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                )
+                SausageGrinderChoiceSync.applyVisit(choiceId, html, preferences)
+                BoomBoxChoiceSync.applyVisit(choiceId, html, preferences)
+                RedSnapperChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    html = html,
+                    preferences = preferences,
+                    currentTurn = character?.state?.value?.currentRun ?: 0,
+                )
+                DoctorBagChoiceSync.applyVisit(choiceId, html, preferences)
+                VoteBallotChoiceSync.applyVisit(choiceId, html, preferences)
+                MotorbikeChoiceSync.applyVisit(choiceId, html, preferences)
+                GenieChoiceSync.applyVisit(choiceId, html, preferences)
+                DetectiveCaseSync.applyVisit(choiceId, html, preferences)
+                ControlPanelChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    html = html,
+                    preferences = preferences,
+                    questDatabase = questDatabase,
+                )
                 CyberRealmSync.applyFromChoice(choiceId, preferences)
             }
         }
@@ -3794,6 +3892,30 @@ class GameRuntimeLibrary(
                     },
                     setLimitMode = { mode -> character?.updateLimitMode(mode) },
                     choiceUrl = extraFormFields.entries.joinToString("&") { "${it.key}=${it.value}" },
+                    adjustFullness = { delta ->
+                        val s = character?.state?.value ?: return@apply
+                        character.updateConsumables(
+                            fullness = (s.fullness + delta).coerceAtLeast(0),
+                            inebriety = s.inebriety,
+                            spleenUsed = s.spleenUsed,
+                        )
+                    },
+                    adjustSpleen = { delta ->
+                        val s = character?.state?.value ?: return@apply
+                        character.updateConsumables(
+                            fullness = s.fullness,
+                            inebriety = s.inebriety,
+                            spleenUsed = (s.spleenUsed + delta).coerceAtLeast(0),
+                        )
+                    },
+                    familiarRace = familiarManager?.state?.value?.activeFamiliar?.race.orEmpty(),
+                    familiarHasAttribute = { attr ->
+                        val id = familiarManager?.state?.value?.activeFamiliar?.id ?: return@apply false
+                        FamiliarDefinitionDatabase.getById(id)?.attributes?.contains(attr) == true
+                    },
+                    lastVisitedLocationName = preferences?.getString(Preferences.LAST_LOCATION, "").orEmpty(),
+                    setKingLiberated = { character?.setKingLiberated(true) },
+                    sessionLog = { line -> sessionLogger?.appendRawLine(line) },
                 )
             }
         }
@@ -4810,6 +4932,8 @@ class GameRuntimeLibrary(
         registerAshP430Batch(scope)
         registerAshP432Batch(scope)
         registerAshP481Batch(scope)
+        registerAshP762Batch(scope)
+        registerAshP763Batch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

@@ -47,6 +47,15 @@ import net.sourceforge.kolmafia.quest.DeckChoiceSync
 import net.sourceforge.kolmafia.quest.AutomatedFutureChoiceSync
 import net.sourceforge.kolmafia.quest.MobiusChoiceSync
 import net.sourceforge.kolmafia.quest.BaseballChoiceSync
+import net.sourceforge.kolmafia.quest.MushyCenterChoiceSync
+import net.sourceforge.kolmafia.quest.HorseryChoiceSync
+import net.sourceforge.kolmafia.quest.MimicDnaChoiceSync
+import net.sourceforge.kolmafia.quest.StalagmiteChoiceSync
+import net.sourceforge.kolmafia.quest.PowerPlantChoiceSync
+import net.sourceforge.kolmafia.quest.ColdMedicineChoiceSync
+import net.sourceforge.kolmafia.quest.PlumberShopChoiceSync
+import net.sourceforge.kolmafia.quest.BackupCameraChoiceSync
+import net.sourceforge.kolmafia.quest.CrystalBallChoiceSync
 import net.sourceforge.kolmafia.quest.SpacegateAdventureSync
 import net.sourceforge.kolmafia.quest.GingerbreadCitySync
 import net.sourceforge.kolmafia.quest.ClancyNcSync
@@ -839,6 +848,48 @@ open class AdventureManager(
                 currentResponseText,
                 preferences,
             )
+            MushyCenterChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            HorseryChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            MimicDnaChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            StalagmiteChoiceSync.applyVisit(currentChoiceId, preferences)
+            PowerPlantChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            ColdMedicineChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            PlumberShopChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            BackupCameraChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            CrystalBallChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+                currentRun = character.state.value.currentRun,
+            )
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
                 val bastilleContext = bastilleSyncContext()
                 BastilleBattalionSync.syncVisit(
@@ -959,6 +1010,22 @@ open class AdventureManager(
                     },
                     setLimitMode = { mode -> character.updateLimitMode(mode) },
                     choiceUrl = url,
+                    adjustFullness = { delta ->
+                        val s = character.state.value
+                        character.updateConsumables(
+                            fullness = (s.fullness + delta).coerceAtLeast(0),
+                            inebriety = s.inebriety,
+                            spleenUsed = s.spleenUsed,
+                        )
+                    },
+                    adjustSpleen = { delta ->
+                        val s = character.state.value
+                        character.updateConsumables(
+                            fullness = s.fullness,
+                            inebriety = s.inebriety,
+                            spleenUsed = (s.spleenUsed + delta).coerceAtLeast(0),
+                        )
+                    },
                 )
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))

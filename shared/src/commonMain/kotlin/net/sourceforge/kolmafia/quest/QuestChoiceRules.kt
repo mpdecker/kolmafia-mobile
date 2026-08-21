@@ -32,6 +32,16 @@ object QuestChoiceRules {
         resyncQuestLogPage1: () -> Unit = {},
         setLimitMode: (String) -> Unit = {},
         choiceUrl: String = "",
+        adjustFullness: (Int) -> Unit = {},
+        adjustSpleen: (Int) -> Unit = {},
+        familiarRace: String = "",
+        familiarHasAttribute: (String) -> Boolean = { false },
+        lastVisitedLocationName: String = "",
+        monsterNameForId: (Int) -> String? = { id ->
+            net.sourceforge.kolmafia.data.MonsterDatabase.getById(id)?.name
+        },
+        setKingLiberated: () -> Unit = {},
+        sessionLog: (String) -> Unit = {},
     ): Boolean {
         var advanced = false
         advanced = CandyCaneSwordSync.applyFromChoice(
@@ -355,14 +365,13 @@ object QuestChoiceRules {
                     consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
                 ) || advanced
             }
-            TimeSpinnerChoiceSync.SPINNING,
-            TimeSpinnerChoiceSync.RECENT_FIGHT,
-            -> {
+            in TimeSpinnerChoiceSync.CHOICE_IDS -> {
                 advanced = TimeSpinnerChoiceSync.apply(
                     choiceId = choiceId,
                     decision = decision,
                     preferences = preferences,
                     choiceUrl = choiceUrl,
+                    html = responseText,
                 ) || advanced
             }
             GingerbreadClockChoiceSync.CHOICE_ID -> {
@@ -454,6 +463,443 @@ object QuestChoiceRules {
                     preferences = preferences,
                     estimatedPoolSkill = preferences?.getInt("poolSkill", 0) ?: 0,
                     consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            MushyCenterChoiceSync.CHOICE_ID -> {
+                advanced = MushyCenterChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            HorseryChoiceSync.CHOICE_ID -> {
+                advanced = HorseryChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            MimicDnaChoiceSync.CHOICE_ID -> {
+                advanced = MimicDnaChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            LegendaryDigestionChoiceSync.CHOICE_ID -> {
+                advanced = LegendaryDigestionChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                    adjustFullness = adjustFullness,
+                    adjustSpleen = adjustSpleen,
+                ) || advanced
+            }
+            AwolChoiceSync.CHOICE_ID -> {
+                advanced = AwolChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            DrippyTreeChoiceSync.CHOICE_ID -> {
+                advanced = DrippyTreeChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    discardItem = { itemId -> inventoryManager?.consumeItemLocally(itemId, 1) },
+                ) || advanced
+            }
+            PowerPlantChoiceSync.CHOICE_ID -> {
+                advanced = PowerPlantChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                ) || advanced
+            }
+            ColdMedicineChoiceSync.CHOICE_ID -> {
+                advanced = ColdMedicineChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                    turnsPlayed = turnsPlayed,
+                ) || advanced
+            }
+            BwApronChoiceSync.CHOICE_ID -> {
+                advanced = BwApronChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            PhotoBoothChoiceSync.EFFECT_CHOICE,
+            PhotoBoothChoiceSync.PROP_CHOICE,
+            -> {
+                advanced = PhotoBoothChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            PlumberShopChoiceSync.COSTUME_CHOICE,
+            PlumberShopChoiceSync.BADGE_CHOICE,
+            -> {
+                advanced = PlumberShopChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            BackupCameraChoiceSync.CHOICE_ID -> {
+                advanced = BackupCameraChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            in WildfireNpcChoiceSync.CHOICE_IDS -> {
+                advanced = WildfireNpcChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            WildfireCaptainChoiceSync.CHOICE_ID -> {
+                advanced = WildfireCaptainChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                ) || advanced
+            }
+            in JuneCleaverChoiceSync.CHOICE_IDS -> {
+                advanced = JuneCleaverChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                ) || advanced
+            }
+            AutumnatonChoiceSync.AUTUMNATON_CHOICE,
+            AutumnatonChoiceSync.PLAQUE_CHOICE,
+            -> {
+                advanced = AutumnatonChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    turnsPlayed = turnsPlayed,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            BurningLeavesChoiceSync.CHOICE_ID -> {
+                advanced = BurningLeavesChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            PantogramChoiceSync.CHOICE_ID -> {
+                advanced = PantogramChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                    gainItem = { itemId, qty -> inventoryManager?.gainItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            MummeryChoiceSync.CHOICE_ID -> {
+                advanced = MummeryChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    familiarRace = familiarRace,
+                    familiarHasAttribute = familiarHasAttribute,
+                ) || advanced
+            }
+            YouRobotChoiceSync.REASSEMBLY_CHOICE,
+            YouRobotChoiceSync.STATBOT_CHOICE,
+            -> {
+                advanced = YouRobotChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                ) || advanced
+            }
+            ElfGratitudeChoiceSync.CABOOSE_CHOICE,
+            ElfGratitudeChoiceSync.PASSENGER_CHOICE,
+            -> {
+                advanced = ElfGratitudeChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            WoolChoiceSync.SLAGGING_CHOICE,
+            WoolChoiceSync.WOOL_CHOICE,
+            -> {
+                advanced = WoolChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            SitCourseChoiceSync.CHOICE_ID -> {
+                advanced = SitCourseChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                    removeSkill = { id -> preferences?.setInt("skillLevel$id", 0) },
+                    learnSkill = { id -> preferences?.setInt("skillLevel$id", 1) },
+                ) || advanced
+            }
+            AprilBandChoiceSync.CHOICE_ID -> {
+                advanced = AprilBandChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                    turnsPlayed = turnsPlayed,
+                ) || advanced
+            }
+            MayamChoiceSync.CHOICE_ID -> {
+                advanced = MayamChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            AntiScientificChoiceSync.CHOICE_ID -> {
+                advanced = AntiScientificChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    lastVisitedLocationName = lastVisitedLocationName.ifBlank {
+                        preferences?.getString(Preferences.LAST_LOCATION, "").orEmpty()
+                    },
+                ) || advanced
+            }
+            BodyguardChoiceSync.CHOICE_ID -> {
+                advanced = BodyguardChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    monsterNameForId = monsterNameForId,
+                ) || advanced
+            }
+            CandyDevilerChoiceSync.CHOICE_ID -> {
+                advanced = CandyDevilerChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
+                ) || advanced
+            }
+            SpecimenBenchChoiceSync.CHOICE_ID -> {
+                advanced = SpecimenBenchChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            PerilChoiceSync.CHOICE_ID -> {
+                advanced = PerilChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            SeadentWaveChoiceSync.CHOICE_ID -> {
+                advanced = SeadentWaveChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            CouncilChoiceSync.CHOICE_ID -> {
+                advanced = CouncilChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    setKingLiberated = setKingLiberated,
+                ) || advanced
+            }
+            MonkeyPawChoiceSync.CHOICE_ID -> {
+                advanced = MonkeyPawChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            DigGiftChoiceSync.CHOICE_ID -> {
+                advanced = DigGiftChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    sessionLog = sessionLog,
+                ) || advanced
+            }
+            CoolerYetiChoiceSync.CHOICE_ID -> {
+                advanced = CoolerYetiChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            LockPickedChoiceSync.CHOICE_ID -> {
+                advanced = LockPickedChoiceSync.apply(
+                    choiceId = choiceId,
+                    preferences = preferences,
+                ) || advanced
+            }
+            EntauntaunedChoiceSync.CHOICE_ID -> {
+                advanced = EntauntaunedChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            MappingMonstersChoiceSync.CHOICE_ID -> {
+                advanced = MappingMonstersChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            in RetroCapeChoiceSync.CHOICE_IDS -> {
+                advanced = RetroCapeChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            CatBurglarChoiceSync.CHOICE_ID -> {
+                advanced = CatBurglarChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            FavoriteBirdChoiceSync.CHOICE_ID -> {
+                advanced = FavoriteBirdChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                    learnSkill = { id -> preferences?.setInt("skillLevel$id", 1) },
+                ) || advanced
+            }
+            InfernoDiscoChoiceSync.CHOICE_ID -> {
+                advanced = InfernoDiscoChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            BoomBoxChoiceSync.CHOICE_ID -> {
+                advanced = BoomBoxChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    learnSkill = { id -> preferences?.setInt("skillLevel$id", 1) },
+                    removeSkill = { id -> preferences?.setInt("skillLevel$id", 0) },
+                    sessionLog = sessionLog,
+                ) || advanced
+            }
+            GarbageToteChoiceSync.CHOICE_ID -> {
+                advanced = GarbageToteChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            PillKeeperChoiceSync.CHOICE_ID -> {
+                advanced = PillKeeperChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    adjustSpleen = adjustSpleen,
+                ) || advanced
+            }
+            RedSnapperChoiceSync.CHOICE_ID -> {
+                advanced = RedSnapperChoiceSync.apply(
+                    choiceId = choiceId,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    currentTurn = currentRun,
+                ) || advanced
+            }
+            VoteBallotChoiceSync.CHOICE_ID -> {
+                advanced = VoteBallotChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    sessionLog = sessionLog,
+                ) || advanced
+            }
+            GrimChoiceSync.CHOICE_ID -> {
+                advanced = GrimChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    preferences = preferences,
+                ) || advanced
+            }
+            ClanFortuneChoiceSync.CHOICE_ID -> {
+                advanced = ClanFortuneChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                ) || advanced
+            }
+            in DaycareLobbyChoiceSync.CHOICE_IDS -> {
+                advanced = DaycareLobbyChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                ) || advanced
+            }
+            GenieChoiceSync.CHOICE_ID -> {
+                advanced = GenieChoiceSync.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    choiceUrl = choiceUrl,
+                    inventoryManager = inventoryManager,
+                ) || advanced
+            }
+            ControlPanelChoiceSync.CHOICE_ID -> {
+                advanced = ControlPanelChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
                 ) || advanced
             }
             TrickOrTreatChoiceSync.CHOICE_ID -> {
@@ -686,9 +1132,17 @@ object QuestChoiceRules {
                 advanced = setIfBetter(questDatabase, Quest.FINAL, "step4") || advanced
             }
             1340 -> {
-                if (decision != 1) {
-                    advanced = QuestSpecialSync.abandonDoctorBag(questDatabase, preferences) || advanced
-                }
+                advanced = if (decision == 1) {
+                    DoctorBagChoiceSync.applyAccept(
+                        choiceId = choiceId,
+                        decision = decision,
+                        preferences = preferences,
+                        questDatabase = questDatabase,
+                        itemCount = itemCount,
+                    )
+                } else {
+                    QuestSpecialSync.abandonDoctorBag(questDatabase, preferences)
+                } || advanced
             }
             1341 -> {
                 if (decision == 1) {

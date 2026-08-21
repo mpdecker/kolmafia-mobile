@@ -6,13 +6,13 @@ import kotlin.test.assertEquals
 class GameRuntimeLibraryStubsTest {
 
     @Test
-    fun pvpAttack_returnsFalse() {
+    fun pvpAttack_withoutHttp_returnsFalse() {
         val lib = GameRuntimeLibrary.forTesting()
         assertEquals("false", outputLib(lib, """print(to_string(pvp_attack("rival")));"""))
     }
 
     @Test
-    fun rankedFam_returnsFalse() {
+    fun rankedFam_withoutHttp_returnsFalse() {
         val lib = GameRuntimeLibrary.forTesting()
         assertEquals("false", outputLib(lib, "print(to_string(ranked_fam()));"))
     }

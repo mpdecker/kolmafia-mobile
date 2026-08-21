@@ -103,7 +103,15 @@ internal object PvpStealParser {
 
 private val familiarStealArgsPattern = Regex("""^\d+\s+\S""")
 
-/** Route `steal N item` to familiar steal when args are not a PvP mission. */
+/**
+ * Route `steal N item` to familiar steal when args are not a PvP mission.
+ *
+ * Desktop `steal` is PvP-only ([net.sourceforge.kolmafia.textui.command.PvpStealCommand]).
+ * Mobile intentionally preserves Phase 25 `steal N item` familiar-steal as a dual-route
+ * when [PvpStealParser] rejects the args as a non-mission ("What do you want to steal?")
+ * and the args look like `qty item`. Prefer [cliFamiliarSteal] / `famsteal` / `familiarsteal`
+ * when calling familiar steal explicitly.
+ */
 internal fun shouldFallbackToFamiliarSteal(parameters: String): Boolean {
     val trimmed = parameters.trim()
     if (trimmed.isEmpty()) return false
@@ -115,10 +123,116 @@ internal fun shouldFallbackToFamiliarSteal(parameters: String): Boolean {
 
 internal fun GameRuntimeLibrary.cliSteal(parameters: String, rt: AshRuntimeContext) {
     if (shouldFallbackToFamiliarSteal(parameters)) {
+        rt.print("Routing to familiar steal (desktop steal is PvP-only; mobile preserves steal N item).")
         cliFamiliarSteal(parameters)
         return
     }
     cliPvp(parameters, rt::print)
+}
+
+/** Explicit familiar-steal CLI (`famsteal` / `familiarsteal`); same path as steal dual-route fallback. */
+internal fun GameRuntimeLibrary.cliFamiliarStealAlias(parameters: String, rt: AshRuntimeContext) {
+    if (parameters.isBlank()) {
+        rt.print("Usage: famsteal N item")
+        return
+    }
+    cliFamiliarSteal(parameters)
+}
+
+/** Mission for ASH/CLI directed PvP when stance/mission are not specified. */
+internal fun GameRuntimeLibrary.defaultPvpMission(): String {
+    val canInteract = character?.state?.value?.let { !it.isHardcore && !it.isInRonin } ?: true
+    return if (canInteract) "lootwhatever" else "flowers"
+}
+
+internal fun GameRuntimeLibrary.defaultPvpStance(): Int = PvpManager.defaultStanceOption()
+
+/**
+ * Resolve a player name/id to a [ProfileRequest] using the same helpers as CLI `attack`.
+ * Returns null when the target cannot be resolved.
+ */
+internal suspend fun GameRuntimeLibrary.resolveDirectedPvpTarget(player: String): ProfileRequest? {
+    val trimmed = player.trim()
+    if (trimmed.isEmpty()) return null
+    val client = httpClient
+    val probe = chatProbe ?: client?.let { ChatProbe(it) }
+    val id = resolvePvpTargetId(trimmed, probe) ?: return null
+    val playerName = if (trimmed.startsWith("#") || trimmed.all { it.isDigit() }) {
+        PlayerIdRegistry.getPlayerName(id).ifEmpty { trimmed }
+    } else {
+        trimmed
+    }
+    return if (client != null) {
+        ProfileRequest.retrieve(client, playerName, id).getOrElse {
+            ProfileRequest(playerName = playerName, playerId = id)
+        }
+    } else {
+        ProfileRequest(playerName = playerName, playerId = id)
+    }
+}
+
+/**
+ * Mobile convenience ASH (non-desktop): resolve [player] → prefetch stances →
+ * mission `lootwhatever` if canInteract else `flowers` → stance 0 or first known →
+ * [PvpManager.executeDirectedPvpRequest]. Returns true iff completed without abort.
+ */
+internal fun GameRuntimeLibrary.runAshPvpAttack(player: String): Boolean {
+    val client = httpClient ?: return false
+    val char = character ?: return false
+    return runBlocking {
+        if (!PvpManager.checkStances(client, char, preferences, sessionLogger, inventoryManager)) {
+            return@runBlocking false
+        }
+        val profile = resolveDirectedPvpTarget(player) ?: return@runBlocking false
+        val mission = defaultPvpMission()
+        val stance = defaultPvpStance()
+        PvpManager.executeDirectedPvpRequest(
+            targets = listOf(profile),
+            mission = mission,
+            stance = stance,
+            client = client,
+            character = char,
+            preferences = preferences,
+            sessionLogger = sessionLogger,
+            cliExecutor = { cmd -> dispatchCli(cmd, object : AshRuntimeContext {
+                override fun print(msg: String) = Unit
+            }) },
+            print = {},
+            inventoryManager = inventoryManager,
+        )
+        PvpManager.abortReason == null
+    }
+}
+
+/**
+ * Mobile convenience ASH (non-desktop): one tougher/ranked random flower fight
+ * (`ranked=2` / `tougher=true`) via [PvpManager.executePvpRequest].
+ * Returns true iff completed without abort.
+ */
+internal fun GameRuntimeLibrary.runAshRankedFam(): Boolean {
+    val client = httpClient ?: return false
+    val char = character ?: return false
+    return runBlocking {
+        if (!PvpManager.checkStances(client, char, preferences, sessionLogger, inventoryManager)) {
+            return@runBlocking false
+        }
+        PvpManager.executePvpRequest(
+            attacks = 1,
+            mission = "flowers",
+            stance = defaultPvpStance(),
+            tougher = true,
+            client = client,
+            character = char,
+            preferences = preferences,
+            sessionLogger = sessionLogger,
+            cliExecutor = { cmd -> dispatchCli(cmd, object : AshRuntimeContext {
+                override fun print(msg: String) = Unit
+            }) },
+            print = {},
+            inventoryManager = inventoryManager,
+        )
+        PvpManager.abortReason == null
+    }
 }
 
 internal fun GameRuntimeLibrary.cliFamiliarSteal(parameters: String) {
@@ -269,30 +383,15 @@ internal fun GameRuntimeLibrary.cliPvpAttack(parameters: String, rt: AshRuntimeC
             }
             is PvpAttackParseResult.Error -> print(parsed.message)
             is PvpAttackParseResult.Run -> {
-                val probe = chatProbe ?: client?.let { ChatProbe(it) }
                 val profiles = mutableListOf<ProfileRequest>()
                 for (name in parsed.targets) {
-                    val id = resolvePvpTargetId(name, probe) ?: continue
-                    val playerName = if (name.startsWith("#")) {
-                        PlayerIdRegistry.getPlayerName(id)
-                    } else {
-                        name
-                    }
-                    print("Retrieving player data for $playerName...")
-                    val profile = if (client != null) {
-                        ProfileRequest.retrieve(client, playerName, id).getOrElse {
-                            ProfileRequest(playerName = playerName, playerId = id)
-                        }
-                    } else {
-                        ProfileRequest(playerName = playerName, playerId = id)
-                    }
+                    print("Retrieving player data for $name...")
+                    val profile = resolveDirectedPvpTarget(name) ?: continue
                     profiles += profile
                 }
-                val canInteract = character?.state?.value?.let { !it.isHardcore && !it.isInRonin } ?: true
-                val mission = if (canInteract) "lootwhatever" else "flowers"
                 PvpManager.executeDirectedPvpRequest(
                     targets = profiles,
-                    mission = mission,
+                    mission = defaultPvpMission(),
                     stance = parsed.stance,
                     client = client,
                     character = character,

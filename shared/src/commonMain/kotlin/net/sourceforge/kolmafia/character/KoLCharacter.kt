@@ -149,6 +149,10 @@ class KoLCharacter {
 
     // ── Partial update helpers — avoid full API round-trips for frequent changes ──
 
+    fun setKingLiberated(liberated: Boolean = true) {
+        _state.value = _state.value.copy(kingLiberated = liberated)
+    }
+
     fun updateLimitMode(mode: String) {
         _state.value = _state.value.copy(limitMode = mode)
     }
