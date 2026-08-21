@@ -2,15 +2,22 @@ package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
 internal fun GameRuntimeLibrary.registerCombatStubs(scope: AshScope) {
 
     regFn(scope, "in_multi_fight", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(adventureManager?.inMultiFight ?: false)
+        AshValue.of(
+            ChoiceCombatAshState.inMultiFight ||
+                adventureManager?.inMultiFight == true,
+        )
     }
 
     regFn(scope, "fight_follows_choice", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(adventureManager?.fightFollowsChoice ?: false)
+        AshValue.of(
+            ChoiceCombatAshState.fightFollowsChoice ||
+                adventureManager?.fightFollowsChoice == true,
+        )
     }
 
     // last_monster() → monster  — reads tracker instance or _lastMonster preference

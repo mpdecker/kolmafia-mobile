@@ -69,6 +69,12 @@ class BanishManager(private val preferences: Preferences) {
             .filter { !it.isExpired(currentTurn) }
             .associate { it.monsterName to it.banisher }
 
+    /** Desktop [BanishManager.banishedBy] — active banishers for a monster name. */
+    fun banishedBy(monsterName: String, currentTurn: Int): List<Banisher> =
+        _state.value.monsters
+            .filter { !it.isExpired(currentTurn) && it.monsterName.equals(monsterName, ignoreCase = true) }
+            .map { it.banisher }
+
     /** Desktop [net.sourceforge.kolmafia.session.BanishManager.resetRollover] — rollover-only banishes. */
     fun resetRollover(): Int {
         val before = _state.value.monsters.size
@@ -109,6 +115,23 @@ class BanishManager(private val preferences: Preferences) {
             monsters = _state.value.monsters.filter { it.banisher.resetType != ResetType.AVATAR },
         )
         save()
+    }
+
+    /**
+     * Desktop [net.sourceforge.kolmafia.session.BanishManager.removeBanishByBanisher] —
+     * removes every active banish recorded with [banisher] (e.g. freeing Ice House).
+     * @return number of banishes removed
+     */
+    fun removeBanishByBanisher(banisher: Banisher): Int {
+        val before = _state.value.monsters.size
+        _state.value = _state.value.copy(
+            monsters = _state.value.monsters.filter { it.banisher != banisher },
+        )
+        val cleared = before - _state.value.monsters.size
+        if (cleared > 0) {
+            save()
+        }
+        return cleared
     }
 
     /** Serializes [state] to [Preferences.BANISHED_MONSTERS]. */

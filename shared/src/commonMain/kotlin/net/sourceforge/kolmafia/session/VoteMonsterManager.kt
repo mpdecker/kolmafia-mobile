@@ -78,6 +78,9 @@ object VoteMonsterManager {
         return changed
     }
 
+    fun monsterFromBallotSpeech(party: String, speech: String): String? =
+        monsterFromSpeech(party, speech)
+
     private fun monsterFromSpeech(party: String, speech: String): String? = when {
         party.contains("Pork Elf Historical Preservation Party") -> when {
             speech.contains("strict curtailing of unnatural modern technologies") ->

@@ -22,6 +22,7 @@ open class AshValue internal constructor(open val type: AshType, val content: An
         type == AshType.FLOAT -> (content as Double).toString()
         type == AshType.STRING -> content as String
         type == AshType.BUFFER -> (content as StringBuilder).toString()
+        type == AshType.MATCHER -> (content as? AshMatcherState)?.toString() ?: ""
         else -> content?.toString() ?: ""
     }
 
@@ -77,7 +78,59 @@ open class AshValue internal constructor(open val type: AshType, val content: An
         fun skill(name: String): AshValue = AshValue(AshType.SKILL, name)
         fun effect(name: String): AshValue = AshValue(AshType.EFFECT, name)
         fun familiar(name: String): AshValue = AshValue(AshType.FAMILIAR, name)
+        fun matcher(m: AshMatcherState): AshValue = AshValue(AshType.MATCHER, m)
     }
+}
+
+/**
+ * Mutable matcher state wrapping a Kotlin [Regex] and its input string.
+ * Mirrors desktop's `java.util.regex.Matcher` semantics.
+ */
+class AshMatcherState(val pattern: Regex, var input: String) {
+    var lastMatch: MatchResult? = null
+    private var searchStart = 0
+
+    fun find(): Boolean {
+        lastMatch = pattern.find(input, searchStart)
+        if (lastMatch != null) searchStart = lastMatch!!.range.last + 1
+        return lastMatch != null
+    }
+
+    fun group(index: Int): String = lastMatch?.groupValues?.getOrElse(index) { "" } ?: ""
+
+    fun start(index: Int): Int {
+        val m = lastMatch ?: return -1
+        if (index == 0) return m.range.first
+        if (index < 0 || index >= m.groups.size) return -1
+        val gr = m.groups[index] ?: return -1
+        return gr.range.first
+    }
+
+    fun end(index: Int): Int {
+        val m = lastMatch ?: return -1
+        if (index == 0) return m.range.last + 1
+        if (index < 0 || index >= m.groups.size) return -1
+        val gr = m.groups[index] ?: return -1
+        return gr.range.last + 1
+    }
+
+    fun groupCount(): Int = lastMatch?.groupValues?.size?.minus(1) ?: 0
+
+    fun replaceFirst(replacement: String): String =
+        pattern.replaceFirst(input, replacement)
+
+    fun replaceAll(replacement: String): String =
+        pattern.replace(input, replacement)
+
+    fun reset(newInput: String) {
+        input = newInput
+        lastMatch = null
+        searchStart = 0
+    }
+
+    fun reset() = reset(input)
+
+    override fun toString(): String = lastMatch?.value ?: ""
 }
 
 class AggregateValue(override val type: AggregateType) : AshValue(type, null) {

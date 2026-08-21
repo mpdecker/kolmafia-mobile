@@ -1,11 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+/** Long-tail ASH stubs (PvP stubs removed in Phase 765; live via AshP762/AshP763). */
 internal fun GameRuntimeLibrary.registerLongTailStubs(scope: AshScope) {
-    regFn(scope, "pvp_attack", AshType.BOOLEAN, listOf("player" to AshType.STRING)) { _, _ ->
-        AshValue.of(false)
-    }
-
-    regFn(scope, "ranked_fam", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(false)
-    }
+    // Intentionally empty — remaining interactive soft-defaults live in AshP261/AshP262.
 }

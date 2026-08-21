@@ -70,6 +70,20 @@ object ItemPool {
     const val CRIMBO_CRYSTAL_SHARDS     = 11066
     const val CRYSTAL_CRIMBO_GOBLET     = 9201
     const val CRYSTAL_CRIMBO_PLATTER    = 9202
+    const val BURNT_STICK                = 10311
+    const val CAMPFIRE_SMOKE             = 10313
+    const val GOVERNMENT_FOOD_SHIPMENT   = 10685
+    const val GOVERNMENT_BOOZE_SHIPMENT  = 10686
+    const val GOVERNMENT_CANDY_SHIPMENT  = 10687
+    const val GREY_GOO_RING              = 10602
+    const val GOOIFIED_ANIMAL_MATTER     = 10844
+    const val GOOIFIED_VEGETABLE_MATTER  = 10845
+    const val GOOIFIED_MINERAL_MATTER    = 10846
+    const val LOATHING_IDOL_MICROPHONE   = 11263
+    const val LOATHING_IDOL_MICROPHONE_75 = 11277
+    const val LOATHING_IDOL_MICROPHONE_50 = 11278
+    const val LOATHING_IDOL_MICROPHONE_25 = 11279
+    const val MIMIC_EGG                  = 11542
 
     // Chintzy items from Mistress of the Hallowed Halls
     const val CHINTZY_SEAL_PENDANT      = 1941

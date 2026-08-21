@@ -45,6 +45,13 @@ class WildfireCampManager(private val preferences: Preferences) {
         if (changed) save()
     }
 
+    fun reduceFireLevel(snarfblat: String) {
+        ensureLoaded()
+        val current = fireLevelsBySnarfblat[snarfblat] ?: DEFAULT_FIRE_LEVEL
+        fireLevelsBySnarfblat[snarfblat] = maxOf(0, current - 1)
+        save()
+    }
+
     fun getFireLevel(locationName: String): Int {
         ensureLoaded()
         val snarfblat = AdventureDatabase.getByName(locationName)?.snarfblat ?: return DEFAULT_FIRE_LEVEL
@@ -76,5 +83,16 @@ class WildfireCampManager(private val preferences: Preferences) {
             """<option.*?value="(\d+)">.*? \(.*?: (\d)\)</option>""",
             setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
         )
+
+        /** Pref-backed helpers for ChoiceSync without DI. */
+        fun parseCaptainHtml(preferences: Preferences?, html: String) {
+            if (preferences == null) return
+            WildfireCampManager(preferences).parseCaptain(html)
+        }
+
+        fun reduceFireLevel(preferences: Preferences?, snarfblat: String) {
+            if (preferences == null || snarfblat.isBlank()) return
+            WildfireCampManager(preferences).reduceFireLevel(snarfblat)
+        }
     }
 }

@@ -86,6 +86,61 @@ class SweetSynthesisRequest(
         }
     }
 
+    suspend fun synthesizePair(
+        itemId1: Int,
+        itemId2: Int,
+        preferences: Preferences?,
+        charState: CharacterState?,
+        hasSkill: Boolean,
+    ): Result<String> {
+        if (!hasSkill) {
+            return Result.failure(IllegalStateException("You need the Sweet Synthesis skill."))
+        }
+        if (charState?.inGLover == true) {
+            return Result.failure(IllegalStateException("You cannot synthesize in G-Lover."))
+        }
+        val spleenRemaining = charState?.spleenRemaining ?: 0
+        if (spleenRemaining < 1) {
+            return Result.failure(
+                IllegalStateException("Your spleen has been abused enough today"),
+            )
+        }
+        if (itemId1 == itemId2) {
+            retrieveItemService?.retrieve(itemId1, 2)
+        } else {
+            retrieveItemService?.retrieve(itemId1, 1)
+            retrieveItemService?.retrieve(itemId2, 1)
+        }
+        return try {
+            val playerId = charState?.playerId ?: 0
+            val skill = client.submitForm(
+                url = "$KOL_BASE_URL/runskillz.php",
+                formParameters = parameters {
+                    append("action", "Skillz")
+                    append("whichskill", SKILL_ID.toString())
+                    append("targetplayer", playerId.toString())
+                    append("quantity", "1")
+                },
+            )
+            if (!skill.status.isSuccess()) {
+                return Result.failure(IllegalStateException("Sweet Synthesis skill failed."))
+            }
+            choiceRequest.choose(
+                CHOICE_ID,
+                OPTION,
+                mapOf(
+                    "a" to itemId1.toString(),
+                    "b" to itemId2.toString(),
+                    "q" to "1",
+                ),
+            ).map { (html, _) -> html }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     companion object {
         const val SKILL_ID = 166
         const val CHOICE_ID = 1217

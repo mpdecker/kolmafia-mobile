@@ -85,10 +85,26 @@ object TrackManager {
         tracker: Tracker,
         currentTurn: Int,
     ) {
-        val entries = loadEntries(preferences, PREF_TRACKED_MONSTERS).toMutableList()
-        entries.removeAll { it.tracked.equals(monsterName, ignoreCase = true) && it.tracker == tracker }
-        entries.add(TrackedEntry(monsterName, tracker, currentTurn))
-        saveEntries(preferences, PREF_TRACKED_MONSTERS, entries)
+        track(preferences, monsterName, tracker, currentTurn)
+    }
+
+    /**
+     * Desktop [TrackManager.track] — routes monster vs phylum prefs by [Tracker.trackType].
+     */
+    fun track(
+        preferences: Preferences,
+        tracked: String,
+        tracker: Tracker,
+        currentTurn: Int = 0,
+    ) {
+        val prefKey = when (tracker.trackType) {
+            TrackType.PHYLUM -> PREF_TRACKED_PHYLA
+            TrackType.MONSTER -> PREF_TRACKED_MONSTERS
+        }
+        val entries = loadEntries(preferences, prefKey).toMutableList()
+        entries.removeAll { it.tracked.equals(tracked, ignoreCase = true) && it.tracker == tracker }
+        entries.add(TrackedEntry(tracked, tracker, currentTurn))
+        saveEntries(preferences, prefKey, entries)
     }
 
     /**
@@ -161,4 +177,10 @@ object TrackManager {
 
     private fun countKnownEntries(preferences: Preferences, prefKey: String): Int =
         loadEntries(preferences, prefKey).size
+
+    /** Desktop [TrackManager.trackedBy] — tracker display names for a monster. */
+    fun trackedBy(preferences: Preferences, monsterName: String): List<String> =
+        loadEntries(preferences, PREF_TRACKED_MONSTERS)
+            .filter { it.tracked.equals(monsterName, ignoreCase = true) }
+            .map { it.tracker.displayName }
 }

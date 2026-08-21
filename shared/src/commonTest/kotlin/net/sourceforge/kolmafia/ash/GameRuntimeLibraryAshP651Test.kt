@@ -12,7 +12,7 @@ class GameRuntimeLibraryAshP651Test {
 
     @Test
     fun revision_phase647() {
-        assertEquals("phase743", GameRuntimeLibrary.REVISION)
+        assertEquals("phase1070", GameRuntimeLibrary.REVISION)
     }
 
     private val boothHtml = """

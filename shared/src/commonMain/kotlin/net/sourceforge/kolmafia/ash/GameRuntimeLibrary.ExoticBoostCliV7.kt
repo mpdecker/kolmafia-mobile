@@ -7,10 +7,10 @@ import net.sourceforge.kolmafia.request.SkateParkRequest
 import net.sourceforge.kolmafia.request.SweetSynthesisRequest
 import net.sourceforge.kolmafia.session.RabbitHoleAvailability
 
-internal fun GameRuntimeLibrary.cliBeachHead(parameters: String, print: (String) -> Unit) {
-    val query = BeachCombRequest.parseHeadQuery(parameters)
+internal fun GameRuntimeLibrary.cliBeach(parameters: String, print: (String) -> Unit) {
+    val parsed = BeachCombRequest.parseCommand(parameters)
         ?: run {
-            print("Usage: beach head <effect|id|keyword>")
+            print("Usage: beach common|head DESC|print|visit|random|wander MINUTES|comb ROW COL|exit")
             return
         }
     val client = httpClient ?: run {
@@ -26,10 +26,16 @@ internal fun GameRuntimeLibrary.cliBeachHead(parameters: String, print: (String)
     }
     runBlocking {
         BeachCombRequest(client, choice)
-            .combHead(query, preferences, counts)
-            .onFailure { print(it.message ?: "Beach head comb failed.") }
+            .execute(parsed, preferences, counts)
+            .onSuccess {
+                if (parsed.command == BeachCombRequest.Command.PRINT) print(it)
+            }
+            .onFailure { print(it.message ?: "Beach Comb command failed.") }
     }
 }
+
+internal fun GameRuntimeLibrary.cliBeachHead(parameters: String, print: (String) -> Unit) =
+    cliBeach(parameters, print)
 
 internal fun GameRuntimeLibrary.cliSkate(parameters: String, print: (String) -> Unit) {
     val place = parameters.trim()

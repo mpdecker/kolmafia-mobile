@@ -50,7 +50,7 @@ class GameRuntimeLibraryAshP492Test {
 
     @Test
     fun revision_phase492() {
-        assertEquals("phase743", GameRuntimeLibrary.REVISION)
+        assertEquals("phase1070", GameRuntimeLibrary.REVISION)
     }
 
     @Test

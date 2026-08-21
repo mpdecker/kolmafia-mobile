@@ -98,4 +98,11 @@ open class SkillManager(
         _state.value = _state.value.copy(skills = skills.sortedBy { it.name }, isStale = false)
         UneffectRemovableMaps.resetFromSession(preferences, this)
     }
+
+    /** Remove a locally known skill (desktop removeAvailableSkill / Torpor forget). */
+    open fun forgetLocalSkill(skillId: Int) {
+        val skills = _state.value.skills.filterNot { it.id == skillId }
+        _state.value = _state.value.copy(skills = skills, isStale = false)
+        UneffectRemovableMaps.resetFromSession(preferences, this)
+    }
 }

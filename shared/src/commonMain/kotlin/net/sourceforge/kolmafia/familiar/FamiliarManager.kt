@@ -164,6 +164,16 @@ open class FamiliarManager(
     /** Test hook — sets internal state without going through the network. */
     internal fun testSetState(state: FamiliarState) { _state.value = state }
 
+    /**
+     * Desktop Hybridization Chamber: unequip held item on the active familiar and clear it
+     * (KoLCharacter.setFamiliar(NO_FAMILIAR)).
+     */
+    fun clearActiveFamiliarLocally() {
+        val active = _state.value.activeFamiliar ?: return
+        updateFamiliarEquipment(active.id, null)
+        _state.value = _state.value.copy(activeFamiliar = null)
+    }
+
     /** Desktop `CharPaneRequest.checkPokeFam` owned-familiar upsert from charpane team. */
     fun mergePokeTeam(slots: List<PokefamTeamSlot>) {
         val state = _state.value
