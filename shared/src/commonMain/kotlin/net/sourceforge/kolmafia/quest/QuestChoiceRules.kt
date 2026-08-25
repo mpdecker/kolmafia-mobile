@@ -32,6 +32,8 @@ object QuestChoiceRules {
         currentRun: Int = 0,
         resyncQuestLogPage1: () -> Unit = {},
         setLimitMode: (String) -> Unit = {},
+        character: net.sourceforge.kolmafia.character.KoLCharacter? = null,
+        skillManager: net.sourceforge.kolmafia.skill.SkillManager? = null,
         choiceUrl: String = "",
         adjustFullness: (Int) -> Unit = {},
         adjustSpleen: (Int) -> Unit = {},
@@ -64,6 +66,32 @@ object QuestChoiceRules {
     ): Boolean {
         var advanced = false
         when (choiceId) {
+            SpelunkyChoiceSync.ENTER,
+            SpelunkyChoiceSync.EXIT,
+            -> {
+                advanced = SpelunkyChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    character = character,
+                    inventory = inventoryManager,
+                    skillManager = skillManager,
+                    setLimitMode = setLimitMode,
+                ) || advanced
+            }
+            in 1028..1045 -> {
+                advanced = SpelunkyChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    character = character,
+                    inventory = inventoryManager,
+                    skillManager = skillManager,
+                    setLimitMode = setLimitMode,
+                ) || advanced
+            }
             FloristFriarChoiceSync.CHOICE_ID ->
                 advanced = FloristFriarChoiceSync.apply(choiceId, choiceUrl, responseText, preferences) || advanced
             TalesOfDreadChoiceSync.CHOICE_ID ->
@@ -455,10 +483,16 @@ object QuestChoiceRules {
             BatfellowChoiceSync.BEGINS,
             BatfellowChoiceSync.ENDS,
             BatfellowChoiceSync.ENDS_TIMEOUT,
+            BatfellowChoiceSync.SEDAN,
             -> {
                 advanced = BatfellowChoiceSync.apply(
                     choiceId = choiceId,
                     decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    character = character,
+                    inventory = inventoryManager,
+                    skillManager = skillManager,
                     setLimitMode = setLimitMode,
                 ) || advanced
             }

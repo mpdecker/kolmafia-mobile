@@ -2,7 +2,7 @@ package net.sourceforge.kolmafia.maximizer
 
 import net.sourceforge.kolmafia.character.EquipmentSlot
 
-/** Desktop [net.sourceforge.kolmafia.maximizer.Boost] equipment subset for emitSlot output. */
+/** Desktop [net.sourceforge.kolmafia.maximizer.Boost] for emitSlot / execute output. */
 data class MaximizerBoost(
     val cmd: String,
     val text: String,
@@ -13,6 +13,14 @@ data class MaximizerBoost(
     val isEquipment: Boolean = true,
     val familiarRace: String? = null,
     val priority: Boolean = false,
+    /** Effect name for cast/uneffect boosts. */
+    val effectName: String? = null,
+    /** True when this boost shrugs/removes an effect. */
+    val isShrug: Boolean = false,
+    /** Horsery horse name when cmd is horsery. */
+    val horseName: String? = null,
+    /** Modeable command payload when applicable. */
+    val modeableMode: String? = null,
 ) : Comparable<MaximizerBoost> {
     override fun compareTo(other: MaximizerBoost): Int {
         if (isEquipment != other.isEquipment) return if (isEquipment) -1 else 1

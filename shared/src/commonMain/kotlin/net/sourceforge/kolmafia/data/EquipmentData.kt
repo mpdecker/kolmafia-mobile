@@ -16,3 +16,10 @@ enum class WeaponStat {
     MYSTICALITY,
     MOXIE,
 }
+
+/** Desktop EquipmentDatabase.WeaponType — melee vs ranged weapons. */
+enum class WeaponType {
+    NONE,
+    MELEE,
+    RANGED,
+}

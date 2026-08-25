@@ -4,6 +4,9 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.adventure.prep.AdventureGateContext
+import net.sourceforge.kolmafia.adventure.prep.AdventurePrepareActions
+import net.sourceforge.kolmafia.adventure.prep.ItemIds
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.AdventureZone
@@ -77,7 +80,7 @@ class AdventurePrepTest {
 
     @Test
     fun canAdventureAt_falseWhenMainStatBelowRequirement() {
-        val lowStat = CharacterState(adventuresLeft = 5, buffedMusc = 10, characterClass = 1)
+        val lowStat = CharacterState(adventuresLeft = 5, buffedMusc = 10, characterClass = 1, level = 10)
         val highStatZone = AdventureZone(
             zoneName = "Manor1",
             urlParams = "adventure=388",
@@ -89,10 +92,11 @@ class AdventurePrepTest {
             isOverdrunk = false,
             noWander = false,
         )
-        assertFalse(AdventurePrep.canAdventureAt("The Haunted Kitchen", lowStat, highStatZone))
+        val p = prefs { putString("questM20Necklace", "started") }
+        assertFalse(AdventurePrep.canAdventureAt("The Haunted Kitchen", lowStat, highStatZone, p))
 
         val okStat = lowStat.copy(buffedMusc = 25)
-        assertTrue(AdventurePrep.canAdventureAt("The Haunted Kitchen", okStat, highStatZone))
+        assertTrue(AdventurePrep.canAdventureAt("The Haunted Kitchen", okStat, highStatZone, p))
     }
 
     @Test
@@ -315,6 +319,174 @@ class AdventurePrepTest {
                 pirateRealmSeas,
                 prefs(),
             ),
+        )
+    }
+
+    @Test
+    fun woodsOpen_requiresLarvaOrCitadel() {
+        AdventurePrep.resetForTest()
+        val prefs = prefs()
+        assertFalse(AdventurePrep.woodsOpen(prefs))
+        prefs.setString("questL02Larva", "started")
+        assertTrue(AdventurePrep.woodsOpen(prefs))
+    }
+
+    @Test
+    fun tooDrunkBlocksNormalZoneWithoutWineglass() {
+        AdventurePrep.resetForTest()
+        val drunk = CharacterState(adventuresLeft = 5, inebriety = 20, inebrietyLimit = 14)
+        val zone = AdventureZone(
+            zoneName = "Town",
+            urlParams = "adventure=112",
+            locationName = "The Sleazy Back Alley",
+            environment = "outdoor",
+            diffLevel = "low",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        assertTrue(AdventurePrep.tooDrunkToAdventure("The Sleazy Back Alley", drunk, zone))
+        assertFalse(AdventurePrep.canAdventureAt("The Sleazy Back Alley", drunk, zone))
+    }
+
+    @Test
+    fun tooDrunkAllowsSpelunkyLimitMode() {
+        AdventurePrep.resetForTest()
+        val drunk = CharacterState(
+            adventuresLeft = 5,
+            inebriety = 20,
+            inebrietyLimit = 14,
+            limitMode = "spelunky",
+        )
+        val zone = AdventureZone(
+            zoneName = "Spelunky",
+            urlParams = "place=spelunky",
+            locationName = "The Mines",
+            environment = "underground",
+            diffLevel = "mid",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        assertFalse(AdventurePrep.tooDrunkToAdventure("The Mines", drunk, zone))
+    }
+
+    @Test
+    fun gingerbreadRequiresAccessPref() {
+        AdventurePrep.resetForTest()
+        val cs = CharacterState(adventuresLeft = 5)
+        val zone = AdventureZone(
+            zoneName = "Gingerbread City",
+            urlParams = "adventure=477",
+            locationName = "Gingerbread Civic Center",
+            environment = "indoor",
+            diffLevel = "mid",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        assertFalse(AdventurePrep.canAdventureAtZone("Gingerbread Civic Center", cs, zone, prefs()))
+        assertTrue(
+            AdventurePrep.canAdventureAtZone(
+                "Gingerbread Civic Center",
+                cs,
+                zone,
+                prefs { putBoolean("gingerbreadCityAvailable", true) },
+            ),
+        )
+    }
+
+    @Test
+    fun shadowRiftGenericNeedsIngress() {
+        AdventurePrep.resetForTest()
+        val cs = CharacterState(adventuresLeft = 5)
+        val zone = AdventureZone(
+            zoneName = "Shadow Rift",
+            urlParams = "adventure=567",
+            locationName = "Shadow Rift",
+            environment = "other",
+            diffLevel = "mid",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        assertFalse(AdventurePrep.canAdventureAtZone("Shadow Rift", cs, zone, prefs()))
+        assertTrue(
+            AdventurePrep.canAdventureAtZone(
+                "Shadow Rift",
+                cs,
+                zone,
+                prefs { putString("shadowRiftIngress", "town") },
+            ),
+        )
+    }
+
+    @Test
+    fun copperheadClubRequiresShen() {
+        AdventurePrep.resetForTest()
+        val cs = CharacterState(adventuresLeft = 5)
+        val zone = AdventureZone(
+            zoneName = "Town",
+            urlParams = "adventure=383",
+            locationName = "The Copperhead Club",
+            environment = "indoor",
+            diffLevel = "mid",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        assertFalse(AdventurePrep.canAdventureAtZone("The Copperhead Club", cs, zone, prefs()))
+        val p = prefs { putString("questL11Shen", "started") }
+        assertTrue(AdventurePrep.canAdventureAtZone("The Copperhead Club", cs, zone, p))
+    }
+
+    @Test
+    fun resolveOutfitExpandsKnobHarem() {
+        assertEquals(
+            "Knob Goblin Harem Girl Disguise",
+            net.sourceforge.kolmafia.adventure.prep.AdventurePrepareActions.resolveOutfit(
+                "Cobb's Knob Harem",
+                null,
+            ),
+        )
+    }
+
+    @Test
+    fun sonarsToUse_scalesWithBatQuestStep() {
+        val started = AdventureGateContext(
+            preferences = prefs { putString("questL04Bat", "started") },
+        )
+        assertEquals(
+            1,
+            AdventurePrepareActions.sonarsToUse("The Batrat and Ratbat Burrow", started),
+        )
+        val step2 = AdventureGateContext(
+            preferences = prefs { putString("questL04Bat", "step2") },
+        )
+        assertEquals(
+            0,
+            AdventurePrepareActions.sonarsToUse("The Batrat and Ratbat Burrow", step2),
+        )
+        assertEquals(
+            1,
+            AdventurePrepareActions.sonarsToUse("The Boss Bat's Lair", step2),
+        )
+    }
+
+    @Test
+    fun filthwormGland_mapsOrchardZones() {
+        assertEquals(
+            ItemIds.FILTHWORM_HATCHLING_GLAND,
+            AdventurePrepareActions.needsFilthwormGland("The Filthworm Feeding Grounds"),
+        )
+        assertEquals(
+            ItemIds.FILTHWORM_GUARD_GLAND,
+            AdventurePrepareActions.needsFilthwormGland("The Filthworm Queen's Chamber"),
         )
     }
 }

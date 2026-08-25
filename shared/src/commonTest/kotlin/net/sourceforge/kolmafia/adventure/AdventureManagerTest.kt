@@ -58,6 +58,7 @@ class AdventureManagerTest {
         character: KoLCharacter? = null,
         skills: SkillManager? = null,
         inventory: InventoryManager? = null,
+        preferences: Preferences? = null,
     ): Triple<AdventureManager, GameEventBus, MutableList<GameEvent>> {
         val engine = MockEngine { request ->
             when {
@@ -83,7 +84,7 @@ class AdventureManagerTest {
             }
         }
         val character = character ?: KoLCharacter()
-        val prefs = Preferences(MapSettings())
+        val prefs = preferences ?: Preferences(MapSettings())
         val bus = GameEventBus()
         val received = mutableListOf<GameEvent>()
         val tracker = adventureSpentTracker ?: AdventureSpentTracker(prefs)
@@ -123,9 +124,9 @@ class AdventureManagerTest {
     fun runAdventures_incrementsAdventureSpentTracker() = runTest {
         runBlocking { AdventureDatabase.load() }
         val spookyForest = AdventureLocation("15", "The Spooky Forest", "Woods")
-        val prefs = Preferences(MapSettings())
+        val prefs = Preferences(MapSettings().apply { putString("questL02Larva", "started") })
         val tracker = AdventureSpentTracker(prefs)
-        val (manager, _, _) = makeManager(adventureSpentTracker = tracker)
+        val (manager, _, _) = makeManager(adventureSpentTracker = tracker, preferences = prefs)
 
         manager.runAdventures(spookyForest, 1, this).join()
 
@@ -137,9 +138,9 @@ class AdventureManagerTest {
     fun runAdventures_recordsLastNoncombatOnForceNcZone() = runTest {
         runBlocking { AdventureDatabase.load() }
         val spookyForest = AdventureLocation("15", "The Spooky Forest", "Woods")
-        val prefs = Preferences(MapSettings())
+        val prefs = Preferences(MapSettings().apply { putString("questL02Larva", "started") })
         val tracker = AdventureSpentTracker(prefs)
-        val (manager, _, _) = makeManager(adventureSpentTracker = tracker)
+        val (manager, _, _) = makeManager(adventureSpentTracker = tracker, preferences = prefs)
 
         manager.runAdventures(spookyForest, 1, this).join()
 

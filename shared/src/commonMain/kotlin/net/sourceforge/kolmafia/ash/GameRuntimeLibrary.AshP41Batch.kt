@@ -1,11 +1,14 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
 /**
  * AshP41 — monster combat-stat ASH library.
  * Mirrors desktop [RuntimeLibrary] monster_attack/defense/hp/initiative/phylum
- * using [MonsterDefinition] + desktop-lite ML adjustment (not MonsterStatusTracker).
+ * using [MonsterDefinition] + desktop-lite ML adjustment; in-fight no-arg
+ * [monster_hp] uses [MonsterStatusTracker.getMonsterHealth] (Phase 1371+).
  */
 internal fun GameRuntimeLibrary.registerAshP41Batch(scope: AshScope) {
     fun currentMl(): Int =
@@ -62,11 +65,17 @@ internal fun GameRuntimeLibrary.registerAshP41Batch(scope: AshScope) {
 
     regFn(scope, "monster_hp", AshType.INT, emptyList()) { _, _ ->
         AshValue.of(
-            CombatAdjustment.monsterHp(
-                lastMonster(),
-                currentMl(),
-                buildMonsterExpressionContext(),
-            ).toLong(),
+            if (ChoiceCombatAshState.currentRound > 0 &&
+                MonsterStatusTracker.getLastMonster() != null
+            ) {
+                MonsterStatusTracker.getMonsterHealth().toLong()
+            } else {
+                CombatAdjustment.monsterHp(
+                    lastMonster(),
+                    currentMl(),
+                    buildMonsterExpressionContext(),
+                ).toLong()
+            },
         )
     }
     regFn(scope, "monster_hp", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->

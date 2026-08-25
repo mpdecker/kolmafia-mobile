@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
+import net.sourceforge.kolmafia.session.FightCombatModeSync
 import net.sourceforge.kolmafia.skill.SkillType
 import net.sourceforge.kolmafia.track.TrackManager
 
@@ -20,6 +21,10 @@ internal fun GameRuntimeLibrary.registerAshP889Batch(scope: AshScope) {
             ChoiceCombatAshState.handlingChoice ||
                 adventureManager?.inChoiceResolution == true,
         )
+    }
+    // Phase 1371+: desktop FightRequest.wonInitiative()
+    regFn(scope, "won_initiative", AshType.BOOLEAN, emptyList()) { _, _ ->
+        AshValue.of(FightCombatModeSync.wonInitiativeThisFight())
     }
 }
 
@@ -155,7 +160,15 @@ internal fun GameRuntimeLibrary.registerAshP893Batch(scope: AshScope) {
             ChoiceCombatAshState.inMultiFight ||
             adventureManager?.inMultiFight == true
         if (!inFight) return ChoiceCombatAshState.lastFightResponseText
-        val response = visitKolPage("fight.php") ?: ChoiceCombatAshState.lastFightResponseText
+        val zoneId = preferences?.getString(net.sourceforge.kolmafia.preferences.Preferences.LAST_LOCATION, "")
+            ?.ifBlank { preferences?.getString("lastAdventure", "") }
+            .orEmpty()
+        val macro = resolveCombatMacro(zoneId.ifBlank { "0" })
+        val response = if (macro.isNotBlank()) {
+            visitKolFightMacro(macro) ?: ChoiceCombatAshState.lastFightResponseText
+        } else {
+            visitKolPage("fight.php") ?: ChoiceCombatAshState.lastFightResponseText
+        }
         if (response.isNotBlank()) ChoiceCombatAshState.noteFightRound(response)
         return response
     }
@@ -238,12 +251,38 @@ internal fun GameRuntimeLibrary.registerAshP895Batch(scope: AshScope) {
     regFn(scope, "tracked_by", stringArray, listOf("monster" to AshType.MONSTER)) { _, args ->
         val name = args[0].monsterRefName()
         val prefs = preferences ?: return@regFn stringListToArray(emptyList())
-        stringListToArray(TrackManager.trackedBy(prefs, name))
+        val turn = character?.state?.value?.currentRun ?: 0
+        stringListToArray(TrackManager.trackedBy(prefs, name, turn))
     }
     regFn(scope, "tracked_by", stringArray, listOf("monster" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
         val prefs = preferences ?: return@regFn stringListToArray(emptyList())
-        stringListToArray(TrackManager.trackedBy(prefs, name))
+        val turn = character?.state?.value?.currentRun ?: 0
+        stringListToArray(TrackManager.trackedBy(prefs, name, turn))
+    }
+    regFn(scope, "track_copy_count", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->
+        val name = args[0].monsterRefName()
+        val prefs = preferences ?: return@regFn AshValue.of(0)
+        val turn = character?.state?.value?.currentRun ?: 0
+        AshValue.of(TrackManager.countCopies(prefs, name, turn).toLong())
+    }
+    regFn(scope, "track_copy_count", AshType.INT, listOf("monster" to AshType.STRING)) { _, args ->
+        val name = args[0].toString()
+        val prefs = preferences ?: return@regFn AshValue.of(0)
+        val turn = character?.state?.value?.currentRun ?: 0
+        AshValue.of(TrackManager.countCopies(prefs, name, turn).toLong())
+    }
+    regFn(scope, "track_ignore_queue", AshType.BOOLEAN, listOf("monster" to AshType.MONSTER)) { _, args ->
+        val name = args[0].monsterRefName()
+        val prefs = preferences ?: return@regFn AshValue.of(false)
+        val turn = character?.state?.value?.currentRun ?: 0
+        AshValue.of(TrackManager.isQueueIgnored(prefs, name, turn))
+    }
+    regFn(scope, "track_ignore_queue", AshType.BOOLEAN, listOf("monster" to AshType.STRING)) { _, args ->
+        val name = args[0].toString()
+        val prefs = preferences ?: return@regFn AshValue.of(false)
+        val turn = character?.state?.value?.currentRun ?: 0
+        AshValue.of(TrackManager.isQueueIgnored(prefs, name, turn))
     }
 }
 

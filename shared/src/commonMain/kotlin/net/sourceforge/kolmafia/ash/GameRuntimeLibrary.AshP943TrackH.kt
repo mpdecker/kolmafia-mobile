@@ -37,10 +37,16 @@ internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
 
     // ── Phase 944: CCS (Combat Command Script) ─────────────────────
     regFn(scope, "set_ccs", AshType.BOOLEAN, listOf("name" to AshType.STRING)) { _, args ->
-        val name = args[0].toString()
+        val name = args[0].toString().trim()
         val path = "ccs/$name.ccs"
         val text = UserDataFileIO.readText(path)
-        AshValue.of(text != null)
+        if (text == null) {
+            AshValue.FALSE
+        } else {
+            net.sourceforge.kolmafia.combat.CombatActionManager.loadFromText(text, name, preferences)
+            preferences?.setString("battleAction", "custom combat script")
+            AshValue.TRUE
+        }
     }
 
     regFn(scope, "read_ccs", AshType.BUFFER, listOf("name" to AshType.STRING)) { _, args ->
@@ -57,6 +63,11 @@ internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
         val path = "ccs/$name.ccs"
         try {
             UserDataFileIO.writeText(path, data)
+            // Keep in-memory lookup in sync when writing the active CCS
+            val active = preferences?.getString("customCombatScript", "").orEmpty()
+            if (active.equals(name, ignoreCase = true) || active.isBlank()) {
+                net.sourceforge.kolmafia.combat.CombatActionManager.loadFromText(data, name, preferences)
+            }
             AshValue.TRUE
         } catch (_: Exception) {
             AshValue.FALSE

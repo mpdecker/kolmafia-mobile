@@ -16,7 +16,7 @@ object ChoiceCombatAshState {
     var lastFightResponseText: String = ""
     /** Last relay-style form fields for [form_fields] ASH (name → value). */
     var lastFormFields: MutableMap<String, String> = linkedMapOf()
-    /** Optional combat filter override from [run_combat] (Macrofier parity stub). */
+    /** Optional combat filter override from [run_combat] (Macrofier parity — live). */
     var combatFilterOverride: String? = null
 
     fun reset() {

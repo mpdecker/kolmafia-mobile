@@ -135,6 +135,11 @@ open class SessionManager(
                         }
                         junkListManager?.load(preferences)
                         BuffBotDatabase.load()
+                        FightDiscoComboSync.initializeFromCharacter(
+                            character,
+                            preferences,
+                            skillManager,
+                        )
                         httpClient?.let { client ->
                             appScope.launch {
                                 try {

@@ -30,7 +30,9 @@ import net.sourceforge.kolmafia.faxbot.FaxBotManager
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.combat.RandomModifierStats
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
+import net.sourceforge.kolmafia.campground.CampgroundSync
 import net.sourceforge.kolmafia.campground.GardenSync
+import net.sourceforge.kolmafia.campground.MushroomManager
 import net.sourceforge.kolmafia.campground.MushroomPlotSync
 import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.concoction.StillSync
@@ -63,6 +65,7 @@ import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
+import net.sourceforge.kolmafia.familiar.FamiliarSync
 import net.sourceforge.kolmafia.inventory.AccessCountContext
 import net.sourceforge.kolmafia.inventory.AccessibleItemCount
 import net.sourceforge.kolmafia.inventory.CollectionCacheSync
@@ -88,8 +91,10 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
+import net.sourceforge.kolmafia.request.BatFellowRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
 import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
+import net.sourceforge.kolmafia.request.SpelunkyRequest
 import net.sourceforge.kolmafia.request.ZapRequest
 import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
@@ -101,6 +106,7 @@ import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.StillSuitRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
+import net.sourceforge.kolmafia.request.CreateItemCraftSync
 import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.shop.NpcShopSync
 import net.sourceforge.kolmafia.shop.ShopInventorySync
@@ -182,6 +188,7 @@ import net.sourceforge.kolmafia.quest.MelvinShirtSync
 import net.sourceforge.kolmafia.quest.Cell37EscapeSync
 import net.sourceforge.kolmafia.quest.ShenSync
 import net.sourceforge.kolmafia.request.PeeVPeeRequest
+import net.sourceforge.kolmafia.request.PlaceSync
 import net.sourceforge.kolmafia.request.ProfileRequest
 import net.sourceforge.kolmafia.request.PortalRequest
 import net.sourceforge.kolmafia.request.ElvmachineRequest
@@ -248,6 +255,7 @@ import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.SushiConsumptionSync
 import net.sourceforge.kolmafia.request.BarrelChoiceMapper
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
@@ -270,6 +278,8 @@ import net.sourceforge.kolmafia.session.CryptManager
 import net.sourceforge.kolmafia.session.ElVibratoManager
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.EventHistory
+import net.sourceforge.kolmafia.session.RequestLogger
+import net.sourceforge.kolmafia.session.ResponseTextParser
 import net.sourceforge.kolmafia.session.PeeVPeeSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
@@ -346,6 +356,7 @@ class GameRuntimeLibrary(
     internal val retrieveItemService: RetrieveItemService? = null,
     internal val outfitManager: OutfitManager? = null,
     internal val equipmentRequest: EquipmentRequest? = null,
+    internal val equipmentManager: net.sourceforge.kolmafia.session.EquipmentManager? = null,
     internal val coinmasterManager: CoinmasterManager? = null,
     internal val craftRequest: CraftRequest? = null,
     internal val manageStoreRequest: ManageStoreRequest? = null,
@@ -464,7 +475,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase1070"
+        const val REVISION = "phase2450"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -482,6 +493,9 @@ class GameRuntimeLibrary(
     internal var elseValid: Boolean = false
 
     fun resolveCombatMacro(zoneId: String): String {
+        net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return net.sourceforge.kolmafia.combat.Macrofier.macrofy(filterOverride = it) ?: it }
         evaluateCombatAction()?.takeIf { it.isNotBlank() }?.let { return it }
         val prefs = preferences ?: return MacroStrategy.SAFE_DEFAULT
         return MacroStrategy.forLocation(zoneId, prefs)
@@ -2690,6 +2704,9 @@ class GameRuntimeLibrary(
     }
 
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
+        if (url != null) {
+            RequestLogger.registerRequest(url, sessionLogger, preferences)
+        }
         EventHistory.checkForNewEvents(html)
         if (url?.contains("charsheet.php", ignoreCase = true) == true) {
             GreyYouManager.parseAbsorptions(
@@ -2972,15 +2989,63 @@ class GameRuntimeLibrary(
                 turnsPlayed = character?.state?.value?.turnsPlayed ?: 0,
             )
         }
+        if (url != null && url.contains("craft.php", ignoreCase = true)) {
+            craftRequest?.applyCraftResponse(url, html)
+                ?: CreateItemCraftSync.parseCrafting(
+                    location = url,
+                    responseText = html,
+                    inventory = inventoryManager,
+                    preferences = preferences,
+                    characterState = character?.state?.value,
+                    sessionLogger = sessionLogger,
+                )
+        }
+        if (url != null && (
+            url.contains("inv_equip.php", ignoreCase = true) ||
+                (url.contains("inventory.php", ignoreCase = true) &&
+                    url.contains("action=holster", ignoreCase = true))
+            )
+        ) {
+            EquipmentRequest.parseEquipmentChange(url, html, equipmentManager)
+        }
         if (url != null && url.contains("inv_use.php", ignoreCase = true)) {
             extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
-                QuestItemUsedSync.apply(
+                val qty = extractUseQuantity(url)
+                val questHandled = QuestItemUsedSync.apply(
                     itemId,
                     html,
                     questDatabase,
                     preferences,
-                    consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
-                    count = extractUseQuantity(url),
+                    consumeItem = { id, q -> inventoryManager?.consumeItemLocally(id, q) },
+                    count = qty,
+                )
+                UseItemConsumptionSync.rememberLastItem(itemId, qty)
+                UseItemConsumptionSync.parseConsumption(
+                    responseText = html,
+                    itemId = itemId,
+                    count = qty,
+                    preferences = preferences,
+                    character = character,
+                    inventory = if (questHandled) null else inventoryManager,
+                )
+            }
+        }
+        if (url != null && (
+            url.contains("inv_eat.php", ignoreCase = true) ||
+                url.contains("inv_booze.php", ignoreCase = true) ||
+                url.contains("inv_spleen.php", ignoreCase = true)
+            )
+        ) {
+            extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
+                val qty = extractUseQuantity(url)
+                UseItemConsumptionSync.rememberLastItem(itemId, qty)
+                UseItemConsumptionSync.parseConsumption(
+                    responseText = html,
+                    itemId = itemId,
+                    count = qty,
+                    preferences = preferences,
+                    character = character,
+                    inventory = inventoryManager,
                 )
             }
         }
@@ -2993,6 +3058,25 @@ class GameRuntimeLibrary(
             DreadScrollManager.handleDeepDarkVisions(html, preferences, sessionLogger)
         }
         if (url != null && (
+                url.contains("skills.php", ignoreCase = true) ||
+                    url.contains("skillz.php", ignoreCase = true)
+            ) && url.contains("whichskill=", ignoreCase = true)
+        ) {
+            net.sourceforge.kolmafia.skill.UseSkillSync.parseResponse(
+                urlString = url,
+                responseText = html,
+                preferences = preferences,
+                character = character,
+            )
+        }
+        ResponseTextParser.externalUpdate(
+            url = url,
+            html = html,
+            preferences = preferences,
+            character = character,
+            inventory = inventoryManager,
+        )
+        if (url != null && (
                 url.contains("charpane.php", ignoreCase = true) ||
                 url.endsWith("/charpane.php", ignoreCase = true)
             )
@@ -3001,8 +3085,13 @@ class GameRuntimeLibrary(
             ClanIdSync.apply(html)
         }
         if (url != null && url.contains("campground.php", ignoreCase = true)) {
-            character?.let { GardenSync.apply(it, html, preferences) }
-            CampgroundItemSync.apply(preferences, html, url, character)
+            CampgroundSync.parseResponse(
+                url = url,
+                html = html,
+                preferences = preferences,
+                character = character,
+                inventory = inventoryManager,
+            )
             preferences?.let { prefs ->
                 PortalRequest.parseResponse(
                     url = url,
@@ -3054,6 +3143,15 @@ class GameRuntimeLibrary(
         if (url != null && url.contains("showplayer.php", ignoreCase = true)) {
             ProfileRequest.applyFromVisit(html, url, character)
         }
+        if (url != null && url.contains("place.php", ignoreCase = true)) {
+            PlaceSync.parseResponse(
+                url = url,
+                html = html,
+                preferences = preferences,
+                character = character,
+                inventory = inventoryManager,
+            )
+        }
         if (url != null && url.contains("place.php", ignoreCase = true) &&
             url.contains("place=twitch", ignoreCase = true)
         ) {
@@ -3063,6 +3161,17 @@ class GameRuntimeLibrary(
             url.contains("whichplace=crimbo23", ignoreCase = true)
         ) {
             preferences?.let { Crimbo23ZoneSync.syncFromPlaceHtml(html, it) }
+        }
+        if (url != null && url.contains("place.php", ignoreCase = true) &&
+            url.contains("whichplace=spelunky", ignoreCase = true)
+        ) {
+            SpelunkyRequest.parseResponse(url, html, preferences)
+        }
+        if (url != null && url.contains("place.php", ignoreCase = true) &&
+            url.contains("batman_", ignoreCase = true)
+        ) {
+            BatFellowRequest.parseResponse(url, html, preferences)
+            BatFellowRequest.registerRequest(url, preferences, sessionLogger)
         }
         if (url != null && (
                 url.contains("adventure.php", ignoreCase = true) ||
@@ -3088,7 +3197,9 @@ class GameRuntimeLibrary(
             }
         }
         if (url != null && url.contains("knoll_mushrooms.php", ignoreCase = true)) {
-            character?.let { MushroomPlotSync.apply(preferences, it, html, url) }
+            character?.let {
+                MushroomManager.parsePlot(html, preferences, it, url)
+            }
         }
         if (url != null && url.contains("sushi.php", ignoreCase = true)) {
             SushiConsumptionSync.parseConsumptionFromVisit(
@@ -3253,9 +3364,17 @@ class GameRuntimeLibrary(
                 ShopInventoryVisitSync.parseAndWrite(html, preferences!!)
             }
         }
-        // Track L sync (Phase 969)
-        if (url != null && url.contains("familiar.php", ignoreCase = true) && preferences != null) {
-            FamiliarEquipmentLockSync.parseAndWrite(html, preferences!!)
+        // Track L sync (Phase 969) + FamiliarSync hub (Phases 2421–2450)
+        if (url != null && url.contains("familiar.php", ignoreCase = true)) {
+            FamiliarSync.parseResponse(
+                url = url,
+                html = html,
+                familiarManager = familiarManager,
+                preferences = preferences,
+                character = character,
+                equipmentManager = equipmentManager,
+            )
+            preferences?.let { FamiliarEquipmentLockSync.parseAndWrite(html, it) }
         }
         character?.let { SessionMeatSync.apply(it, html) }
         character?.state?.value?.let { state ->
@@ -3846,7 +3965,8 @@ class GameRuntimeLibrary(
             buffedMoxie = state.buffedMoxie,
             monsterLevel = ml,
             mindControlLevel = state.mindControlLevel,
-            basementLevel = 0,
+            basementLevel = preferences?.getInt("basementLevel", 0)?.takeIf { it > 0 }
+                ?: net.sourceforge.kolmafia.request.BasementSync.basementLevel,
             characterMaxHp = state.maxHp,
             equippedItemNames = state.equippedItems()
                 .map { it.second.lowercase() }
@@ -4138,6 +4258,8 @@ class GameRuntimeLibrary(
                         kotlinx.coroutines.runBlocking { questLogRequest?.syncPage(1) }
                     },
                     setLimitMode = { mode -> character?.updateLimitMode(mode) },
+                    character = character,
+                    skillManager = skillManager,
                     choiceUrl = extraFormFields.entries.joinToString("&") { "${it.key}=${it.value}" },
                     adjustFullness = { delta ->
                         val s = character?.state?.value ?: return@apply
@@ -4661,6 +4783,30 @@ class GameRuntimeLibrary(
                 htmlOut = html
                 processVisitResponseHooks(html, "$KOL_BASE_URL/$path")
                 processVisitQuestHooks(html, "$KOL_BASE_URL/$path")
+            } catch (_: Exception) {
+                // best-effort
+            }
+        }
+        return htmlOut
+    }
+
+    /** Desktop FightRequest macro submit — action=macro + macrotext. */
+    internal fun visitKolFightMacro(macroText: String): String? {
+        val client = httpClient ?: return null
+        var htmlOut: String? = null
+        kotlinx.coroutines.runBlocking {
+            try {
+                val response = client.submitForm(
+                    url = "$KOL_BASE_URL/fight.php",
+                    formParameters = io.ktor.http.parameters {
+                        append("action", "macro")
+                        append("macrotext", macroText)
+                    },
+                )
+                val html = response.bodyAsText()
+                htmlOut = html
+                processVisitResponseHooks(html, "$KOL_BASE_URL/fight.php")
+                processVisitQuestHooks(html, "$KOL_BASE_URL/fight.php")
             } catch (_: Exception) {
                 // best-effort
             }

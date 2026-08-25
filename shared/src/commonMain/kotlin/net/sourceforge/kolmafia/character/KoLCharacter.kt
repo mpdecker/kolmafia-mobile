@@ -303,6 +303,10 @@ class KoLCharacter {
         _state.value = _state.value.copy(autoAttackAction = action)
     }
 
+    fun setPlayerId(id: Int) {
+        _state.value = _state.value.copy(playerId = id)
+    }
+
     fun setZodiacSign(sign: String) {
         _state.value = _state.value.copy(zodiacSign = sign)
     }

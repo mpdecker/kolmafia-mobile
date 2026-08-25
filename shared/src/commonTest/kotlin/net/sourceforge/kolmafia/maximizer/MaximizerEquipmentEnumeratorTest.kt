@@ -120,7 +120,7 @@ class MaximizerEquipmentEnumeratorTest {
     }
 
     @Test
-    fun enumerate_sixgunWithHands_routesToWeapon1hAndOffhandRanged() {
+    fun enumerate_sixgunWithHands_routesToHolsterAndOffhandRanged() {
         val db = stubDb(
             301 to ItemData(301, "peashooter", "", "", ItemPrimaryUse.SIXGUN, emptySet(), setOf('t'), 0, null),
             modifiers = mapOf("peashooter" to "Mysticality: +3"),
@@ -144,7 +144,7 @@ class MaximizerEquipmentEnumeratorTest {
             },
             itemMeetsConstraints = { _, _ -> true },
         )
-        assertEquals(listOf("peashooter"), buckets.allItems(MaximizerSlot.WEAPON_1H).map { it.name })
+        assertEquals(listOf("peashooter"), buckets.allItems(MaximizerSlot.HOLSTER).map { it.name })
         assertEquals(listOf("peashooter"), buckets.allItems(MaximizerSlot.OFFHAND_RANGED).map { it.name })
     }
 

@@ -93,6 +93,34 @@ class AshCompatibilityCorpusTest {
     }
 
     @Test
+    fun corpus_ccsSectionAndFilterOverride() {
+        net.sourceforge.kolmafia.combat.CombatActionManager.resetForTest()
+        val p = prefs()
+        net.sourceforge.kolmafia.combat.CombatActionManager.loadFromText(
+            """
+            [ default ]
+            skill saucegeyser
+            attack with weapon
+            """.trimIndent(),
+            name = "corpus",
+            preferences = p,
+        )
+        p.setString("battleAction", "custom combat script")
+        val lib = GameRuntimeLibrary(preferences = p)
+        assertEquals("skill saucegeyser", outputLib(lib, "print(get_ccs_action(0));"))
+        assertEquals("attack with weapon", outputLib(lib, "print(get_ccs_action(1));"))
+        // Filter override is consulted by Macrofier / resolveCombatMacro
+        net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride = "abort \"filter\""
+        try {
+            val macro = lib.resolveCombatMacro("0")
+            assertTrue(macro.contains("abort"))
+        } finally {
+            net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride = null
+        }
+        net.sourceforge.kolmafia.combat.CombatActionManager.resetForTest()
+    }
+
+    @Test
     fun corpus_cliHighTrafficSnippets() {
         val p = prefs()
         p.registerCounterName("kills")

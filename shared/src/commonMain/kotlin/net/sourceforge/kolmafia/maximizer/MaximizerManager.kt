@@ -1494,15 +1494,11 @@ open class MaximizerManager(
         val isCreatable = gameDatabase.recipe(itemName) != null
         if (spec.allowCreatable && !isCreatable) return false
         if (spec.forbidCreatable && isCreatable) return false
-        val entry = gameDatabase.itemModifier(itemName) ?: return spec.requiredBooleans.isEmpty()
+        // Per-item: only reject VIOLATES (forbidden booleans). Required booleans are
+        // loadout-level (desktop getScore / checkConstraints MEETS ranking).
+        val entry = gameDatabase.itemModifier(itemName) ?: return true
         val mods = ModifierParser.parse(entry.modifiers)
-        for (req in spec.requiredBooleans) {
-            if (!mods.get(req)) return false
-        }
-        for (forbid in spec.forbiddenBooleans) {
-            if (mods.get(forbid)) return false
-        }
-        return true
+        return spec.evaluator.checkConstraints(mods) != Evaluator.Constraint.VIOLATES
     }
 
     internal fun effectivePrice(itemName: String): Int {
@@ -1716,7 +1712,8 @@ open class MaximizerManager(
 
     private fun slotForItem(item: ItemData): EquipmentSlot? = when (item.primaryUse) {
         ItemPrimaryUse.HAT -> EquipmentSlot.HAT
-        ItemPrimaryUse.WEAPON, ItemPrimaryUse.SIXGUN -> EquipmentSlot.WEAPON
+        ItemPrimaryUse.WEAPON -> EquipmentSlot.WEAPON
+        ItemPrimaryUse.SIXGUN -> EquipmentSlot.HOLSTER
         ItemPrimaryUse.OFFHAND -> EquipmentSlot.OFFHAND
         ItemPrimaryUse.SHIRT -> EquipmentSlot.SHIRT
         ItemPrimaryUse.PANTS -> EquipmentSlot.PANTS
@@ -1728,7 +1725,8 @@ open class MaximizerManager(
 
     private fun fitsSlot(item: ItemData, slot: EquipmentSlot): Boolean = when (slot) {
         EquipmentSlot.HAT -> item.primaryUse == ItemPrimaryUse.HAT
-        EquipmentSlot.WEAPON -> item.primaryUse in setOf(ItemPrimaryUse.WEAPON, ItemPrimaryUse.SIXGUN)
+        EquipmentSlot.WEAPON -> item.primaryUse == ItemPrimaryUse.WEAPON
+        EquipmentSlot.HOLSTER -> item.primaryUse == ItemPrimaryUse.SIXGUN
         EquipmentSlot.OFFHAND -> item.primaryUse == ItemPrimaryUse.OFFHAND
         EquipmentSlot.SHIRT -> item.primaryUse == ItemPrimaryUse.SHIRT
         EquipmentSlot.PANTS -> item.primaryUse == ItemPrimaryUse.PANTS

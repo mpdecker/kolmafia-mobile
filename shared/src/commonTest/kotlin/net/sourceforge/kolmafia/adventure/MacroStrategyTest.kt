@@ -1,32 +1,43 @@
 package net.sourceforge.kolmafia.adventure
 
 import com.russhwolf.settings.MapSettings
-import net.sourceforge.kolmafia.preferences.Preferences
+import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import net.sourceforge.kolmafia.combat.CombatActionManager
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
 class MacroStrategyTest {
+    private lateinit var prefs: Preferences
 
-    private fun prefs() = Preferences(MapSettings())
-
-    @Test
-    fun fallsBackToSafeDefault_whenNothingSet() {
-        assertEquals(MacroStrategy.SAFE_DEFAULT, MacroStrategy.forLocation("1", prefs()))
+    @BeforeTest
+    fun setUp() {
+        CombatActionManager.resetForTest()
+        ChoiceCombatAshState.reset()
+        prefs = Preferences(MapSettings())
     }
 
     @Test
-    fun usesGlobalDefault_whenSet() {
-        val p = prefs()
-        p.setString("combatMacroDefault", "skill 3004")
-        assertEquals("skill 3004", MacroStrategy.forLocation("1", p))
+    fun ccsMacroPreferredOverZonePref() {
+        prefs.setString("combatMacroDefault", "zone-fallback-macro")
+        CombatActionManager.loadFromText(
+            """
+            [ default ]
+            attack with weapon
+            """.trimIndent(),
+            preferences = prefs,
+        )
+        prefs.setString("battleAction", "custom combat script")
+        val macro = MacroStrategy.forLocation("15", prefs)
+        assertContains(macro, "attack")
+        assertEquals(false, macro.contains("zone-fallback-macro"))
     }
 
     @Test
-    fun usesPerZoneOverride_whenSet() {
-        val p = prefs()
-        p.setString("combatMacroDefault", "skill 3004")
-        p.setString("combatMacro_1", "skill 3005")
-        assertEquals("skill 3005", MacroStrategy.forLocation("1", p))
+    fun zonePrefWhenNoCcs() {
+        prefs.setString("combatMacro_15", "custom zone macro")
+        assertEquals("custom zone macro", MacroStrategy.forLocation("15", prefs))
     }
-
 }

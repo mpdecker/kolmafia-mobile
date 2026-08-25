@@ -103,6 +103,17 @@ class GameRuntimeLibraryAshP889TrackATest {
     }
 
     @Test
+    fun phase1091_trackCopyCountAndIgnoreQueue() {
+        val p = prefs()
+        TrackManager.trackMonster(p, "spooky vampire", TrackManager.Tracker.OLFACTION, 10)
+        val lib = GameRuntimeLibrary(preferences = p)
+        assertEquals("3", outputLib(lib, """print(track_copy_count("spooky vampire"));"""))
+        assertEquals("true", outputLib(lib, """print(track_ignore_queue("spooky vampire"));"""))
+        assertEquals("0", outputLib(lib, """print(track_copy_count("dairy goat"));"""))
+        assertEquals("false", outputLib(lib, """print(track_ignore_queue("dairy goat"));"""))
+    }
+
+    @Test
     fun phase896_combatSkillAndStun() {
         val char = KoLCharacter().also {
             it.updateFromApiResponse(CharacterApiResponse(name = "Tester", classId = "1"))

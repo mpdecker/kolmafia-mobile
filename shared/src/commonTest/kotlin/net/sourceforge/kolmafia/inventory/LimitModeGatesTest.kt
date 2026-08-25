@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.inventory
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import net.sourceforge.kolmafia.character.EquipmentSlot
 
 class LimitModeGatesTest {
 
@@ -32,5 +33,49 @@ class LimitModeGatesTest {
     fun limitEating_normalPlay_false() {
         assertFalse(LimitModeGates.limitEating(""))
         assertFalse(LimitModeGates.limitDrinking("bird"))
+    }
+
+    @Test
+    fun limitZone_noneBlocksSpelunkyArea() {
+        assertTrue(LimitModeGates.limitZone("Spelunky Area", ""))
+        assertTrue(LimitModeGates.limitZone("Batfellow Area", "none"))
+        assertFalse(LimitModeGates.limitZone("The Seaside Town", ""))
+    }
+
+    @Test
+    fun limitZone_spelunkyAllowsOnlySpelunkyArea() {
+        assertFalse(LimitModeGates.limitZone("Spelunky Area", "spelunky"))
+        assertTrue(LimitModeGates.limitZone("Batfellow Area", "spelunky"))
+        assertTrue(LimitModeGates.limitZone("The Seaside Town", "spelunky"))
+    }
+
+    @Test
+    fun limitZone_batmanAllowsOnlyBatfellowArea() {
+        assertFalse(LimitModeGates.limitZone("Batfellow Area", "batman"))
+        assertTrue(LimitModeGates.limitZone("Spelunky Area", "batman"))
+    }
+
+    @Test
+    fun limitSkill_spelunkyAllowsThrowSkills() {
+        assertFalse(LimitModeGates.limitSkill("spelunky", 7238))
+        assertFalse(LimitModeGates.limitSkill("spelunky", 7244))
+        assertTrue(LimitModeGates.limitSkill("spelunky", 1000))
+        assertTrue(LimitModeGates.limitSkill("batman", 7255))
+    }
+
+    @Test
+    fun limitSlot_spelunkyAllowsCoreSlots() {
+        assertFalse(LimitModeGates.limitSlot("spelunky", EquipmentSlot.HAT))
+        assertFalse(LimitModeGates.limitSlot("spelunky", EquipmentSlot.WEAPON))
+        assertTrue(LimitModeGates.limitSlot("spelunky", EquipmentSlot.PANTS))
+        assertTrue(LimitModeGates.limitSlot("batman", EquipmentSlot.HAT))
+    }
+
+    @Test
+    fun limitMeatPickpocketMcd() {
+        assertTrue(LimitModeGates.limitMeat("spelunky"))
+        assertTrue(LimitModeGates.limitPickpocket("batman"))
+        assertTrue(LimitModeGates.limitMCD("spelunky"))
+        assertFalse(LimitModeGates.limitMeat(""))
     }
 }

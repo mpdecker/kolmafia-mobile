@@ -72,4 +72,9 @@ class EffectManager(
         _state.value = EffectState(effects = emptyList(), isStale = false)
         eventBus.tryEmit(GameEvent.EffectsRefreshed)
     }
+
+    /** Test / ResultProcessor hook — replace active effects without HTTP. */
+    fun replaceEffectsForTest(effects: List<EffectData>) {
+        _state.value = EffectState(effects = effects, isStale = false)
+    }
 }

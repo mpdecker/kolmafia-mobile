@@ -5,33 +5,52 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConcoctionData
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.craftMode
+import net.sourceforge.kolmafia.data.createMethodToken
+import net.sourceforge.kolmafia.data.isBarrelCraftable
+import net.sourceforge.kolmafia.data.isBurningLeavesCraftable
 import net.sourceforge.kolmafia.data.isClipArtCraftable
 import net.sourceforge.kolmafia.data.isCoinmasterCraftable
 import net.sourceforge.kolmafia.data.isCreateSupported
-import net.sourceforge.kolmafia.data.isBarrelCraftable
+import net.sourceforge.kolmafia.data.isFantasyRealmCraftable
+import net.sourceforge.kolmafia.data.isFloundryCraftable
+import net.sourceforge.kolmafia.data.isGnomePartCraftable
 import net.sourceforge.kolmafia.data.isJewelCraftable
 import net.sourceforge.kolmafia.data.isMalusCraftable
+import net.sourceforge.kolmafia.data.isMayamCraftable
+import net.sourceforge.kolmafia.data.isMeteoroidCraftable
 import net.sourceforge.kolmafia.data.isMuseCraftable
+import net.sourceforge.kolmafia.data.isNewspaperCraftable
 import net.sourceforge.kolmafia.data.isPhineasCraftable
-import net.sourceforge.kolmafia.data.isStaffCraftable
-import net.sourceforge.kolmafia.data.isSushiCraftable
-import net.sourceforge.kolmafia.data.isTinkerCraftable
+import net.sourceforge.kolmafia.data.isPhotoBoothCraftable
 import net.sourceforge.kolmafia.data.isRollCraftable
+import net.sourceforge.kolmafia.data.isSausageCraftable
 import net.sourceforge.kolmafia.data.isSewerCraftable
+import net.sourceforge.kolmafia.data.isSpacegateCraftable
+import net.sourceforge.kolmafia.data.isStaffCraftable
 import net.sourceforge.kolmafia.data.isStationCraftable
 import net.sourceforge.kolmafia.data.isStillCraftable
+import net.sourceforge.kolmafia.data.isStillsuitCraftable
 import net.sourceforge.kolmafia.data.isSuseCraftable
+import net.sourceforge.kolmafia.data.isSushiCraftable
+import net.sourceforge.kolmafia.data.isTakerspaceCraftable
 import net.sourceforge.kolmafia.data.isTerminalCraftable
+import net.sourceforge.kolmafia.data.isTinkerCraftable
 import net.sourceforge.kolmafia.data.isVykeaCraftable
+import net.sourceforge.kolmafia.data.isWaxCraftable
+import net.sourceforge.kolmafia.data.isWoolCraftable
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.item.CreateItemIngredients
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.shop.ShopRequest
 
-/** Desktop CreateItemRequest v13 — method router for station/SUSE/STILL/COINMASTER/CLIPART/ROLL/TERMINAL/SEWER/VYKEA/MUSE/PHINEAS/STAFF/GNOME_TINKER/SUSHI/MALUS/JEWEL/BARREL create. */
+/**
+ * Desktop CreateItemRequest router (Phases 2151–2210) — station/SUSE/specialty/
+ * IoTM/camp create methods.
+ */
 class ConcoctionCreateRequest(
     private val retrieveItemService: RetrieveItemService?,
     private val craftRequest: CraftRequest?,
@@ -41,6 +60,8 @@ class ConcoctionCreateRequest(
     private val shopRequest: ShopRequest? = null,
     private val coinmasterManager: CoinmasterManager? = null,
     private val character: KoLCharacter? = null,
+    private val preferences: Preferences? = null,
+    private val inventoryManager: InventoryManager? = null,
     private val clipArtCreateRequest: ClipArtCreateRequest? = null,
     private val rollingPinCreateRequest: RollingPinCreateRequest? = null,
     private val terminalExtrudeCreateRequest: TerminalExtrudeCreateRequest? = null,
@@ -54,6 +75,20 @@ class ConcoctionCreateRequest(
     private val malusCreateRequest: MalusCreateRequest? = null,
     private val jewelCreateRequest: JewelCreateRequest? = null,
     private val barrelCreateRequest: BarrelCreateRequest? = null,
+    private val waxCreateRequest: ChoiceUseCreateRequest? = null,
+    private val newspaperCreateRequest: ChoiceUseCreateRequest? = null,
+    private val meteoroidCreateRequest: ChoiceUseCreateRequest? = null,
+    private val woolCreateRequest: ChoiceUseCreateRequest? = null,
+    private val sausageCreateRequest: SausageOMaticCreateRequest? = null,
+    private val burningLeavesCreateRequest: BurningLeavesCreateRequest? = null,
+    private val floundryCreateRequest: FloundryCreateRequest? = null,
+    private val stillSuitCreateRequest: StillSuitCreateRequest? = null,
+    private val mayamCreateRequest: MayamCreateRequest? = null,
+    private val photoBoothCreateRequest: PhotoBoothCreateRequest? = null,
+    private val takerSpaceCreateRequest: TakerSpaceCreateRequest? = null,
+    private val gnomePartCreateRequest: GnomePartCreateRequest? = null,
+    private val spacegateCreateRequest: SpacegateCreateRequest? = null,
+    private val fantasyRealmCreateRequest: FantasyRealmCreateRequest? = null,
 ) {
     private val stillCreateRequest = StillCreateRequest(
         shopRequest = shopRequest,
@@ -69,6 +104,9 @@ class ConcoctionCreateRequest(
         preferences: Preferences? = null,
     ): Result<Int> {
         if (quantity <= 0) return Result.success(0)
+        if (CreateAbortGate.shouldAbort()) {
+            return Result.failure(IllegalStateException("Cannot create while in fight or choice"))
+        }
         val concoction = ConcoctionDatabase.getByResult(concoctionName)
             ?: return Result.failure(IllegalStateException("No concoction for: $concoctionName"))
         if (!concoction.isCreateSupported()) {
@@ -77,37 +115,92 @@ class ConcoctionCreateRequest(
 
         val retrieve = retrieveItemService
             ?: return Result.failure(IllegalStateException("RetrieveItemService not configured"))
+        val prefs = preferences ?: this.preferences
+        val liveState = state ?: character?.state?.value
+
+        if (liveState != null) {
+            val method = concoction.createMethodToken().ifBlank {
+                when {
+                    concoction.isStationCraftable() -> concoction.craftMode()?.name ?: "COOK"
+                    else -> ""
+                }
+            }
+            if (method.isNotBlank()) {
+                val repaired = CreateBoxServantRepair.autoRepair(
+                    method = method,
+                    state = liveState,
+                    preferences = prefs,
+                    retrieveItemService = retrieve,
+                    useItemRequest = useItemRequest,
+                    inventoryManager = inventoryManager,
+                )
+                if (!repaired) {
+                    return Result.failure(IllegalStateException("Box servant / kitchen repair failed"))
+                }
+            }
+        }
 
         return try {
             val created = when {
                 concoction.isClipArtCraftable() ->
-                    clipArtCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    clipArtCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isRollCraftable() ->
                     rollingPinCreateRequest?.create(concoction, quantity)?.getOrThrow() ?: 0
                 concoction.isTerminalCraftable() ->
-                    terminalExtrudeCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    terminalExtrudeCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isSewerCraftable() ->
-                    sewerCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    sewerCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isVykeaCraftable() ->
-                    vykeaCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    vykeaCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isMuseCraftable() ->
-                    museCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    museCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isPhineasCraftable() ->
-                    phineasCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    phineasCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isStaffCraftable() ->
-                    staffCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    staffCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isTinkerCraftable() ->
-                    gnomeTinkerCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    gnomeTinkerCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isSushiCraftable() ->
-                    sushiCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    sushiCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isMalusCraftable() ->
-                    malusCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    malusCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isJewelCraftable() ->
-                    jewelCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    jewelCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isBarrelCraftable() ->
-                    barrelCreateRequest?.create(concoction, quantity, state, preferences)?.getOrThrow() ?: 0
+                    barrelCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isWaxCraftable() ->
+                    waxCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isNewspaperCraftable() ->
+                    newspaperCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isMeteoroidCraftable() ->
+                    meteoroidCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isWoolCraftable() ->
+                    woolCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isSausageCraftable() ->
+                    sausageCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isBurningLeavesCraftable() ->
+                    burningLeavesCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isFloundryCraftable() ->
+                    floundryCreateRequest?.create(
+                        concoction, quantity, state, prefs,
+                        accessibleCount = { id -> inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0 },
+                    )?.getOrThrow() ?: 0
+                concoction.isStillsuitCraftable() ->
+                    stillSuitCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isMayamCraftable() ->
+                    mayamCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isPhotoBoothCraftable() ->
+                    photoBoothCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isTakerspaceCraftable() ->
+                    takerSpaceCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isGnomePartCraftable() ->
+                    gnomePartCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isSpacegateCraftable() ->
+                    spacegateCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
+                concoction.isFantasyRealmCraftable() ->
+                    fantasyRealmCreateRequest?.create(concoction, quantity, state, prefs)?.getOrThrow() ?: 0
                 concoction.isStillCraftable() ->
-                    stillCreateRequest.create(concoction, quantity, state, preferences).getOrThrow()
+                    stillCreateRequest.create(concoction, quantity, state, prefs).getOrThrow()
                 concoction.isCoinmasterCraftable() ->
                     createCoinmaster(concoction, quantity)
                 concoction.isSuseCraftable() ->

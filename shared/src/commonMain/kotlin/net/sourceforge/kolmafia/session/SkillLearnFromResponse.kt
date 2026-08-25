@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.session
 
+import net.sourceforge.kolmafia.combat.DiscoCombatHelper
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -30,6 +31,7 @@ object SkillLearnFromResponse {
                 skillManager,
                 inventoryManager = inventoryManager,
             )
+            SkillDefinitionDatabase.getById(skillId)?.name?.let { DiscoCombatHelper.learnSkill(it) }
         }
         if (skillFound != 0) {
             return skillFound
@@ -42,6 +44,7 @@ object SkillLearnFromResponse {
                 skillManager,
                 inventoryManager = inventoryManager,
             )
+            SkillDefinitionDatabase.getById(skillId)?.name?.let { DiscoCombatHelper.learnSkill(it) }
         }
         return skillFound
     }

@@ -2,12 +2,47 @@ package net.sourceforge.kolmafia.adventure.choice.handlers
 
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandler
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
+import net.sourceforge.kolmafia.adventure.choice.LouvreManager
+import net.sourceforge.kolmafia.adventure.choice.VioletFogManager
 
 object SolverHandlers {
     val handlers: Map<Int, ChoiceHandler> = buildMap {
 
+        // Cases 48–70 — Violet Fog
+        for (i in VioletFogManager.FIRST_CHOICE..VioletFogManager.LAST_CHOICE) {
+            put(i) { ctx ->
+                VioletFogManager.reset(ctx.preferences, ctx.ascensionNumber)
+                VioletFogManager.handleChoice(
+                    source = ctx.choiceId,
+                    preferences = ctx.preferences,
+                    goalManager = ctx.goalManager,
+                    characterState = ctx.characterState,
+                )
+            }
+        }
+
+        // Case 485 — Fighters of Fighting
+        put(485) { ctx -> ctx.solvers.arcadeGame.autoFightersOfFighting(ctx.responseText) }
+
         // Case 486 — Dungeon Fist! (arcade game)
         put(486) { ctx -> ctx.solvers.arcadeGame.autoDungeonFist(ctx.stepCount, ctx.responseText) }
+
+        // Cases 770 / 792 — clan gym workouts (desktop short-circuits specialChoiceHandling)
+        put(770) { ctx -> ctx.preference.takeIf { it > 0 } }
+        put(792) { ctx -> ctx.preference.takeIf { it > 0 } }
+
+        // Cases 904–913 — Louvre
+        for (i in LouvreManager.FIRST_CHOICE..LouvreManager.LAST_CHOICE) {
+            put(i) { ctx ->
+                LouvreManager.handleChoice(
+                    source = ctx.choiceId,
+                    stepCount = ctx.stepCount,
+                    preferences = ctx.preferences,
+                    goalManager = ctx.goalManager,
+                    characterState = ctx.characterState,
+                )
+            }
+        }
 
         // Case 535 — Ronald Safety Shelter
         put(535) { ctx ->

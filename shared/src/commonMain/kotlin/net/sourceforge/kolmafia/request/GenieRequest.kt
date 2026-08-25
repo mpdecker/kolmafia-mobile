@@ -18,6 +18,11 @@ class GenieRequest(
         inventoryCounts: (Int) -> Int,
         inLegacyOfLoathing: Boolean = false,
     ): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         val normalizedWish = wish.trim()
         if (normalizedWish.isEmpty()) {
             return Result.failure(IllegalArgumentException("No wish specified."))

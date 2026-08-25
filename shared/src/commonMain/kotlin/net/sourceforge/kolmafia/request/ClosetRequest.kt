@@ -6,11 +6,22 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.inventory.InventoryManager
 
-open class ClosetRequest(private val client: HttpClient) {
+open class ClosetRequest(
+    private val client: HttpClient,
+    private val inventoryManager: InventoryManager? = null,
+    private val character: KoLCharacter? = null,
+) {
 
     open suspend fun putIn(itemId: Int, quantity: Int): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         return try {
             val response = client.get("$KOL_BASE_URL/closet.php") {
                 parameter("action", "put")
@@ -19,7 +30,16 @@ open class ClosetRequest(private val client: HttpClient) {
                 parameter("ajax", 1)
             }
             if (response.status.isSuccess()) {
-                Result.success(response.bodyAsText())
+                val body = response.bodyAsText()
+                TransferItemSync.parseClosetTransfer(
+                    url = "closet.php?action=put&whichitem=$itemId&qty=$quantity",
+                    html = body,
+                    itemId = itemId,
+                    quantity = quantity,
+                    inventory = inventoryManager,
+                    character = character,
+                )
+                Result.success(body)
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))
             }
@@ -29,6 +49,11 @@ open class ClosetRequest(private val client: HttpClient) {
     }
 
     open suspend fun takeOut(itemId: Int, quantity: Int): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         return try {
             val response = client.get("$KOL_BASE_URL/closet.php") {
                 parameter("action", "take")
@@ -37,7 +62,16 @@ open class ClosetRequest(private val client: HttpClient) {
                 parameter("ajax", 1)
             }
             if (response.status.isSuccess()) {
-                Result.success(response.bodyAsText())
+                val body = response.bodyAsText()
+                TransferItemSync.parseClosetTransfer(
+                    url = "closet.php?action=take&whichitem=$itemId&qty=$quantity",
+                    html = body,
+                    itemId = itemId,
+                    quantity = quantity,
+                    inventory = inventoryManager,
+                    character = character,
+                )
+                Result.success(body)
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))
             }

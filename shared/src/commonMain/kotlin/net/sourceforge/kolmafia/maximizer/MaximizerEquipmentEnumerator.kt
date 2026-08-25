@@ -32,7 +32,11 @@ object MaximizerEquipmentEnumerator {
         preferences: Preferences? = null,
     ): SlotList<MaximizerRankedItem> {
         val buckets = SlotList<MaximizerRankedItem>(switchFamiliars.size)
-        val dualWield = spec.requireHands
+        val dual = spec.requireHands
+        val accessible: (Int) -> Int = { id -> checkedItem(id).totalCount() }
+        val gloveAvail = MaximizerWeaponGates.gloveAvailable(accessible)
+        val hasRigatoni: (Int) -> Boolean = { false }
+        val canChefstaff = MaximizerWeaponGates.canUseChefstaff(charState, hasRigatoni, gloveAvail)
 
         for (itemId in candidateIds) {
             val itemData = gameDatabase.item(itemId) ?: continue
@@ -44,6 +48,16 @@ object MaximizerEquipmentEnumerator {
             if (checked.totalCount() <= 0) continue
             if (!itemMeetsConstraints(itemData.name, spec)) continue
             if (spec.evaluator.isNegEquip(itemData.name)) continue
+            if (!MaximizerWeaponGates.passesWeaponConstraints(
+                    itemId = itemId,
+                    primaryUse = itemData.primaryUse,
+                    evaluator = spec.evaluator,
+                    charState = charState,
+                    canChefstaff = canChefstaff,
+                )
+            ) {
+                continue
+            }
             val entry = gameDatabase.itemModifier(itemData.name)
             val itemMods = if (entry != null) {
                 net.sourceforge.kolmafia.modifiers.ModifierParser.parse(entry.modifiers)
@@ -69,19 +83,42 @@ object MaximizerEquipmentEnumerator {
                 continue
             }
             val automatic = autoContext?.shouldPinAutomatic(itemData.name, itemMods) == true ||
-                Modeable.find(itemId) != null
-            var ranked = MaximizerRankedItem(itemId, itemData.name, score, checked, automatic)
+                Modeable.find(itemId) != null ||
+                (itemId == MaximizerWeaponGates.SPECIAL_SAUCE_GLOVE && !canChefstaff)
+            val conditional = itemMods.doubles.keys.any { it.name.contains("CONDITIONAL", ignoreCase = true) } ||
+                entry?.modifiers?.contains("Conditional", ignoreCase = true) == true
+            val single = EquipmentDatabase.isChefStaff(itemId) ||
+                itemData.primaryUse == ItemPrimaryUse.ACCESSORY && checked.totalCount() <= 1
+            var ranked = MaximizerRankedItem(
+                itemId = itemId,
+                name = itemData.name,
+                score = score,
+                checked = checked,
+                automatic = automatic,
+                conditional = conditional,
+                single = single,
+            )
+            if (itemId == MaximizerWeaponGates.SPECIAL_SAUCE_GLOVE) {
+                ranked.automatic = true
+                ranked.required = charState?.characterClassEnum ==
+                    net.sourceforge.kolmafia.character.CharacterClass.SAUCEROR
+            }
             ranked = MaximizerGarbageAuto.pinIfGarbage(
                 ranked, itemId, spec.evaluator, preferences,
             )
 
             when (itemData.primaryUse) {
-                ItemPrimaryUse.WEAPON, ItemPrimaryUse.SIXGUN -> {
-                    if (spec.requireMelee && itemData.primaryUse == ItemPrimaryUse.SIXGUN) continue
-                    routeWeapon(ranked, itemData, dualWield, buckets)
+                ItemPrimaryUse.SIXGUN -> {
+                    buckets.get(MaximizerSlot.HOLSTER).add(ranked)
+                    if (dual) {
+                        buckets.get(MaximizerSlot.OFFHAND_RANGED).add(ranked)
+                    }
+                }
+                ItemPrimaryUse.WEAPON -> {
+                    routeWeapon(ranked, itemData, dual, buckets)
                 }
                 ItemPrimaryUse.OFFHAND -> {
-                    if (dualWield || fitsOffhandSlot(itemData)) {
+                    if (dual || fitsOffhandSlot(itemData)) {
                         buckets.get(MaximizerSlot.OFFHAND).add(ranked)
                     }
                 }
@@ -362,7 +399,7 @@ object MaximizerEquipmentEnumerator {
         val maximizerSlot = MaximizerSlot.fromEquipmentSlot(slot) ?: return false
         return when (slot) {
             EquipmentSlot.WEAPON -> {
-                if (item.primaryUse !in setOf(ItemPrimaryUse.WEAPON, ItemPrimaryUse.SIXGUN)) return false
+                if (item.primaryUse !in setOf(ItemPrimaryUse.WEAPON)) return false
                 if (spec.requireMelee && item.primaryUse == ItemPrimaryUse.SIXGUN) return false
                 val hands = EquipmentDatabase.getHands(item.id)
                 when {
@@ -383,6 +420,8 @@ object MaximizerEquipmentEnumerator {
             }
             EquipmentSlot.ACC1, EquipmentSlot.ACC2, EquipmentSlot.ACC3 ->
                 item.primaryUse == ItemPrimaryUse.ACCESSORY
+            EquipmentSlot.HOLSTER ->
+                item.primaryUse == ItemPrimaryUse.SIXGUN
             EquipmentSlot.CODPIECE1, EquipmentSlot.CODPIECE2, EquipmentSlot.CODPIECE3,
             EquipmentSlot.CODPIECE4, EquipmentSlot.CODPIECE5,
             -> ModifierDatabase.isCodpieceGem(item.id)

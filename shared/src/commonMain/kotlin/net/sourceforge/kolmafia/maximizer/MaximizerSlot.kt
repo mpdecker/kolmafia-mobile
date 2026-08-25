@@ -17,6 +17,8 @@ enum class MaximizerSlot {
     ACC3,
     FAMILIAR,
     CONTAINER,
+    /** Desktop Slot.HOLSTER — sixgun holster. */
+    HOLSTER,
     /** Desktop Evaluator.WEAPON_1H — one-handed weapons scored separately from 2H. */
     WEAPON_1H,
     /** Desktop Evaluator.OFFHAND_MELEE — 1H melee weapons eligible as offhand when dual-wielding. */
@@ -39,6 +41,7 @@ enum class MaximizerSlot {
         ACC3 -> EquipmentSlot.ACC3
         FAMILIAR -> EquipmentSlot.FAMILIAR
         CONTAINER -> EquipmentSlot.CONTAINER
+        HOLSTER -> EquipmentSlot.HOLSTER
     }
 
     companion object {
@@ -55,6 +58,7 @@ enum class MaximizerSlot {
             EquipmentSlot.ACC3 -> ACC3
             EquipmentSlot.FAMILIAR -> FAMILIAR
             EquipmentSlot.CONTAINER -> CONTAINER
+            EquipmentSlot.HOLSTER -> HOLSTER
             EquipmentSlot.CODPIECE1, EquipmentSlot.CODPIECE2, EquipmentSlot.CODPIECE3,
             EquipmentSlot.CODPIECE4, EquipmentSlot.CODPIECE5, EquipmentSlot.CARDSLEEVE,
             EquipmentSlot.STICKER1, EquipmentSlot.STICKER2, EquipmentSlot.STICKER3,

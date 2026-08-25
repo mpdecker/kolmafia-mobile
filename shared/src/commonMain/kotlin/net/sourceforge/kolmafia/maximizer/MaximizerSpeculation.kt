@@ -323,6 +323,8 @@ object MaximizerSpeculation {
     }
 
     internal fun crossSlotDedupSlots(slot: EquipmentSlot): Set<EquipmentSlot> = when (slot) {
+        EquipmentSlot.ACC1, EquipmentSlot.ACC2, EquipmentSlot.ACC3 ->
+            setOf(EquipmentSlot.ACC1, EquipmentSlot.ACC2, EquipmentSlot.ACC3)
         EquipmentSlot.FAMILIAR -> setOf(
             EquipmentSlot.WEAPON,
             EquipmentSlot.OFFHAND,

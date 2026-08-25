@@ -98,8 +98,22 @@ import net.sourceforge.kolmafia.request.SushiCreateRequest
 import net.sourceforge.kolmafia.request.SewerCreateRequest
 import net.sourceforge.kolmafia.request.TerminalExtrudeCreateRequest
 import net.sourceforge.kolmafia.request.TerminalRequest
+import net.sourceforge.kolmafia.request.ChoiceUseCreateRequest
+import net.sourceforge.kolmafia.request.SausageOMaticCreateRequest
+import net.sourceforge.kolmafia.request.BurningLeavesCreateRequest
+import net.sourceforge.kolmafia.request.FloundryCreateRequest
+import net.sourceforge.kolmafia.request.StillSuitCreateRequest
+import net.sourceforge.kolmafia.request.MayamCreateRequest
+import net.sourceforge.kolmafia.request.MayamRequest
+import net.sourceforge.kolmafia.request.PhotoBoothCreateRequest
+import net.sourceforge.kolmafia.request.PhotoBoothRequest
+import net.sourceforge.kolmafia.request.TakerSpaceCreateRequest
+import net.sourceforge.kolmafia.request.GnomePartCreateRequest
+import net.sourceforge.kolmafia.request.SpacegateCreateRequest
+import net.sourceforge.kolmafia.request.FantasyRealmCreateRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
 import net.sourceforge.kolmafia.request.CampgroundRequest
+import net.sourceforge.kolmafia.request.PlaceRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
@@ -122,6 +136,7 @@ import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
+import net.sourceforge.kolmafia.request.BasementRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
 import net.sourceforge.kolmafia.request.UntinkerRequest
 import net.sourceforge.kolmafia.request.ZapRequest
@@ -131,6 +146,9 @@ import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.request.CustomOutfitRequest
 import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
+import net.sourceforge.kolmafia.session.EquipmentManager
+import net.sourceforge.kolmafia.session.ResultProcessor
+import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.SendGiftRequest
@@ -232,10 +250,35 @@ val sharedModule = module {
     singleOf(::ThriftyRequest)
     singleOf(::StandardRequest)
     singleOf(::TrendyRequest)
-    singleOf(::EatFoodRequest)
-    singleOf(::DrinkBoozeRequest)
-    singleOf(::ChewRequest)
+    single {
+        EatFoodRequest(
+            client = get(),
+            preferences = get(),
+            character = get(),
+            inventoryManager = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        DrinkBoozeRequest(
+            client = get(),
+            preferences = get(),
+            character = get(),
+            inventoryManager = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        ChewRequest(
+            client = get(),
+            preferences = get(),
+            character = get(),
+            inventoryManager = get(),
+            sessionLogger = get(),
+        )
+    }
     singleOf(::AutosellRequest)
+    singleOf(::BasementRequest)
     single { PulverizeRequest(get(), get(), get(), get(), get()) }
     single { JunkListManager(get()) }
     single {
@@ -300,9 +343,45 @@ val sharedModule = module {
     singleOf(::SendMailRequest)
     singleOf(::SendGiftRequest)
     singleOf(::ManageStoreRequest)
-    singleOf(::EquipmentRequest)
+    single {
+        EquipmentManager(
+            character = get(),
+            inventoryManager = get(),
+            skillManager = get(),
+        ).also { em ->
+            ResultProcessor.equipmentManagerProvider = { em }
+            ResultProcessor.hasEquipped = { em.hasEquipped(it) }
+            UseItemConsumptionSync.equipmentManagerProvider = { em }
+        }
+    }
+    single {
+        EquipmentRequest(
+            client = get(),
+            characterRequest = get(),
+            character = get(),
+            questDatabase = get(),
+            equipmentManager = get(),
+        )
+    }
     singleOf(::CustomOutfitRequest)
-    singleOf(::CampgroundRequest)
+    single {
+        CampgroundRequest(
+            client = get(),
+            preferences = get(),
+            character = get(),
+            inventoryManager = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        PlaceRequest(
+            client = get(),
+            preferences = get(),
+            character = get(),
+            inventoryManager = get(),
+            sessionLogger = get(),
+        )
+    }
     singleOf(::FalloutShelterRequest)
     single {
         TerminalRequest(
@@ -344,6 +423,8 @@ val sharedModule = module {
             shopRequest = get(),
             coinmasterManager = get(),
             character = get(),
+            preferences = get(),
+            inventoryManager = get(),
             clipArtCreateRequest = ClipArtCreateRequest(get()),
             rollingPinCreateRequest = RollingPinCreateRequest(
                 useItemRequest = get(),
@@ -431,6 +512,89 @@ val sharedModule = module {
                 choiceRequest = get(),
                 preferences = get(),
             ),
+            waxCreateRequest = ChoiceUseCreateRequest(
+                useItemRequest = get(),
+                choiceRequest = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+                sourceItemId = ChoiceUseCreateRequest.WAX_GLOB,
+                choiceId = ChoiceUseCreateRequest.WAX_CHOICE,
+                itemIdToOption = ChoiceUseCreateRequest::waxOption,
+                exitOption = 6,
+            ),
+            newspaperCreateRequest = ChoiceUseCreateRequest(
+                useItemRequest = get(),
+                choiceRequest = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+                sourceItemId = ChoiceUseCreateRequest.BURNING_NEWSPAPER,
+                choiceId = ChoiceUseCreateRequest.NEWSPAPER_CHOICE,
+                itemIdToOption = ChoiceUseCreateRequest::newspaperOption,
+            ),
+            meteoroidCreateRequest = ChoiceUseCreateRequest(
+                useItemRequest = get(),
+                choiceRequest = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+                sourceItemId = ChoiceUseCreateRequest.METAL_METEOROID,
+                choiceId = ChoiceUseCreateRequest.METEOROID_CHOICE,
+                itemIdToOption = ChoiceUseCreateRequest::meteoroidOption,
+            ),
+            woolCreateRequest = ChoiceUseCreateRequest(
+                useItemRequest = get(),
+                choiceRequest = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+                sourceItemId = ChoiceUseCreateRequest.GRUBBY_WOOL,
+                choiceId = ChoiceUseCreateRequest.WOOL_CHOICE,
+                itemIdToOption = ChoiceUseCreateRequest::woolOption,
+            ),
+            sausageCreateRequest = SausageOMaticCreateRequest(
+                client = get(),
+                createItemIngredients = get(),
+                retrieveItemService = get(),
+                gameDatabase = get(),
+                preferences = get(),
+                inventoryManager = get(),
+            ),
+            burningLeavesCreateRequest = BurningLeavesCreateRequest(
+                client = get(),
+                choiceRequest = get(),
+                createItemIngredients = get(),
+                gameDatabase = get(),
+                preferences = get(),
+            ),
+            floundryCreateRequest = FloundryCreateRequest(
+                floundryRequest = get(),
+                gameDatabase = get(),
+            ),
+            stillSuitCreateRequest = StillSuitCreateRequest(stillSuitRequest = get()),
+            mayamCreateRequest = MayamCreateRequest(
+                mayamRequest = get(),
+                inventoryCount = { id -> get<InventoryManager>().state.value.items[id]?.quantity ?: 0 },
+            ),
+            photoBoothCreateRequest = PhotoBoothCreateRequest(
+                client = get(),
+                choiceRequest = get(),
+            ),
+            takerSpaceCreateRequest = TakerSpaceCreateRequest(
+                client = get(),
+                choiceRequest = get(),
+                preferences = get(),
+            ),
+            gnomePartCreateRequest = GnomePartCreateRequest(
+                client = get(),
+                choiceRequest = get(),
+                preferences = get(),
+            ),
+            spacegateCreateRequest = SpacegateCreateRequest(
+                client = get(),
+                choiceRequest = get(),
+            ),
+            fantasyRealmCreateRequest = FantasyRealmCreateRequest(
+                client = get(),
+                choiceRequest = get(),
+            ),
         )
     }
     single {
@@ -440,6 +604,18 @@ val sharedModule = module {
         )
     }
     singleOf(::FloundryRequest)
+    single {
+        MayamRequest(
+            useItemRequest = get(),
+            choiceRequest = get(),
+        )
+    }
+    single {
+        PhotoBoothRequest(
+            client = get(),
+            choiceRequest = get(),
+        )
+    }
     single {
         ConcoctionQueueRunner(
             clanLoungeRequest = get(),
@@ -455,7 +631,23 @@ val sharedModule = module {
             familiarManager = get(),
         )
     }
-    singleOf(::FamiliarRequest)
+    single {
+        FamiliarManager(
+            client = get(),
+            eventBus = get(),
+            preferences = get(),
+        )
+    }
+    single {
+        FamiliarRequest(
+            client = get(),
+            familiarManager = get(),
+            preferences = get(),
+            character = get(),
+            equipmentManager = get(),
+            sessionLogger = get(),
+        )
+    }
     single {
         ModeableRequest(
             client = get(),
@@ -545,8 +737,17 @@ val sharedModule = module {
             preferences = get(),
         )
     }
-    singleOf(::FamiliarManager)
-    singleOf(::SkillCastRequest)
+    single {
+        SkillCastRequest(
+            client = get(),
+            preferences = get(),
+            character = get(),
+            inventoryManager = get(),
+            equipmentManager = get(),
+            equipmentRequest = get(),
+            sessionLogger = get(),
+        )
+    }
     single {
         SkillManager(
             client = get(),
@@ -655,6 +856,7 @@ val sharedModule = module {
             demonInCombatNameSync = get(),
             sessionLogger = get(),
             oceanRequest = get(),
+            equipmentRequest = get(),
         )
     }
     single {
@@ -691,6 +893,7 @@ val sharedModule = module {
             retrieveItemService = get(),
             outfitManager       = get(),
             equipmentRequest    = get(),
+            equipmentManager    = get(),
             coinmasterManager   = get(),
             craftRequest        = get(),
             pulverizeRequest    = get(),
@@ -783,7 +986,15 @@ val sharedModule = module {
     single { MallPriceManager() }
     singleOf(::NpcBuyRequest)
     single { MallManager(get(), get(), get(), get()) }
-    singleOf(::CraftRequest)
+    single {
+        CraftRequest(
+            client = get(),
+            inventoryManager = get(),
+            preferences = get(),
+            character = get(),
+            sessionLogger = get(),
+        )
+    }
     single {
         CoinmasterManager(
             coinmasterRequest = get(),
@@ -837,6 +1048,7 @@ val sharedModule = module {
             displayCaseRequest = get(),
             clanStashRequest = get(),
             inventoryManager = get(),
+            equipmentManager = get(),
         )
     }
     singleOf(::ChatManager)

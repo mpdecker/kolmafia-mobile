@@ -18,6 +18,7 @@ import net.sourceforge.kolmafia.character.PokefamTeamSlot
 import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
 import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.ItemType
+import net.sourceforge.kolmafia.preferences.Preferences
 
 // Verify field names against actual api.php?what=familiars response before shipping.
 @Serializable
@@ -35,12 +36,19 @@ private data class FamiliarApiEntry(
 
 open class FamiliarManager(
     private val client: HttpClient,
-    private val eventBus: GameEventBus
+    private val eventBus: GameEventBus,
+    private val preferences: Preferences? = null,
 ) {
     private val _state = MutableStateFlow(FamiliarState())
     val state: StateFlow<FamiliarState> = _state.asStateFlow()
 
-    private val familiarRequest = FamiliarRequest(client)
+    private val familiarRequest: FamiliarRequest by lazy {
+        FamiliarRequest(
+            client = client,
+            familiarManager = this,
+            preferences = preferences,
+        )
+    }
     private val equipRequest = FamiliarEquipRequest(client)
     private val hatcheryRequest = HatcheryRequest(client)
     private val actionRequest = FamiliarActionRequest(client)
@@ -172,6 +180,29 @@ open class FamiliarManager(
         val active = _state.value.activeFamiliar ?: return
         updateFamiliarEquipment(active.id, null)
         _state.value = _state.value.copy(activeFamiliar = null)
+    }
+
+    /** Desktop FamiliarRequest.setFamiliar local apply after successful parseResponse. */
+    fun applyActiveFamiliarLocally(familiar: FamiliarData) {
+        val state = _state.value
+        val owned = state.ownedFamiliars.toMutableList()
+        val idx = owned.indexOfFirst { it.id == familiar.id }
+        if (idx >= 0) {
+            owned[idx] = familiar
+        } else {
+            owned.add(familiar)
+        }
+        _state.value = state.copy(activeFamiliar = familiar, ownedFamiliars = owned, isStale = false)
+    }
+
+    fun applyFamiliarEquipmentLocally(familiarId: Int, item: InventoryItem?) {
+        updateFamiliarEquipment(familiarId, item)
+    }
+
+    fun applyActiveWeightXpLocally(weight: Int, experience: Int) {
+        val active = _state.value.activeFamiliar ?: return
+        val updated = active.copy(weight = weight, experience = experience)
+        applyActiveFamiliarLocally(updated)
     }
 
     /** Desktop `CharPaneRequest.checkPokeFam` owned-familiar upsert from charpane team. */

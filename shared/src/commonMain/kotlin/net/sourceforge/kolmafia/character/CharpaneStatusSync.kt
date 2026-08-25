@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.character
 
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.SpelunkyRequest
+import net.sourceforge.kolmafia.session.BatManager
 
 /** Parses charpane.php HTML for status fields when api.php status is incomplete (Phase 408). */
 object CharpaneStatusSync {
@@ -122,6 +124,19 @@ object CharpaneStatusSync {
         val parsed = parse(html, state)
         character.updateFromCharpane(parsed)
         ClassResourceCharpaneSync.apply(character, html)
+        val mode = character.state.value.limitMode
+        if (preferences != null) {
+            when {
+                mode.equals("spelunky", ignoreCase = true) ||
+                    mode.equals("spelunk", ignoreCase = true) ||
+                    html.contains(">Last Spelunk</a>") ->
+                    SpelunkyRequest.parseCharpane(html, preferences, character)
+                mode.equals("batman", ignoreCase = true) ||
+                    html.contains("You're Batfellow") ||
+                    html.contains("Gotpork City explodes") ->
+                    BatManager.parseCharpane(html, preferences, character)
+            }
+        }
         if (preferences != null && hasTransfunctionerEquipped(state)) {
             apply8BitScore(html, preferences)
         }

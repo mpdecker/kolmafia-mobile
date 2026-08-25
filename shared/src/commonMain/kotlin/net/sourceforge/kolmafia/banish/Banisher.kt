@@ -4,37 +4,64 @@ package net.sourceforge.kolmafia.banish
 /**
  * How a banish is reset. Matches `BanishManager.Reset` in the desktop codebase.
  *
- * - [ROLLOVER]      — cleared every daily rollover (and on login, treated as rollover)
- * - [TURNS]         — cleared when the banish's turn count expires
+ * - [ROLLOVER] — cleared every daily rollover (and on login, treated as rollover)
+ * - [TURNS] — cleared when the banish's turn count expires
  * - [TURN_ROLLOVER] — cleared when turns expire OR on rollover, whichever comes first
- * - [AVATAR]        — cleared on avatar/ascension change; treated as ROLLOVER here
- * - [NEVER]         — never expires (Ice House)
+ * - [AVATAR] — cleared on avatar/ascension change; treated as ROLLOVER here
+ * - [NEVER] — never expires (Ice House)
+ * - [EFFECT] — cleared when the backing effect expires (Roar like a Lion)
+ * - [COSMIC_BOWLING_BALL] — cleared when the Cosmic Bowling Ball returns
  */
-enum class ResetType { ROLLOVER, TURNS, TURN_ROLLOVER, AVATAR, NEVER }
+enum class ResetType {
+    ROLLOVER,
+    TURNS,
+    TURN_ROLLOVER,
+    AVATAR,
+    NEVER,
+    EFFECT,
+    COSMIC_BOWLING_BALL,
+    ;
+
+    /** Desktop [Reset.isTurnReset]. */
+    val isTurnReset: Boolean
+        get() = this == TURNS || this == TURN_ROLLOVER
+
+    /** Desktop [Reset.isRolloverReset] — used by full recalculate paths. */
+    val isRolloverReset: Boolean
+        get() = this == TURN_ROLLOVER || this == ROLLOVER || this == COSMIC_BOWLING_BALL
+}
+
+/** Desktop [BanishManager.BanishType]. */
+enum class BanishType {
+    MONSTER,
+    PHYLUM,
+}
 
 /**
  * The 69 known banishers. Unknown banishers map to [UNKNOWN] which is treated
  * as ROLLOVER so it's safely cleared on next login.
  *
- * Sourced from desktop `BanishManager.Banisher` enum.
+ * Sourced from desktop `BanishManager.Banisher` enum (Phases 1071–1090).
  */
 enum class Banisher(
     val canonicalName: String,
-    val turns: Int,            // -1 means rollover/avatar-only reset
+    val turns: Int, // -1 means rollover/avatar-only reset
     val resetType: ResetType,
     val isTurnFree: Boolean,
+    val queueSize: Int = 1,
+    val banishType: BanishType = BanishType.MONSTER,
 ) {
     ANCHOR_BOMB("anchor bomb", 30, ResetType.TURN_ROLLOVER, true),
     BALEFUL_HOWL("baleful howl", -1, ResetType.ROLLOVER, true),
-    BANISHING_SHOUT("banishing shout", -1, ResetType.AVATAR, false),
+    BANISHING_SHOUT("banishing shout", -1, ResetType.AVATAR, false, queueSize = 3),
     BASEBALL_DIAMOND("Baseball Diamond", -1, ResetType.ROLLOVER, true),
     BATTER_UP("batter up!", -1, ResetType.ROLLOVER, false),
     BE_A_MIND_MASTER("Be a Mind Master", 80, ResetType.TURNS, true),
-    BEANCANNON("beancannon", -1, ResetType.ROLLOVER, false),
+    BEANCANNON("beancannon", -1, ResetType.ROLLOVER, false, queueSize = 5),
     BLART_SPRAY_WIDE("B. L. A. R. T. Spray (wide)", -1, ResetType.ROLLOVER, true),
-    BOWL_A_CURVEBALL("Bowl a Curveball", -1, ResetType.ROLLOVER, true),
+    BOWL_A_CURVEBALL("Bowl a Curveball", -1, ResetType.COSMIC_BOWLING_BALL, true),
     BREATHE_OUT("breathe out", 20, ResetType.TURN_ROLLOVER, true),
-    BUNDLE_OF_FRAGRANT_HERBS("bundle of &quot;fragrant&quot; herbs", -1, ResetType.ROLLOVER, true),
+    BUNDLE_OF_FRAGRANT_HERBS("bundle of &quot;fragrant&quot; herbs", -1, ResetType.ROLLOVER, true, queueSize = 3),
     CHATTERBOXING("chatterboxing", 20, ResetType.TURN_ROLLOVER, true),
     CLASSY_MONKEY("classy monkey", 20, ResetType.TURNS, false),
     COCKTAIL_NAPKIN("cocktail napkin", 20, ResetType.TURNS, true),
@@ -49,7 +76,7 @@ enum class Banisher(
     GLITCHED_MALWARE("Deploy Glitched Malware", -1, ResetType.ROLLOVER, false),
     HAROLDS_BELL("harold's bell", 20, ResetType.TURNS, false),
     HEARTSTONE_BANISH("Heartstone %banish", 50, ResetType.TURNS, false),
-    HOWL_OF_THE_ALPHA("howl of the alpha", -1, ResetType.AVATAR, false),
+    HOWL_OF_THE_ALPHA("howl of the alpha", -1, ResetType.AVATAR, false, queueSize = 3),
     HUMAN_MUSK("human musk", -1, ResetType.ROLLOVER, true),
     ICE_HOTEL_BELL("ice hotel bell", -1, ResetType.ROLLOVER, true),
     ICE_HOUSE("ice house", -1, ResetType.NEVER, false),
@@ -62,7 +89,7 @@ enum class Banisher(
     MONKEY_SLAP("Monkey Slap", -1, ResetType.ROLLOVER, false),
     NANORHINO("nanorhino", -1, ResetType.ROLLOVER, false),
     PANTSGIVING("pantsgiving", 30, ResetType.TURN_ROLLOVER, false),
-    PATRIOTIC_SCREECH("Patriotic Screech", 100, ResetType.TURNS, false),
+    PATRIOTIC_SCREECH("Patriotic Screech", 100, ResetType.TURNS, false, banishType = BanishType.PHYLUM),
     PEEL_OUT("peel out", -1, ResetType.AVATAR, true),
     PEPPERMINT_BOMB("peppermint bomb", 100, ResetType.TURN_ROLLOVER, false),
     PULLED_INDIGO_TAFFY("pulled indigo taffy", 40, ResetType.TURNS, true),
@@ -71,7 +98,7 @@ enum class Banisher(
     PUNT_WEREPROF("[7510]Punt", 40, ResetType.TURNS, false),
     REFLEX_HAMMER("Reflex Hammer", 30, ResetType.TURN_ROLLOVER, true),
     RIGHT_ZOOT_KICK("Right %n Kick", 100, ResetType.TURNS, true),
-    ROAR_LIKE_A_LION("Roar like a Lion", -1, ResetType.ROLLOVER, false),
+    ROAR_LIKE_A_LION("Roar like a Lion", -1, ResetType.EFFECT, false),
     SABER_FORCE("Saber Force", 30, ResetType.TURN_ROLLOVER, true),
     SEADENT_LIGHTNING("Sea *dent", -1, ResetType.ROLLOVER, false),
     SHOW_YOUR_BORING_FAMILIAR_PICTURES("Show your boring familiar pictures", 100, ResetType.TURNS, true),
@@ -81,7 +108,7 @@ enum class Banisher(
     SPLIT_PEA_SOUP("handful of split pea soup", 30, ResetType.TURN_ROLLOVER, true),
     SPRING_KICK("Spring Kick", -1, ResetType.ROLLOVER, true),
     SPRING_LOADED_FRONT_BUMPER("Spring-Loaded Front Bumper", 30, ResetType.TURN_ROLLOVER, true),
-    STAFF_OF_THE_STANDALONE_CHEESE("staff of the standalone cheese", -1, ResetType.AVATAR, false),
+    STAFF_OF_THE_STANDALONE_CHEESE("staff of the standalone cheese", -1, ResetType.AVATAR, false, queueSize = 5),
     STINKY_CHEESE_EYE("stinky cheese eye", 10, ResetType.TURNS, true),
     STUFFED_YAM_STINKBOMB("stuffed yam stinkbomb", 15, ResetType.TURN_ROLLOVER, true),
     SYSTEM_SWEEP("System Sweep", -1, ResetType.ROLLOVER, false),
@@ -94,6 +121,13 @@ enum class Banisher(
     V_FOR_VIVALA_MASK("v for vivala mask", 10, ResetType.TURNS, true),
     WALK_AWAY_FROM_EXPLOSION("walk away from explosion", 30, ResetType.TURNS, false),
     UNKNOWN("unknown", -1, ResetType.ROLLOVER, false);
+
+    /** Desktop effective duration after turn-cost adjustment. */
+    fun effectiveDuration(): Int {
+        if (turns < 0) return turns
+        val turnCost = if (isTurnFree) 0 else 1
+        return turns - turnCost
+    }
 
     companion object {
         fun fromName(name: String): Banisher =

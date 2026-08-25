@@ -73,6 +73,10 @@ class QuestDatabase(private val preferences: Preferences) {
     fun isQuestStep(quest: Quest, step: String): Boolean =
         getProgress(quest) == step
 
+    /** Desktop [QuestDatabase.isQuestStarted] — anything past unstarted. */
+    fun isQuestStarted(quest: Quest): Boolean =
+        getProgress(quest) != UNSTARTED
+
     /**
      * Desktop [QuestDatabase.advanceQuest] — bump one step toward finished.
      * Without quest-log step tables, stepN advances to step(N+1); callers that know

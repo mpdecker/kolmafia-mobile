@@ -56,6 +56,15 @@ class Preferences(private val settings: Settings) {
     fun setLong(key: String, value: Long) =
         settings.putLong(key, value)
 
+    fun getFloat(key: String, default: Float = 0f): Float {
+        if (!settings.hasKey(key)) return default
+        val asString = settings.getString(key, "")
+        return asString.toFloatOrNull() ?: default
+    }
+
+    fun setFloat(key: String, value: Float) =
+        settings.putString(key, value.toString())
+
     fun registerCounterName(name: String) {
         val existing = getString(COUNTER_NAMES, "").split('|').filter { it.isNotBlank() }.toMutableSet()
         if (existing.add(name)) {
@@ -73,6 +82,8 @@ class Preferences(private val settings: Settings) {
         const val AUTO_RECOVER_HP          = "autoRecoverHp"
         const val HP_RECOVERY_TARGET_PCT   = "hpRecoveryTargetPct"   // below → start recovering
         const val HP_RECOVERY_STOP_PCT     = "hpRecoveryStopPct"     // above → stop recovering
+        /** Desktop autoAbortThreshold — fraction of max HP; <0 disables. */
+        const val AUTO_ABORT_THRESHOLD     = "autoAbortThreshold"
 
         // MP recovery
         const val AUTO_RECOVER_MP          = "autoRecoverMp"
@@ -106,6 +117,7 @@ class Preferences(private val settings: Settings) {
 
         // Banish tracking
         const val BANISHED_MONSTERS = "banishedMonsters"   // serialized banish list (same key as desktop)
+        const val BANISHED_PHYLA = "banishedPhyla"         // phylum banishes (Patriotic Screech)
 
         // ManaBurn
         const val MANA_BURN_ENABLED        = "manaBurnEnabled"       // default false
@@ -138,9 +150,12 @@ class Preferences(private val settings: Settings) {
         const val CACHED_DISPLAY           = "_cachedDisplay"
         const val CACHED_CAMPGROUND        = "_cachedCampground"
         const val COMBAT_SCRIPT           = "combatScript"
+        const val BETWEEN_BATTLE_SCRIPT   = "betweenBattleScript"
+        const val AFTER_ADVENTURE_SCRIPT  = "afterAdventureScript"
         const val USER_NOTE                = "userNote"
         const val CURRENT_CHAT_CHANNEL     = "currentChatChannel"
         const val AUTO_SCRIPTING           = "autoScripting"
+        const val TRACK_LIGHTS_OUT        = "trackLightsOut"
 
         // Breakfast — user-controlled guard prefs (match desktop names exactly)
         const val HARVEST_GARDEN_SOFTCORE   = "harvestGardenSoftcore"   // "none"|"any"; default "none" (matches desktop)

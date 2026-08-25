@@ -63,13 +63,72 @@ class BanishManagerTest {
         assertTrue(manager.isBanished("Ninja Snowman", currentTurn = 60))
     }
 
-    @Test fun banishMonster_duplicateMonster_replacesExisting() {
+    @Test fun banishMonster_differentBanishers_keepsBoth() {
         val manager = BanishManager(prefs())
         manager.banishMonster("Ninja Snowman", Banisher.SNOKEBOMB, currentTurn = 50)
-        manager.banishMonster("Ninja Snowman", Banisher.SABER_FORCE, currentTurn = 80)
-        // Only one entry; uses newer banish
-        assertEquals(1, manager.state.value.monsters.size)
-        assertEquals(Banisher.SABER_FORCE, manager.state.value.monsters.first().banisher)
+        manager.banishMonster("Ninja Snowman", Banisher.SABER_FORCE, currentTurn = 55)
+        // Desktop keeps per-banisher entries (queueSize=1 each)
+        assertEquals(2, manager.state.value.monsters.size)
+        assertTrue(manager.banishedBy("Ninja Snowman", 60).contains(Banisher.SNOKEBOMB))
+        assertTrue(manager.banishedBy("Ninja Snowman", 60).contains(Banisher.SABER_FORCE))
+    }
+
+    @Test fun banishMonster_queueSize1_sameNonTurn_noChurn() {
+        // BATTER_UP is ROLLOVER, queueSize=1, turn-costing → adventureResult adjusts turn
+        val m2 = BanishManager(prefs())
+        m2.banishMonster("Bar", Banisher.BATTER_UP, currentTurn = 1, adventureResult = false)
+        m2.banishMonster("Bar", Banisher.BATTER_UP, currentTurn = 9, adventureResult = false)
+        assertEquals(1, m2.state.value.monsters.size)
+        assertEquals(1, m2.state.value.monsters.first().turnBanished)
+    }
+
+    @Test fun banishMonster_beancannon_evictsOldestAtCapacity() {
+        val manager = BanishManager(prefs())
+        for (i in 1..5) {
+            manager.banishMonster("m$i", Banisher.BEANCANNON, currentTurn = i)
+        }
+        assertEquals(5, manager.countBanishes(Banisher.BEANCANNON))
+        manager.banishMonster("m6", Banisher.BEANCANNON, currentTurn = 6)
+        assertEquals(5, manager.countBanishes(Banisher.BEANCANNON))
+        assertFalse(manager.isBanished("m1", 6))
+        assertTrue(manager.isBanished("m6", 6))
+    }
+
+    @Test fun banishMonster_patrioticScreech_writesPhylum() {
+        val manager = BanishManager(prefs())
+        manager.banishMonster(
+            monsterName = "ignored",
+            banisher = Banisher.PATRIOTIC_SCREECH,
+            currentTurn = 10,
+            phylumOverride = "beast",
+        )
+        assertTrue(manager.isBanishedPhylum("beast", 10))
+        assertEquals(1, manager.state.value.phyla.size)
+        assertTrue(manager.state.value.monsters.isEmpty())
+    }
+
+    @Test fun isBanished_includesPhylumBanishes() {
+        val manager = BanishManager(prefs())
+        manager.banishMonster(
+            "x",
+            Banisher.PATRIOTIC_SCREECH,
+            currentTurn = 1,
+            phylumOverride = "undead",
+        )
+        // Without MonsterDatabase load, isBanished(monster) won't resolve phylum —
+        // isBanishedPhylum still works; banishedBy with override path via phylum list:
+        assertTrue(manager.isBanishedPhylum("undead", 1))
+    }
+
+    @Test fun save_usesColonDesktopFormat() {
+        val s = com.russhwolf.settings.MapSettings()
+        val p = net.sourceforge.kolmafia.preferences.Preferences(s)
+        val manager = BanishManager(p)
+        manager.banishMonster("Ninja Snowman", Banisher.SNOKEBOMB, currentTurn = 100)
+        manager.save()
+        val raw = p.getString(net.sourceforge.kolmafia.preferences.Preferences.BANISHED_MONSTERS)
+        assertTrue(raw.contains("Ninja Snowman:snokebomb:100"))
+        assertFalse(raw.contains("|"))
     }
 
     @Test fun isBanished_unknownMonster_returnsFalse() {

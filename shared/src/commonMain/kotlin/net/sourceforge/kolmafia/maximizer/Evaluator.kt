@@ -8,9 +8,11 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.equipment.OutfitManager
+import net.sourceforge.kolmafia.modifiers.BitmapModifier
 import net.sourceforge.kolmafia.modifiers.BooleanModifier
 import net.sourceforge.kolmafia.modifiers.CurrentModifiers
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.modifiers.StringModifier
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
@@ -21,6 +23,7 @@ import kotlin.math.round
  * Phase 367: global loadout gates ([totalMin], [totalMax], [exceeded]).
  * Phase 382: +current/-current, outfit/equip gates ([checkEquipment]).
  * Phase 383: bonus/letter/number, plumber/cold plumber, neg equip.
+ * Phases 1431–1445: osity/stinkycheese/weapon keywords + loadout boolean fail.
  */
 class Evaluator private constructor(
     private val weights: MutableMap<DoubleModifier, Double>,
@@ -41,6 +44,22 @@ class Evaluator private constructor(
     private val bonusFuncs: MutableList<Pair<(String) -> Double, Double>> = mutableListOf(),
     private var plumberRequested: Boolean = false,
     private var coldPlumberRequested: Boolean = false,
+    private var clownosity: Int = 0,
+    private var raveosity: Int = 0,
+    private var surgeonosity: Int = 0,
+    private var stinkycheese: Int = 0,
+    private var dump: Int = 0,
+    private var weaponType: String? = null,
+    private var hands: Int = 0,
+    /** +/-2 require, +/-1 soft-disallow other type (desktop Evaluator.melee). */
+    private var melee: Int = 0,
+    private var effective: Boolean = false,
+    private var requireClub: Boolean = false,
+    private var requireShield: Boolean = false,
+    private var requireUtensil: Boolean = false,
+    private var requireSword: Boolean = false,
+    private var requireKnife: Boolean = false,
+    private var requireAccordion: Boolean = false,
 ) {
     enum class Constraint {
         /** Item violates a constraint, don't use it */
@@ -77,6 +96,23 @@ class Evaluator private constructor(
 
     /** Desktop Evaluator.isUsingTiebreaker — false when `-tie` or `ocrs` disables tiebreak. */
     fun usesTiebreaker(): Boolean = !noTiebreaker
+
+    fun requireClub(): Boolean = requireClub
+    fun requireShield(): Boolean = requireShield
+    fun requireUtensil(): Boolean = requireUtensil
+    fun requireSword(): Boolean = requireSword
+    fun requireKnife(): Boolean = requireKnife
+    fun requireAccordion(): Boolean = requireAccordion
+    fun weaponTypeFilter(): String? = weaponType
+    fun handsConstraint(): Int = hands
+    /** Desktop melee field: 0 none, ±2 require melee/ranged, +/-1 soft. */
+    fun meleeConstraint(): Int = melee
+    fun effectiveWeapons(): Boolean = effective
+    fun dumpLevel(): Int = dump
+    internal fun clownosityTarget(): Int = clownosity
+    internal fun raveosityTarget(): Int = raveosity
+    internal fun surgeonosityTarget(): Int = surgeonosity
+    internal fun stinkycheeseWeight(): Int = stinkycheese
 
     fun addPosOutfit(name: String) {
         posOutfits.add(name)
@@ -345,8 +381,40 @@ class Evaluator private constructor(
             score += mainstatWeight * mods.buffedMainStat()
         }
 
+        if (stinkycheese > 0) {
+            score += stinkycheese * v.get(BitmapModifier.STINKYCHEESE)
+        }
+
+        // Desktop rollover-effect fudge
+        if (v.getAll(StringModifier.ROLLOVER_EFFECT).isNotEmpty()) {
+            score += 0.01
+        }
+
         if (score < totalMin) failed = true
         if (score >= totalMax) exceeded = true
+
+        // special handling for -osity (desired value is the "weight")
+        if (clownosity > 0) {
+            val osity = v.get(BitmapModifier.CLOWNINESS)
+            score += min(osity, clownosity)
+            if (osity < clownosity) failed = true
+        }
+        if (raveosity > 0) {
+            val osity = v.get(BitmapModifier.RAVEOSITY)
+            score += min(osity, raveosity)
+            if (osity < raveosity) failed = true
+        }
+        if (surgeonosity > 0) {
+            val osity = v.get(BitmapModifier.SURGEONOSITY)
+            score += min(osity, surgeonosity)
+            if (osity < surgeonosity) failed = true
+        }
+
+        // Loadout-level boolean mask equality (desktop getScore)
+        if (!failed && booleanMask.isNotEmpty()) {
+            val active = booleanMask.filter { v.get(it) }.toSet()
+            if (active != booleanValue) failed = true
+        }
 
         return score
     }
@@ -436,6 +504,71 @@ class Evaluator private constructor(
 
             if (keyword == "cold plumber") {
                 coldPlumberRequested = true
+                continue
+            }
+
+            if (keyword == "dump") {
+                dump = weight.toInt()
+                continue
+            }
+
+            if (keyword.startsWith("hand")) {
+                hands = weight.toInt()
+                continue
+            }
+
+            if (keyword.startsWith("type ")) {
+                weaponType = keyword.substring(5).trim()
+                continue
+            }
+
+            if (keyword == "club") {
+                requireClub = weight > 0.0
+                continue
+            }
+            if (keyword == "shield") {
+                requireShield = weight > 0.0
+                hands = 1
+                continue
+            }
+            if (keyword == "utensil") {
+                requireUtensil = weight > 0.0
+                continue
+            }
+            if (keyword == "sword") {
+                requireSword = weight > 0.0
+                continue
+            }
+            if (keyword == "knife") {
+                requireKnife = weight > 0.0
+                continue
+            }
+            if (keyword == "accordion") {
+                requireAccordion = weight > 0.0
+                continue
+            }
+            if (keyword == "melee") {
+                melee = (weight * 2.0).toInt()
+                continue
+            }
+            if (keyword == "effective") {
+                effective = weight > 0.0
+                continue
+            }
+            if (keyword == "clownosity") {
+                clownosity = if (numStr.isEmpty()) 100 else (weight * 25).toInt()
+                continue
+            }
+            if (keyword == "raveosity") {
+                raveosity = if (numStr.isEmpty()) 7 else weight.toInt()
+                continue
+            }
+            if (keyword == "surgeonosity") {
+                surgeonosity = if (numStr.isEmpty()) 5 else weight.toInt()
+                continue
+            }
+            if (keyword == "stinkycheese" || keyword == "stinky cheese") {
+                stinkycheese = weight.toInt()
                 continue
             }
 
