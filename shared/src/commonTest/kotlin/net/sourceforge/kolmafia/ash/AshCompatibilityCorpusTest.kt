@@ -205,7 +205,7 @@ class AshCompatibilityCorpusTest {
             "The Spooky Forest",
             outputLib(lib, """print(to_location("spooky forest"));""").trim(),
         )
-        assertEquals("The Spooky Forest", outputLib(lib, """print(to_location("20"));""").trim())
+        assertEquals("The Spooky Forest", outputLib(lib, """print(to_location("15"));""").trim())
         assertEquals("", outputLib(lib, """print(to_location("bogus"));""").trim())
         assertEquals(
             "true",

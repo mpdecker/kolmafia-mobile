@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.session
 
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -25,6 +27,16 @@ object FightActionCostSync {
     private val THUNDER = Regex("""swallow <b>(\d+)</b> dB of it""")
     private val RAIN = Regex("""recovering <b>(\d+)</b> drops""")
     private val LIGHTNING = Regex("""recovering <b>(\d+)</b> bolts""")
+    private val NS1_BLOCK_PATTERNS = listOf(
+        Regex("""you pull the (.*?) out of your pocket""", RegexOption.IGNORE_CASE),
+        Regex("""start to use the (.*?), but the Sorceress""", RegexOption.IGNORE_CASE),
+        Regex("""grabs the (.*?) out of your hands""", RegexOption.IGNORE_CASE),
+    )
+    private val NS2_BLOCK_PATTERNS = listOf(
+        Regex("""tears the (.*?) out of your hands""", RegexOption.IGNORE_CASE),
+        Regex("""the (.*?) is shattered""", RegexOption.IGNORE_CASE),
+        Regex("""use the (.*?), a nasty-looking pseudopod""", RegexOption.IGNORE_CASE),
+    )
 
     fun reset() {
         nextAction = ""
@@ -159,7 +171,12 @@ object FightActionCostSync {
      * Desktop [FightRequest.isItemConsumed] practical default: consume unless the
      * server rejected the use with a known failure phrase.
      */
-    fun isItemConsumed(itemId: Int, html: String): Boolean {
+    fun isItemConsumed(
+        itemId: Int,
+        html: String,
+        monsterName: String = MonsterStatusTracker.getLastMonsterName(),
+        itemName: String = ItemDatabase.getItemName(itemId),
+    ): Boolean {
         if (itemId <= 0) return false
         if (html.contains("You don't have that item") ||
             html.contains("You can't use that item") ||
@@ -169,6 +186,23 @@ object FightActionCostSync {
         }
         // Reusable combat items that should not be consumed on use
         if (itemId == COSMIC_BOWLING_BALL) return false
+        when (monsterName.trim().lowercase()) {
+            "your shadow" -> {
+                if (html.contains("knocks it out of your hands", ignoreCase = true)) return false
+            }
+            "naughty sorceress" -> {
+                if (matchesBlockedItem(NS1_BLOCK_PATTERNS, html, itemName)) return false
+            }
+            "naughty sorceress (2)" -> {
+                if (matchesBlockedItem(NS2_BLOCK_PATTERNS, html, itemName)) return false
+            }
+        }
         return true
     }
+
+    private fun matchesBlockedItem(patterns: List<Regex>, html: String, itemName: String): Boolean =
+        patterns.any { pattern ->
+            pattern.find(html)?.groupValues?.getOrNull(1)?.trim()
+                ?.equals(itemName, ignoreCase = true) == true
+        }
 }

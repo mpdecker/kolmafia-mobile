@@ -6,6 +6,7 @@ import net.sourceforge.kolmafia.request.HatterRequest
 import net.sourceforge.kolmafia.request.SkateParkRequest
 import net.sourceforge.kolmafia.request.SweetSynthesisRequest
 import net.sourceforge.kolmafia.session.RabbitHoleAvailability
+import net.sourceforge.kolmafia.session.RabbitHoleManager
 
 internal fun GameRuntimeLibrary.cliBeach(parameters: String, print: (String) -> Unit) {
     val parsed = BeachCombRequest.parseCommand(parameters)
@@ -55,9 +56,27 @@ internal fun GameRuntimeLibrary.cliSkate(parameters: String, print: (String) -> 
 }
 
 internal fun GameRuntimeLibrary.cliHatter(parameters: String, print: (String) -> Unit) {
-    val length = HatterRequest.parseLength(parameters)
+    val counts: (Int) -> Int = { id ->
+        inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
+    }
+    val charState = character?.state?.value
+    if (parameters.isBlank()) {
+        val lines = RabbitHoleManager.hatCommand(
+            inventoryCount = counts,
+            equippedHatName = charState?.equippedItem(
+                net.sourceforge.kolmafia.character.EquipmentSlot.HAT,
+            ),
+        )
+        if (lines.isEmpty()) print("You don't have any usable hats.") else lines.forEach(print)
+        return
+    }
+    if (charState?.inTwoCrazyRandomSummer == true) {
+        print("You can't get Down the Rabbit Hole in Two Crazy Random Summer.")
+        return
+    }
+    val length = resolveHatterLength(parameters)
     if (length == null) {
-        print("Usage: hatter <length>")
+        print("No unique matching hat found.")
         return
     }
     val client = httpClient ?: run {
@@ -68,9 +87,6 @@ internal fun GameRuntimeLibrary.cliHatter(parameters: String, print: (String) ->
         print("Choice request is not available.")
         return
     }
-    val counts: (Int) -> Int = { id ->
-        inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
-    }
     val hasEffect = effectManager?.state?.value?.effects.orEmpty().any {
         it.id == RabbitHoleAvailability.DOWN_THE_RABBIT_HOLE_EFFECT ||
             it.name.equals("Down the Rabbit Hole", ignoreCase = true)
@@ -80,7 +96,7 @@ internal fun GameRuntimeLibrary.cliHatter(parameters: String, print: (String) ->
             .takeBuff(
                 length = length,
                 preferences = preferences,
-                charState = character?.state?.value,
+                charState = charState,
                 inventoryCounts = counts,
                 hasRabbitHoleEffect = hasEffect,
             )

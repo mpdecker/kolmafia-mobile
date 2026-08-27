@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.request.ClanFortuneRequest
 import net.sourceforge.kolmafia.request.FriarRequest
 import net.sourceforge.kolmafia.request.MayoSoakRequest
 import net.sourceforge.kolmafia.request.MomRequest
+import net.sourceforge.kolmafia.quest.TelescopeSync
 
 internal fun GameRuntimeLibrary.cliFortune(parameters: String, print: (String) -> Unit) {
     val parts = parameters.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -127,7 +128,7 @@ internal fun GameRuntimeLibrary.cliFriars(parameters: String, print: (String) ->
     }
 }
 
-internal fun GameRuntimeLibrary.cliTelescope(parameters: String) {
+internal fun GameRuntimeLibrary.cliTelescope(parameters: String, print: (String) -> Unit = {}) {
     val parts = parameters.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
     var command = parts.firstOrNull()?.lowercase().orEmpty()
     if (command == "look") {
@@ -140,4 +141,16 @@ internal fun GameRuntimeLibrary.cliTelescope(parameters: String) {
     }
     val action = if (direction == "high") "telescopehigh" else "telescopelow"
     visitKolPage("campground.php?action=$action", applyQuestHooks = true)
+    if (direction == "low") {
+        val prefs = preferences ?: return
+        for (challenge in 0..5) {
+            val prefIndex = challenge + 1
+            val test = if (challenge == 0) "" else prefs.getString("nsChallenge$challenge", "none")
+            print(
+                "${TelescopeSync.getChallengeName(challenge)}: " +
+                    TelescopeSync.getChallengeDescription(challenge, test),
+            )
+            if (challenge >= prefs.getInt("telescopeUpgrades", 0)) break
+        }
+    }
 }

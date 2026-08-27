@@ -4,9 +4,16 @@ import net.sourceforge.kolmafia.character.FamTeamSync
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.ArcadeRequest
 import net.sourceforge.kolmafia.request.BatFellowRequest
+import net.sourceforge.kolmafia.request.DwarfContraptionRequest
+import net.sourceforge.kolmafia.request.DwarfFactoryRequest
 import net.sourceforge.kolmafia.request.ElvmachineRequest
 import net.sourceforge.kolmafia.request.PeeVPeeRequest
+import net.sourceforge.kolmafia.request.AutoMallRequest
+import net.sourceforge.kolmafia.request.ManageStoreRequest
+import net.sourceforge.kolmafia.mall.MallPurchaseRequest
+import net.sourceforge.kolmafia.quest.SorceressLairSync
 import net.sourceforge.kolmafia.shop.SwaggerShopSync
 
 /**
@@ -85,7 +92,9 @@ object RequestLogger {
             return true
         }
 
-        if (urlString.startsWith("choice.php") && registerChoice(urlString, sessionLogger, formFields)) {
+        if (urlString.startsWith("choice.php") &&
+            registerChoice(urlString, sessionLogger, preferences, formFields)
+        ) {
             wasLastRequestSimple = false
             return true
         }
@@ -112,6 +121,31 @@ object RequestLogger {
         }
 
         if (SwaggerShopSync.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        MallPurchaseRequest.registerRequest(urlString) { ItemDatabase.getItemName(it) }.let { message ->
+            if (message != null) {
+                updateSessionLog(message, sessionLogger)
+                wasLastRequestSimple = false
+                return true
+            }
+        }
+        ManageStoreRequest.registerRequest(urlString) { ItemDatabase.getItemName(it) }.let { message ->
+            if (message != null) {
+                updateSessionLog(message, sessionLogger)
+                wasLastRequestSimple = false
+                return true
+            }
+        }
+        AutoMallRequest.registerRequest(urlString)?.let {
+            updateSessionLog(it, sessionLogger)
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("sellstuff.php") || urlString.startsWith("sellstuff_ugly.php")) {
+            updateSessionLog("autosell", sessionLogger)
             wasLastRequestSimple = false
             return true
         }
@@ -246,6 +280,7 @@ object RequestLogger {
         preferences: Preferences?,
     ): Boolean {
         if (!url.startsWith("place.php")) return false
+        if (SorceressLairSync.registerRequest(url, preferences, sessionLogger)) return true
         val place = queryParam(url, "whichplace") ?: return true
         if (place == "spelunky") {
             val action = queryParam(url, "action").orEmpty()
@@ -332,6 +367,7 @@ object RequestLogger {
     private fun registerChoice(
         url: String,
         sessionLogger: SessionLogger?,
+        preferences: Preferences?,
         formFields: Map<String, String>,
     ): Boolean {
         if (!url.startsWith("choice.php")) return false
@@ -341,9 +377,15 @@ object RequestLogger {
         val option = queryParam(url, "option")
             ?: formFields["option"]
             ?: "0"
+        val choiceId = choice.toIntOrNull() ?: 0
+        val optionId = option.toIntOrNull() ?: 0
+
+        if (SorceressLairSync.registerChoice(choiceId, optionId, preferences, sessionLogger)) {
+            return true
+        }
 
         // Track C — high-traffic IoTM choice logs
-        val iotm = choiceIotmMessage(choice.toIntOrNull() ?: 0, option, url, formFields)
+        val iotm = choiceIotmMessage(choiceId, option, url, formFields)
         if (iotm != null) {
             updateSessionLog(iotm, sessionLogger)
             return true
@@ -428,7 +470,7 @@ object RequestLogger {
         1523 -> "WereProfessor research"
         1551 -> "TakerSpace"
         // Wax / meteoroid / newspaper / wool creation choices
-        1002, 1003 -> "Burning Newspaper"
+        1002 -> "Burning Newspaper"
         1018, 1019 -> "Metal Meteoroid"
         1054, 1055 -> "Wax Glob"
         1116 -> "Walford"
@@ -685,7 +727,19 @@ object RequestLogger {
             }
 
             url.startsWith("arcade.php") || url.contains("whichplace=arcade") -> {
-                updateSessionLog("arcade", sessionLogger)
+                if (!ArcadeRequest.registerRequest(url, sessionLogger)) {
+                    updateSessionLog("arcade", sessionLogger)
+                }
+                return true
+            }
+
+            url.startsWith("dwarffactory.php") -> {
+                DwarfFactoryRequest.registerRequest(url, sessionLogger)
+                return true
+            }
+
+            url.startsWith("dwarfcontraption.php") -> {
+                DwarfContraptionRequest.registerRequest(url, sessionLogger)
                 return true
             }
 

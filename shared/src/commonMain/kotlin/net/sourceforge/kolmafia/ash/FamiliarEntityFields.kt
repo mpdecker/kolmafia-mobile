@@ -60,7 +60,7 @@ internal object FamiliarEntityFields {
             "passive" -> AshValue.of(definition?.isPassiveType() ?: false)
             "underwater" -> AshValue.of(definition?.isUnderwaterType() ?: false)
             "variable" -> AshValue.of(definition?.isVariableType() ?: false)
-            "feasted" -> AshValue.of(false)
+            "feasted" -> AshValue.of(owned?.feasted ?: false)
             "attributes" -> AshValue.of(FamiliarDefinitionProxy.getAttributesString(familiarId))
             "poke_level" -> AshValue.of(pokeLevelValue(familiarId, owned, pokeTeam))
             "poke_level_2_power" -> AshValue.of((PokefamDatabase.getById(familiarId)?.power2 ?: 0).toLong())

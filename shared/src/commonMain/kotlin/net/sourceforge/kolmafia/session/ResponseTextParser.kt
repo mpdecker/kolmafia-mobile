@@ -10,6 +10,13 @@ import net.sourceforge.kolmafia.request.BountyHunterSync
 import net.sourceforge.kolmafia.request.CakeArenaSync
 import net.sourceforge.kolmafia.request.CharSheetSync
 import net.sourceforge.kolmafia.request.ClanStashSync
+import net.sourceforge.kolmafia.request.ClanStashRequest
+import net.sourceforge.kolmafia.request.ClanLoungeRequest
+import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.ClanHallRequest
+import net.sourceforge.kolmafia.request.ClanMembersRequest
+import net.sourceforge.kolmafia.request.ClanLogRequest
+import net.sourceforge.kolmafia.request.ClanWarRequest
 import net.sourceforge.kolmafia.request.ManageStoreSync
 import net.sourceforge.kolmafia.request.PirateSpecialSync
 import net.sourceforge.kolmafia.request.SendMailSync
@@ -39,11 +46,21 @@ object ResponseTextParser {
                 url.contains("manageprices.php", ignoreCase = true) ||
                 url.contains("mallstore.php", ignoreCase = true) -> "mallstore"
             url.contains("clan_stash.php", ignoreCase = true) -> "clan_stash"
+            url.contains("clan_viplounge.php", ignoreCase = true) -> "clan_viplounge"
+            url.contains("clan_rumpus.php", ignoreCase = true) -> "clan_rumpus"
+            url.contains("clan_hall.php", ignoreCase = true) -> "clan_hall"
+            url.contains("clan_log.php", ignoreCase = true) -> "clan_log"
+            url.contains("clan_attack.php", ignoreCase = true) -> "clan_attack"
+            url.contains("clan_war.php", ignoreCase = true) -> "clan_war"
+            url.contains("showclan.php", ignoreCase = true) -> "showclan"
+            url.contains("clan_members.php", ignoreCase = true) -> "clan_members"
+            url.contains("clan_detailedroster.php", ignoreCase = true) -> "clan_detailedroster"
             url.contains("sendmessage.php", ignoreCase = true) -> "sendmessage"
             url.contains("inventory.php", ignoreCase = true) -> "inventory"
             url.contains("basement.php", ignoreCase = true) -> "basement"
             url.contains("arena.php", ignoreCase = true) -> "arena"
             url.contains("bounty.php", ignoreCase = true) -> "bounty"
+            url.contains("leaflet.php", ignoreCase = true) -> "leaflet"
             url.contains("beerpong", ignoreCase = true) -> "beerpong"
             url.contains("shrine", ignoreCase = true) ||
                 url.contains("altarofbones", ignoreCase = true) -> "shrine"
@@ -76,13 +93,25 @@ object ResponseTextParser {
                     .find(u)?.groupValues?.get(1)?.toIntOrNull() ?: 1
                 if (itemId > 0) {
                     ClanStashSync.parseTransfer(u, html, itemId, qty, inventory)
+                } else if (!u.contains("action=take", true) &&
+                    !u.contains("action=contribute", true)
+                ) {
+                    ClanStashRequest.storeContents(ClanStashRequest.parseContentsStatic(html))
                 }
             }
+            "clan_viplounge" -> ClanLoungeRequest.parseResponse(u, html, preferences)
+            "clan_rumpus" -> ClanRumpusRequest.parseResponse(u, html, preferences)
+            "clan_hall" -> ClanHallRequest.parseResponse(u, html)
+            "showclan", "clan_members", "clan_detailedroster" ->
+                ClanMembersRequest.parseResponse(u, html)
+            "clan_log" -> ClanLogRequest.parseResponse(u, html)
+            "clan_attack", "clan_war" -> ClanWarRequest.parseResponse(u, html, preferences)
             "sendmessage" -> SendMailSync.parseTransfer(u, html, emptyList(), 0, inventory, character)
             "inventory" -> InventoryActionSync.parse(u, html, inventory, character, preferences)
             "basement" -> BasementSync.checkBasement(html, preferences)
             "arena" -> CakeArenaSync.parseResponse(u, html, preferences, character, inventory)
             "bounty" -> BountyHunterSync.parseResponse(u, html, preferences, character, inventory)
+            "leaflet" -> LeafletManager.parseLocation(html)
             "beerpong" -> PirateSpecialSync.parseBeerPong(u, html, preferences)
             "shrine" -> PirateSpecialSync.parseShrine(u, html, preferences)
             "api" -> {

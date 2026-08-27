@@ -985,7 +985,7 @@ private fun GameRuntimeLibrary.resolveAdventureCliLocation(query: String): Adven
     if (trimmed.isEmpty()) return null
     resolveLocation(trimmed)?.let { return it }
     val zone = AdventureDatabase.getByName(trimmed) ?: AdventureDatabase.search(trimmed).firstOrNull()
-    return zone?.let { AdventureLocation(it.snarfblat ?: it.urlParams, it.locationName, it.zoneName) }
+    return zone?.let { it.toLocation() }
 }
 
 internal fun GameRuntimeLibrary.cliLocations(rt: AshRuntimeContext) {

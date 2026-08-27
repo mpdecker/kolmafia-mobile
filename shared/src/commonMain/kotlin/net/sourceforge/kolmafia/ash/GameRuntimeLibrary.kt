@@ -44,6 +44,8 @@ import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.CharacterStatusRefresh
 import net.sourceforge.kolmafia.character.ClassResourceCharpaneSync
+import net.sourceforge.kolmafia.character.CharpaneStatusSync
+import net.sourceforge.kolmafia.character.ApiStatusSync
 import net.sourceforge.kolmafia.clan.ClanIdSync
 import net.sourceforge.kolmafia.character.ClassResourceCombatSync
 import net.sourceforge.kolmafia.character.EquipmentSlot
@@ -88,6 +90,7 @@ import net.sourceforge.kolmafia.quest.FloristFriarChoiceSync
 import net.sourceforge.kolmafia.quest.SpacegateLeftoversChoiceSync
 import net.sourceforge.kolmafia.quest.WlfBunkerChoiceSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.quest.QuestManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
@@ -101,6 +104,11 @@ import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.CafePurchaseRequest
 import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
+import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.ClanHallRequest
+import net.sourceforge.kolmafia.request.ClanMembersRequest
+import net.sourceforge.kolmafia.request.ClanLogRequest
+import net.sourceforge.kolmafia.request.ClanWarRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
@@ -189,6 +197,11 @@ import net.sourceforge.kolmafia.quest.Cell37EscapeSync
 import net.sourceforge.kolmafia.quest.ShenSync
 import net.sourceforge.kolmafia.request.PeeVPeeRequest
 import net.sourceforge.kolmafia.request.PlaceSync
+import net.sourceforge.kolmafia.request.DwarfFactoryRequest
+import net.sourceforge.kolmafia.request.DwarfContraptionRequest
+import net.sourceforge.kolmafia.request.ArcadeRequest
+import net.sourceforge.kolmafia.request.BasementSync
+import net.sourceforge.kolmafia.quest.ShadowRiftSync
 import net.sourceforge.kolmafia.request.ProfileRequest
 import net.sourceforge.kolmafia.request.PortalRequest
 import net.sourceforge.kolmafia.request.ElvmachineRequest
@@ -246,6 +259,7 @@ import net.sourceforge.kolmafia.quest.IceHouseChoiceSync
 import net.sourceforge.kolmafia.quest.MonkeyPawChoiceSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.SpookyravenManorVisitSync
+import net.sourceforge.kolmafia.quest.SorceressLairSync
 import net.sourceforge.kolmafia.quest.TelescopeSync
 import net.sourceforge.kolmafia.quest.TowerSync
 import net.sourceforge.kolmafia.request.QuestLogRequest
@@ -279,7 +293,12 @@ import net.sourceforge.kolmafia.session.ElVibratoManager
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.EventHistory
 import net.sourceforge.kolmafia.session.RequestLogger
+import net.sourceforge.kolmafia.session.ResultProcessor
+import net.sourceforge.kolmafia.session.StoreManager
 import net.sourceforge.kolmafia.session.ResponseTextParser
+import net.sourceforge.kolmafia.session.LeafletManager
+import net.sourceforge.kolmafia.session.RabbitHoleManager
+import net.sourceforge.kolmafia.session.WumpusManager
 import net.sourceforge.kolmafia.session.PeeVPeeSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
@@ -475,7 +494,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase2450"
+        const val REVISION = "phase3050"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -1443,6 +1462,15 @@ class GameRuntimeLibrary(
         Regex("^hatter(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliHatter(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
+        Regex("^chess(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliChess(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^wumpus(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliWumpus(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^leaflet(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliLeaflet(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
 
         Regex("^synthesize(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliSynthesize(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
@@ -1450,6 +1478,18 @@ class GameRuntimeLibrary(
 
         Regex("^factory$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("guild.php?place=paco", applyQuestHooks = true)
+        },
+
+        Regex("^dwarf(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliDwarfFactory(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+
+        Regex("^factory\\s+(check|report|setdigits|solve|vacuum)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val rest = listOfNotNull(
+                m.groupValues.getOrNull(1),
+                m.groupValues.getOrNull(2)?.takeIf { it.isNotBlank() },
+            ).joinToString(" ")
+            cliDwarfFactory(rest, rt::print)
         },
 
         Regex("^(?:meatcar|knoll)$", RegexOption.IGNORE_CASE) to { _, _ ->
@@ -2134,8 +2174,8 @@ class GameRuntimeLibrary(
             rt.print(progress)
         },
 
-        Regex("^telescope(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, _ ->
-            cliTelescope(m.groupValues.getOrNull(1)?.trim().orEmpty())
+        Regex("^telescope(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliTelescope(m.groupValues.getOrNull(1)?.trim().orEmpty()) { message -> rt.print(message) }
         },
 
         // main / council / campground / homepage — visit common KoL pages
@@ -2672,12 +2712,14 @@ class GameRuntimeLibrary(
     )
 
     internal fun resolveLocation(name: String): AdventureLocation? {
+        AdventureDatabase.getByName(name)?.let { return it.toLocation() }
         LocationDatabase.ALL_LOCATIONS.find { it.name.equals(name, ignoreCase = true) }?.let {
             return AdventureLocation(it.snarfblat, it.name, it.zone)
         }
         LocationDatabase.findBySnarfblat(name)?.let {
             return AdventureLocation(it.snarfblat, it.name, it.zone)
         }
+        AdventureDatabase.getBySnarfblat(name)?.let { return it.toLocation() }
         if (name.isNotEmpty() && name.all { it.isDigit() }) {
             return AdventureLocation(name, name, "")
         }
@@ -2706,8 +2748,59 @@ class GameRuntimeLibrary(
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
         if (url != null) {
             RequestLogger.registerRequest(url, sessionLogger, preferences)
+            if (url.contains("whichplace=nstower", ignoreCase = true) &&
+                SorceressLairSync.action(url) == "ns_10_sorcfight"
+            ) {
+                SorceressLairSync.enterSorceressFight(effectManager)
+            }
         }
         EventHistory.checkForNewEvents(html)
+        val questHubRouted = url?.let { QuestManager.handles(it) } == true
+        if (questHubRouted) {
+            QuestManager.handleQuestChange(
+                url = url!!,
+                html = html,
+                ctx = QuestManager.QuestChangeContext(
+                    preferences = preferences,
+                    questDatabase = questDatabase,
+                    characterState = character?.state?.value,
+                    inventoryManager = inventoryManager,
+                    gameDatabase = gameDatabase,
+                    sessionLogger = sessionLogger,
+                    clearEquipment = { slot -> character?.updateEquipment(slot, "") },
+                    adventureTurns = { name -> adventureSpentTracker?.getTurns(name) ?: 0 },
+                    parseQuestLogPage = { page, body ->
+                        questLogRequest?.parsePage(
+                            body,
+                            page,
+                            character?.state?.value?.ascensionNumber ?: 0,
+                        )
+                    },
+                ),
+            )
+        }
+        if (url?.contains("leaflet.php", ignoreCase = true) == true) {
+            LeafletManager.parseLocation(html)
+        }
+        if (url?.contains("whichchoice=${WumpusManager.CHOICE_ID}", ignoreCase = true) == true) {
+            val decision = Regex("""(?:option|decision)=(\d+)""", RegexOption.IGNORE_CASE)
+                .find(url)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            WumpusManager.applyChoice(decision, html)
+        }
+        if (url != null && (
+                url.contains("whichchoice=${RabbitHoleManager.TEA_PARTY_CHOICE}", true) ||
+                    url.contains("whichchoice=${RabbitHoleManager.RABBIT_HOLE_CHOICE}", true) ||
+                    url.contains("whichchoice=${RabbitHoleManager.CHESS_CHOICE}", true)
+                )
+        ) {
+            val choiceId = Regex("""whichchoice=(\d+)""", RegexOption.IGNORE_CASE)
+                .find(url)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val decision = Regex("""(?:option|decision)=(\d+)""", RegexOption.IGNORE_CASE)
+                .find(url)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            RabbitHoleManager.applyChoice(
+                choiceId, decision, url, html, preferences,
+            ) { id, qty -> inventoryManager?.consumeItemLocally(id, qty) }
+        }
         if (url?.contains("charsheet.php", ignoreCase = true) == true) {
             GreyYouManager.parseAbsorptions(
                 html,
@@ -2844,6 +2937,15 @@ class GameRuntimeLibrary(
                     ExpressionContext.from(state, emptyList())
                 } ?: ExpressionContext.EMPTY
                 CombatSkillConsequenceSync.applyFromFightHtml(html, prefs, exprCtx)
+                // Dwarf war uniform combat deduce (Phases 2646–2660)
+                if (html.contains("mattock glows", ignoreCase = true) ||
+                    html.contains("crystal lens flips", ignoreCase = true) ||
+                    html.contains("sporran", ignoreCase = true)
+                ) {
+                    DwarfFactoryRequest.deduceHP(html)
+                    DwarfFactoryRequest.deduceAttack(html, prefs)
+                    DwarfFactoryRequest.deduceDefense(html)
+                }
                 LatteChoiceSync.applyFight(
                     location = prefs.getString(Preferences.LAST_LOCATION, "").ifBlank { null },
                     html = html,
@@ -2922,6 +3024,7 @@ class GameRuntimeLibrary(
                 consumeItem = { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) },
                 currentRun = character?.state?.value?.currentRun ?: 0,
             )
+            WumpusManager.onWumpusFight(html)
             extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
                 QuestItemUsedSync.apply(
                     itemId,
@@ -3028,6 +3131,19 @@ class GameRuntimeLibrary(
                     character = character,
                     inventory = if (questHandled) null else inventoryManager,
                 )
+                preferences?.let { prefs ->
+                    when (itemId) {
+                        DwarfFactoryRequest.SMALL_LAMINATED_CARD,
+                        DwarfFactoryRequest.LITTLE_LAMINATED_CARD,
+                        DwarfFactoryRequest.NOTBIG_LAMINATED_CARD,
+                        DwarfFactoryRequest.UNLARGE_LAMINATED_CARD,
+                        -> DwarfFactoryRequest.useLaminatedItem(itemId, html, prefs)
+                        DwarfFactoryRequest.DWARVISH_DOCUMENT,
+                        DwarfFactoryRequest.DWARVISH_PAPER,
+                        DwarfFactoryRequest.DWARVISH_PARCHMENT,
+                        -> DwarfFactoryRequest.useUnlaminatedItem(itemId, html, prefs)
+                    }
+                }
             }
         }
         if (url != null && (
@@ -3069,6 +3185,22 @@ class GameRuntimeLibrary(
                 character = character,
             )
         }
+        if (url != null) {
+            when {
+                url.contains("clan_viplounge.php", true) ->
+                    ClanLoungeRequest.parseResponse(url, html, preferences)
+                url.contains("clan_rumpus.php", true) ->
+                    ClanRumpusRequest.parseResponse(url, html, preferences)
+                url.contains("clan_hall.php", true) -> ClanHallRequest.parseResponse(url, html)
+                url.contains("showclan.php", true) ||
+                    url.contains("clan_members.php", true) ||
+                    url.contains("clan_detailedroster.php", true) ->
+                    ClanMembersRequest.parseResponse(url, html)
+                url.contains("clan_log.php", true) -> ClanLogRequest.parseResponse(url, html)
+                url.contains("clan_attack.php", true) || url.contains("clan_war.php", true) ->
+                    ClanWarRequest.parseResponse(url, html, preferences)
+            }
+        }
         ResponseTextParser.externalUpdate(
             url = url,
             html = html,
@@ -3081,8 +3213,27 @@ class GameRuntimeLibrary(
                 url.endsWith("/charpane.php", ignoreCase = true)
             )
         ) {
-            character?.let { ClassResourceCharpaneSync.apply(it, html) }
+            character?.let { char ->
+                CharpaneStatusSync.apply(char, html, preferences, familiarManager)
+                ClassResourceCharpaneSync.apply(char, html)
+            }
             ClanIdSync.apply(html)
+        }
+        if (url != null && (
+                url.contains("api.php", ignoreCase = true) &&
+                    url.contains("what=status", ignoreCase = true)
+            )
+        ) {
+            character?.let { char ->
+                ApiStatusSync.parseStatus(
+                    responseText = html,
+                    character = char,
+                    preferences = preferences,
+                    effectManager = effectManager,
+                    equipmentManager = equipmentManager,
+                    familiarManager = familiarManager,
+                )
+            }
         }
         if (url != null && url.contains("campground.php", ignoreCase = true)) {
             CampgroundSync.parseResponse(
@@ -3150,6 +3301,55 @@ class GameRuntimeLibrary(
                 preferences = preferences,
                 character = character,
                 inventory = inventoryManager,
+            )
+            ShadowRiftSync.applyIngressFromUrl(url, preferences)
+            if (url.contains("whichplace=arcade", ignoreCase = true)) {
+                preferences?.let { prefs ->
+                    ArcadeRequest.parseResponse(url, html, prefs, ResultProcessor)
+                    ArcadeRequest.registerRequest(
+                        urlString = url,
+                        sessionLogger = sessionLogger,
+                        preferences = prefs,
+                        ascensions = character?.state?.value?.ascensionNumber ?: 0,
+                        tokenCount = inventoryManager?.state?.value?.items
+                            ?.get(ArcadeRequest.GG_TOKEN)?.quantity ?: 0,
+                    )
+                }
+            }
+        }
+        if (url != null && url.contains("dwarffactory.php", ignoreCase = true)) {
+            preferences?.let { prefs ->
+                val asc = character?.state?.value?.ascensionNumber ?: 0
+                DwarfFactoryRequest.ensureUpdated(prefs, asc)
+                DwarfFactoryRequest.parseResponse(url, html, prefs, asc, sessionLogger)
+                DwarfFactoryRequest.registerRequest(url, sessionLogger)
+            }
+        }
+        if (url != null && url.contains("dwarfcontraption.php", ignoreCase = true)) {
+            preferences?.let { prefs ->
+                val asc = character?.state?.value?.ascensionNumber ?: 0
+                DwarfContraptionRequest.parseResponse(
+                    urlString = url,
+                    responseText = html,
+                    preferences = prefs,
+                    inventoryManager = inventoryManager,
+                    resultProcessor = ResultProcessor,
+                    ascensions = asc,
+                )
+                DwarfContraptionRequest.registerRequest(url, sessionLogger)
+            }
+        }
+        if (url != null && url.contains("basement.php", ignoreCase = true)) {
+            val state = character?.state?.value
+            BasementSync.checkBasement(
+                html = html,
+                preferences = preferences,
+                autoSwitch = false,
+                muscle = state?.buffedMusc ?: 0,
+                mysticality = state?.buffedMyst ?: 0,
+                moxie = state?.buffedMoxie ?: 0,
+                maxHp = state?.maxHp ?: 0,
+                maxMp = state?.maxMp ?: 0,
             )
         }
         if (url != null && url.contains("place.php", ignoreCase = true) &&
@@ -3362,6 +3562,13 @@ class GameRuntimeLibrary(
             }
             if (url.contains("managestore.php", ignoreCase = true)) {
                 ShopInventoryVisitSync.parseAndWrite(html, preferences!!)
+                StoreManager.update(html, StoreManager.TableType.ADDER)
+            }
+            if (url.contains("manageprices.php", ignoreCase = true)) {
+                StoreManager.update(html, StoreManager.TableType.PRICER)
+            }
+            if (url.contains("backoffice.php", ignoreCase = true) && !url.contains("action=", ignoreCase = true)) {
+                StoreManager.update(html, StoreManager.TableType.DEETS)
             }
         }
         // Track L sync (Phase 969) + FamiliarSync hub (Phases 2421–2450)
@@ -3380,6 +3587,7 @@ class GameRuntimeLibrary(
         character?.state?.value?.let { state ->
             DispensarySync.applyFromResponse(html, state, preferences)
         }
+        if (!questHubRouted) {
         if (url != null && (
                 url.contains("whichplace=manor", ignoreCase = true) ||
                     url.contains("snarfblat=${SpookyravenManorVisitSync.HAUNTED_BILLIARDS_ROOM}") ||
@@ -3762,6 +3970,7 @@ class GameRuntimeLibrary(
                 )
             }
         }
+        }
         if (url?.contains("bigisland.php", ignoreCase = true) == true) {
             preferences?.let { prefs ->
                 val equipment = character?.state?.value?.equipment ?: emptyMap()
@@ -3883,7 +4092,13 @@ class GameRuntimeLibrary(
             url?.contains("tower.php", ignoreCase = true) == true ||
             url?.contains("nstower", ignoreCase = true) == true
         ) {
-            TowerSync.parseTower(html, db, prefs)
+            SorceressLairSync.parseTowerResponse(
+                action = url?.let(SorceressLairSync::action),
+                html = html,
+                questDatabase = db,
+                preferences = prefs,
+                setKingLiberated = { character?.setKingLiberated(true) },
+            )
         }
         if (url?.contains(TowerDoorConfig.DOOR_PLACE, ignoreCase = true) == true ||
             url?.contains(TowerDoorConfig.LOW_KEY_DOOR_PLACE, ignoreCase = true) == true
@@ -4308,6 +4523,7 @@ class GameRuntimeLibrary(
                                 effectManager = effectManager,
                                 preferences = preferences,
                                 familiarManager = familiarManager,
+                                equipmentManager = equipmentManager,
                             )
                         }
                     },

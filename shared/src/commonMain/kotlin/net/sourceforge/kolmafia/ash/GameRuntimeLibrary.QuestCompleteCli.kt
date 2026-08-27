@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.campground.MushroomPlotSync
 import net.sourceforge.kolmafia.character.MainStat
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.request.DwarfFactoryRequest
 import net.sourceforge.kolmafia.quest.LightsOutChoiceSync
 import net.sourceforge.kolmafia.quest.TalesOfDreadChoiceSync
 import net.sourceforge.kolmafia.quest.TavernCellarSync
@@ -178,13 +179,82 @@ internal fun GameRuntimeLibrary.cliSven(parameters: String, print: (String) -> U
 
 internal fun GameRuntimeLibrary.cliBasement(parameters: String, print: (String) -> Unit) {
     val fromPref = preferences?.getInt("basementLevel", -1)?.takeIf { it >= 0 }
-    val level = fromPref ?: buildMonsterExpressionContext().basementLevel
+    val level = fromPref
+        ?: net.sourceforge.kolmafia.request.BasementSync.basementLevel.takeIf { it > 0 }
+        ?: buildMonsterExpressionContext().basementLevel
     print("Fernswarthy's Basement (Level $level)")
-    if (parameters.trim().equals("visit", ignoreCase = true) ||
-        parameters.trim().equals("refresh", ignoreCase = true)
+    val summary = net.sourceforge.kolmafia.request.BasementSync.getBasementLevelSummary()
+    if (summary.isNotBlank()) print(summary)
+    val arg = parameters.trim()
+    if (arg.equals("visit", ignoreCase = true) ||
+        arg.equals("refresh", ignoreCase = true) ||
+        arg.equals("check", ignoreCase = true) ||
+        arg.isEmpty()
     ) {
-        visitKolPage("basement.php", applyQuestHooks = true)
-            ?: print("HTTP client is not available for basement refresh.")
+        if (arg.equals("check", ignoreCase = true) || arg.isEmpty()) {
+            // Prefer live check when HTTP available; otherwise print cached summary.
+        }
+        if (arg.equals("visit", ignoreCase = true) ||
+            arg.equals("refresh", ignoreCase = true) ||
+            arg.equals("check", ignoreCase = true)
+        ) {
+            visitKolPage("basement.php", applyQuestHooks = true)
+                ?: print("HTTP client is not available for basement refresh.")
+            val after = net.sourceforge.kolmafia.request.BasementSync
+            print(after.getBasementLevelName())
+            after.getBasementLevelSummary().takeIf { it.isNotBlank() }?.let(print)
+            after.basementErrorMessage?.let(print)
+        }
+    }
+}
+
+internal fun GameRuntimeLibrary.cliDwarfFactory(parameters: String, print: (String) -> Unit) {
+    val prefs = preferences ?: run {
+        print("Preferences unavailable.")
+        return
+    }
+    val tokens = parameters.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    if (tokens.isEmpty()) {
+        print("Usage: dwarf check|report|setdigits|solve|vacuum <item>")
+        return
+    }
+    when (tokens[0].lowercase()) {
+        "check" -> DwarfFactoryRequest.check(prefs, print)
+        "solve" -> DwarfFactoryRequest.solve(prefs, print)
+        "report" -> {
+            if (tokens.size >= 2) {
+                DwarfFactoryRequest.report(tokens[1].trim().uppercase(), prefs, print)
+            } else {
+                DwarfFactoryRequest.report(prefs, print)
+            }
+        }
+        "setdigits" -> {
+            val digits = tokens.getOrNull(1)?.trim()?.uppercase().orEmpty()
+            if (digits.length != 7) {
+                print("Must supply a 7 character digit string")
+            } else {
+                DwarfFactoryRequest.setDigits(digits, prefs)
+                print("Digit runes set to $digits")
+            }
+        }
+        "vacuum" -> {
+            val itemString = parameters.substringAfter("vacuum").trim()
+            if (itemString.isEmpty()) {
+                print("Usage: dwarf vacuum <item>")
+                return
+            }
+            val itemId = gameDatabase?.item(itemString)?.id
+                ?: ItemDatabase.getByName(itemString)?.id
+            if (itemId == null || itemId <= 0) {
+                print("Unable to find item: $itemString")
+                return
+            }
+            visitKolPage(
+                "dwarfcontraption.php?action=dochamber&howmany=1&whichitem=$itemId",
+                applyQuestHooks = true,
+            ) ?: print("HTTP client is not available for vacuum chamber.")
+        }
+        else -> print("Usage: dwarf check|report|setdigits|solve|vacuum <item>")
     }
 }
 

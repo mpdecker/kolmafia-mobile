@@ -6,6 +6,8 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.CryptManager
+import net.sourceforge.kolmafia.session.RabbitHoleManager
+import net.sourceforge.kolmafia.session.WumpusManager
 
 /** Quest step bumps from choice adventure response text. */
 object QuestChoiceRules {
@@ -66,6 +68,22 @@ object QuestChoiceRules {
     ): Boolean {
         var advanced = false
         when (choiceId) {
+            WumpusManager.CHOICE_ID -> {
+                advanced = WumpusManager.applyChoice(decision, responseText) || advanced
+            }
+            RabbitHoleManager.TEA_PARTY_CHOICE,
+            RabbitHoleManager.RABBIT_HOLE_CHOICE,
+            RabbitHoleManager.CHESS_CHOICE,
+            -> {
+                advanced = RabbitHoleManager.applyChoice(
+                    choiceId = choiceId,
+                    decision = decision,
+                    choiceUrl = choiceUrl,
+                    responseText = responseText,
+                    preferences = preferences,
+                    consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
+                ) || advanced
+            }
             SpelunkyChoiceSync.ENTER,
             SpelunkyChoiceSync.EXIT,
             -> {

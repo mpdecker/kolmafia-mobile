@@ -1,13 +1,16 @@
 package net.sourceforge.kolmafia.request
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.get
 import io.ktor.client.request.forms.submitForm
+import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ParametersBuilder
 import io.ktor.http.isSuccess
 import io.ktor.http.parameters
 import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.clan.ClanLoungeVipSync
+import net.sourceforge.kolmafia.clan.ClanManager
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.ConsumptionEligibility
@@ -21,17 +24,50 @@ import net.sourceforge.kolmafia.request.ClanLoungeVipOptions.CANNONBALL
 
 open class ClanLoungeRequest(private val client: HttpClient) {
 
+    /** Search a VIP lounge floor and update the per-clan furniture cache. */
+    open suspend fun searchLounge(
+        floor: Int = 1,
+        preferences: Preferences? = null,
+    ): Result<String> = try {
+        require(floor >= 1) { "Invalid lounge floor: $floor" }
+        val response = client.get("$KOL_BASE_URL/clan_viplounge.php") {
+            if (floor != 1) parameter("whichfloor", floor)
+        }
+        if (!response.status.isSuccess()) {
+            Result.failure(Exception("HTTP ${response.status.value}"))
+        } else {
+            response.bodyAsText().let { html ->
+                parseResponse(
+                    if (floor == 1) "clan_viplounge.php" else "clan_viplounge.php?whichfloor=$floor",
+                    html,
+                    preferences,
+                )
+                Result.success(html)
+            }
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
     /** Use the Deluxe Klaw machine once. Returns response HTML (caller checks _deluxeKlawSummons). */
     open suspend fun useKlaw(): Result<String> = postAction("klaw")
+    open suspend fun useKlaw(preferences: Preferences): Result<String> =
+        postAction("klaw", preferences)
 
     /** Visit the looking glass for a free buff. */
     open suspend fun useLookingGlass(): Result<Unit> = postAction("lookingglass").map {}
+    open suspend fun useLookingGlass(preferences: Preferences): Result<Unit> =
+        postAction("lookingglass", preferences).map {}
 
     /** Visit the fireworks shop. */
     open suspend fun visitFireworks(): Result<Unit> = postAction("fireworks").map {}
+    open suspend fun visitFireworks(preferences: Preferences): Result<Unit> =
+        postAction("fireworks", preferences).map {}
 
     /** Desktop ClanLoungeRequest(Action.CRIMBO_TREE) — visit the VIP Crimbo tree. */
     open suspend fun visitCrimboTree(): Result<String> = postAction("crimbotree")
+    open suspend fun visitCrimboTree(preferences: Preferences): Result<String> =
+        postAction("crimbotree", preferences)
 
     /**
      * Desktop ClanLoungeRequest(Action.POOL_TABLE, stance).
@@ -297,6 +333,11 @@ open class ClanLoungeRequest(private val client: HttpClient) {
                     "$KOL_BASE_URL/clan_viplounge.php$syncUrlSuffix",
                 )
             }
+            parseResponse(
+                "clan_viplounge.php$syncUrlSuffix",
+                html,
+                preferences,
+            )
             Result.success(html)
         }
     } catch (e: Exception) {
@@ -324,15 +365,21 @@ open class ClanLoungeRequest(private val client: HttpClient) {
         Result.failure(e)
     }
 
-    private suspend fun postAction(action: String): Result<String> = try {
+    private suspend fun postAction(
+        action: String,
+        preferences: Preferences? = null,
+    ): Result<String> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/clan_viplounge.php",
             formParameters = parameters { append("action", action) }
         )
         if (!response.status.isSuccess())
             Result.failure(Exception("HTTP ${response.status.value}"))
-        else
-            Result.success(response.bodyAsText())
+        else {
+            val html = response.bodyAsText()
+            parseResponse("clan_viplounge.php?action=$action", html, preferences)
+            Result.success(html)
+        }
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -340,6 +387,66 @@ open class ClanLoungeRequest(private val client: HttpClient) {
     companion object {
         const val SEND_FAX = 1
         const val RECEIVE_FAX = 2
+
+        private val LOUNGE_PATTERN = Regex(
+            """<table.*?<b style="color: white">Clan VIP Lounge \(Ground Floor\)</b>.*?<center><b>(?:<a.*?>)?(.*?)(?:</a>)?</b>.*?</center>(<table.*?</table>)""",
+            RegexOption.DOT_MATCHES_ALL,
+        )
+        private val LOUNGE2_PATTERN = Regex(
+            """<table.*?<b style="color: white">Clan VIP Lounge \(Attic\)</b>.*?<center><b>(?:<a.*?>)?(.*?)(?:</a>)?</b>.*?</center>(<table.*?</table>)""",
+            RegexOption.DOT_MATCHES_ALL,
+        )
+        private val TREE_LEVEL_PATTERN = Regex("""tree(\d+)(?:nopressie|)\.gif""")
+        private val HOTTUB_PATTERN = Regex("""hottub(\d)\.gif""")
+        private val FURNITURE_IMAGES = linkedMapOf(
+            "vipfloundry.gif" to "Clan floundry",
+            "fortuneteller.gif" to "Clan Carnival Game",
+            "fireworks.gif" to "Clan Underground Fireworks Shop",
+            "photobooth.gif" to "Clan Photo Booth",
+            "lookingglass.gif" to "Looking Glass",
+            "aprilshower.gif" to "April Shower",
+            "pooltable.gif" to "Pool Table",
+            "faxmachine.gif" to "Fax Machine",
+            "hotdogstand.gif" to "Hot Dog Stand",
+            "vippool.gif" to "Olympic-sized Clan pool",
+            "speakeasy.gif" to "Speakeasy",
+        )
+
+        fun parseResponse(url: String, html: String, preferences: Preferences? = null) {
+            if (!url.contains("clan_viplounge.php", ignoreCase = true)) return
+            val sections = listOfNotNull(LOUNGE_PATTERN.find(html), LOUNGE2_PATTERN.find(html))
+            for (section in sections) {
+                val clanName = section.groupValues[1].replace(Regex("<.*?>"), "").trim()
+                if (clanName.isNotEmpty() && clanName != ClanManager.getClanName()) {
+                    ClanManager.setClanName(clanName)
+                    ClanManager.setClanId(0)
+                }
+                parseFurniture(section.groupValues[2], preferences)
+            }
+            // Action responses frequently omit the page wrapper.
+            if (sections.isEmpty()) parseFurniture(html, preferences)
+        }
+
+        private fun parseFurniture(html: String, preferences: Preferences?) {
+            for ((image, name) in FURNITURE_IMAGES) {
+                if (html.contains(image, ignoreCase = true)) ClanManager.addToLounge(name)
+            }
+            TREE_LEVEL_PATTERN.find(html)?.groupValues?.get(1)?.toIntOrNull()?.let { level ->
+                ClanManager.addToLounge("Crimbough", level)
+            }
+            when {
+                html.contains("tree5.gif", ignoreCase = true) -> {
+                    preferences?.setInt("crimboTreeDays", 0)
+                    preferences?.setBoolean("_crimboTree", true)
+                }
+                !html.contains("crimbotree", ignoreCase = true) &&
+                    !TREE_LEVEL_PATTERN.containsMatchIn(html) ->
+                    preferences?.setBoolean("_crimboTree", false)
+            }
+            HOTTUB_PATTERN.find(html)?.groupValues?.get(1)?.toIntOrNull()?.let {
+                preferences?.setInt(ClanLoungeSync.HOT_TUB_SOAKS_PREF, 5 - it)
+            }
+        }
 
         fun findShowerOption(tag: String): Int = ClanLoungeVipOptions.findShowerOption(tag)
 

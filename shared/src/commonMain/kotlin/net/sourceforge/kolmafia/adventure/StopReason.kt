@@ -9,4 +9,6 @@ sealed class StopReason {
     data class AutoStop(val encounterName: String) : StopReason()
     data class MacroError(val message: String) : StopReason()
     data class NetworkError(val cause: Throwable) : StopReason()
+    /** Desktop adventure-failure table hit (ERROR or PENDING). */
+    data class AdventureFailure(val message: String, val pending: Boolean = false) : StopReason()
 }

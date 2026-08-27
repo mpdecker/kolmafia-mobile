@@ -24,11 +24,13 @@ import net.sourceforge.kolmafia.quest.IslandWarPaths
 import net.sourceforge.kolmafia.quest.IslandWarVisitSync
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.request.ArcadeRequest
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.adventure.choice.ItemPool as ChoiceItemPool
 import net.sourceforge.kolmafia.shop.NpcShopSync
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.mood.BreakfastBurnSkills
@@ -106,7 +108,7 @@ open class BreakfastManager(
         useBookOfEverySkill(inventoryState)
         useReplicaBooks(inventoryState)
         makeHandheldRadios(inventoryState)
-        checkJackass(suffix, inventoryState)
+        checkJackass(suffix, inventoryState, charState)
         collectSeaJelly(suffix, charState)
 
         preferences.setBoolean(Preferences.BREAKFAST_COMPLETED, true)
@@ -740,14 +742,25 @@ open class BreakfastManager(
         }
     }
 
-    private suspend fun checkJackass(suffix: String, inventoryState: InventoryState) {
+    private suspend fun checkJackass(
+        suffix: String,
+        inventoryState: InventoryState,
+        charState: CharacterState,
+    ) {
         val prefKey = if (suffix == "Softcore") Preferences.CHECK_JACKASS_SOFTCORE
                       else Preferences.CHECK_JACKASS_HARDCORE
         if (!preferences.getBoolean(prefKey, true)) return
-        if (preferences.getBoolean(Preferences.JACKASS_PLUMBER_USED, false)) return
-        if (!inventoryState.items.containsKey(BreakfastItemIds.JACKASS_PLUMBER_GAME_ID)) return
-        useItemRequest.use(BreakfastItemIds.JACKASS_PLUMBER_GAME_ID, 1).onSuccess {
-            preferences.setBoolean(Preferences.JACKASS_PLUMBER_USED, true)
+        if (preferences.getBoolean("_defectiveTokenChecked", false)) return
+        val hasToken = (inventoryState.items[ChoiceItemPool.GG_TOKEN]?.quantity ?: 0) > 0
+        val hasTicket = (inventoryState.items[ChoiceItemPool.GG_TICKET]?.quantity ?: 0) > 0
+        val url = ArcadeRequest.jackassPlumberUrl(
+            preferences = preferences,
+            ascensions = charState.ascensionNumber,
+            hasToken = hasToken,
+            hasTicket = hasTicket,
+        ) ?: return
+        httpGet(url).onSuccess { html ->
+            ArcadeRequest.parseResponse(url, html, preferences)
         }
     }
 

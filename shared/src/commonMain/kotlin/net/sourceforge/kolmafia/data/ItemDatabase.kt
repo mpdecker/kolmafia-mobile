@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.data
 
 import net.sourceforge.kolmafia.character.Beeosity
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -208,6 +209,20 @@ object ItemDatabase {
 
     /** Virtual items exist in KoL data but cannot live in inventory (desktop ItemDatabase.isVirtualItem). */
     fun isVirtualItem(itemId: Int): Boolean = itemId in VIRTUAL_ITEM_IDS
+
+    /** Desktop [ItemDatabase.haveVirtualItem] — purchased-map prefs. */
+    fun haveVirtualItem(itemId: Int, prefs: Preferences?): Boolean {
+        if (!isVirtualItem(itemId)) return false
+        prefs ?: return false
+        return when (itemId) {
+            3649 -> prefs.getBoolean("mapToMadnessReefPurchased", false)
+            3683 -> prefs.getBoolean("mapToTheMarinaraTrenchPurchased", false)
+            3701 -> prefs.getBoolean("mapToAnemoneMinePurchased", false)
+            3774 -> prefs.getBoolean("mapToTheDiveBarPurchased", false)
+            4222 -> prefs.getBoolean("mapToTheSkateParkPurchased", false)
+            else -> false
+        }
+    }
 
     fun getPluralName(itemId: Int): String {
         if (itemId <= 0) return ""

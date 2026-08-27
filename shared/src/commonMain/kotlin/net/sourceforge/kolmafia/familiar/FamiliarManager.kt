@@ -205,6 +205,12 @@ open class FamiliarManager(
         applyActiveFamiliarLocally(updated)
     }
 
+    fun applyActiveFeastedLocally(feasted: Boolean) {
+        val active = _state.value.activeFamiliar ?: return
+        if (active.feasted == feasted) return
+        applyActiveFamiliarLocally(active.copy(feasted = feasted))
+    }
+
     /** Desktop `CharPaneRequest.checkPokeFam` owned-familiar upsert from charpane team. */
     fun mergePokeTeam(slots: List<PokefamTeamSlot>) {
         val state = _state.value

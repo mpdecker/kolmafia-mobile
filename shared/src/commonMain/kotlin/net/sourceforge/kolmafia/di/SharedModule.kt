@@ -112,6 +112,10 @@ import net.sourceforge.kolmafia.request.GnomePartCreateRequest
 import net.sourceforge.kolmafia.request.SpacegateCreateRequest
 import net.sourceforge.kolmafia.request.FantasyRealmCreateRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.ClanMembersRequest
+import net.sourceforge.kolmafia.request.ClanLogRequest
+import net.sourceforge.kolmafia.request.ClanWarRequest
+import net.sourceforge.kolmafia.request.ClanBuffRequest
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.PlaceRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
@@ -136,6 +140,7 @@ import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
+import net.sourceforge.kolmafia.request.AutoMallRequest
 import net.sourceforge.kolmafia.request.BasementRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
 import net.sourceforge.kolmafia.request.UntinkerRequest
@@ -184,7 +189,14 @@ val sharedModule = module {
     single { GameEventBus() }
     singleOf(::LoginRequest)
     singleOf(::CharacterRequest)
-    singleOf(::AdventureRequest)
+    single {
+        AdventureRequest(
+            client = get(),
+            preferences = get(),
+            effectManager = get(),
+            questDatabase = get(),
+        )
+    }
     singleOf(::FightRequest)
     singleOf(::ChoiceRequest)
     singleOf(::OceanRequest)
@@ -278,6 +290,7 @@ val sharedModule = module {
         )
     }
     singleOf(::AutosellRequest)
+    singleOf(::AutoMallRequest)
     singleOf(::BasementRequest)
     single { PulverizeRequest(get(), get(), get(), get(), get()) }
     single { JunkListManager(get()) }
@@ -302,6 +315,7 @@ val sharedModule = module {
             manageStoreRequest = get(),
             character = get(),
             gameDatabase = get(),
+            autoMallRequest = get(),
         )
     }
     single {
@@ -392,6 +406,10 @@ val sharedModule = module {
     }
     singleOf(::ClanRumpusRequest)
     singleOf(::ClanLoungeRequest)
+    singleOf(::ClanMembersRequest)
+    singleOf(::ClanLogRequest)
+    singleOf(::ClanWarRequest)
+    singleOf(::ClanBuffRequest)
     singleOf(::CafeRequest)
     single {
         HellKitchenRequest(cafeRequest = get())
@@ -1028,6 +1046,9 @@ val sharedModule = module {
             trendyRequest    = get(),
             specialtyCreateProvider = { get() },
             createItemIngredientsProvider = { get() },
+            equipmentRequest = get(),
+            familiarManager = get(),
+            untinkerRequest = get(),
         )
     }
     single {

@@ -73,6 +73,14 @@ class EffectManager(
         eventBus.tryEmit(GameEvent.EffectsRefreshed)
     }
 
+    fun retainEffects(predicate: (EffectData) -> Boolean): Boolean {
+        val retained = _state.value.effects.filter(predicate)
+        if (retained == _state.value.effects) return false
+        _state.value = EffectState(effects = retained, isStale = false)
+        eventBus.tryEmit(GameEvent.EffectsRefreshed)
+        return true
+    }
+
     /** Test / ResultProcessor hook — replace active effects without HTTP. */
     fun replaceEffectsForTest(effects: List<EffectData>) {
         _state.value = EffectState(effects = effects, isStale = false)

@@ -14,7 +14,13 @@ open class AutosellRequest(
     private val inventoryManager: InventoryManager? = null,
     private val character: KoLCharacter? = null,
 ) {
+    enum class Mode(val wireName: String) { QUANTITY("quant"), ALL("all"), ALL_BUT_ONE("allbutone") }
+
     open suspend fun autosell(itemId: Int, quantity: Int): Result<String> {
+        return autosellBatch(mapOf(itemId to quantity), Mode.QUANTITY)
+    }
+
+    open suspend fun autosellBatch(items: Map<Int, Int>, mode: Mode = Mode.QUANTITY): Result<String> {
         if (RequestAbortGate.abortIfInFightOrChoice()) {
             return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
                 "You are currently in a fight or choice."
@@ -26,15 +32,23 @@ open class AutosellRequest(
                 formParameters = Parameters.build {
                     append("action", "sell")
                     append("ajax", "1")
-                    append("type", "quant")
-                    append("howmany", quantity.toString())
-                    append("whichitem", itemId.toString())
-                    append("quantity", quantity.toString())
+                    append("type", mode.wireName)
+                    append("howmany", items.values.firstOrNull()?.toString() ?: "1")
+                    items.forEach { (itemId, quantity) ->
+                        append(if (items.size == 1) "whichitem" else "whichitem[]", itemId.toString())
+                        append("quantity", quantity.toString())
+                    }
                 }
             )
             if (response.status.isSuccess()) {
                 val body = response.bodyAsText()
-                val url = "sellstuff.php?action=sell&whichitem=$itemId&howmany=$quantity&quantity=$quantity"
+                val url = buildString {
+                    append("sellstuff.php?action=sell&type=").append(mode.wireName)
+                    append("&howmany=").append(items.values.firstOrNull() ?: 1)
+                    items.forEach { (itemId, _) ->
+                        append(if (items.size == 1) "&whichitem=" else "&whichitem[]=").append(itemId)
+                    }
+                }
                 AutosellSync.parseDetailed(url, body, inventoryManager, character)
                 Result.success(body)
             } else {

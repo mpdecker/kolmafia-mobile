@@ -37,6 +37,10 @@ object ClanLoungeVisitSync {
         if (items.isNotEmpty()) {
             val serialized = items.entries.joinToString("|") { "${it.key}:${it.value}" }
             prefs.setString("clanLounge", serialized)
+            if (net.sourceforge.kolmafia.clan.ClanManager.getClanId() != 0) {
+                net.sourceforge.kolmafia.clan.ClanManager.clearLounge()
+                net.sourceforge.kolmafia.clan.ClanManager.setLounge(items.map { it.key to it.value })
+            }
         }
     }
 }
@@ -63,6 +67,7 @@ object ClanRumpusVisitSync {
         }
         if (items.isNotEmpty()) {
             prefs.setString("clanRumpus", items.joinToString("|"))
+            net.sourceforge.kolmafia.clan.ClanManager.setClanRumpus(items)
         }
     }
 }

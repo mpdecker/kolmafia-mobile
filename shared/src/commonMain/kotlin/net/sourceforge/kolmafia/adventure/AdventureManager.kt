@@ -88,6 +88,7 @@ import net.sourceforge.kolmafia.quest.CyberRealmSync
 import net.sourceforge.kolmafia.quest.FantasyRealmCombatSync
 import net.sourceforge.kolmafia.quest.LatteChoiceSync
 import net.sourceforge.kolmafia.quest.FinalQuestCombatSync
+import net.sourceforge.kolmafia.quest.SorceressLairSync
 import net.sourceforge.kolmafia.quest.GuzzlrCombatSync
 import net.sourceforge.kolmafia.quest.IslandWarCombatSync
 import net.sourceforge.kolmafia.quest.PalindomeSync
@@ -121,6 +122,7 @@ import net.sourceforge.kolmafia.quest.QuestFightRules
 import net.sourceforge.kolmafia.quest.QuestItemRules
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.quest.QuestManager
 import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
 import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.session.VoteMonsterManager
@@ -625,17 +627,67 @@ open class AdventureManager(
     private suspend fun doOneTurn(location: AdventureLocation): AdventureResult? {
         EncounterManager.registerAdventure(location.name)
         EncounterManager.clearPendingAutoStop()
+        val requestUrl = adventureRequest.buildRequestUrl(location)
+        val towerAction = SorceressLairSync.action(requestUrl)
+        if (towerAction == "ns_10_sorcfight") {
+            SorceressLairSync.enterSorceressFight(effects)
+        }
+        val hasNagamar = inventory?.state?.value?.items
+            ?.get(SorceressLairSync.WAND_OF_NAGAMAR)?.quantity?.let { it > 0 } == true ||
+            character.state.value.equipment.values.any {
+                it.equals("Wand of Nagamar", ignoreCase = true)
+            }
+        if (SorceressLairSync.needsNagamar(
+                towerAction,
+                character.state.value.inBeecore,
+                hasNagamar,
+            ) && retrieveItemService != null
+        ) {
+            val retrieved = retrieveItemService.retrieve(SorceressLairSync.WAND_OF_NAGAMAR, 1)
+            if (retrieved <= 0) {
+                eventBus.emit(
+                    GameEvent.AdventureLoopStopped(
+                        StopReason.AdventureFailure("Unable to retrieve the Wand of Nagamar."),
+                    ),
+                )
+                return null
+            }
+        }
         RequestLogger.registerRequest(
-            "adventure.php?snarfblat=${location.id}",
+            requestUrl,
             sessionLogger,
             preferences,
         )
+        AdventureSession.recordToSession(requestUrl, preferences, sessionLogger)
+        AdventureSession.setLastAdventure(location.name, preferences, requestUrl)
         val (html, url) = adventureRequest.adventure(location).getOrElse {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(it)))
             return null
         }
         lastTurnResponseText = html
         lastTurnUrl = url
+        ShadowRiftSync.applyIngressFromUrl(url, preferences)
+        ShadowRiftSync.applyIngressFromUrl(requestUrl, preferences)
+        if (requestUrl.contains("whichplace=nstower", ignoreCase = true)) {
+            SorceressLairSync.parseTowerResponse(
+                action = towerAction,
+                html = html,
+                questDatabase = questDatabase,
+                preferences = preferences,
+                setKingLiberated = { character.setKingLiberated(true) },
+            )
+        }
+
+        val failureIndex = AdventureFailures.findAdventureFailure(html, preferences)
+        if (failureIndex >= 0) {
+            AdventureSession.recordToSession(url, html, preferences, sessionLogger)
+            AdventureFailures.toStopReason(failureIndex)?.let {
+                eventBus.emit(GameEvent.AdventureLoopStopped(it))
+            }
+            return null
+        }
+        AdventureSession.recordToSession(url, html, preferences, sessionLogger)
+
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
             is AdventureResult.Combat -> {
                 EncounterManager.registerEncounter(
@@ -842,7 +894,37 @@ open class AdventureManager(
         if (result.monster.isNotEmpty() && MonsterStatusTracker.getLastMonster() == null) {
             preferences.setString(Preferences.LAST_MONSTER, result.monster)
         }
-        questDatabase?.let {
+        val hubItemIds = result.itemsGained.mapNotNull { name -> gameDatabase?.item(name)?.id }
+        val questCombatResult = questDatabase?.let {
+            val hubContext = QuestManager.QuestChangeContext(
+                preferences = preferences,
+                questDatabase = it,
+                characterState = character.state.value,
+                inventoryManager = inventory,
+                gameDatabase = gameDatabase,
+                sessionLogger = sessionLogger,
+                adventureId = location.id,
+                locationName = location.name,
+                won = result.won,
+                itemsGained = result.itemsGained,
+                itemIdsGained = hubItemIds,
+                clearEquipment = { slot -> character.updateEquipment(slot, "") },
+                hasEffect = { effectId ->
+                    effects?.state?.value?.effects?.any { effect -> effect.id == effectId } == true
+                },
+                adventureTurns = { name -> adventureSpentTracker?.getTurns(name) ?: 0 },
+                requestQuestLogPageOne = {
+                    kotlinx.coroutines.runBlocking { questLogRequest?.syncPage(1) }
+                },
+            )
+            QuestManager.fightStarted(fightHtml, result.monster, hubContext)
+            QuestManager.updateQuestData(fightHtml, result.monster, hubContext)
+        }
+        if (questCombatResult?.resyncQuestLogPage1 == true) {
+            val woots = preferences.getString("_questPartyFairProgress", "0")
+            sessionLogger?.appendRawLine("The Party is at $woots/100 woots.")
+        }
+        if (questCombatResult == null) questDatabase?.let {
             PirateRealmSync.applyWindicleFromFightHtml(fightHtml, location.id, it, preferences)
         }
         val gainedVolcanoMap = result.itemsGained.any { it.contains("volcano map", ignoreCase = true) } ||
@@ -1177,6 +1259,14 @@ open class AdventureManager(
         val maxSteps            = 20
 
         while (stepCount < maxSteps) {
+            SorceressLairSync.visitChoice(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+                questDatabase,
+            ) { adventureName ->
+                AdventureSession.setLastAdventure(adventureName, preferences)
+            }
             if (WereProfessorResearchSync.isResearchBenchChoice(currentChoiceId)) {
                 WereProfessorResearchSync.visitChoice(currentResponseText, preferences)
             }
@@ -1480,6 +1570,16 @@ open class AdventureManager(
         lastTurnResponseText = html
         lastTurnUrl = url
         EncounterManager.registerAdventure(location.name)
+        AdventureSession.setLastAdventure(location.name, preferences, url)
+        val failureIndex = AdventureFailures.findAdventureFailure(html, preferences)
+        if (failureIndex >= 0) {
+            AdventureSession.recordToSession(url, html, preferences, sessionLogger)
+            AdventureFailures.toStopReason(failureIndex)?.let {
+                eventBus.emit(GameEvent.AdventureLoopStopped(it))
+            }
+            return null
+        }
+        AdventureSession.recordToSession(url, html, preferences, sessionLogger)
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
             is AdventureResult.Combat -> {
                 EncounterManager.registerEncounter(

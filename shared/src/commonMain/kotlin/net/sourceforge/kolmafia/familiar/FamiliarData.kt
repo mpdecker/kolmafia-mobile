@@ -10,4 +10,5 @@ data class FamiliarData(
     val soupAttributes: Set<String> = emptySet(),
     val equipment: InventoryItem? = null,
     val modifiers: Map<String, String> = emptyMap(),
+    val feasted: Boolean = false,
 )

@@ -1,36 +1,46 @@
 package net.sourceforge.kolmafia.item
 
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.NpcStoreDatabase
 import net.sourceforge.kolmafia.data.craftMode
 import net.sourceforge.kolmafia.data.isAutoCraftable
 import net.sourceforge.kolmafia.data.isCreateSupported
 import net.sourceforge.kolmafia.data.isStationCraftable
 import net.sourceforge.kolmafia.data.isSuseCraftable
-import net.sourceforge.kolmafia.item.CreateItemIngredients
-import net.sourceforge.kolmafia.request.ConcoctionCreateRequest
-import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.inventory.CollectionCacheSync
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.ItemRestriction
 import net.sourceforge.kolmafia.mall.MallManager
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
-import net.sourceforge.kolmafia.familiar.FamiliarRequest
 import net.sourceforge.kolmafia.preferences.Preferences
-import net.sourceforge.kolmafia.shop.NpcShopSync
-import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
+import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
+import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.RestrictionListRefresh
 import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.TrendyRequest
+import net.sourceforge.kolmafia.request.UntinkerRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
+import net.sourceforge.kolmafia.shop.NpcShopSync
+import net.sourceforge.kolmafia.request.ConcoctionCreateRequest
 
+/**
+ * Desktop [InventoryManager.doRetrieveItem] compound acquisition chain
+ * (Phases 2511–2570): autoSatisfy source gates, freepull-before-storage,
+ * useEquipped / familiar steal, create-vs-buy pricing.
+ */
 open class RetrieveItemService(
     private val inventoryManager: InventoryManager?,
     private val closetRequest: ClosetRequest?,
@@ -52,9 +62,32 @@ open class RetrieveItemService(
     private val trendyRequest: TrendyRequest? = null,
     private val specialtyCreateProvider: (() -> ConcoctionCreateRequest)? = null,
     private val createItemIngredientsProvider: (() -> CreateItemIngredients)? = null,
+    private val equipmentRequest: EquipmentRequest? = null,
+    private val familiarManager: FamiliarManager? = null,
+    private val untinkerRequest: UntinkerRequest? = null,
+    private val buyScriptRunner: ((String, List<String>) -> Boolean)? = null,
 ) {
-    open suspend fun retrieve(itemId: Int, qty: Int): Int {
-        val itemName = gameDatabase?.item(itemId)?.name ?: return 0
+    companion object {
+        const val ABRIDGED_DICTIONARY = 534
+        const val BRIDGE = 535
+        const val WORTHLESS_ITEM = 13
+    }
+
+    open suspend fun retrieve(itemId: Int, qty: Int): Int =
+        retrieve(itemId, qty, useEquipped = true)
+
+    open suspend fun retrieve(itemId: Int, qty: Int, useEquipped: Boolean): Int {
+        if (qty <= 0) return 0
+        if (itemId <= 0) return 0
+
+        if (ItemDatabase.isVirtualItem(itemId) &&
+            ItemDatabase.haveVirtualItem(itemId, preferences)
+        ) {
+            return qty
+        }
+
+        val itemName = gameDatabase?.item(itemId)?.name
+            ?: ItemDatabase.getItemName(itemId).ifEmpty { return 0 }
         var remaining = qty - inventoryCount(itemId)
         if (remaining <= 0) return qty
 
@@ -67,48 +100,106 @@ open class RetrieveItemService(
                 trendyRequest,
             )
         }
-        if (charState != null &&
-            !ItemRestriction.isAllowed(itemId, itemName, charState, gameDatabase) &&
-            !canCreateItem(itemId, itemName)
-        ) {
+        val isRestricted = charState != null &&
+            !ItemRestriction.isAllowed(itemId, itemName, charState, gameDatabase)
+        if (isRestricted && !canCreateItem(itemId, itemName)) {
             return qty - remaining
         }
 
-        if (remaining > 0 && closetRequest != null) {
-            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.CLOSET) { qty ->
-                closetRequest.takeOut(itemId, qty)
-            }
+        // Bridge ← abridged dictionary untinker
+        if (itemId == BRIDGE && remaining > 0 && inventoryCount(ABRIDGED_DICTIONARY) > 0) {
+            remaining -= untinkerBridge()
+            if (remaining <= 0) return qty
         }
 
-        if (remaining > 0 && storageRequest != null) {
-            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.STORAGE) { qty ->
-                storageRequest.withdraw(itemId, qty)
-            }
+        val isEquipment = ItemDatabase.getById(itemId)?.isEquipment == true
+
+        // Familiar steal before unequip (desktop order)
+        if (!isRestricted && isEquipment && remaining > 0 && familiarRequest != null) {
+            remaining -= stealFromFamiliar(itemId, remaining)
+            if (remaining <= 0) return qty
         }
 
-        if (remaining > 0 && displayCaseRequest != null) {
-            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.DISPLAY) { qty ->
-                displayCaseRequest.takeOut(itemId, qty)
-            }
+        // Unequip worn copies when useEquipped
+        if (!isRestricted && isEquipment && useEquipped && remaining > 0) {
+            remaining -= unequipWorn(itemId, remaining)
+            if (remaining <= 0) return qty
         }
 
-        if (remaining > 0 && clanStashRequest != null) {
-            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.STASH) { qty ->
-                clanStashRequest.takeOut(itemId, qty)
+        val prefs = preferences
+        val canCloset = RetrieveSourceGates.canUseCloset(prefs, charState)
+        val canStorage = RetrieveSourceGates.canUseStorage(prefs, charState)
+        val canStash = RetrieveSourceGates.canUseClanStash(prefs, charState)
+        val canDisplay = RetrieveSourceGates.canUseDisplay(prefs)
+        val canNpc = RetrieveSourceGates.canUseNPCStores(prefs, charState)
+        val tradeable = ItemDatabase.isTradeable(itemId)
+        val canMall = RetrieveSourceGates.canUseMall(prefs, charState, tradeable)
+        val canCoinmasters = RetrieveSourceGates.canUseCoinmasters(prefs, charState)
+
+        if (remaining > 0 && canCloset && closetRequest != null) {
+            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.CLOSET) { q ->
+                closetRequest.takeOut(itemId, q)
             }
+            if (remaining <= 0) return qty
         }
 
-        if (remaining > 0) {
+        // Freepull before storage (ronin/hardcore free pulls)
+        if (!isRestricted && remaining > 0 && storageRequest != null) {
+            remaining -= withdrawFreepull(itemId, remaining)
+            if (remaining <= 0) return qty
+        }
+
+        if (!isRestricted && remaining > 0 && canStorage && storageRequest != null) {
+            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.STORAGE) { q ->
+                storageRequest.withdraw(itemId, q)
+            }
+            if (remaining <= 0) return qty
+        }
+
+        if (remaining > 0 && canDisplay && displayCaseRequest != null) {
+            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.DISPLAY) { q ->
+                displayCaseRequest.takeOut(itemId, q)
+            }
+            if (remaining <= 0) return qty
+        }
+
+        if (!isRestricted && remaining > 0 && canStash && clanStashRequest != null) {
+            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.STASH) { q ->
+                clanStashRequest.takeOut(itemId, q)
+            }
+            if (remaining <= 0) return qty
+        }
+
+        // Create-vs-buy: skip craft when buyScript / cheaperToBuy says buy
+        val priceCtx = buildPriceContext()
+        val defaultBuy = canMall && RetrievePricing.cheaperToBuy(itemId, remaining, priceCtx)
+        val scriptSaysBuy = RetrievePricing.invokeBuyScript(
+            prefs = prefs,
+            itemName = itemName,
+            qty = remaining,
+            ingredientLevel = 2,
+            defaultBuy = defaultBuy,
+            runScript = buyScriptRunner,
+        )
+
+        if (remaining > 0 && !scriptSaysBuy) {
             remaining -= craftMissing(itemName, itemId, remaining)
+            if (remaining <= 0) return qty
         }
 
-        if (remaining > 0 && npcBuyRequest != null) {
+        if (remaining > 0 && canCoinmasters && hermitRequest != null) {
+            remaining -= withdrawFromHermit(itemId, remaining)
+            if (remaining <= 0) return qty
+        }
+
+        if (remaining > 0 && canNpc && npcBuyRequest != null) {
             val npcStore = gameDatabase?.npcStoreFor(itemName)
+                ?: NpcStoreDatabase.storeForItem(itemName)
             if (npcStore != null) {
-                if (NpcShopSync.needsSync(npcStore.storeKey) && preferences != null && charState != null) {
+                if (NpcShopSync.needsSync(npcStore.storeKey) && prefs != null && charState != null) {
                     npcBuyRequest.visitStore(
                         npcStore.storeKey,
-                        preferences,
+                        prefs,
                         charState.ascensionNumber,
                     )
                 }
@@ -117,27 +208,27 @@ open class RetrieveItemService(
                     npcStore.storeKey,
                     itemId,
                     remaining,
-                    preferences,
+                    prefs,
                 ).getOrDefault(0)
                 inventoryManager?.fetchInventory()
                 val gained = (inventoryCount(itemId) - before).coerceAtLeast(bought)
                 remaining -= gained
+                if (remaining <= 0) return qty
             }
         }
 
-        if (remaining > 0 && coinmasterManager != null) {
+        if (remaining > 0 && canCoinmasters && coinmasterManager != null) {
             remaining -= coinmasterManager.buyItem(itemId, remaining)
+            if (remaining <= 0) return qty
         }
 
-        if (remaining > 0 && familiarRequest != null) {
+        // Non-equipment familiar steal late (legacy mobile ordering fallback)
+        if (remaining > 0 && !isEquipment && familiarRequest != null) {
             remaining -= stealFromFamiliar(itemId, remaining)
+            if (remaining <= 0) return qty
         }
 
-        if (remaining > 0 && hermitRequest != null) {
-            remaining -= withdrawFromHermit(itemId, remaining)
-        }
-
-        if (remaining > 0 && mallManager != null) {
+        if (remaining > 0 && canMall && mallManager != null) {
             val before = inventoryCount(itemId)
             val bought = mallManager.buy(itemId, remaining)
             inventoryManager?.fetchInventory()
@@ -148,17 +239,91 @@ open class RetrieveItemService(
         return qty - remaining
     }
 
-    private suspend fun stealFromFamiliar(itemId: Int, qty: Int): Int {
+    private fun buildPriceContext(): RetrievePricing.PriceContext =
+        RetrievePricing.PriceContext(
+            inventoryCount = { inventoryCount(it) },
+            mallPrice = { -1L }, // live mall lookup is async; ASH retrieve_price uses MallManager
+            npcPrice = { id ->
+                val name = ItemDatabase.getItemName(id)
+                if (name.isBlank()) 0L else NpcStoreDatabase.npcPrice(name).toLong()
+            },
+            prefs = preferences,
+            canCreate = { id ->
+                val name = ItemDatabase.getItemName(id)
+                name.isNotBlank() && canCreateItem(id, name)
+            },
+        )
+
+    private suspend fun untinkerBridge(): Int {
+        val before = inventoryCount(BRIDGE)
+        val untinker = untinkerRequest ?: return 0
+        untinker.untinker(ABRIDGED_DICTIONARY, 1)
+        inventoryManager?.fetchInventory()
+        return (inventoryCount(BRIDGE) - before).coerceAtLeast(0)
+    }
+
+    private suspend fun unequipWorn(itemId: Int, qty: Int): Int {
+        val equipReq = equipmentRequest ?: return 0
+        val itemName = ItemDatabase.getItemName(itemId)
+        if (itemName.isBlank()) return 0
         var gained = 0
-        repeat(qty) {
+        // Dual-wield: unequip OFFHAND before WEAPON when both match
+        val slots = EquipmentSlot.SEARCH_SLOTS.flatMap { slot ->
+            when (slot) {
+                EquipmentSlot.WEAPON -> listOf(EquipmentSlot.OFFHAND, EquipmentSlot.WEAPON)
+                EquipmentSlot.OFFHAND -> emptyList() // already covered with WEAPON
+                else -> listOf(slot)
+            }
+        }.distinct()
+        for (slot in slots) {
+            if (gained >= qty) break
+            val equipped = character?.state?.value?.equipment?.get(slot).orEmpty()
+            if (!equipped.equals(itemName, ignoreCase = true)) continue
             val before = inventoryCount(itemId)
-            if (familiarRequest!!.stealItem(itemId).isFailure) return gained
+            if (equipReq.unequipSlot(slot).isFailure) continue
             inventoryManager?.fetchInventory()
             val delta = (inventoryCount(itemId) - before).coerceAtLeast(0)
-            if (delta <= 0) return gained
+            if (delta <= 0) continue
             gained += delta
         }
         return gained.coerceAtMost(qty)
+    }
+
+    private suspend fun stealFromFamiliar(itemId: Int, qty: Int): Int {
+        var gained = 0
+        if (familiarRequest != null) {
+            while (gained < qty) {
+                val before = inventoryCount(itemId)
+                if (familiarRequest.stealItem(itemId).isFailure) break
+                inventoryManager?.fetchInventory()
+                val delta = (inventoryCount(itemId) - before).coerceAtLeast(0)
+                if (delta <= 0) break
+                gained += delta
+            }
+        }
+        val fams = familiarManager?.state?.value?.ownedFamiliars.orEmpty()
+        val activeId = character?.state?.value?.familiarId
+        for (fam in fams) {
+            if (gained >= qty) break
+            if (fam.id == activeId) continue
+            if (fam.equipment?.itemId != itemId) continue
+            val before = inventoryCount(itemId)
+            if (familiarRequest?.unequipFamiliar(fam.id)?.isFailure != false) continue
+            inventoryManager?.fetchInventory()
+            val delta = (inventoryCount(itemId) - before).coerceAtLeast(0)
+            if (delta > 0) gained += delta
+        }
+        return gained.coerceAtMost(qty)
+    }
+
+    private suspend fun withdrawFreepull(itemId: Int, qty: Int): Int {
+        val storage = storageRequest ?: return 0
+        val classified = storage.fetchClassifiedContents(character?.state?.value, preferences)
+        val available = classified.freepulls[itemId] ?: 0
+        if (available <= 0) return 0
+        return withdrawFromSource(itemId, minOf(qty, available), CollectionBucket.STORAGE) { q ->
+            storage.withdraw(itemId, q)
+        }
     }
 
     private suspend fun withdrawFromHermit(itemId: Int, qty: Int): Int {
@@ -168,7 +333,6 @@ open class RetrieveItemService(
         return (inventoryCount(itemId) - before).coerceIn(0, qty)
     }
 
-    /** Withdraw up to [qty] from a collection source; returns actual count gained in inventory. */
     private suspend fun withdrawFromSource(
         itemId: Int,
         qty: Int,
