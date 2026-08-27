@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.ash
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.forms.submitForm
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
@@ -17,6 +18,7 @@ import net.sourceforge.kolmafia.adventure.runTowerDoor
 import net.sourceforge.kolmafia.adventure.TowerDoorConfig
 import net.sourceforge.kolmafia.adventure.TowerDoorStatus
 import net.sourceforge.kolmafia.data.AdventureDatabase
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.DescriptionCache
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
@@ -28,7 +30,9 @@ import net.sourceforge.kolmafia.faxbot.FaxBotManager
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.combat.RandomModifierStats
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
+import net.sourceforge.kolmafia.campground.CampgroundSync
 import net.sourceforge.kolmafia.campground.GardenSync
+import net.sourceforge.kolmafia.campground.MushroomManager
 import net.sourceforge.kolmafia.campground.MushroomPlotSync
 import net.sourceforge.kolmafia.clan.ClanLoungeSync
 import net.sourceforge.kolmafia.concoction.StillSync
@@ -38,6 +42,7 @@ import net.sourceforge.kolmafia.inventory.StorageMeatSync
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.CharacterStatusRefresh
 import net.sourceforge.kolmafia.character.ClassResourceCharpaneSync
 import net.sourceforge.kolmafia.clan.ClanIdSync
 import net.sourceforge.kolmafia.character.ClassResourceCombatSync
@@ -49,6 +54,7 @@ import net.sourceforge.kolmafia.character.PokefamBoostSync
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.character.ZodiacSign
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.MonsterDatabase
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.equipment.ModeableState
 import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
@@ -59,6 +65,7 @@ import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
+import net.sourceforge.kolmafia.familiar.FamiliarSync
 import net.sourceforge.kolmafia.inventory.AccessCountContext
 import net.sourceforge.kolmafia.inventory.AccessibleItemCount
 import net.sourceforge.kolmafia.inventory.CollectionCacheSync
@@ -76,12 +83,18 @@ import net.sourceforge.kolmafia.mood.minimalSet
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestChoiceRules
+import net.sourceforge.kolmafia.quest.BeachCombChoiceSync
+import net.sourceforge.kolmafia.quest.FloristFriarChoiceSync
+import net.sourceforge.kolmafia.quest.SpacegateLeftoversChoiceSync
+import net.sourceforge.kolmafia.quest.WlfBunkerChoiceSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
+import net.sourceforge.kolmafia.request.BatFellowRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
 import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
+import net.sourceforge.kolmafia.request.SpelunkyRequest
 import net.sourceforge.kolmafia.request.ZapRequest
 import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
@@ -93,6 +106,7 @@ import net.sourceforge.kolmafia.request.DrinkBoozeRequest
 import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.StillSuitRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
+import net.sourceforge.kolmafia.request.CreateItemCraftSync
 import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.shop.NpcShopSync
 import net.sourceforge.kolmafia.shop.ShopInventorySync
@@ -174,6 +188,7 @@ import net.sourceforge.kolmafia.quest.MelvinShirtSync
 import net.sourceforge.kolmafia.quest.Cell37EscapeSync
 import net.sourceforge.kolmafia.quest.ShenSync
 import net.sourceforge.kolmafia.request.PeeVPeeRequest
+import net.sourceforge.kolmafia.request.PlaceSync
 import net.sourceforge.kolmafia.request.ProfileRequest
 import net.sourceforge.kolmafia.request.PortalRequest
 import net.sourceforge.kolmafia.request.ElvmachineRequest
@@ -191,6 +206,44 @@ import net.sourceforge.kolmafia.quest.DeckChoiceSync
 import net.sourceforge.kolmafia.quest.AutomatedFutureChoiceSync
 import net.sourceforge.kolmafia.quest.MobiusChoiceSync
 import net.sourceforge.kolmafia.quest.BaseballChoiceSync
+import net.sourceforge.kolmafia.quest.MushyCenterChoiceSync
+import net.sourceforge.kolmafia.quest.HorseryChoiceSync
+import net.sourceforge.kolmafia.quest.MimicDnaChoiceSync
+import net.sourceforge.kolmafia.quest.StalagmiteChoiceSync
+import net.sourceforge.kolmafia.quest.PowerPlantChoiceSync
+import net.sourceforge.kolmafia.quest.ColdMedicineChoiceSync
+import net.sourceforge.kolmafia.quest.PlumberShopChoiceSync
+import net.sourceforge.kolmafia.quest.BackupCameraChoiceSync
+import net.sourceforge.kolmafia.quest.CrystalBallChoiceSync
+import net.sourceforge.kolmafia.quest.AutumnatonChoiceSync
+import net.sourceforge.kolmafia.quest.TrainsetChoiceSync
+import net.sourceforge.kolmafia.quest.BurningLeavesChoiceSync
+import net.sourceforge.kolmafia.quest.YouRobotChoiceSync
+import net.sourceforge.kolmafia.quest.MayamChoiceSync
+import net.sourceforge.kolmafia.quest.TakerSpaceChoiceSync
+import net.sourceforge.kolmafia.quest.SpecimenBenchChoiceSync
+import net.sourceforge.kolmafia.quest.LeprecondoChoiceSync
+import net.sourceforge.kolmafia.quest.PerilChoiceSync
+import net.sourceforge.kolmafia.quest.PeridotChoiceSync
+import net.sourceforge.kolmafia.quest.CrimboPastChoiceSync
+import net.sourceforge.kolmafia.quest.CoolerYetiChoiceSync
+import net.sourceforge.kolmafia.quest.CartographyChoiceSync
+import net.sourceforge.kolmafia.quest.SausageGrinderChoiceSync
+import net.sourceforge.kolmafia.quest.BoomBoxChoiceSync
+import net.sourceforge.kolmafia.quest.RedSnapperChoiceSync
+import net.sourceforge.kolmafia.quest.DoctorBagChoiceSync
+import net.sourceforge.kolmafia.quest.VoteBallotChoiceSync
+import net.sourceforge.kolmafia.quest.LatteChoiceSync
+import net.sourceforge.kolmafia.quest.MotorbikeChoiceSync
+import net.sourceforge.kolmafia.quest.GenieChoiceSync
+import net.sourceforge.kolmafia.quest.ControlPanelChoiceSync
+import net.sourceforge.kolmafia.quest.DartPerksChoiceSync
+import net.sourceforge.kolmafia.quest.DaycareChoiceSync
+import net.sourceforge.kolmafia.quest.GnasirChoiceSync
+import net.sourceforge.kolmafia.quest.HashingChoiceSync
+import net.sourceforge.kolmafia.quest.HybridizationChoiceSync
+import net.sourceforge.kolmafia.quest.IceHouseChoiceSync
+import net.sourceforge.kolmafia.quest.MonkeyPawChoiceSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.SpookyravenManorVisitSync
 import net.sourceforge.kolmafia.quest.TelescopeSync
@@ -202,9 +255,11 @@ import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.SushiConsumptionSync
 import net.sourceforge.kolmafia.request.BarrelChoiceMapper
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.session.GreyYouManager
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.BastilleBattalionSync
 import net.sourceforge.kolmafia.session.BarrelShrineSync
@@ -223,6 +278,8 @@ import net.sourceforge.kolmafia.session.CryptManager
 import net.sourceforge.kolmafia.session.ElVibratoManager
 import net.sourceforge.kolmafia.session.DemonInCombatNameSync
 import net.sourceforge.kolmafia.session.EventHistory
+import net.sourceforge.kolmafia.session.RequestLogger
+import net.sourceforge.kolmafia.session.ResponseTextParser
 import net.sourceforge.kolmafia.session.PeeVPeeSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
@@ -232,6 +289,8 @@ import net.sourceforge.kolmafia.session.SkillLearnFromResponse
 import net.sourceforge.kolmafia.quest.DynamicItemModifierSync
 import net.sourceforge.kolmafia.quest.BirdOfTheDaySync
 import net.sourceforge.kolmafia.skill.SkillLearner
+import net.sourceforge.kolmafia.skill.SkillData
+import net.sourceforge.kolmafia.skill.SkillType
 import net.sourceforge.kolmafia.quest.DescriptionConsequenceSync
 import net.sourceforge.kolmafia.quest.CombatSkillConsequenceSync
 import net.sourceforge.kolmafia.quest.EffectDescriptionConsequenceSync
@@ -241,6 +300,7 @@ import net.sourceforge.kolmafia.quest.ItemDescriptionConsequenceSync
 import net.sourceforge.kolmafia.quest.CrownBjornDescSync
 import net.sourceforge.kolmafia.quest.Crimbo23ZoneSync
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
 import net.sourceforge.kolmafia.session.SummoningChamberManager
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.YegDemonNameSync
@@ -296,6 +356,7 @@ class GameRuntimeLibrary(
     internal val retrieveItemService: RetrieveItemService? = null,
     internal val outfitManager: OutfitManager? = null,
     internal val equipmentRequest: EquipmentRequest? = null,
+    internal val equipmentManager: net.sourceforge.kolmafia.session.EquipmentManager? = null,
     internal val coinmasterManager: CoinmasterManager? = null,
     internal val craftRequest: CraftRequest? = null,
     internal val manageStoreRequest: ManageStoreRequest? = null,
@@ -414,7 +475,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase743"
+        const val REVISION = "phase2450"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -432,6 +493,9 @@ class GameRuntimeLibrary(
     internal var elseValid: Boolean = false
 
     fun resolveCombatMacro(zoneId: String): String {
+        net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return net.sourceforge.kolmafia.combat.Macrofier.macrofy(filterOverride = it) ?: it }
         evaluateCombatAction()?.takeIf { it.isNotBlank() }?.let { return it }
         val prefs = preferences ?: return MacroStrategy.SAFE_DEFAULT
         return MacroStrategy.forLocation(zoneId, prefs)
@@ -681,8 +745,15 @@ class GameRuntimeLibrary(
         Regex("^familiar\\s+list(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliFamiliars(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
+        // familiar lock|unlock — AshP903 / familiar.php?action=lockequip
+        Regex("^familiar\\s+lock$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliFamiliarEquipmentLock(true, rt)
+        },
+        Regex("^familiar\\s+unlock$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliFamiliarEquipmentLock(false, rt)
+        },
 
-        // "familiar name" — switch to a familiar by species name
+        // "familiar name" — switch to a familiar by species name (none/unequip already handled)
         Regex("^familiar\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             val name = m.groupValues[1].trim()
             if (name.equals("none", ignoreCase = true) ||
@@ -758,6 +829,72 @@ class GameRuntimeLibrary(
             kotlinx.coroutines.runBlocking {
                 boomBoxRequest?.play(song)?.onFailure { rt.print(it.message ?: "boombox failed") }
             }
+        },
+
+        // "latte unlocks|unlocked|refill a b c" — Latte Lovers Member's Mug
+        Regex("^latte(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliLatte(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+
+        // Phases 1011–1022 IoTM facility CLIs
+        Regex("^(?:autumnaton|fallguy)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliAutumnaton(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^cmc(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliCmc(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^leaves(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliLeaves(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^teatree(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliTeatree(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^mummery(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliMummery(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^timespinner(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliTimespinner(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^florist(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFlorist(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^leprecondo(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliLeprecondo(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^heist(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliHeist(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+
+        // Phases 1033–1042 quest-complete / basement / nemesis / Lights Out / Tales / field CLIs
+        Regex("^tavern(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliTavern(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^baron(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliBaron(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^gourd(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliGourd(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^dvorak(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliDvorak(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^sven(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSven(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^basement(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliBasement(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^nemesis(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliNemesis(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^spookyraven(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSpookyraven(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^taleofdread(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliTaleOfDread(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^field(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliField(m.groupValues.getOrNull(1).orEmpty(), rt::print)
         },
 
         // "mcd|mind-control [level]" — status or set mind control device level
@@ -1272,9 +1409,31 @@ class GameRuntimeLibrary(
             cliAsdonmartin(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
-        Regex("^beach\\s+head(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
-            val rest = m.groupValues.getOrNull(1)?.trim().orEmpty()
-            cliBeachHead(if (rest.isEmpty()) "head" else "head $rest", rt::print)
+        Regex("^beach(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliBeach(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+
+        // Phases 1053–1062 Oddball CLI Track E
+        Regex("^skeeball(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliSkeeball(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^vise(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliVise(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^throw(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliThrow(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^buffbot(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliBuffbot(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^crimbotrain(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliCrimboTrain(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^badmoon(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliBadMoon(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^flicker(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFlicker(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
         },
 
         Regex("^skate(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
@@ -1475,12 +1634,12 @@ class GameRuntimeLibrary(
             cliInventory(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
-        // contacts / mail — visit common KoL pages
+        // contacts / mail — visit common KoL pages (Track D: mail list stub)
         Regex("^contacts$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("contacts.php")
         },
-        Regex("^(?:mail|readmail)$", RegexOption.IGNORE_CASE) to { _, _ ->
-            visitKolPage("mail.php")
+        Regex("^(?:mail|readmail)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliMail(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
         // description / desc / show item — print item summary from database
@@ -1574,9 +1733,14 @@ class GameRuntimeLibrary(
             cliFamiliars(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
-        // steal — desktop PvpStealCommand alias; `steal N item` still familiar-steals
+        // steal — desktop PvpStealCommand alias; `steal N item` still familiar-steals (dual-route)
         Regex("^steal(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliSteal(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt)
+        },
+
+        // famsteal / familiarsteal — explicit familiar steal (same path as steal dual-route fallback)
+        Regex("^(?:famsteal|familiarsteal)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFamiliarStealAlias(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt)
         },
 
         // sendmsg channel message — public chat
@@ -1674,15 +1838,47 @@ class GameRuntimeLibrary(
         Regex("^(?:version|cli)$", RegexOption.IGNORE_CASE) to { _, rt ->
             runVersionCli(rt)
         },
+        Regex("^greyyou(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runGreyYouCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        // Phases 1023–1032 Familiar / path CLI Track B
+        Regex("^absorptions(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runAbsorptionsCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^gooskills(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runGooSkillsCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^bugbears$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runBugbearsCli(rt)
+        },
+        Regex("^chibi(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runChibiCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^panda(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runPandaCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^devilcandyegg(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runDevilCandyEggCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^train(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runTrainFamiliarCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
 
         // charpane — visit character pane
         Regex("^charpane$", RegexOption.IGNORE_CASE) to { _, _ ->
             visitKolPage("charpane.php")
         },
 
-        // run / call / exec / execute / load / start — saved ASH script (desktop CallScriptCommand names)
-        Regex("^(?:run(?:script)?|call|execute|exec|load|start)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
-            runCallScriptCli(m.groupValues[1].trim(), rt)
+        // run / call / exec / execute / load / start / validate / verify / profile — saved ASH
+        Regex("^(?:run(?:script)?|call|execute|exec|load|start|validate|verify|profile)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val verb = m.value.substringBefore(' ').trim()
+            when {
+                verb.equals("validate", ignoreCase = true) ||
+                    verb.equals("verify", ignoreCase = true) ||
+                    verb.equals("profile", ignoreCase = true) ->
+                    cliValidateOrProfileScript(verb, m.groupValues[1].trim(), rt)
+                else -> runCallScriptCli(m.groupValues[1].trim(), rt)
+            }
         },
 
         Regex("^maximizer$", RegexOption.IGNORE_CASE) to { _, rt ->
@@ -1853,6 +2049,36 @@ class GameRuntimeLibrary(
         // modifiers [filter] — desktop ShowDataCommand combat-stat dump
         Regex("^modifiers(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliModifiers(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+
+        // Phases 1043–1052 CLI Track D — session / store / script aliases
+        Regex("^(?:undercut)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliUndercut(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^reprice(?:\\s+min)?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val params = if (m.value.contains("min", ignoreCase = true)) "min" else ""
+            cliUndercut(params, rt)
+        },
+        Regex("^(?:timein|relog|relogin)$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliTimein(rt)
+        },
+        Regex("^encounters$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliEncounters(rt)
+        },
+        Regex("^session$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliSession(rt)
+        },
+        Regex("^summary$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliSummary(rt)
+        },
+        Regex("^modifies(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliModifies(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^location(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliLocation(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^cache(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliCache(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
         // moon / moons — desktop ShowDataCommand holiday/moon dump
@@ -2478,7 +2704,27 @@ class GameRuntimeLibrary(
     }
 
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
+        if (url != null) {
+            RequestLogger.registerRequest(url, sessionLogger, preferences)
+        }
         EventHistory.checkForNewEvents(html)
+        if (url?.contains("charsheet.php", ignoreCase = true) == true) {
+            GreyYouManager.parseAbsorptions(
+                html,
+                character?.state?.value?.ascensionPath == AscensionPath.GREY_YOU,
+            ) { sessionLogger?.appendRawLine(it) }
+        }
+        if (url?.contains("main.php", ignoreCase = true) == true &&
+            url.contains("comb=1", ignoreCase = true)
+        ) {
+            BeachCombChoiceSync.apply(
+                BeachCombChoiceSync.CHOICE_ID,
+                0,
+                html,
+                preferences,
+                url,
+            )
+        }
         if (url?.contains("familiar.php", ignoreCase = true) == true &&
             url.contains("ajax=1", ignoreCase = true) != true
         ) {
@@ -2598,6 +2844,26 @@ class GameRuntimeLibrary(
                     ExpressionContext.from(state, emptyList())
                 } ?: ExpressionContext.EMPTY
                 CombatSkillConsequenceSync.applyFromFightHtml(html, prefs, exprCtx)
+                LatteChoiceSync.applyFight(
+                    location = prefs.getString(Preferences.LAST_LOCATION, "").ifBlank { null },
+                    html = html,
+                    preferences = prefs,
+                    sessionLog = { line -> sessionLogger?.appendRawLine(line) },
+                )
+                extractDescSkillId(url)?.let { skillId ->
+                    LatteChoiceSync.applySkillCast(skillId, prefs)
+                }
+                val fight = AdventureParser.parseFightResult(html)
+                if (fight.won) {
+                    MonsterDatabase.getByName(fight.monster)?.id?.let { monsterId ->
+                        GreyYouManager.absorbMonster(
+                            monsterId,
+                            html,
+                            character?.state?.value?.ascensionPath == AscensionPath.GREY_YOU,
+                            prefs,
+                        )
+                    }
+                }
                 SkillLearnFromResponse.learnSkillFromResponse(
                     html,
                     prefs,
@@ -2723,15 +2989,63 @@ class GameRuntimeLibrary(
                 turnsPlayed = character?.state?.value?.turnsPlayed ?: 0,
             )
         }
+        if (url != null && url.contains("craft.php", ignoreCase = true)) {
+            craftRequest?.applyCraftResponse(url, html)
+                ?: CreateItemCraftSync.parseCrafting(
+                    location = url,
+                    responseText = html,
+                    inventory = inventoryManager,
+                    preferences = preferences,
+                    characterState = character?.state?.value,
+                    sessionLogger = sessionLogger,
+                )
+        }
+        if (url != null && (
+            url.contains("inv_equip.php", ignoreCase = true) ||
+                (url.contains("inventory.php", ignoreCase = true) &&
+                    url.contains("action=holster", ignoreCase = true))
+            )
+        ) {
+            EquipmentRequest.parseEquipmentChange(url, html, equipmentManager)
+        }
         if (url != null && url.contains("inv_use.php", ignoreCase = true)) {
             extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
-                QuestItemUsedSync.apply(
+                val qty = extractUseQuantity(url)
+                val questHandled = QuestItemUsedSync.apply(
                     itemId,
                     html,
                     questDatabase,
                     preferences,
-                    consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
-                    count = extractUseQuantity(url),
+                    consumeItem = { id, q -> inventoryManager?.consumeItemLocally(id, q) },
+                    count = qty,
+                )
+                UseItemConsumptionSync.rememberLastItem(itemId, qty)
+                UseItemConsumptionSync.parseConsumption(
+                    responseText = html,
+                    itemId = itemId,
+                    count = qty,
+                    preferences = preferences,
+                    character = character,
+                    inventory = if (questHandled) null else inventoryManager,
+                )
+            }
+        }
+        if (url != null && (
+            url.contains("inv_eat.php", ignoreCase = true) ||
+                url.contains("inv_booze.php", ignoreCase = true) ||
+                url.contains("inv_spleen.php", ignoreCase = true)
+            )
+        ) {
+            extractDescItemId(url)?.toIntOrNull()?.let { itemId ->
+                val qty = extractUseQuantity(url)
+                UseItemConsumptionSync.rememberLastItem(itemId, qty)
+                UseItemConsumptionSync.parseConsumption(
+                    responseText = html,
+                    itemId = itemId,
+                    count = qty,
+                    preferences = preferences,
+                    character = character,
+                    inventory = inventoryManager,
                 )
             }
         }
@@ -2744,6 +3058,25 @@ class GameRuntimeLibrary(
             DreadScrollManager.handleDeepDarkVisions(html, preferences, sessionLogger)
         }
         if (url != null && (
+                url.contains("skills.php", ignoreCase = true) ||
+                    url.contains("skillz.php", ignoreCase = true)
+            ) && url.contains("whichskill=", ignoreCase = true)
+        ) {
+            net.sourceforge.kolmafia.skill.UseSkillSync.parseResponse(
+                urlString = url,
+                responseText = html,
+                preferences = preferences,
+                character = character,
+            )
+        }
+        ResponseTextParser.externalUpdate(
+            url = url,
+            html = html,
+            preferences = preferences,
+            character = character,
+            inventory = inventoryManager,
+        )
+        if (url != null && (
                 url.contains("charpane.php", ignoreCase = true) ||
                 url.endsWith("/charpane.php", ignoreCase = true)
             )
@@ -2752,8 +3085,13 @@ class GameRuntimeLibrary(
             ClanIdSync.apply(html)
         }
         if (url != null && url.contains("campground.php", ignoreCase = true)) {
-            character?.let { GardenSync.apply(it, html, preferences) }
-            CampgroundItemSync.apply(preferences, html, url, character)
+            CampgroundSync.parseResponse(
+                url = url,
+                html = html,
+                preferences = preferences,
+                character = character,
+                inventory = inventoryManager,
+            )
             preferences?.let { prefs ->
                 PortalRequest.parseResponse(
                     url = url,
@@ -2805,6 +3143,15 @@ class GameRuntimeLibrary(
         if (url != null && url.contains("showplayer.php", ignoreCase = true)) {
             ProfileRequest.applyFromVisit(html, url, character)
         }
+        if (url != null && url.contains("place.php", ignoreCase = true)) {
+            PlaceSync.parseResponse(
+                url = url,
+                html = html,
+                preferences = preferences,
+                character = character,
+                inventory = inventoryManager,
+            )
+        }
         if (url != null && url.contains("place.php", ignoreCase = true) &&
             url.contains("place=twitch", ignoreCase = true)
         ) {
@@ -2814,6 +3161,17 @@ class GameRuntimeLibrary(
             url.contains("whichplace=crimbo23", ignoreCase = true)
         ) {
             preferences?.let { Crimbo23ZoneSync.syncFromPlaceHtml(html, it) }
+        }
+        if (url != null && url.contains("place.php", ignoreCase = true) &&
+            url.contains("whichplace=spelunky", ignoreCase = true)
+        ) {
+            SpelunkyRequest.parseResponse(url, html, preferences)
+        }
+        if (url != null && url.contains("place.php", ignoreCase = true) &&
+            url.contains("batman_", ignoreCase = true)
+        ) {
+            BatFellowRequest.parseResponse(url, html, preferences)
+            BatFellowRequest.registerRequest(url, preferences, sessionLogger)
         }
         if (url != null && (
                 url.contains("adventure.php", ignoreCase = true) ||
@@ -2839,7 +3197,9 @@ class GameRuntimeLibrary(
             }
         }
         if (url != null && url.contains("knoll_mushrooms.php", ignoreCase = true)) {
-            character?.let { MushroomPlotSync.apply(preferences, it, html, url) }
+            character?.let {
+                MushroomManager.parsePlot(html, preferences, it, url)
+            }
         }
         if (url != null && url.contains("sushi.php", ignoreCase = true)) {
             SushiConsumptionSync.parseConsumptionFromVisit(
@@ -2884,6 +3244,15 @@ class GameRuntimeLibrary(
                     preferences,
                 ) { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) }
                 SpacegateVaccinatorChoiceSync.applyVisit(choiceId, html, preferences)
+                FloristFriarChoiceSync.apply(choiceId, url.orEmpty(), html, preferences)
+                WlfBunkerChoiceSync.applyVisit(
+                    choiceId,
+                    html,
+                    preferences,
+                ) { descId -> ItemDatabase.getByDescId(descId)?.id }
+                SpacegateLeftoversChoiceSync.applyVisit(choiceId, html) {
+                    sessionLogger?.appendRawLine(it)
+                }
                 TrickOrTreatChoiceSync.applyVisit(choiceId, html, preferences)
                 ArchSpadeChoiceSync.applyVisit(choiceId, html, preferences)
                 DeckChoiceSync.applyVisit(choiceId, html, preferences)
@@ -2894,6 +3263,74 @@ class GameRuntimeLibrary(
                     character?.state?.value?.turnsPlayed ?: 0,
                 )
                 BaseballChoiceSync.applyVisit(choiceId, html, preferences)
+                MushyCenterChoiceSync.applyVisit(choiceId, html, preferences)
+                HorseryChoiceSync.applyVisit(choiceId, html, preferences)
+                MimicDnaChoiceSync.applyVisit(choiceId, html, preferences)
+                StalagmiteChoiceSync.applyVisit(choiceId, preferences)
+                PowerPlantChoiceSync.applyVisit(choiceId, html, preferences)
+                ColdMedicineChoiceSync.applyVisit(choiceId, html, preferences)
+                PlumberShopChoiceSync.applyVisit(choiceId, html, preferences)
+                BackupCameraChoiceSync.applyVisit(choiceId, html, preferences)
+                CrystalBallChoiceSync.applyVisit(
+                    choiceId,
+                    html,
+                    preferences,
+                    currentRun = character?.state?.value?.currentRun ?: 0,
+                )
+                AutumnatonChoiceSync.applyVisit(choiceId, html, preferences)
+                TrainsetChoiceSync.applyVisit(choiceId, html, preferences)
+                BurningLeavesChoiceSync.applyVisit(choiceId, html, preferences)
+                YouRobotChoiceSync.applyVisit(choiceId, html, preferences, url.orEmpty())
+                MayamChoiceSync.applyVisit(choiceId, html, preferences)
+                TakerSpaceChoiceSync.applyVisit(choiceId, html, preferences) {
+                    ConcoctionDatabase.refreshConcoctionsNowFromLastContext()
+                }
+                SpecimenBenchChoiceSync.applyVisit(choiceId, html, preferences)
+                LeprecondoChoiceSync.applyVisit(choiceId, html, preferences)
+                PerilChoiceSync.applyVisit(choiceId, html, preferences)
+                PeridotChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    preferences = preferences,
+                    lastVisitedLocationName = preferences?.getString(
+                        Preferences.LAST_LOCATION,
+                        "",
+                    ).orEmpty(),
+                )
+                CrimboPastChoiceSync.applyVisit(choiceId, html, preferences)
+                MonkeyPawChoiceSync.applyVisit(choiceId, html, preferences)
+                CoolerYetiChoiceSync.applyVisit(choiceId, html, preferences)
+                CartographyChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    preferences = preferences,
+                    ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
+                )
+                SausageGrinderChoiceSync.applyVisit(choiceId, html, preferences)
+                BoomBoxChoiceSync.applyVisit(choiceId, html, preferences)
+                RedSnapperChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    html = html,
+                    preferences = preferences,
+                    currentTurn = character?.state?.value?.currentRun ?: 0,
+                )
+                DoctorBagChoiceSync.applyVisit(choiceId, html, preferences)
+                VoteBallotChoiceSync.applyVisit(choiceId, html, preferences)
+                LatteChoiceSync.applyVisit(choiceId, html, preferences)
+                MotorbikeChoiceSync.applyVisit(choiceId, html, preferences)
+                GenieChoiceSync.applyVisit(choiceId, html, preferences)
+                DetectiveCaseSync.applyVisit(choiceId, html, preferences)
+                ControlPanelChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    html = html,
+                    preferences = preferences,
+                    questDatabase = questDatabase,
+                )
+                IceHouseChoiceSync.applyVisit(
+                    choiceId = choiceId,
+                    html = html,
+                    banishManager = banishManager,
+                    currentTurn = character?.state?.value?.currentRun ?: 0,
+                )
+                DaycareChoiceSync.applyVisit(choiceId, html, preferences)
                 CyberRealmSync.applyFromChoice(choiceId, preferences)
             }
         }
@@ -2912,6 +3349,33 @@ class GameRuntimeLibrary(
             )
         }
         ClanLoungeSync.apply(preferences, html, url)
+        // Track K syncs (Phase 960–963, 967)
+        if (url != null && preferences != null) {
+            if (url.contains("clan_viplounge.php", ignoreCase = true)) {
+                ClanLoungeVisitSync.parseAndWrite(html, preferences!!)
+            }
+            if (url.contains("clan_rumpus.php", ignoreCase = true)) {
+                ClanRumpusVisitSync.parseAndWrite(html, preferences!!)
+            }
+            if (url.contains("whichplace=chateau", ignoreCase = true)) {
+                ChateauVisitSync.parseAndWrite(html, preferences!!)
+            }
+            if (url.contains("managestore.php", ignoreCase = true)) {
+                ShopInventoryVisitSync.parseAndWrite(html, preferences!!)
+            }
+        }
+        // Track L sync (Phase 969) + FamiliarSync hub (Phases 2421–2450)
+        if (url != null && url.contains("familiar.php", ignoreCase = true)) {
+            FamiliarSync.parseResponse(
+                url = url,
+                html = html,
+                familiarManager = familiarManager,
+                preferences = preferences,
+                character = character,
+                equipmentManager = equipmentManager,
+            )
+            preferences?.let { FamiliarEquipmentLockSync.parseAndWrite(html, it) }
+        }
         character?.let { SessionMeatSync.apply(it, html) }
         character?.state?.value?.let { state ->
             DispensarySync.applyFromResponse(html, state, preferences)
@@ -3501,7 +3965,8 @@ class GameRuntimeLibrary(
             buffedMoxie = state.buffedMoxie,
             monsterLevel = ml,
             mindControlLevel = state.mindControlLevel,
-            basementLevel = 0,
+            basementLevel = preferences?.getInt("basementLevel", 0)?.takeIf { it > 0 }
+                ?: net.sourceforge.kolmafia.request.BasementSync.basementLevel,
             characterMaxHp = state.maxHp,
             equippedItemNames = state.equippedItems()
                 .map { it.second.lowercase() }
@@ -3793,7 +4258,89 @@ class GameRuntimeLibrary(
                         kotlinx.coroutines.runBlocking { questLogRequest?.syncPage(1) }
                     },
                     setLimitMode = { mode -> character?.updateLimitMode(mode) },
+                    character = character,
+                    skillManager = skillManager,
                     choiceUrl = extraFormFields.entries.joinToString("&") { "${it.key}=${it.value}" },
+                    adjustFullness = { delta ->
+                        val s = character?.state?.value ?: return@apply
+                        character.updateConsumables(
+                            fullness = (s.fullness + delta).coerceAtLeast(0),
+                            inebriety = s.inebriety,
+                            spleenUsed = s.spleenUsed,
+                        )
+                    },
+                    adjustSpleen = { delta ->
+                        val s = character?.state?.value ?: return@apply
+                        character.updateConsumables(
+                            fullness = s.fullness,
+                            inebriety = s.inebriety,
+                            spleenUsed = (s.spleenUsed + delta).coerceAtLeast(0),
+                        )
+                    },
+                    familiarRace = familiarManager?.state?.value?.activeFamiliar?.race.orEmpty(),
+                    familiarHasAttribute = { attr ->
+                        val id = familiarManager?.state?.value?.activeFamiliar?.id ?: return@apply false
+                        FamiliarDefinitionDatabase.getById(id)?.attributes?.contains(attr) == true
+                    },
+                    lastVisitedLocationName = preferences?.getString(Preferences.LAST_LOCATION, "").orEmpty(),
+                    setKingLiberated = { character?.setKingLiberated(true) },
+                    sessionLog = { line -> sessionLogger?.appendRawLine(line) },
+                    checkDartPerks = {
+                        val db = gameDatabase ?: return@apply
+                        val visits = DynamicItemModifierSync.checkOwnedItemDescriptions(
+                            buildCheckContext(),
+                            db,
+                            listOf(DartPerksChoiceSync.HOLSTER_NAME),
+                        )
+                        for (visit in visits) {
+                            visitKolPage(visit.path)
+                        }
+                    },
+                    banishManager = banishManager,
+                    currentFamiliarId = { familiarManager?.state?.value?.activeFamiliar?.id },
+                    clearActiveFamiliar = { familiarManager?.clearActiveFamiliarLocally() },
+                    refreshStatus = {
+                        val char = character ?: return@apply
+                        kotlinx.coroutines.runBlocking {
+                            CharacterStatusRefresh.refreshWithQuantumPreflight(
+                                characterRequest = characterRequest,
+                                character = char,
+                                effectManager = effectManager,
+                                preferences = preferences,
+                                familiarManager = familiarManager,
+                            )
+                        }
+                    },
+                    hasBoxingDayBreakfast = effectManager?.state?.value?.effects
+                        ?.any { it.name.equals("Boxing Day Breakfast", ignoreCase = true) } == true,
+                    setMindControlLevel = { level -> character?.setMindControlLevel(level) },
+                    hasSkill = { id ->
+                        skillManager?.state?.value?.skills?.any { it.id == id } == true
+                    },
+                    learnSkill = { id ->
+                        preferences?.let { prefs ->
+                            SkillLearner.learnSkill(id, prefs, skillManager)
+                        } ?: skillManager?.learnLocalSkill(
+                            SkillData(
+                                id = id,
+                                name = "skill$id",
+                                type = SkillType.PASSIVE,
+                                mpCost = 0,
+                                dailyLimit = 0,
+                                timesCast = 0,
+                            ),
+                        )
+                    },
+                    forgetSkill = { id -> skillManager?.forgetLocalSkill(id) },
+                    forgetSkillByName = { name ->
+                        skillManager?.state?.value?.skills
+                            ?.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                            ?.let { skillManager?.forgetLocalSkill(it.id) }
+                    },
+                    resetAfterAvatar = { className ->
+                        sessionLogger?.appendRawLine("Now walking on the $className road.")
+                    },
+                    currentMonsterName = MonsterStatusTracker.getLastMonsterName(),
                 )
             }
         }
@@ -4211,6 +4758,57 @@ class GameRuntimeLibrary(
                 }
             } catch (_: Exception) {
                 // best-effort page visit
+            }
+        }
+        return htmlOut
+    }
+
+    /** POST form fields to a KoL path (relative), applying visit hooks. */
+    internal fun visitKolPost(path: String, postData: String): String? {
+        val client = httpClient ?: return null
+        var htmlOut: String? = null
+        kotlinx.coroutines.runBlocking {
+            try {
+                val response = client.submitForm(
+                    url = "$KOL_BASE_URL/${path.trimStart('/')}",
+                    formParameters = io.ktor.http.Parameters.build {
+                        postData.split("&").filter { it.isNotBlank() }.forEach { pair ->
+                            val eq = pair.indexOf('=')
+                            if (eq >= 0) append(pair.substring(0, eq), pair.substring(eq + 1))
+                            else append(pair, "")
+                        }
+                    },
+                )
+                val html = response.bodyAsText()
+                htmlOut = html
+                processVisitResponseHooks(html, "$KOL_BASE_URL/$path")
+                processVisitQuestHooks(html, "$KOL_BASE_URL/$path")
+            } catch (_: Exception) {
+                // best-effort
+            }
+        }
+        return htmlOut
+    }
+
+    /** Desktop FightRequest macro submit — action=macro + macrotext. */
+    internal fun visitKolFightMacro(macroText: String): String? {
+        val client = httpClient ?: return null
+        var htmlOut: String? = null
+        kotlinx.coroutines.runBlocking {
+            try {
+                val response = client.submitForm(
+                    url = "$KOL_BASE_URL/fight.php",
+                    formParameters = io.ktor.http.parameters {
+                        append("action", "macro")
+                        append("macrotext", macroText)
+                    },
+                )
+                val html = response.bodyAsText()
+                htmlOut = html
+                processVisitResponseHooks(html, "$KOL_BASE_URL/fight.php")
+                processVisitQuestHooks(html, "$KOL_BASE_URL/fight.php")
+            } catch (_: Exception) {
+                // best-effort
             }
         }
         return htmlOut
@@ -4810,6 +5408,59 @@ class GameRuntimeLibrary(
         registerAshP430Batch(scope)
         registerAshP432Batch(scope)
         registerAshP481Batch(scope)
+        registerAshP762Batch(scope)
+        registerAshP763Batch(scope)
+        registerAshP865Batch(scope)
+        registerAshP889Batch(scope)
+        registerAshP890Batch(scope)
+        registerAshP891Batch(scope)
+        registerAshP892Batch(scope)
+        registerAshP893Batch(scope)
+        registerAshP894Batch(scope)
+        registerAshP895Batch(scope)
+        registerAshP896Batch(scope)
+        registerAshP897Batch(scope)
+        registerAshP898Batch(scope)
+        registerAshP899Batch(scope)
+        registerAshP900Batch(scope)
+        registerAshP901Batch(scope)
+        registerAshP902Batch(scope)
+        registerAshP903Batch(scope)
+        registerAshP904Batch(scope)
+        registerAshP905Batch(scope)
+        registerAshP906Batch(scope)
+        registerAshP907Batch(scope)
+        registerAshP908Batch(scope)
+        registerAshP909Batch(scope)
+        registerAshP910Batch(scope)
+        registerAshP911Batch(scope)
+        registerAshP912Batch(scope)
+        registerAshP913Batch(scope)
+        registerAshP914Batch(scope)
+        registerAshP915Batch(scope)
+        registerAshP916Batch(scope)
+        registerAshP917Batch(scope)
+        registerAshP918Batch(scope)
+
+        // AshP919–949 Tracks E–H
+        registerAshP919TrackEBatch(scope)
+        registerAshP928TrackFBatch(scope)
+        registerAshP935TrackGBatch(scope)
+        registerAshP943TrackHBatch(scope)
+
+        // AshP950–1010 Tracks I–T (deepen + residual)
+        registerAshP950TrackIBatch(scope)
+        registerAshP956TrackJBatch(scope)
+        registerAshP960TrackKBatch(scope)
+        registerAshP968TrackLBatch(scope)
+        registerAshP970TrackMBatch(scope)
+        registerAshP973TrackNBatch(scope)
+        registerAshP975TrackOBatch(scope)
+        registerAshP981TrackPBatch(scope)
+        registerAshP985TrackQBatch(scope)
+        registerAshP991TrackRBatch(scope)
+        registerAshP997TrackSBatch(scope)
+        registerAshP1004TrackTBatch(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
             runTowerDoor { message -> rt.print(message) }

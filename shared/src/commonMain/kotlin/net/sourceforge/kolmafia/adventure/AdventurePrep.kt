@@ -1,16 +1,23 @@
 package net.sourceforge.kolmafia.adventure
 
+import net.sourceforge.kolmafia.adventure.prep.AdventureGateContext
+import net.sourceforge.kolmafia.adventure.prep.AdventurePrepareActions
+import net.sourceforge.kolmafia.adventure.prep.AdventureUnlockHelpers
+import net.sourceforge.kolmafia.adventure.prep.AdventureZoneGates
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.data.AdventureZone
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.UseItemRequest
 
 /**
- * Zone prep before adventuring — wears disguises and retrieves prep items when known.
+ * Zone unlock gates + prep before adventuring (Phases 14/18/20/22 + 1851–1910).
+ *
  * Preference overrides:
  * - `zoneOutfit_<location>` → outfit name
  * - `zoneFamiliar_<location>` → familiar species name
@@ -19,44 +26,100 @@ import net.sourceforge.kolmafia.request.UseItemRequest
  */
 object AdventurePrep {
 
+    var questDatabaseProvider: (() -> QuestDatabase?)? = null
+    var inventoryProvider: (() -> InventoryManager?)? = null
+    var hasEquipped: (Int) -> Boolean = { false }
+    var hasCampground: () -> Boolean = { true }
+    var visitUrl: (suspend (String) -> Boolean)? = null
+    var equipItem: (suspend (Int) -> Boolean)? = null
+    var unequipSlot: (suspend (String) -> Boolean)? = null
+    var hasEffect: (String) -> Boolean = { false }
+    var stenchResistanceLevels: (() -> Int)? = null
+    var preferFamiliar: (suspend (String) -> Boolean)? = null
+
+    fun resetForTest() {
+        questDatabaseProvider = null
+        inventoryProvider = null
+        hasEquipped = { false }
+        hasCampground = { true }
+        visitUrl = null
+        equipItem = null
+        unequipSlot = null
+        hasEffect = { false }
+        stenchResistanceLevels = null
+        preferFamiliar = null
+    }
+
+    fun buildContext(
+        character: CharacterState?,
+        preferences: Preferences?,
+        questDatabase: QuestDatabase? = questDatabaseProvider?.invoke(),
+    ): AdventureGateContext {
+        val inv = inventoryProvider?.invoke()
+        return AdventureGateContext(
+            character = character,
+            preferences = preferences,
+            questDatabase = questDatabase ?: preferences?.let { QuestDatabase(it) },
+            inventoryCount = { id -> inv?.state?.value?.items?.get(id)?.quantity ?: 0 },
+            hasEquipped = hasEquipped,
+            hasCampground = hasCampground(),
+        )
+    }
+
     /** Returns false when the character cannot adventure at [locationName] (zone rules + adventures left). */
     fun canAdventureAt(
         locationName: String,
         character: CharacterState?,
         zone: AdventureZone? = AdventureDatabase.getByName(locationName),
         preferences: Preferences? = null,
+        questDatabase: QuestDatabase? = null,
     ): Boolean {
         if ((character?.adventuresLeft ?: 0) <= 0) return false
-        return canAdventureAtZone(locationName, character, zone, preferences)
+        return canAdventureAtZone(locationName, character, zone, preferences, questDatabase)
     }
 
-    /** Zone-only gates (stat, overdrunk, limit mode, PirateRealm) — ignores adventures remaining. */
+    /**
+     * Zone-only gates (drunk, preValidate, core/IoTM unlocks, stat, limit mode)
+     * — ignores adventures remaining.
+     */
     fun canAdventureAtZone(
         locationName: String,
         character: CharacterState?,
         zone: AdventureZone? = AdventureDatabase.getByName(locationName),
         preferences: Preferences? = null,
+        questDatabase: QuestDatabase? = null,
     ): Boolean {
         val cs = character ?: return true
-        zone ?: return true
+        val z = zone ?: return true
+        val ctx = buildContext(cs, preferences, questDatabase)
 
-        if (zone.isOverdrunk && cs.inebriety <= 0) return false
+        if (AdventureZoneGates.tooDrunkToAdventure(locationName, z, ctx)) return false
+
+        if (z.isOverdrunk && cs.inebriety <= 0) return false
 
         if (cs.isInLimitMode) {
             val mode = cs.limitMode.lowercase()
-            val inZone = zone.urlParams.lowercase().contains(mode) ||
-                zone.zoneName.lowercase().contains(mode) ||
-                zone.locationName.lowercase().contains(mode)
-            if (!inZone) return false
+            val inZone = z.urlParams.lowercase().contains(mode) ||
+                z.zoneName.lowercase().contains(mode) ||
+                z.locationName.lowercase().contains(mode) ||
+                locationName.lowercase().contains(mode)
+            if (!inZone && !mode.contains("astral") && !mode.contains("mole")) {
+                // Astral/mole use dedicated zone gates below
+                if (!z.zoneName.contains("Astral", ignoreCase = true) &&
+                    !z.zoneName.contains("Mole", ignoreCase = true)
+                ) {
+                    return false
+                }
+            }
         }
 
-        if (zone.statRequirement > 0 && cs.buffedMainStat < zone.statRequirement) return false
+        if (z.statRequirement > 0 && cs.buffedMainStat < z.statRequirement) return false
 
-        if (zone.zoneName.startsWith("PirateRealm", ignoreCase = true)) {
-            return canAdventureAtPirateRealm(locationName, zone.zoneName, preferences)
+        if (z.zoneName.startsWith("PirateRealm", ignoreCase = true)) {
+            if (!canAdventureAtPirateRealm(locationName, z.zoneName, preferences)) return false
         }
 
-        return true
+        return AdventureZoneGates.canAdventureZone(locationName, z, ctx)
     }
 
     fun canAdventureAtPirateRealm(
@@ -81,23 +144,22 @@ object AdventurePrep {
         }
         return true
     }
-    private val ZONE_OUTFITS = mapOf(
-        "The Mine Office" to "Mining Gear",
-        "Dwarf Factory" to "Mining Gear",
-        "The Frat House (Disguised)" to "Frat Boy Ensemble",
-        "The Hippy Camp (Disguised)" to "Filthy Hippy Disguise",
-        "The Wartime Frat House (Disguised)" to "War Hippy Fatigues",
-        "The Wartime Hippy Camp (Disguised)" to "Frat Warrior Fatigues",
-        "The Battlefield (Cloaca-Cola)" to "Cloaca-Cola Uniform",
-        "The Battlefield (Dyspepsi-Cola)" to "Dyspepsi-Cola Uniform",
-        "Mer-kin Elementary School" to "Crappy Mer-Kin Disguise",
-        "Mer-kin Gymnasium" to "Crappy Mer-Kin Disguise",
-        "Mer-kin Library" to "Mer-kin Scholar's Vestments",
-        "Mer-kin Colosseum" to "Mer-kin Gladiatorial Gear",
-        "Mer-kin Study" to "Mer-kin Scholar's Vestments",
-        "Mer-kin Deep Temple" to "Crappy Mer-Kin Disguise",
-        "The Poop Deck" to "Swashbuckling Getup",
-        "Below Deck" to "Swashbuckling Getup",
+
+    fun woodsOpen(preferences: Preferences?, questDatabase: QuestDatabase? = null): Boolean =
+        AdventureUnlockHelpers.woodsOpen(buildContext(null, preferences, questDatabase))
+
+    fun cemeteryOpen(preferences: Preferences?, questDatabase: QuestDatabase? = null): Boolean =
+        AdventureUnlockHelpers.cemeteryOpen(buildContext(null, preferences, questDatabase))
+
+    fun tooDrunkToAdventure(
+        locationName: String,
+        character: CharacterState?,
+        zone: AdventureZone? = AdventureDatabase.getByName(locationName),
+        preferences: Preferences? = null,
+    ): Boolean = AdventureZoneGates.tooDrunkToAdventure(
+        locationName,
+        zone,
+        buildContext(character, preferences),
     )
 
     suspend fun prepareForAdventure(
@@ -109,8 +171,14 @@ object AdventurePrep {
         gameDatabase: net.sourceforge.kolmafia.data.GameDatabase? = null,
         familiarManager: FamiliarManager? = null,
         character: CharacterState? = null,
+        questDatabase: QuestDatabase? = null,
     ): Boolean {
-        if (!canAdventureAtZone(locationName, character, preferences = preferences)) return false
+        if (!canAdventureAtZone(locationName, character, preferences = preferences, questDatabase = questDatabase)) {
+            return false
+        }
+
+        val zone = AdventureDatabase.getByName(locationName)
+        val ctx = buildContext(character, preferences, questDatabase)
 
         val familiarName = preferences?.getString("zoneFamiliar_$locationName", "")?.takeIf { it.isNotBlank() }
         if (familiarName != null) {
@@ -119,15 +187,32 @@ object AdventurePrep {
         }
 
         val outfitName = preferences?.getString("zoneOutfit_$locationName", "")?.takeIf { it.isNotBlank() }
-            ?: ZONE_OUTFITS[locationName]
-            ?: ZONE_OUTFITS.entries.firstOrNull { (zone, _) ->
-                locationName.equals(zone, ignoreCase = true) ||
-                    locationName.contains(zone, ignoreCase = true)
-            }?.value
+            ?: AdventurePrepareActions.resolveOutfit(locationName, zone)
 
         if (outfitName != null) {
             val manager = outfitManager ?: return false
             if (!manager.wearOutfit(outfitName)) return false
+        }
+
+        if (!AdventurePrepareActions.prepare(
+                locationName,
+                zone,
+                ctx,
+                AdventurePrepareActions.PrepareDeps(
+                    outfitManager = null, // already worn above
+                    retrieveItemService = retrieveItemService,
+                    useItemRequest = useItemRequest,
+                    gameDatabase = gameDatabase,
+                    visitUrl = visitUrl,
+                    equipItem = equipItem,
+                    unequipSlot = unequipSlot,
+                    hasEffect = hasEffect,
+                    stenchResistanceLevels = stenchResistanceLevels,
+                    preferFamiliar = preferFamiliar,
+                ),
+            )
+        ) {
+            return false
         }
 
         val itemPref = preferences?.getString("zoneItem_$locationName", "")?.takeIf { it.isNotBlank() }

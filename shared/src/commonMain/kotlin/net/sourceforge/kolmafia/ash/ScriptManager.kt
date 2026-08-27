@@ -88,11 +88,11 @@ class ScriptManager(
 
     /** Synchronous run for autoscript hooks — must finish before the adventure loop continues. */
     fun runScriptSync(name: String) {
-        val entry = _state.value.scripts.find { it.name == name } ?: return
+        val entry = findScript(name) ?: return
         try {
             val out = executeScript(entry)
             val updatedScripts = _state.value.scripts.map {
-                if (it.name == name) it.copy(lastRunAt = currentTimeMillis()) else it
+                if (it.name == entry.name) it.copy(lastRunAt = currentTimeMillis()) else it
             }
             persistScripts(updatedScripts)
             _state.value = _state.value.copy(output = out, error = null)
@@ -100,6 +100,15 @@ class ScriptManager(
             _state.value = _state.value.copy(error = e.message)
         } catch (e: Exception) {
             _state.value = _state.value.copy(error = e.message ?: "Unknown error")
+        }
+    }
+
+    private fun findScript(name: String): ScriptEntry? {
+        val normalized = ScriptHookRunner.normalizeScriptName(name)
+        return _state.value.scripts.find {
+            it.name.equals(name, ignoreCase = true) ||
+                it.name.equals(normalized, ignoreCase = true) ||
+                ScriptHookRunner.normalizeScriptName(it.name).equals(normalized, ignoreCase = true)
         }
     }
 

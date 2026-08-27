@@ -16,6 +16,7 @@ import net.sourceforge.kolmafia.data.SpeakeasyDatabase
 import net.sourceforge.kolmafia.data.isAutoCraftable
 import net.sourceforge.kolmafia.data.isCreateAndConsume
 import net.sourceforge.kolmafia.data.isCreateSupported
+import net.sourceforge.kolmafia.data.isStillsuitCraftable
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.modifiers.ExpressionContext
@@ -289,6 +290,10 @@ class ConcoctionQueueRunner(
         if (concoction.methods.contains("FLOUNDRY")) {
             return consumeFloundryItem(name, quantity, state, preferences)
         }
+        // Distillate is create+consume in one StillSuitRequest flow — before generic create.
+        if (StillSuitRequest.isDistillate(name) || concoction.isStillsuitCraftable()) {
+            return consumeStillSuitItem(name, quantity, type, state, preferences)
+        }
         if (concoction.isCreateSupported()) {
             val itemId = ItemDatabase.getByName(name)?.id ?: 0
             if (type != ConcoctionConsumptionType.NONE) {
@@ -309,9 +314,6 @@ class ConcoctionQueueRunner(
             } else {
                 QueueProcessOutcome(Result.success(Unit))
             }
-        }
-        if (StillSuitRequest.isDistillate(name)) {
-            return consumeStillSuitItem(name, quantity, type, state, preferences)
         }
         return consumeCafeItem(name, quantity, type, state, preferences)
     }

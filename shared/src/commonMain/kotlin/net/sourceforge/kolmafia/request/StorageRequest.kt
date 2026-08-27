@@ -7,13 +7,25 @@ import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.preferences.Preferences
 
-open class StorageRequest(private val client: HttpClient) {
+open class StorageRequest(
+    private val client: HttpClient,
+    private val inventoryManager: InventoryManager? = null,
+    private val character: KoLCharacter? = null,
+    private val preferences: Preferences? = null,
+) {
 
     open suspend fun withdraw(itemId: Int, quantity: Int): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         return try {
             val response = client.get("$KOL_BASE_URL/storage.php") {
                 parameter("action", "pullitem")
@@ -22,7 +34,17 @@ open class StorageRequest(private val client: HttpClient) {
                 parameter("ajax", 1)
             }
             if (response.status.isSuccess()) {
-                Result.success(response.bodyAsText())
+                val body = response.bodyAsText()
+                TransferItemSync.parseStorageTransfer(
+                    url = "storage.php?action=pullitem&whichitem=$itemId&qty=$quantity",
+                    html = body,
+                    itemId = itemId,
+                    quantity = quantity,
+                    inventory = inventoryManager,
+                    character = character,
+                    preferences = preferences,
+                )
+                Result.success(body)
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))
             }
@@ -32,6 +54,11 @@ open class StorageRequest(private val client: HttpClient) {
     }
 
     open suspend fun emptyStorage(): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         return try {
             val response = client.get("$KOL_BASE_URL/storage.php") {
                 parameter("action", "pullall")
@@ -48,13 +75,28 @@ open class StorageRequest(private val client: HttpClient) {
 
     /** Desktop [StorageRequestType.PULL_MEAT_FROM_STORAGE] — storage.php?action=takemeat&amt=N. */
     open suspend fun pullMeat(quantity: Int): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         return try {
             val response = client.get("$KOL_BASE_URL/storage.php") {
                 parameter("action", "takemeat")
                 parameter("amt", quantity)
             }
             if (response.status.isSuccess()) {
-                Result.success(response.bodyAsText())
+                val body = response.bodyAsText()
+                TransferItemSync.parseStorageTransfer(
+                    url = "storage.php?action=takemeat&amt=$quantity",
+                    html = body,
+                    itemId = 0,
+                    quantity = quantity,
+                    inventory = inventoryManager,
+                    character = character,
+                    preferences = preferences,
+                )
+                Result.success(body)
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))
             }
@@ -64,6 +106,11 @@ open class StorageRequest(private val client: HttpClient) {
     }
 
     open suspend fun deposit(itemId: Int, quantity: Int): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         return try {
             val response = client.get("$KOL_BASE_URL/storage.php") {
                 parameter("action", "storeitem")
@@ -72,7 +119,17 @@ open class StorageRequest(private val client: HttpClient) {
                 parameter("ajax", 1)
             }
             if (response.status.isSuccess()) {
-                Result.success(response.bodyAsText())
+                val body = response.bodyAsText()
+                TransferItemSync.parseStorageTransfer(
+                    url = "storage.php?action=storeitem&whichitem=$itemId&qty=$quantity",
+                    html = body,
+                    itemId = itemId,
+                    quantity = quantity,
+                    inventory = inventoryManager,
+                    character = character,
+                    preferences = preferences,
+                )
+                Result.success(body)
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))
             }

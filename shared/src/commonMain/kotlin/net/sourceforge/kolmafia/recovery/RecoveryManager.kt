@@ -10,10 +10,38 @@ import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.LightsOutManager
 import net.sourceforge.kolmafia.session.VoteMonsterManager
 import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
+
+/**
+ * Callbacks for desktop [RecoveryManager.runBetweenBattleChecks] ordering
+ * (Phases 1911–1925). Wired by [net.sourceforge.kolmafia.adventure.AdventureManager].
+ */
+data class BetweenBattleContext(
+    val isScriptCheck: Boolean = true,
+    val isMoodCheck: Boolean = true,
+    val isHealthCheck: Boolean = true,
+    val isManaCheck: Boolean = true,
+    val isRecoveryPossible: () -> Boolean = { true },
+    val executeBetweenBattleScript: () -> Unit = {},
+    val executeMood: suspend () -> Unit = {},
+    val recoverHpStep: suspend () -> Boolean = { false },
+    val burnExtraMana: suspend () -> Unit = {},
+    val recoverMpStep: suspend () -> Boolean = { false },
+    val currentHp: () -> Int = { Int.MAX_VALUE },
+    val maxHp: () -> Int = { Int.MAX_VALUE },
+    val edFightInProgress: () -> Boolean = { false },
+    val turnsPlayed: () -> Int = { 0 },
+)
+
+sealed class BetweenBattleResult {
+    data object Ok : BetweenBattleResult()
+    data object Skipped : BetweenBattleResult()
+    data object AbortedZeroHp : BetweenBattleResult()
+}
 
 class RecoveryManager(
     private val inventoryManager: InventoryManager,
@@ -24,6 +52,9 @@ class RecoveryManager(
     var isRecoveryActive: Boolean = false
 
     companion object {
+        private const val MAX_BETWEEN_BATTLE_HEAL_ITERS = 10
+        private const val MAX_CHECKPOINT_ITERATIONS = 25
+
         fun needsHpRecovery(state: CharacterState, prefs: Preferences): Boolean {
             if (!prefs.getBoolean(Preferences.AUTO_RECOVER_HP, true)) return false
             if (state.maxHp <= 0) return false
@@ -71,8 +102,6 @@ class RecoveryManager(
                 (state.maxMp * stopPct + 99) / 100
             }
         }
-
-        private const val MAX_CHECKPOINT_ITERATIONS = 25
 
         internal fun isFullRestore(restoreData: RestoreData): Boolean =
             restoreData.hpMaxExpr.contains("[") || restoreData.mpMaxExpr.contains("[")
@@ -132,6 +161,79 @@ class RecoveryManager(
             }
     }
 
+    /**
+     * Desktop [RecoveryManager.runBetweenBattleChecks] — ordered pre-adventure pipeline.
+     * Re-entrancy: nested calls while [isRecoveryActive] are skipped.
+     */
+    suspend fun runBetweenBattleChecks(
+        isFullCheck: Boolean = true,
+        ctx: BetweenBattleContext = BetweenBattleContext(),
+    ): BetweenBattleResult =
+        // Desktop overload: (isFull, isFull, true, isFull)
+        runBetweenBattleChecks(
+            isScriptCheck = isFullCheck,
+            isMoodCheck = isFullCheck,
+            isHealthCheck = true,
+            isManaCheck = isFullCheck,
+            ctx = ctx,
+        )
+
+    suspend fun runBetweenBattleChecks(
+        isScriptCheck: Boolean,
+        isMoodCheck: Boolean,
+        isHealthCheck: Boolean,
+        isManaCheck: Boolean,
+        ctx: BetweenBattleContext,
+    ): BetweenBattleResult {
+        if (isRecoveryActive || !ctx.isRecoveryPossible()) {
+            return BetweenBattleResult.Skipped
+        }
+        if (CharpaneValhallaSync.inValhalla) {
+            return BetweenBattleResult.Skipped
+        }
+
+        isRecoveryActive = true
+        try {
+            if (isScriptCheck) {
+                ctx.executeBetweenBattleScript()
+            }
+            if (isMoodCheck) {
+                ctx.executeMood()
+            }
+            if (isHealthCheck) {
+                var continueHp = true
+                var hpIter = 0
+                while (continueHp && hpIter < MAX_BETWEEN_BATTLE_HEAL_ITERS) {
+                    continueHp = ctx.recoverHpStep()
+                    hpIter++
+                }
+            }
+            if (isMoodCheck) {
+                ctx.burnExtraMana()
+            }
+            if (isManaCheck) {
+                var continueMp = true
+                var mpIter = 0
+                while (continueMp && mpIter < MAX_BETWEEN_BATTLE_HEAL_ITERS) {
+                    continueMp = ctx.recoverMpStep()
+                    mpIter++
+                }
+            }
+
+            // Uninitialized character (maxHp==0) is not a death abort
+            if (ctx.currentHp() == 0 && ctx.maxHp() > 0 && !ctx.edFightInProgress()) {
+                return BetweenBattleResult.AbortedZeroHp
+            }
+
+            val turns = ctx.turnsPlayed()
+            LightsOutManager.checkCounter(preferences, turns)
+            VoteMonsterManager.checkCounter(preferences, turns)
+            return BetweenBattleResult.Ok
+        } finally {
+            isRecoveryActive = false
+        }
+    }
+
     suspend fun recoverIfNeeded(
         charState: CharacterState,
         invState: InventoryState,
@@ -149,6 +251,20 @@ class RecoveryManager(
         }
         return recovered
     }
+
+    /** Single HP restore action for between-battle / ASH recover loops. */
+    suspend fun recoverHpOnce(
+        charState: CharacterState,
+        invState: InventoryState,
+        skillState: SkillState,
+    ): Boolean = recoverHp(charState, invState, skillState)
+
+    /** Single MP restore action for between-battle / ASH recover loops. */
+    suspend fun recoverMpOnce(
+        charState: CharacterState,
+        invState: InventoryState,
+        skillState: SkillState,
+    ): Boolean = recoverMp(charState, invState, skillState)
 
     suspend fun recoverHpToMax(
         charState: CharacterState,

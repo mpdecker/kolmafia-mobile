@@ -28,6 +28,11 @@ open class LocketRequest(private val client: HttpClient) {
     }
 
     open suspend fun reminisce(monsterId: Int): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         val opened = visit()
         if (opened.isFailure) return opened
         return try {
@@ -40,6 +45,7 @@ open class LocketRequest(private val client: HttpClient) {
                 },
             )
             if (response.status.isSuccess()) {
+                net.sourceforge.kolmafia.recovery.BetweenBattleInvoker.run(true)
                 Result.success(response.bodyAsText())
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))

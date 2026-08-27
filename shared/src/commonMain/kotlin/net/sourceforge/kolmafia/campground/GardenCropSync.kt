@@ -97,6 +97,14 @@ object GardenCropSync {
         syncRockGarden(html, prefs)
     }
 
+    /** Desktop CampgroundRequest.setCampgroundItem(Mushroom) after Mushy Center choice/visit. */
+    fun setMushroomCropLevel(prefs: Preferences?, level: Int) {
+        if (prefs == null) return
+        val capped = level.coerceAtLeast(1)
+        clearCrop(prefs)
+        CampgroundInventorySync.setItem(prefs, GardenCropIds.MUSHROOM_SPORES, capped)
+    }
+
     private fun applyPattern(prefs: Preferences, pattern: CropPattern) {
         CampgroundInventorySync.setItem(prefs, pattern.cropItemId, pattern.cropCount)
         if (pattern.seedItemId >= 0) {

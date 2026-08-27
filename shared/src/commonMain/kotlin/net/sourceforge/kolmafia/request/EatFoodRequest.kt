@@ -5,11 +5,21 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.ConsumptionHelperState
+import net.sourceforge.kolmafia.session.SessionLogger
 
-open class EatFoodRequest(private val client: HttpClient) {
+open class EatFoodRequest(
+    private val client: HttpClient,
+    private val preferences: Preferences? = null,
+    private val character: KoLCharacter? = null,
+    private val inventoryManager: InventoryManager? = null,
+    private val sessionLogger: SessionLogger? = null,
+) {
     open suspend fun eat(itemId: Int, quantity: Int = 1): Result<String> =
         consumeFood(itemId, quantity).fold(
             onSuccess = { outcome ->
@@ -23,6 +33,11 @@ open class EatFoodRequest(private val client: HttpClient) {
         )
 
     suspend fun consumeFood(itemId: Int, quantity: Int = 1): Result<ConsumptionRequestOutcome> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         if (quantity <= 0) {
             return Result.success(ConsumptionRequestOutcome.Completed(0))
         }
@@ -39,9 +54,27 @@ open class EatFoodRequest(private val client: HttpClient) {
             httpResult.exceptionOrNull()?.let { return Result.failure(it) }
 
             val body = httpResult.getOrThrow()
+            UseItemConsumptionSync.rememberLastItem(itemId, iterQty)
             if (isEatAbort(body)) {
+                UseItemConsumptionSync.clearLastItem()
                 return Result.success(
                     ConsumptionRequestOutcome.Aborted(totalConsumed, eatAbortReason(body)),
+                )
+            }
+            if (!UseItemConsumptionSync.parseConsumption(
+                    responseText = body,
+                    itemId = itemId,
+                    count = iterQty,
+                    preferences = preferences,
+                    character = character,
+                    inventory = inventoryManager,
+                )
+            ) {
+                return Result.success(
+                    ConsumptionRequestOutcome.Aborted(
+                        totalConsumed,
+                        UseItemConsumptionSync.lastUpdate.ifBlank { eatAbortReason(body) },
+                    ),
                 )
             }
 

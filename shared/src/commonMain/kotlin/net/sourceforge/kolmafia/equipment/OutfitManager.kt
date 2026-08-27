@@ -14,6 +14,7 @@ import net.sourceforge.kolmafia.request.CustomOutfitRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.StorageRequest
+import net.sourceforge.kolmafia.session.EquipmentManager
 
 open class OutfitManager(
     private val retrieveItemService: RetrieveItemService?,
@@ -26,6 +27,7 @@ open class OutfitManager(
     private val displayCaseRequest: DisplayCaseRequest?,
     private val clanStashRequest: ClanStashRequest?,
     private val inventoryManager: net.sourceforge.kolmafia.inventory.InventoryManager?,
+    private val equipmentManager: EquipmentManager? = null,
 ) {
     open suspend fun refreshCustomOutfits() {
         OutfitDatabase.clearCustom()
@@ -92,6 +94,31 @@ open class OutfitManager(
         }
         return isWearingPieces(outfit.pieces, equipment)
     }
+
+    /** Currently worn static/custom outfit, if any. */
+    open fun currentOutfit(): ResolvedOutfit? {
+        for (data in OutfitDatabase.allOutfits()) {
+            val resolved = data.toResolved()
+            if (isWearingOutfit(resolved)) return resolved
+        }
+        for (data in OutfitDatabase.customOutfits()) {
+            val resolved = data.toResolved()
+            if (isWearingOutfit(resolved)) return resolved
+        }
+        return null
+    }
+
+    /** EM-backed canEquip for all outfit pieces (Maximizer/consumable contexts). */
+    open fun canEquipOutfitPieces(outfit: ResolvedOutfit): Boolean {
+        val mgr = equipmentManager ?: return true
+        return outfit.pieces.all { piece ->
+            val id = gameDatabase.item(piece)?.id ?: return@all false
+            mgr.canEquip(id)
+        }
+    }
+
+    open fun canEquipItem(itemId: Int): Boolean =
+        equipmentManager?.canEquip(itemId) ?: true
 
     open suspend fun retrieveOutfit(outfit: ResolvedOutfit): Boolean {
         if (outfit.isBirthdaySuit) return true

@@ -38,6 +38,56 @@ class RufusManager(private val preferences: Preferences) {
         preferences.setString(Preferences.RUFUS_QUEST_TARGET, target)
     }
 
+    fun parseCall(text: String) {
+        ENTITY.find(text)?.let { preferences.setString("rufusDesiredEntity", "shadow ${it.value}") }
+        ARTIFACT.find(text)?.let { preferences.setString("rufusDesiredArtifact", "shadow ${it.value}") }
+        ITEMS.find(text)?.let { preferences.setString("rufusDesiredItems", it.groupValues[1]) }
+    }
+
+    fun parseCallResponse(
+        text: String,
+        decision: Int,
+        questDatabase: QuestDatabase,
+        itemIdForName: (String) -> Int?,
+        itemCount: (Int) -> Int,
+    ) {
+        if (decision == 6) {
+            questDatabase.setProgress(Quest.RUFUS, QuestDatabase.UNSTARTED)
+            return
+        }
+        val type = when (decision) { 1 -> "entity"; 2 -> "artifact"; 3 -> "items"; else -> return }
+        val target = preferences.getString(
+            when (decision) { 1 -> "rufusDesiredEntity"; 2 -> "rufusDesiredArtifact"; else -> "rufusDesiredItems" },
+        )
+        preferences.setString(Preferences.RUFUS_QUEST_TYPE, type)
+        preferences.setString(Preferences.RUFUS_QUEST_TARGET, target)
+        val itemId = if (type == "items") itemIdForName(target) else null
+        questDatabase.setProgress(
+            Quest.RUFUS,
+            if (itemId != null && itemCount(itemId) >= 3) "step1" else QuestDatabase.STARTED,
+        )
+        if (text.contains("Shadow Affinity")) preferences.setBoolean("_shadowAffinityToday", true)
+        listOf("rufusDesiredEntity", "rufusDesiredArtifact", "rufusDesiredItems")
+            .forEach { preferences.setString(it, "") }
+    }
+
+    fun parseCallBackResponse(
+        text: String,
+        decision: Int,
+        questDatabase: QuestDatabase,
+        itemIdForName: (String) -> Int?,
+        consumeItem: (Int, Int) -> Unit,
+    ) {
+        if (decision != 1 || !text.contains("Rufus's shadow lodestone")) return
+        val type = preferences.getString(Preferences.RUFUS_QUEST_TYPE)
+        val target = preferences.getString(Preferences.RUFUS_QUEST_TARGET)
+        if (type == "artifact") itemIdForName(target)?.let { consumeItem(it, 1) }
+        if (type == "items") itemIdForName(target)?.let { consumeItem(it, 3) }
+        questDatabase.setProgress(Quest.RUFUS, QuestDatabase.UNSTARTED)
+        preferences.setString(Preferences.RUFUS_QUEST_TYPE, "")
+        preferences.setString(Preferences.RUFUS_QUEST_TARGET, "")
+    }
+
     fun specialChoiceDecision(
         choiceId: Int,
         responseText: String,
@@ -251,5 +301,8 @@ class RufusManager(private val preferences: Preferences) {
         private val RUFUS_ARTIFACT_DONE_PATTERN = Regex("""you found his (.*?)\.""")
         private val RUFUS_ITEMS_PATTERN = Regex("""find him 3 (.*?) from Shadow Rifts\.""")
         private val RUFUS_ITEMS_DONE_PATTERN = Regex("""you've got the 3 (.*?) he wanted\.""")
+        private val ENTITY = Regex("""spire|orrery|tongue|scythe|cauldron|matrix""")
+        private val ARTIFACT = Regex("""lighter|heptahedron|snowflake|heart|bucket|wave""")
+        private val ITEMS = Regex("""Right now, 3 (.*?) would be valuable""")
     }
 }

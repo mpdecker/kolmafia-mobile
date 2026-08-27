@@ -9,9 +9,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.sourceforge.kolmafia.adventure.choice.ChoiceContext
+import net.sourceforge.kolmafia.adventure.choice.ChoiceCost
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
 import net.sourceforge.kolmafia.adventure.choice.ChoiceSolvers
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
+import net.sourceforge.kolmafia.adventure.choice.ChoiceWalkAway
+import net.sourceforge.kolmafia.adventure.choice.DeferredChoice
+import net.sourceforge.kolmafia.adventure.choice.VioletFogManager
+import net.sourceforge.kolmafia.adventure.choice.solvers.FightersOfFighting
+import net.sourceforge.kolmafia.session.FightActionCostSync
+import net.sourceforge.kolmafia.session.FightDiscoComboSync
+import net.sourceforge.kolmafia.session.FightDomSync
+import net.sourceforge.kolmafia.session.FightFamiliarMessageSync
+import net.sourceforge.kolmafia.session.FightFinalRoundSync
+import net.sourceforge.kolmafia.session.FightIotmSync
+import net.sourceforge.kolmafia.session.FightMonsterHealthSync
+import net.sourceforge.kolmafia.session.FightCombatModeSync
+import net.sourceforge.kolmafia.session.FightTrackSync
+import net.sourceforge.kolmafia.combat.DiscoCombatHelper
 import net.sourceforge.kolmafia.combat.EncounterModifierPipeline
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.combat.RandomModifierParser
@@ -27,6 +42,8 @@ import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.SessionMeatSync
 import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.modifiers.CurrentModifiers
+import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.quest.DesertCombatSync
 import net.sourceforge.kolmafia.quest.BlackForestSync
 import net.sourceforge.kolmafia.quest.ZeppelinRonSync
@@ -47,6 +64,15 @@ import net.sourceforge.kolmafia.quest.DeckChoiceSync
 import net.sourceforge.kolmafia.quest.AutomatedFutureChoiceSync
 import net.sourceforge.kolmafia.quest.MobiusChoiceSync
 import net.sourceforge.kolmafia.quest.BaseballChoiceSync
+import net.sourceforge.kolmafia.quest.MushyCenterChoiceSync
+import net.sourceforge.kolmafia.quest.HorseryChoiceSync
+import net.sourceforge.kolmafia.quest.MimicDnaChoiceSync
+import net.sourceforge.kolmafia.quest.StalagmiteChoiceSync
+import net.sourceforge.kolmafia.quest.PowerPlantChoiceSync
+import net.sourceforge.kolmafia.quest.ColdMedicineChoiceSync
+import net.sourceforge.kolmafia.quest.PlumberShopChoiceSync
+import net.sourceforge.kolmafia.quest.BackupCameraChoiceSync
+import net.sourceforge.kolmafia.quest.CrystalBallChoiceSync
 import net.sourceforge.kolmafia.quest.SpacegateAdventureSync
 import net.sourceforge.kolmafia.quest.GingerbreadCitySync
 import net.sourceforge.kolmafia.quest.ClancyNcSync
@@ -60,6 +86,7 @@ import net.sourceforge.kolmafia.quest.ElVibratoSync
 import net.sourceforge.kolmafia.quest.FriarsQuestSync
 import net.sourceforge.kolmafia.quest.CyberRealmSync
 import net.sourceforge.kolmafia.quest.FantasyRealmCombatSync
+import net.sourceforge.kolmafia.quest.LatteChoiceSync
 import net.sourceforge.kolmafia.quest.FinalQuestCombatSync
 import net.sourceforge.kolmafia.quest.GuzzlrCombatSync
 import net.sourceforge.kolmafia.quest.IslandWarCombatSync
@@ -81,6 +108,10 @@ import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.LimitModeGates
+import net.sourceforge.kolmafia.request.SpelunkyRequest
+import net.sourceforge.kolmafia.session.BatManager
+import net.sourceforge.kolmafia.session.LimitModeController
 import net.sourceforge.kolmafia.inventory.InventoryState
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -100,6 +131,7 @@ import net.sourceforge.kolmafia.request.BarrelChoiceMapper
 import net.sourceforge.kolmafia.session.BarrelShrineSync
 import net.sourceforge.kolmafia.session.BastilleBattalionSync
 import net.sourceforge.kolmafia.session.BastilleSyncContext
+import net.sourceforge.kolmafia.session.RequestLogger
 import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.session.SkillLearnFromResponse
 import net.sourceforge.kolmafia.session.DreadKissesTracker
@@ -114,9 +146,21 @@ import net.sourceforge.kolmafia.session.OceanManager
 import net.sourceforge.kolmafia.session.WereProfessorResearchSync
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
+import net.sourceforge.kolmafia.session.EncounterManager
+import net.sourceforge.kolmafia.session.ResultProcessor
+import net.sourceforge.kolmafia.session.GreyYouManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
+import net.sourceforge.kolmafia.recovery.BetweenBattleContext
+import net.sourceforge.kolmafia.recovery.BetweenBattleInvoker
+import net.sourceforge.kolmafia.recovery.BetweenBattleResult
+import net.sourceforge.kolmafia.recovery.RecoveryGates
 import net.sourceforge.kolmafia.recovery.RecoveryManager
+import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import io.ktor.client.request.get
+import io.ktor.http.isSuccess
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.ash.ScriptHookRunner
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillState
@@ -158,6 +202,7 @@ open class AdventureManager(
     private val demonInCombatNameSync: DemonInCombatNameSync? = null,
     private val sessionLogger: SessionLogger? = null,
     private val oceanRequest: OceanRequest? = null,
+    private val equipmentRequest: net.sourceforge.kolmafia.request.EquipmentRequest? = null,
 ) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -176,8 +221,13 @@ open class AdventureManager(
     val fightFollowsChoice: Boolean get() = _fightFollowsChoice
     val inChoiceResolution: Boolean get() = _inChoiceResolution
 
-    /** Desktop ChoiceManager.canWalkAway — stub true until choice HTML walk-away parity. */
-    fun canWalkAwayFromChoice(): Boolean = true
+    /** Desktop ChoiceManager.canWalkAway — allow-list from ChoiceControl.canWalkFromChoice. */
+    fun canWalkAwayFromChoice(): Boolean {
+        if (!_inChoiceResolution) return true
+        val choiceId = preferences.getInt(LAST_CHOICE_ID, 0)
+        if (choiceId <= 0) return true
+        return ChoiceWalkAway.canWalkFromChoice(choiceId)
+    }
 
     fun canStillSteal(): Boolean {
         if (!net.sourceforge.kolmafia.character.CharacterStats.canPickpocket(
@@ -207,6 +257,147 @@ open class AdventureManager(
 
     fun setSkillUses(n: Int) { skillUses = n }
 
+    private fun wirePrepareAndBetweenBattleDeps() {
+        AdventurePrep.visitUrl = { path ->
+            try {
+                val cleaned = path.removePrefix("/").removePrefix(KOL_BASE_URL).removePrefix("/")
+                val response = characterRequest.client.get("$KOL_BASE_URL/$cleaned")
+                response.status.isSuccess()
+            } catch (_: Exception) {
+                false
+            }
+        }
+        AdventurePrep.equipItem = equipItem@{ itemId ->
+            val eq = equipmentRequest ?: return@equipItem false
+            eq.equipItem(itemId, EquipmentSlot.ACC1).isSuccess
+        }
+        AdventurePrep.unequipSlot = unequipSlot@{ slotKey ->
+            val eq = equipmentRequest ?: return@unequipSlot false
+            val slot = EquipmentSlot.entries.firstOrNull { it.apiKey.equals(slotKey, ignoreCase = true) }
+                ?: return@unequipSlot false
+            eq.unequipSlot(slot).isSuccess
+        }
+        AdventurePrep.hasEffect = { name ->
+            effects?.state?.value?.effects?.any { it.name.equals(name, ignoreCase = true) } == true
+        }
+        AdventurePrep.stenchResistanceLevels = {
+            CurrentModifiers(
+                state = character.state.value,
+                activeEffects = effects?.state?.value?.effects.orEmpty(),
+                preferences = preferences,
+            ).values.get(DoubleModifier.STENCH_RESISTANCE).toInt()
+        }
+        AdventurePrep.preferFamiliar = { race ->
+            familiarManager?.setFamiliar(race)?.isSuccess == true
+        }
+        AdventurePrep.hasEquipped = { id ->
+            character.state.value.equipment.values.any { equipped ->
+                // equipment map is slot -> name; best-effort id check via gameDatabase
+                gameDatabase?.item(equipped)?.id == id
+            }
+        }
+        AdventurePrep.inventoryProvider = { inventory }
+        BetweenBattleInvoker.invoke = invoke@{ isFull ->
+            val rm = recoveryManager ?: return@invoke
+            rm.runBetweenBattleChecks(
+                isFullCheck = isFull,
+                ctx = betweenBattleContext(),
+            )
+        }
+    }
+
+    private fun betweenBattleContext(): BetweenBattleContext =
+        BetweenBattleContext(
+            isRecoveryPossible = {
+                RecoveryGates.isRecoveryPossible(
+                    character = character.state.value,
+                    recoveryActive = recoveryManager?.isRecoveryActive == true,
+                    currentRound = 0,
+                    inMultiFight = _inMultiFight,
+                    choiceFollowsFight = _fightFollowsChoice,
+                    handlingChoice = _inChoiceResolution,
+                    canWalkAway = canWalkAwayFromChoice(),
+                )
+            },
+            executeBetweenBattleScript = { scriptHookRunner?.onBetweenBattle() },
+            executeMood = {
+                moodManager?.executeActiveMood(
+                    effectState = effects?.state?.value ?: EffectState(),
+                    skillState = skills?.state?.value ?: SkillState(),
+                    charState = character.state.value,
+                )
+            },
+            recoverHpStep = {
+                val rm = recoveryManager ?: return@BetweenBattleContext false
+                val s = character.state.value
+                if (!preferences.getBoolean(Preferences.AUTO_RECOVER_HP, true)) {
+                    return@BetweenBattleContext false
+                }
+                if (!RecoveryManager.needsHpRecovery(s, preferences)) {
+                    return@BetweenBattleContext false
+                }
+                val healed = rm.recoverHpOnce(
+                    charState = s,
+                    invState = inventory?.state?.value ?: InventoryState(),
+                    skillState = skills?.state?.value ?: SkillState(),
+                )
+                if (healed) {
+                    characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+                }
+                healed
+            },
+            burnExtraMana = {
+                val mbm = manaBurnManager ?: return@BetweenBattleContext
+                mbm.burnExtraMana(
+                    mood = moodManager?.activeMood,
+                    effectState = effects?.state?.value ?: EffectState(),
+                    skillState = skills?.state?.value ?: SkillState(),
+                    charState = character.state.value,
+                    moodLibrary = moodManager?.moodLibrary ?: emptyMap(),
+                )
+            },
+            recoverMpStep = {
+                val rm = recoveryManager ?: return@BetweenBattleContext false
+                val s = character.state.value
+                if (!preferences.getBoolean(Preferences.AUTO_RECOVER_MP, false)) {
+                    return@BetweenBattleContext false
+                }
+                if (!RecoveryManager.needsMpRecovery(s, preferences)) {
+                    return@BetweenBattleContext false
+                }
+                val healed = rm.recoverMpOnce(
+                    charState = s,
+                    invState = inventory?.state?.value ?: InventoryState(),
+                    skillState = skills?.state?.value ?: SkillState(),
+                )
+                if (healed) {
+                    characterRequest.fetchCharacterState().onSuccess { character.updateFromApiResponse(it) }
+                }
+                healed
+            },
+            currentHp = { character.state.value.currentHp },
+            maxHp = { character.state.value.maxHp },
+            edFightInProgress = { false },
+            turnsPlayed = { character.state.value.turnsPlayed },
+        )
+
+    /**
+     * Desktop [RecoveryManager.runBetweenBattleChecks] before each adventure turn.
+     * Falls back to mood-only when [recoveryManager] is absent.
+     */
+    private suspend fun runBetweenBattleBeforeTurn(): BetweenBattleResult {
+        val rm = recoveryManager
+        if (rm == null) {
+            moodManager?.executeActiveMood(
+                effectState = effects?.state?.value ?: EffectState(),
+                skillState = skills?.state?.value ?: SkillState(),
+                charState = character.state.value,
+            )
+            return BetweenBattleResult.Ok
+        }
+        return rm.runBetweenBattleChecks(isFullCheck = true, ctx = betweenBattleContext())
+    }
+
     private suspend fun emitTurnConsumed(location: AdventureLocation, result: AdventureResult) {
         adventureSpentTracker?.recordNoncombatIfNeeded(location, result)
         adventureSpentTracker?.addTurn(location.name)
@@ -218,6 +409,7 @@ open class AdventureManager(
         scope.launch {
             _isRunning.value = true
             try {
+                wirePrepareAndBetweenBattleDeps()
                 if (!AdventurePrep.canAdventureAtZone(
                         location.name,
                         character.state.value,
@@ -239,6 +431,20 @@ open class AdventureManager(
                     eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.MacroError("prepare for adventure failed")))
                     return@launch
                 }
+                if (LimitModeGates.limitAdventure(
+                        zone = location.zone,
+                        limitMode = character.state.value.limitMode,
+                        adventureId = location.id,
+                        currentAstralTrip = preferences.getString("currentAstralTrip", ""),
+                    )
+                ) {
+                    eventBus.emit(
+                        GameEvent.AdventureLoopStopped(
+                            StopReason.MacroError("limit mode blocks ${location.name}"),
+                        ),
+                    )
+                    return@launch
+                }
 
                 repeat(turns) {
                     if (!isActive) return@launch
@@ -257,13 +463,29 @@ open class AdventureManager(
                         }
                     }
 
-                    // Re-buff before this adventure turn
-                    moodManager?.executeActiveMood(
-                        effectState = effects?.state?.value ?: EffectState(),
-                        skillState  = skills?.state?.value ?: SkillState(),
-                        charState   = character.state.value,
-                    )
+                    // Between-battle checks (script → mood → HP → burn → MP → counters)
+                    val bb = runBetweenBattleBeforeTurn()
+                    if (bb is BetweenBattleResult.AbortedZeroHp) {
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.CharacterDeath))
+                        return@launch
+                    }
+                    if (!RecoveryGates.runThresholdChecks(character.state.value, preferences)) {
+                        eventBus.emit(
+                            GameEvent.AdventureLoopStopped(
+                                StopReason.MacroError("auto-abort: HP below autoAbortThreshold"),
+                            ),
+                        )
+                        return@launch
+                    }
                     val result = doOneTurn(location) ?: return@launch
+
+                    val autoStop = EncounterManager.pendingAutoStop
+                    if (autoStop != null) {
+                        EncounterManager.clearPendingAutoStop()
+                        emitTurnConsumed(location, result)
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.AutoStop(autoStop)))
+                        return@launch
+                    }
 
                     if (itemGoalMetThisTurn) {
                         emitTurnConsumed(location, result)
@@ -401,6 +623,13 @@ open class AdventureManager(
         )
 
     private suspend fun doOneTurn(location: AdventureLocation): AdventureResult? {
+        EncounterManager.registerAdventure(location.name)
+        EncounterManager.clearPendingAutoStop()
+        RequestLogger.registerRequest(
+            "adventure.php?snarfblat=${location.id}",
+            sessionLogger,
+            preferences,
+        )
         val (html, url) = adventureRequest.adventure(location).getOrElse {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(it)))
             return null
@@ -408,46 +637,198 @@ open class AdventureManager(
         lastTurnResponseText = html
         lastTurnUrl = url
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
-            is AdventureResult.Combat -> resolveCombat(location)
+            is AdventureResult.Combat -> {
+                EncounterManager.registerEncounter(
+                    encounterName = parsed.monster,
+                    encounterTypeLabel = "Combat",
+                    responseText = html,
+                    preferences = preferences,
+                    effectManager = effects,
+                    locationName = location.name,
+                )
+                EncounterManager.noteFightSpecials(html, preferences)
+                resolveCombat(location)
+            }
             is AdventureResult.Choice -> {
                 preferences.setInt(LAST_CHOICE_ID, parsed.choiceId)
+                ChoiceCombatAshState.noteChoiceVisit(parsed.choiceId, parsed.responseText)
                 val choiceResult = resolveChoice(parsed.choiceId, parsed.responseText)
                 if (_fightFollowsChoice && _inMultiFight) resolveCombat(location) ?: choiceResult
                 else choiceResult
             }
             is AdventureResult.NonCombat -> parsed.also {
+                EncounterManager.registerEncounter(
+                    encounterName = it.encounterName,
+                    encounterTypeLabel = "Noncombat",
+                    responseText = it.text,
+                    preferences = preferences,
+                    effectManager = effects,
+                    locationName = location.name,
+                )
                 SessionMeatSync.apply(character, it.text)
+                ResultProcessor.processResults(
+                    adventureResults = true,
+                    html = it.text,
+                    inventory = inventory,
+                    character = character,
+                    preferences = preferences,
+                    effectManager = effects,
+                )
                 emitItemEvents(it.itemsGained)
             }
         }
     }
 
     private suspend fun resolveCombat(location: AdventureLocation): AdventureResult.Combat? {
+        val continuingMultiFight = _inMultiFight
         if (!_inMultiFight) {
             DefaultsDatabase.resetOnFightPrefs(preferences)
         }
         if (lastTurnResponseText.isNotBlank()) {
             lastFightHtml = lastTurnResponseText
+            if (ChoiceCombatAshState.currentRound <= 0) {
+                ChoiceCombatAshState.noteFightStart(lastTurnResponseText)
+            }
         }
         prepareCombatMonster(lastTurnResponseText)
+        if (!_inMultiFight) {
+            FightIotmSync.noteFightStart(preferences)
+            FightFamiliarMessageSync.noteFightStart(
+                preferences,
+                character.state.value.familiarId,
+            )
+            FightDiscoComboSync.initializeFromCharacter(character, preferences, skills)
+        }
         val macro = combatMacroResolver?.invoke(location.id)
-            ?: MacroStrategy.forLocation(location.id, preferences)
+            ?: MacroStrategy.forLocation(
+                location.id,
+                preferences,
+                maximumMp = character.state.value.maxMp.coerceAtLeast(0),
+            )
         val fightHtml = fightRequest.fight(macro).getOrElse {
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(it)))
             return null
         }
         lastFightHtml = fightHtml
+        ChoiceCombatAshState.noteFightRound(fightHtml)
+        FightDiscoComboSync.apply(macro, fightHtml)
         FightPokefamSync.apply(character, fightHtml, familiarManager, preferences, sessionLogger)
         _inMultiFight = AdventureParser.isInMultiFight(fightHtml)
+        ChoiceCombatAshState.inMultiFight = _inMultiFight
         val result = AdventureParser.parseFightResult(fightHtml)
+        if (result.won) {
+            gameDatabase?.monster(result.monster)?.id?.let { monsterId ->
+                GreyYouManager.absorbMonster(
+                    monsterId,
+                    fightHtml,
+                    character.state.value.ascensionPath ==
+                        net.sourceforge.kolmafia.character.AscensionPath.GREY_YOU,
+                    preferences,
+                )
+            }
+        }
         SessionMeatSync.apply(character, fightHtml)
+        ResultProcessor.processResults(
+            adventureResults = true,
+            html = fightHtml,
+            inventory = inventory,
+            character = character,
+            preferences = preferences,
+            effectManager = effects,
+        )
+        // Modes → damage/verse → comments → processP → node → session-log
+        // (before cost/IoTM/final/HP)
+        FightDomSync.apply(
+            FightDomSync.Context(
+                html = fightHtml,
+                adventureId = location.id,
+                locationName = location.name,
+                activeEffects = effects?.state?.value?.effects?.map { it.name }.orEmpty(),
+                inPokefam = character.state.value.inPokefam,
+                isFightStart = !continuingMultiFight,
+                character = character,
+                preferences = preferences,
+                inventory = inventory,
+                won = result.won,
+                lost = !result.won && !_inMultiFight,
+                fightEnded = !_inMultiFight,
+                sessionLogger = sessionLogger,
+                effectManager = effects,
+            ),
+        )
+        FightActionCostSync.payActionCost(
+            html = fightHtml,
+            character = character,
+            inventory = inventory,
+            preferences = preferences,
+        )
+        FightIotmSync.apply(
+            html = fightHtml,
+            preferences = preferences,
+            familiarId = character.state.value.familiarId,
+            monsterName = result.monster,
+            locationName = location.name,
+            won = result.won,
+            adventureId = location.id,
+        )
+        FightFamiliarMessageSync.apply(
+            html = fightHtml,
+            preferences = preferences,
+            familiarId = character.state.value.familiarId,
+        )
+        FightMonsterHealthSync.apply(fightHtml)
+        FightFinalRoundSync.apply(
+            html = fightHtml,
+            preferences = preferences,
+            character = character,
+            inventory = inventory,
+            won = result.won,
+            lost = !result.won && !_inMultiFight,
+            fightEnded = !_inMultiFight,
+            garbledCombat = FightCombatModeSync.isGarbled,
+            familiarId = character.state.value.familiarId,
+            adventureId = location.id.toIntOrNull() ?: -1,
+            underwater = location.name.contains("Underwater", ignoreCase = true) ||
+                location.name.contains("The Sea", ignoreCase = true),
+        )
+        val limitMode = character.state.value.limitMode
+        if (result.won) {
+            when {
+                limitMode.equals("spelunky", ignoreCase = true) ||
+                    limitMode.equals("spelunk", ignoreCase = true) ->
+                    SpelunkyRequest.wonFight(result.monster, fightHtml, preferences)
+                limitMode.equals("batman", ignoreCase = true) ->
+                    BatManager.wonFight(result.monster, fightHtml, preferences)
+            }
+        }
+        EncounterManager.noteFightSpecials(fightHtml, preferences)
+        if (result.monster.isNotEmpty()) {
+            EncounterManager.registerEncounter(
+                encounterName = result.monster,
+                encounterTypeLabel = "Combat",
+                responseText = fightHtml,
+                preferences = preferences,
+                effectManager = effects,
+                locationName = location.name,
+            )
+        }
         SkillLearnFromResponse.learnSkillFromResponse(
             fightHtml,
             preferences,
             skills,
             inventory,
         )
-        if (!_inMultiFight) _fightFollowsChoice = false
+        // Refresh disco known skills after any battle learn
+        if (DiscoCombatHelper.canCombo) {
+            FightDiscoComboSync.initializeFromCharacter(character, preferences, skills)
+        }
+        if (!_inMultiFight) {
+            _fightFollowsChoice = false
+            ChoiceCombatAshState.noteFightEnd(fightHtml)
+            ChoiceCombatAshState.fightFollowsChoice = false
+        }
+        ChoiceCombatAshState.inMultiFight = _inMultiFight
+        ChoiceCombatAshState.fightFollowsChoice = _fightFollowsChoice
         dreadKissesTracker?.updateFromFight(location.name, fightHtml)
         intergnatDemonNameSync?.updateFromFight(
             fightHtml,
@@ -666,6 +1047,7 @@ open class AdventureManager(
                 preferences = preferences,
                 won = result.won,
             )
+            LatteChoiceSync.applyFight(location.name, fightHtml, preferences)
             HiddenCityCombatSync.applyCombatWin(
                 questDatabase = it,
                 preferences = preferences,
@@ -717,6 +1099,12 @@ open class AdventureManager(
         }
         VoteMonsterManager.checkCounter(preferences, character.state.value.turnsPlayed)
         emitItemEvents(result.itemsGained)
+        FightTrackSync.applyFromFight(
+            html = fightHtml,
+            monsterName = result.monster,
+            preferences = preferences,
+            currentTurn = character.state.value.currentRun,
+        )
         if (preferences.getString(Preferences.LAST_LOCATION, "").let { ShadowRiftSync.isShadowRiftLocation(it) }) {
             RufusManager(preferences).handleShadowRiftFight(result.monster)
             ShadowRiftSync.incrementCombats(preferences)
@@ -768,10 +1156,13 @@ open class AdventureManager(
         initialResponseText: String,
     ): AdventureResult.Choice {
         _inChoiceResolution = true
+        ChoiceCombatAshState.handlingChoice = true
+        ChoiceCombatAshState.noteChoiceVisit(choiceId, initialResponseText)
         try {
             return resolveChoiceLoop(choiceId, initialResponseText)
         } finally {
             _inChoiceResolution = false
+            ChoiceCombatAshState.handlingChoice = false
         }
     }
 
@@ -839,6 +1230,48 @@ open class AdventureManager(
                 currentResponseText,
                 preferences,
             )
+            MushyCenterChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            HorseryChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            MimicDnaChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            StalagmiteChoiceSync.applyVisit(currentChoiceId, preferences)
+            PowerPlantChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            ColdMedicineChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            PlumberShopChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            BackupCameraChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+            )
+            CrystalBallChoiceSync.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+                currentRun = character.state.value.currentRun,
+            )
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
                 val bastilleContext = bastilleSyncContext()
                 BastilleBattalionSync.syncVisit(
@@ -869,19 +1302,46 @@ open class AdventureManager(
             // skillUses decremented once per step — each choice interaction costs one skill use budget unit
             if (option > 0 && skillUses > 0) skillUses--
             lastChosenOption = option
+            ChoiceCombatAshState.noteChoiceDecision(option)
 
             if (BastilleBattalionSync.isBastilleChoice(currentChoiceId)) {
                 val bastilleContext = bastilleSyncContext()
                 BastilleBattalionSync.registerRequest(currentChoiceId, option, preferences, bastilleContext)
                 BastilleBattalionSync.syncPreChoice(currentChoiceId, option, preferences, bastilleContext)
             }
-            val extraFormFields = cargoPocketFormFields(currentChoiceId, option, ctx)
+            val extraFormFields = buildMap {
+                putAll(cargoPocketFormFields(currentChoiceId, option, ctx))
+                if (currentChoiceId == 485) {
+                    FightersOfFighting.lastAttackCode?.let { put("attack", it) }
+                }
+            }
+            ChoiceCost.payCost(currentChoiceId, option, inventory, character)
+            RequestLogger.registerRequest(
+                urlString = "choice.php?whichchoice=$currentChoiceId&option=$option",
+                sessionLogger = sessionLogger,
+                preferences = preferences,
+                formFields = extraFormFields,
+            )
             val (rawHtml, rawUrl) = choiceRequest.choose(currentChoiceId, option, extraFormFields).getOrElse { e ->
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(e)))
                 return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
             }
             var html = rawHtml
             var url = rawUrl
+            if (VioletFogManager.fogChoice(currentChoiceId)) {
+                VioletFogManager.mapChoice(
+                    lastChoice = currentChoiceId,
+                    lastDecision = option,
+                    text = html,
+                    preferences = preferences,
+                    ascensions = character.state.value.ascensionNumber,
+                )
+            }
+            DeferredChoice.register(
+                choice = currentChoiceId,
+                preferences = preferences,
+                sessionLogger = sessionLogger,
+            )
             WereProfessorResearchSync.postChoice0(url, html, sessionLogger)
             OceanManager.registerRequest(url, sessionLogger)
             FamTeamSync.registerRequest(url, sessionLogger)
@@ -958,7 +1418,28 @@ open class AdventureManager(
                         kotlinx.coroutines.runBlocking { questLogRequest?.syncPage(1) }
                     },
                     setLimitMode = { mode -> character.updateLimitMode(mode) },
+                    character = character,
+                    skillManager = skills,
                     choiceUrl = url,
+                    adjustFullness = { delta ->
+                        val s = character.state.value
+                        character.updateConsumables(
+                            fullness = (s.fullness + delta).coerceAtLeast(0),
+                            inebriety = s.inebriety,
+                            spleenUsed = s.spleenUsed,
+                        )
+                    },
+                    adjustSpleen = { delta ->
+                        val s = character.state.value
+                        character.updateConsumables(
+                            fullness = s.fullness,
+                            inebriety = s.inebriety,
+                            spleenUsed = (s.spleenUsed + delta).coerceAtLeast(0),
+                        )
+                    },
+                    banishManager = banishManager,
+                    currentFamiliarId = { familiarManager?.state?.value?.activeFamiliar?.id },
+                    clearActiveFamiliar = { familiarManager?.clearActiveFamiliarLocally() },
                 )
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
@@ -998,15 +1479,47 @@ open class AdventureManager(
     ): AdventureResult? {
         lastTurnResponseText = html
         lastTurnUrl = url
+        EncounterManager.registerAdventure(location.name)
         return when (val parsed = AdventureParser.parseAdventureResponse(html, url)) {
-            is AdventureResult.Combat -> resolveCombat(location)
+            is AdventureResult.Combat -> {
+                EncounterManager.registerEncounter(
+                    encounterName = parsed.monster,
+                    encounterTypeLabel = "Combat",
+                    responseText = html,
+                    preferences = preferences,
+                    effectManager = effects,
+                    locationName = location.name,
+                )
+                EncounterManager.noteFightSpecials(html, preferences)
+                resolveCombat(location)
+            }
             is AdventureResult.Choice -> {
                 preferences.setInt(LAST_CHOICE_ID, parsed.choiceId)
+                ChoiceCombatAshState.noteChoiceVisit(parsed.choiceId, parsed.responseText)
                 val choiceResult = resolveChoice(parsed.choiceId, parsed.responseText)
                 if (_fightFollowsChoice && _inMultiFight) resolveCombat(location) ?: choiceResult
                 else choiceResult
             }
-            is AdventureResult.NonCombat -> parsed
+            is AdventureResult.NonCombat -> parsed.also {
+                EncounterManager.registerEncounter(
+                    encounterName = it.encounterName,
+                    encounterTypeLabel = "Noncombat",
+                    responseText = it.text,
+                    preferences = preferences,
+                    effectManager = effects,
+                    locationName = location.name,
+                )
+                SessionMeatSync.apply(character, it.text)
+                ResultProcessor.processResults(
+                    adventureResults = true,
+                    html = it.text,
+                    inventory = inventory,
+                    character = character,
+                    preferences = preferences,
+                    effectManager = effects,
+                )
+                emitItemEvents(it.itemsGained)
+            }
         }
     }
 

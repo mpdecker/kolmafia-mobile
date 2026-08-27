@@ -94,6 +94,48 @@ fun ConcoctionData.isBarrelCraftable(): Boolean =
     ConcoctionCreationCost.primaryMethod(methods) == "BARREL" &&
         ingredients.isEmpty()
 
+fun ConcoctionData.isWaxCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "WAX"
+
+fun ConcoctionData.isNewspaperCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "NEWSPAPER"
+
+fun ConcoctionData.isMeteoroidCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "METEOROID"
+
+fun ConcoctionData.isSausageCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "SAUSAGE_O_MATIC"
+
+fun ConcoctionData.isWoolCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "WOOL"
+
+fun ConcoctionData.isBurningLeavesCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "BURNING_LEAVES"
+
+fun ConcoctionData.isMayamCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "MAYAM"
+
+fun ConcoctionData.isPhotoBoothCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "PHOTO_BOOTH"
+
+fun ConcoctionData.isTakerspaceCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "TAKERSPACE"
+
+fun ConcoctionData.isGnomePartCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "GNOME_PART"
+
+fun ConcoctionData.isSpacegateCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "SPACEGATE"
+
+fun ConcoctionData.isFantasyRealmCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "FANTASY_REALM"
+
+fun ConcoctionData.isFloundryCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "FLOUNDRY"
+
+fun ConcoctionData.isStillsuitCraftable(): Boolean =
+    ConcoctionCreationCost.primaryMethod(methods) == "STILLSUIT"
+
 fun ConcoctionData.isCreateAndConsume(): Boolean = isSushiCraftable()
 
 fun ConcoctionData.isCreateSupported(): Boolean =
@@ -101,10 +143,18 @@ fun ConcoctionData.isCreateSupported(): Boolean =
         isClipArtCraftable() || isRollCraftable() || isTerminalCraftable() ||
         isSewerCraftable() || isVykeaCraftable() || isMuseCraftable() ||
         isPhineasCraftable() || isStaffCraftable() || isTinkerCraftable() ||
-        isSushiCraftable() || isMalusCraftable() || isJewelCraftable() || isBarrelCraftable()
+        isSushiCraftable() || isMalusCraftable() || isJewelCraftable() || isBarrelCraftable() ||
+        isWaxCraftable() || isNewspaperCraftable() || isMeteoroidCraftable() ||
+        isSausageCraftable() || isWoolCraftable() || isBurningLeavesCraftable() ||
+        isMayamCraftable() || isPhotoBoothCraftable() || isTakerspaceCraftable() ||
+        isGnomePartCraftable() || isSpacegateCraftable() || isFantasyRealmCraftable() ||
+        isFloundryCraftable() || isStillsuitCraftable()
 
 fun ConcoctionData.isAutoCraftable(): Boolean =
     isSuseCraftable() || isStationCraftable()
+
+fun ConcoctionData.createMethodToken(): String =
+    ConcoctionCreationCost.primaryMethod(methods).orEmpty()
 
 fun ConcoctionData.isSuseCraftable(): Boolean =
     methods.contains("SUSE") && !methods.contains("MANUAL") && ingredients.isNotEmpty()

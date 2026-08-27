@@ -15,8 +15,15 @@ import net.sourceforge.kolmafia.request.ClosetRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.FoldItemRequest
+import net.sourceforge.kolmafia.request.BoomBoxRequest
+import net.sourceforge.kolmafia.request.HorseryRequest
+import net.sourceforge.kolmafia.request.MindControlRequest
 import net.sourceforge.kolmafia.request.ModeableRequest
 import net.sourceforge.kolmafia.request.StorageRequest
+import net.sourceforge.kolmafia.request.UneffectRequest
+import net.sourceforge.kolmafia.skill.SkillCastRequest
+import net.sourceforge.kolmafia.data.EffectDatabase
+import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 
 /** Executes desktop-style maximizer boost cmd chains (Phase 384). */
 class MaximizerBoostExecutor(
@@ -35,6 +42,11 @@ class MaximizerBoostExecutor(
     private val character: KoLCharacter? = null,
     private val cliExecutor: (suspend (String) -> Boolean)? = null,
     private val foldItemRequest: FoldItemRequest? = null,
+    private val horseryRequest: HorseryRequest? = null,
+    private val boomBoxRequest: BoomBoxRequest? = null,
+    private val mindControlRequest: MindControlRequest? = null,
+    private val skillCastRequest: SkillCastRequest? = null,
+    private val uneffectRequest: UneffectRequest? = null,
 ) {
     suspend fun execute(cmd: String): Boolean {
         if (cmd.isBlank()) return true
@@ -64,6 +76,11 @@ class MaximizerBoostExecutor(
             "familiar" -> executeFamiliar(parts)
             "enthrone" -> executeEnthrone(parts)
             "bjornify" -> executeBjornify(parts)
+            "horsery" -> executeHorsery(parts)
+            "boombox" -> executeBoombox(parts)
+            "mcd" -> executeMcd(parts)
+            "cast", "skill" -> executeCast(parts)
+            "uneffect", "shrug" -> executeUneffect(parts)
             else -> executeModeable(segment)
         }
     }
@@ -198,6 +215,45 @@ class MaximizerBoostExecutor(
     private suspend fun executeBjornify(parts: List<String>): Boolean {
         if (parts.size < 2 || familiarManager == null) return false
         return familiarManager.setBjornified(parts.drop(1).joinToString(" ")).isSuccess
+    }
+
+    private suspend fun executeHorsery(parts: List<String>): Boolean {
+        val request = horseryRequest
+        if (request == null) return cliExecutor?.invoke(parts.joinToString(" ")) ?: false
+        val horse = parts.drop(1).joinToString(" ").ifBlank { return false }
+        return request.ride(horse).isSuccess
+    }
+
+    private suspend fun executeBoombox(parts: List<String>): Boolean {
+        val request = boomBoxRequest
+        if (request == null) return cliExecutor?.invoke(parts.joinToString(" ")) ?: false
+        val song = parts.drop(1).joinToString(" ").ifBlank { return false }
+        return request.play(song).isSuccess
+    }
+
+    private suspend fun executeMcd(parts: List<String>): Boolean {
+        val request = mindControlRequest
+        if (request == null) return cliExecutor?.invoke(parts.joinToString(" ")) ?: false
+        val level = parts.getOrNull(1)?.toIntOrNull() ?: return false
+        return request.setLevel(level).isSuccess
+    }
+
+    private suspend fun executeCast(parts: List<String>): Boolean {
+        val request = skillCastRequest
+        if (request == null) return cliExecutor?.invoke(parts.joinToString(" ")) ?: false
+        val skillName = parts.drop(1).joinToString(" ").ifBlank { return false }
+        val skillId = SkillDefinitionDatabase.getByName(skillName)?.id
+            ?: return cliExecutor?.invoke(parts.joinToString(" ")) ?: false
+        return request.cast(skillId).isSuccess
+    }
+
+    private suspend fun executeUneffect(parts: List<String>): Boolean {
+        val request = uneffectRequest
+        if (request == null) return cliExecutor?.invoke(parts.joinToString(" ")) ?: false
+        val effectName = parts.drop(1).joinToString(" ").ifBlank { return false }
+        val effectId = EffectDatabase.getByName(effectName)?.id
+            ?: return cliExecutor?.invoke(parts.joinToString(" ")) ?: false
+        return request.uneffect(effectId).isSuccess
     }
 
     private suspend fun executeModeable(segment: String): Boolean {

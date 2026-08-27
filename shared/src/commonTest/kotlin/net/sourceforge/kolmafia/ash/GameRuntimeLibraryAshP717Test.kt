@@ -13,8 +13,8 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 class GameRuntimeLibraryAshP717Test {
 
     @Test
-    fun revision_phase743() {
-        assertEquals("phase743", GameRuntimeLibrary.REVISION)
+    fun revision_phase848() {
+        assertEquals("phase2450", GameRuntimeLibrary.REVISION)
     }
 
     @Test

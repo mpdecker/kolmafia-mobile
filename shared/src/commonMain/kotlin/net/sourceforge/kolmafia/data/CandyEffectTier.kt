@@ -17,4 +17,12 @@ object CandyEffectTier {
         2169, 2174, 2179 -> 4 // GREASY, ENERGY, STYLE
         else -> -1
     }
+
+    /** Reverse lookup: tier (1..3) + modulus (0..4) → effect ID, or -1. */
+    fun getEffectIdByTierAndModulus(tier: Int, modulus: Int): Int = when (tier) {
+        1 -> 2165 + modulus
+        2 -> 2170 + modulus
+        3 -> 2175 + modulus
+        else -> -1
+    }
 }

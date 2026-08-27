@@ -45,6 +45,23 @@ private fun earlyMaximumUses(itemId: Int, ctx: ItemUseLimitsContext): Int? {
         -> return Int.MAX_VALUE
         ItemDatabase.COBBS_KNOB_MAP ->
             return ctx.accessibleCount(ItemDatabase.ENCRYPTION_KEY)
+        ItemDatabase.ASTRAL_MUSHROOM,
+        ItemDatabase.GONG,
+        -> return 1
+        ItemDatabase.PHOTOCOPIER ->
+            return if (ctx.preferences?.getBoolean("_photocopyUsed", false) == true) 0 else 1
+        ItemDatabase.PHOTOCOPIED_MONSTER ->
+            return if (ctx.preferences?.getBoolean("_photocopyUsed", false) == true) 0 else 1
+        ItemDatabase.MOJO_FILTER -> {
+            val used = ctx.preferences?.getInt("currentMojoFilters", 0) ?: 0
+            return (3 - used).coerceAtLeast(0)
+        }
+        ItemDatabase.DANCE_CARD -> {
+            if ((ctx.preferences?.getInt("_danceCardFightsLeft", 0) ?: 0) > 0) return 0
+            return 1
+        }
+        ItemDatabase.TOASTER ->
+            return if (ctx.preferences?.getBoolean("_toastSummoned", false) == true) 0 else 1
     }
 
     if (ctx.character.inBeecore && ItemDatabase.unusableInBeecore(itemId)) return 0

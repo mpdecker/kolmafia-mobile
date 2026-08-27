@@ -14,15 +14,22 @@ open class CargoCultistShortsRequest(
     private val client: HttpClient,
 ) {
 
-    open suspend fun openPockets(): Result<String> = try {
-        val response = client.get("$KOL_BASE_URL/inventory.php?action=pocket")
-        if (response.status.isSuccess()) {
-            Result.success(response.bodyAsText())
-        } else {
-            Result.failure(Exception("HTTP ${response.status.value}"))
+    open suspend fun openPockets(): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
         }
-    } catch (e: Exception) {
-        Result.failure(e)
+        return try {
+            val response = client.get("$KOL_BASE_URL/inventory.php?action=pocket")
+            if (response.status.isSuccess()) {
+                Result.success(response.bodyAsText())
+            } else {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     open suspend fun submitChoice(
@@ -55,6 +62,10 @@ open class CargoCultistShortsRequest(
 
     open suspend fun pickPocket(pocket: Int): Result<String> {
         openPockets().onFailure { return Result.failure(it) }
-        return submitChoice(option = 1, pocket = pocket)
+        return submitChoice(option = 1, pocket = pocket).also {
+            if (it.isSuccess) {
+                net.sourceforge.kolmafia.recovery.BetweenBattleInvoker.run(true)
+            }
+        }
     }
 }

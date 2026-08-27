@@ -14,8 +14,8 @@ import net.sourceforge.kolmafia.request.DeckOfEveryCardRequest
 class GameRuntimeLibraryAshP732Test {
 
     @Test
-    fun revision_phase743() {
-        assertEquals("phase743", GameRuntimeLibrary.REVISION)
+    fun revision_phase848() {
+        assertEquals("phase2450", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -60,8 +60,8 @@ class GameRuntimeLibraryAshP732Test {
 class GameRuntimeLibraryAshP738Test {
 
     @Test
-    fun revision_phase743() {
-        assertEquals("phase743", GameRuntimeLibrary.REVISION)
+    fun revision_phase848() {
+        assertEquals("phase2450", GameRuntimeLibrary.REVISION)
     }
 
     @Test

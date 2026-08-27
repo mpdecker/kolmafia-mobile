@@ -23,6 +23,11 @@ class DeckOfEveryCardRequest(
         inventoryCounts: (Int) -> Int,
         inLegacyOfLoathing: Boolean,
     ): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         val deckId = selectDeck(inventoryCounts, inLegacyOfLoathing)
             ?: return Result.failure(
                 IllegalStateException("You don't have a Deck of Every Card available"),
@@ -39,6 +44,7 @@ class DeckOfEveryCardRequest(
         val useHtml = useDeck(deckId, cheat = card != null).getOrElse { return Result.failure(it) }
         val useError = parseUseErrors(useHtml, preferences)
         if (useError != null) return Result.failure(IllegalStateException(useError))
+        net.sourceforge.kolmafia.recovery.BetweenBattleInvoker.run(true)
 
         return if (card == null) {
             choiceRequest.choose(RANDOM_CHOICE, 1).map { (html, _) ->

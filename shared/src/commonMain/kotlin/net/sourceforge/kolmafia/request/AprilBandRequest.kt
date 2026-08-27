@@ -64,13 +64,12 @@ class AprilBandRequest(
     companion object {
         const val HELMET_ID = 11565
         const val NEXT_TURN_PREF = "nextAprilBandTurn"
-        const val CHOICE_ID = 1484 // desktop ChoiceManager uses lastChoice from apriling page
+        const val CHOICE_ID = 1526
         const val FINISH_OPTION = 9
 
         /**
-         * Desktop opens inventory.php?action=apriling which lands in a multi-option choice.
-         * Choice id is discovered from the page; Maximizer only needs effect options 1–3 then 9.
-         * Use 1484 as the known Apriling Band choice id from desktop ChoiceManager data.
+         * Desktop opens inventory.php?action=apriling which lands in choice 1526
+         * (Conduct the Band). Effect options 1–3 then finish option 9.
          */
         fun findEffectChoice(parameters: String): Int {
             val parts = parameters.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }

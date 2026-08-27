@@ -89,6 +89,45 @@ object EquipmentDatabase {
         }
     }
 
+    /** Desktop [EquipmentDatabase.getWeaponType] — melee vs ranged. */
+    fun getWeaponType(itemId: Int): WeaponType = when (getWeaponStat(itemId)) {
+        WeaponStat.NONE -> WeaponType.NONE
+        WeaponStat.MOXIE -> WeaponType.RANGED
+        else -> WeaponType.MELEE
+    }
+
+    fun isChefStaff(itemId: Int): Boolean =
+        getItemType(itemId).equals("chefstaff", ignoreCase = true)
+
+    fun isClub(itemId: Int, ironPalms: Boolean = false): Boolean {
+        val type = getItemType(itemId).lowercase()
+        return type == "club" || (ironPalms && type == "sword")
+    }
+
+    fun isSword(itemId: Int): Boolean =
+        getItemType(itemId).equals("sword", ignoreCase = true)
+
+    fun isKnife(itemId: Int): Boolean =
+        getItemType(itemId).equals("knife", ignoreCase = true)
+
+    fun isUtensil(itemId: Int): Boolean =
+        getItemType(itemId).equals("utensil", ignoreCase = true)
+
+    fun isAccordion(itemId: Int): Boolean =
+        getItemType(itemId).contains("accordion", ignoreCase = true)
+
+    fun isShield(itemId: Int): Boolean =
+        getItemType(itemId).equals("shield", ignoreCase = true)
+
+    fun isGun(itemId: Int): Boolean =
+        getItemType(itemId).equals("gun", ignoreCase = true)
+
+    fun isPistol(itemId: Int): Boolean =
+        getItemType(itemId).equals("pistol", ignoreCase = true)
+
+    fun isRifle(itemId: Int): Boolean =
+        getItemType(itemId).equals("rifle", ignoreCase = true)
+
     fun addPulverization(itemId: Int, result: Int) {
         pulverizeByItemId[itemId] = result
     }

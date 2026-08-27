@@ -16,6 +16,12 @@ object CandyDatabase {
     private const val FLAG_CHOCOLATE = 0x2
     private const val FLAG_NO_BLACKLIST = 0x4
 
+    const val ASH_FLAG_AVAILABLE = FLAG_AVAILABLE
+    const val ASH_FLAG_CHOCOLATE = FLAG_CHOCOLATE
+    const val ASH_FLAG_NO_BLACKLIST = FLAG_NO_BLACKLIST
+
+    fun defaultFlags(): Int = FLAG_AVAILABLE
+
     private val tier0Candy = mutableSetOf<Int>()
     private val tier1Candy = mutableSetOf<Int>()
     private val tier2Candy = mutableSetOf<Int>()
@@ -54,6 +60,33 @@ object CandyDatabase {
         return synthesisPairByCount(effectId, inventoryCount)
     }
 
+    /** Desktop [CandyDatabase.synthesisResult]: effect ID from combining two candy item IDs. */
+    fun synthesisResult(itemId1: Int, itemId2: Int): Int {
+        val type1 = getCandyType(itemId1)
+        val type2 = getCandyType(itemId2)
+        val tier = when {
+            type1 == CandyType.SIMPLE && type2 == CandyType.SIMPLE -> 1
+            (type1 == CandyType.SIMPLE && type2 == CandyType.COMPLEX) ||
+                (type1 == CandyType.COMPLEX && type2 == CandyType.SIMPLE) -> 2
+            type1 == CandyType.COMPLEX && type2 == CandyType.COMPLEX -> 3
+            else -> return -1
+        }
+        val modulus = (itemId1 + itemId2) % 5
+        return CandyEffectTier.getEffectIdByTierAndModulus(tier, modulus)
+    }
+
+    /** All candy item IDs for a given tier (unfiltered). */
+    fun candyForTier(tier: Int): List<Int> {
+        ensureTiersInitialized()
+        return when (tier) {
+            0 -> tier0Candy.toList()
+            1 -> tier1Candy.toList()
+            2 -> tier2Candy.toList()
+            3 -> tier3Candy.toList()
+            else -> emptyList()
+        }
+    }
+
     private fun ensureTiersInitialized() {
         if (tiersInitialized) return
         for (item in ItemDatabase.all()) {
@@ -88,7 +121,7 @@ object CandyDatabase {
             val count1 = inventoryCount(itemId1)
             if (count1 == 0) return emptyList()
 
-            val candy2Ids = sweetSynthesisPairing(effectId, itemId1, flags, inventoryCount)
+            val candy2Ids = sweetSynthesisPairingInternal(effectId, itemId1, flags, inventoryCount)
                 .sortedByDescending { inventoryCount(it) }
 
             for (itemId2 in candy2Ids) {
@@ -126,7 +159,7 @@ object CandyDatabase {
         }
     }
 
-    private fun sweetSynthesisPairing(
+    private fun sweetSynthesisPairingInternal(
         effectId: Int,
         itemId1: Int,
         flags: Int,
@@ -165,6 +198,23 @@ object CandyDatabase {
             true
         }
     }
+
+    /** Public ASH/CLI: partners for [itemId1] that yield [effectId]. */
+    fun sweetSynthesisPairing(
+        effectId: Int,
+        itemId1: Int,
+        inventoryCount: (Int) -> Int = { Int.MAX_VALUE },
+        flags: Int = FLAG_AVAILABLE or FLAG_NO_BLACKLIST,
+    ): Set<Int> {
+        ensureTiersInitialized()
+        return sweetSynthesisPairingInternal(effectId, itemId1, flags, inventoryCount)
+    }
+
+    /** Public ASH: best available pair for [effectId] (may be empty). */
+    fun synthesisPairForEffect(
+        effectId: Int,
+        inventoryCount: (Int) -> Int = { Int.MAX_VALUE },
+    ): List<Int> = synthesisPairIds(effectId, inventoryCount)
 
     private fun getCandyType(itemId: Int): CandyType = when (ItemDatabase.getCandyTypeName(itemId)) {
         "unspaded" -> CandyType.UNSPADED

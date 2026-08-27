@@ -110,6 +110,13 @@ class GoalManager {
         factoidGoal = null
     }
 
+    companion object {
+        /** Desktop [GoalManager.checkAutoStop] — adventure loop reads [EncounterManager.pendingAutoStop]. */
+        fun checkAutoStop(@Suppress("UNUSED_PARAMETER") message: String) {
+            // No-op: EncounterManager.recognizeEncounter already sets pendingAutoStop.
+        }
+    }
+
     data class GoalSnapshot(
         val itemGoalIds: Set<Int>,
         val itemGoalNames: Set<String>,

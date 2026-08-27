@@ -17,6 +17,7 @@ import net.sourceforge.kolmafia.quest.QuestItemUsedSync
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.session.DreadScrollManager
 import net.sourceforge.kolmafia.session.SessionLogger
+import net.sourceforge.kolmafia.recovery.BetweenBattleInvoker
 
 open class UseItemRequest(
     private val client: HttpClient,
@@ -33,6 +34,11 @@ open class UseItemRequest(
      * @param quantity  number to use (default 1)
      */
     open suspend fun use(itemId: Int, quantity: Int = 1): Result<String> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         return try {
             val response = client.get("$KOL_BASE_URL/inv_use.php") {
                 parameter("which", 3)
@@ -42,6 +48,7 @@ open class UseItemRequest(
             }
             if (response.status.isSuccess()) {
                 val body = response.bodyAsText()
+                UseItemConsumptionSync.rememberLastItem(itemId, quantity)
                 if (itemId == DreadScrollManager.KNUCKLEBONE_ID) {
                     DreadScrollManager.handleKnucklebone(body, preferences, sessionLogger)
                 } else if (itemId == DreadScrollManager.DREADSCROLL_ID) {
@@ -54,7 +61,7 @@ open class UseItemRequest(
                         turnsPlayed = character?.state?.value?.turnsPlayed ?: 0,
                     )
                 } else {
-                    QuestItemUsedSync.apply(
+                    val questHandled = QuestItemUsedSync.apply(
                         itemId,
                         body,
                         questDatabase,
@@ -62,7 +69,16 @@ open class UseItemRequest(
                         consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
                         count = quantity,
                     )
+                    UseItemConsumptionSync.parseConsumption(
+                        responseText = body,
+                        itemId = itemId,
+                        count = quantity,
+                        preferences = preferences,
+                        character = character,
+                        inventory = if (questHandled) null else inventoryManager,
+                    )
                 }
+                BetweenBattleInvoker.run(true)
                 Result.success(body)
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))
@@ -86,6 +102,7 @@ open class UseItemRequest(
             )
             if (response.status.isSuccess()) {
                 val body = response.bodyAsText()
+                UseItemConsumptionSync.rememberLastItem(itemId, quantity)
                 QuestItemUsedSync.apply(
                     itemId,
                     body,
@@ -94,6 +111,15 @@ open class UseItemRequest(
                     consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
                     count = quantity,
                 )
+                UseItemConsumptionSync.parseConsumption(
+                    responseText = body,
+                    itemId = itemId,
+                    count = quantity,
+                    preferences = preferences,
+                    character = character,
+                    inventory = inventoryManager,
+                )
+                BetweenBattleInvoker.run(true)
                 Result.success(body)
             } else {
                 Result.failure(Exception("HTTP ${response.status.value}"))

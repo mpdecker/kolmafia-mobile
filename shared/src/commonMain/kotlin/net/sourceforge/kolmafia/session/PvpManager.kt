@@ -62,6 +62,12 @@ object PvpManager {
 
     fun findStance(stance: Int): String? = optionToStanceInternal[stance]
 
+    /** Prefer stance option 0 when known; otherwise the first cached option (or 0). */
+    fun defaultStanceOption(): Int {
+        if (optionToStanceInternal.containsKey(0)) return 0
+        return optionToStanceInternal.keys.firstOrNull() ?: 0
+    }
+
     suspend fun checkStances(
         client: HttpClient?,
         character: KoLCharacter?,

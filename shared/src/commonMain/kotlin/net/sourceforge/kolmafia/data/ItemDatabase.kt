@@ -184,6 +184,11 @@ object ItemDatabase {
     const val LAST_SLIME_VIAL = 3897
     const val VAMPIRE_VINTNER_WINE = 10800
     const val ASTRAL_MUSHROOM = 1622
+    const val PHOTOCOPIER = 4864
+    const val PHOTOCOPIED_MONSTER = 4865
+    const val MOJO_FILTER = 2614
+    const val DANCE_CARD = 1963
+    const val TOASTER = 637
 
     fun getImage(itemId: Int): String = getById(itemId)?.image ?: ""
 

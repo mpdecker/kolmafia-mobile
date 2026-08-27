@@ -149,6 +149,10 @@ class KoLCharacter {
 
     // ── Partial update helpers — avoid full API round-trips for frequent changes ──
 
+    fun setKingLiberated(liberated: Boolean = true) {
+        _state.value = _state.value.copy(kingLiberated = liberated)
+    }
+
     fun updateLimitMode(mode: String) {
         _state.value = _state.value.copy(limitMode = mode)
     }
@@ -297,6 +301,10 @@ class KoLCharacter {
 
     fun setAutoAttackAction(action: Int) {
         _state.value = _state.value.copy(autoAttackAction = action)
+    }
+
+    fun setPlayerId(id: Int) {
+        _state.value = _state.value.copy(playerId = id)
     }
 
     fun setZodiacSign(sign: String) {

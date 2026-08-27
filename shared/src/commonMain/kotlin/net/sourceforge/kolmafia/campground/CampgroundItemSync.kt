@@ -68,7 +68,12 @@ object CampgroundItemSync {
         syncAsdonFuelFromHtml(html, prefs)
         for ((gif, itemId) in WORKSHED_GIF_TO_ID) {
             if (html.contains(gif, ignoreCase = true)) {
+                val previous = currentWorkshedItemId(prefs)
                 prefs?.setInt(CURRENT_WORKSHED_ITEM_ID_PREF, itemId)
+                if (previous >= 0 && previous != itemId) {
+                    prefs?.setInt("_previousWorkshedItemId", previous)
+                    prefs?.setBoolean("_workshedChanged", true)
+                }
                 break
             }
         }

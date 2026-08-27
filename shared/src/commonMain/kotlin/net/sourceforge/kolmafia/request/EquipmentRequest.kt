@@ -10,16 +10,19 @@ import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.quest.QuestItemEquippedSync
+import net.sourceforge.kolmafia.session.EquipmentManager
 
 open class EquipmentRequest(
     private val client: HttpClient,
     private val characterRequest: CharacterRequest? = null,
     private val character: KoLCharacter? = null,
     private val questDatabase: QuestDatabase? = null,
+    private val equipmentManager: EquipmentManager? = null,
 ) {
     companion object {
         private val OUTFIT_SELECT_PATTERN = Regex(
@@ -30,10 +33,109 @@ open class EquipmentRequest(
             """<option\s+value=['"]?(-?\d+)['"]?[^>]*>([^<]+)</option>"""
         )
         private val OUTFIT_ID_COMMENT = Regex("""<!--\s*outfitid:\s*(\d+)\s*-->""", RegexOption.IGNORE_CASE)
+        private val WHICHITEM_PATTERN = Regex("""whichitem=(\d+)""", RegexOption.IGNORE_CASE)
+        private val SLOT_NUM_PATTERN = Regex("""[?&]slot=(\d+)""", RegexOption.IGNORE_CASE)
+        private val TYPE_PATTERN = Regex("""[?&]type=([^&]+)""", RegexOption.IGNORE_CASE)
+        private val HOLSTER_PATTERN = Regex("""[?&]holster=(-?\d+)""", RegexOption.IGNORE_CASE)
+        private val ACTION_PATTERN = Regex("""[?&]action=([^&]+)""", RegexOption.IGNORE_CASE)
         val MANAGE_ENTRY_PATTERN = Regex(
             """name=name(\d+)\s+value="([^"]*)".*?<center><b>Contents:</b></cente[rR]>(.*?)</td>""",
             RegexOption.DOT_MATCHES_ALL
         )
+
+        /**
+         * Desktop [EquipmentRequest.parseEquipmentChange].
+         * @return true when local equipment state was updated (api sync optional).
+         */
+        fun parseEquipmentChange(
+            location: String,
+            responseText: String,
+            manager: EquipmentManager?,
+        ): Boolean {
+            if (manager == null) return false
+            val action = ACTION_PATTERN.find(location)?.groupValues?.get(1)?.lowercase()
+                ?: return false
+
+            when (action) {
+                "equip" -> {
+                    if (!equipSuccess(responseText)) return false
+                    val itemId = parseItemId(location)
+                    if (itemId < 0) return false
+                    val slot = findEquipmentSlot(itemId, location, manager)
+                    manager.setEquipment(slot, itemId, swapInventory = true)
+                    return true
+                }
+                "dualwield" -> {
+                    if (!equipSuccess(responseText)) return false
+                    val itemId = parseItemId(location)
+                    if (itemId < 0) return false
+                    manager.setEquipment(EquipmentSlot.OFFHAND, itemId, swapInventory = true)
+                    return true
+                }
+                "unequip" -> {
+                    if (!responseText.contains("Item unequipped", ignoreCase = true)) return false
+                    val type = TYPE_PATTERN.find(location)?.groupValues?.get(1) ?: return false
+                    val slot = EquipmentSlot.fromApiKey(type)
+                        ?: EquipmentSlot.fromApiKey(type.lowercase())
+                        ?: return false
+                    manager.removeEquipment(slot, swapInventory = true)
+                    return true
+                }
+                "unequipall" -> {
+                    if (!responseText.contains("All items unequipped", ignoreCase = true)) return false
+                    for (slot in EquipmentSlot.SEARCH_SLOTS + EquipmentSlot.SUB_SLOTS + listOf(EquipmentSlot.CARDSLEEVE)) {
+                        if (manager.getEquipment(slot).isNotBlank()) {
+                            manager.removeEquipment(slot, swapInventory = true)
+                        }
+                    }
+                    return true
+                }
+                "hatrack" -> {
+                    if (!responseText.contains("equips an item", ignoreCase = true)) return false
+                    val itemId = parseItemId(location)
+                    if (itemId < 0) return false
+                    manager.setEquipment(EquipmentSlot.FAMILIAR, itemId, swapInventory = true)
+                    return true
+                }
+                "holster" -> {
+                    val itemId = HOLSTER_PATTERN.find(location)?.groupValues?.get(1)?.toIntOrNull()
+                        ?: return false
+                    if (itemId <= 0) {
+                        manager.removeEquipment(EquipmentSlot.HOLSTER, swapInventory = true)
+                    } else {
+                        manager.setEquipment(EquipmentSlot.HOLSTER, itemId, swapInventory = true)
+                    }
+                    return true
+                }
+            }
+            return false
+        }
+
+        fun parseItemId(location: String): Int =
+            WHICHITEM_PATTERN.find(location)?.groupValues?.get(1)?.toIntOrNull() ?: -1
+
+        fun findEquipmentSlot(
+            itemId: Int,
+            location: String,
+            manager: EquipmentManager,
+        ): EquipmentSlot {
+            val type = manager.itemIdToEquipmentType(itemId)
+            val use = ItemDatabase.getById(itemId)?.primaryUse
+            if (use == ItemPrimaryUse.ACCESSORY) {
+                return when (SLOT_NUM_PATTERN.find(location)?.groupValues?.get(1)?.toIntOrNull()) {
+                    1 -> EquipmentSlot.ACC1
+                    2 -> EquipmentSlot.ACC2
+                    3 -> EquipmentSlot.ACC3
+                    else -> type ?: EquipmentSlot.ACC1
+                }
+            }
+            return type ?: EquipmentSlot.HAT
+        }
+
+        private fun equipSuccess(html: String): Boolean =
+            html.contains("You equip an item", ignoreCase = true) ||
+                html.contains("Item equipped", ignoreCase = true) ||
+                html.contains("equips an item", ignoreCase = true)
     }
 
     /** Wear a static or custom outfit by KoL outfit id. */
@@ -49,6 +151,7 @@ open class EquipmentRequest(
         )
         val body = response.bodyAsText()
         if (body.contains("You put on", ignoreCase = true)) {
+            // Outfit swaps many slots — prefer api resync
             syncCharacterEquipment()
             Result.success(Unit)
         } else {
@@ -60,7 +163,7 @@ open class EquipmentRequest(
 
     /** Birthday suit — unequip all gear. */
     open suspend fun unequipAll(): Result<Unit> = try {
-        client.submitForm(
+        val response = client.submitForm(
             url = "$KOL_BASE_URL/inv_equip.php",
             formParameters = Parameters.build {
                 append("which", "2")
@@ -68,18 +171,27 @@ open class EquipmentRequest(
                 append("ajax", "1")
             }
         )
-        syncCharacterEquipment()
+        val body = response.bodyAsText()
+        val location = "inv_equip.php?action=unequipall&ajax=1"
+        if (!parseEquipmentChange(location, body, equipmentManager)) {
+            syncCharacterEquipment()
+        }
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
     }
 
     open suspend fun equipItem(itemId: Int, slot: EquipmentSlot): Result<Unit> {
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
         if (slot in EquipmentSlot.CODPIECE_SLOTS) {
             return equipCodpieceGem(itemId, slot)
         }
         return try {
-            client.submitForm(
+            val response = client.submitForm(
                 url = "$KOL_BASE_URL/inv_equip.php",
                 formParameters = Parameters.build {
                     append("which", "2")
@@ -89,7 +201,17 @@ open class EquipmentRequest(
                     append("ajax", "1")
                 }
             )
-            syncCharacterEquipment()
+            val body = response.bodyAsText()
+            val slotParam = when (slot) {
+                EquipmentSlot.ACC1 -> "1"
+                EquipmentSlot.ACC2 -> "2"
+                EquipmentSlot.ACC3 -> "3"
+                else -> slot.apiKey
+            }
+            val location = "inv_equip.php?action=equip&whichitem=$itemId&slot=$slotParam&ajax=1"
+            if (!parseEquipmentChange(location, body, equipmentManager)) {
+                syncCharacterEquipment()
+            }
             QuestItemEquippedSync.apply(itemId, questDatabase)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -102,14 +224,18 @@ open class EquipmentRequest(
             return unequipCodpieceSlot(slot)
         }
         return try {
-            client.submitForm(
+            val response = client.submitForm(
                 url = "$KOL_BASE_URL/inv_equip.php",
                 formParameters = Parameters.build {
                     append("action", "unequip")
                     append("type", slot.apiKey)
                 }
             )
-            syncCharacterEquipment()
+            val body = response.bodyAsText()
+            val location = "inv_equip.php?action=unequip&type=${slot.apiKey}"
+            if (!parseEquipmentChange(location, body, equipmentManager)) {
+                syncCharacterEquipment()
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

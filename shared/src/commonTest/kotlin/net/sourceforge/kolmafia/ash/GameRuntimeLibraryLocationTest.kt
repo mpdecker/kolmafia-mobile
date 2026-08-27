@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import com.russhwolf.settings.MapSettings
 import net.sourceforge.kolmafia.adventure.AdventurePrep
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.CharacterState
@@ -94,10 +95,11 @@ class GameRuntimeLibraryLocationTest {
         AdventureDatabase.injectForTest(kitchenZone)
         val char = KoLCharacter().also {
             it.updateFromApiResponse(
-                CharacterApiResponse(classId = "1", buffedmus = "25"),
+                CharacterApiResponse(classId = "1", level = "10", buffedmus = "25"),
             )
         }
-        val lib = GameRuntimeLibrary(character = char)
+        val prefs = Preferences(MapSettings().apply { putString("questM20Necklace", "started") })
+        val lib = GameRuntimeLibrary(character = char, preferences = prefs)
         assertEquals(
             "true",
             outputLib(lib, """print(to_string(location_available(to_location("388"))));"""),
