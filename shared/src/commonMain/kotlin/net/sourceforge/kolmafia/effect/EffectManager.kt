@@ -73,6 +73,32 @@ class EffectManager(
         eventBus.tryEmit(GameEvent.EffectsRefreshed)
     }
 
+    /** Desktop active-effects removal hook used by UneffectRequest and consumption sync. */
+    fun removeEffect(effectId: Int): Boolean {
+        val retained = _state.value.effects.filterNot { it.id == effectId }
+        if (retained.size == _state.value.effects.size) return false
+        _state.value = EffectState(effects = retained, isStale = false)
+        eventBus.tryEmit(GameEvent.EffectsRefreshed)
+        return true
+    }
+
+    fun removeEffects(effectIds: Set<Int>): Boolean {
+        if (effectIds.isEmpty()) return false
+        val retained = _state.value.effects.filterNot { it.id in effectIds }
+        if (retained.size == _state.value.effects.size) return false
+        _state.value = EffectState(effects = retained, isStale = false)
+        eventBus.tryEmit(GameEvent.EffectsRefreshed)
+        return true
+    }
+
+    fun retainEffects(predicate: (EffectData) -> Boolean): Boolean {
+        val retained = _state.value.effects.filter(predicate)
+        if (retained == _state.value.effects) return false
+        _state.value = EffectState(effects = retained, isStale = false)
+        eventBus.tryEmit(GameEvent.EffectsRefreshed)
+        return true
+    }
+
     /** Test / ResultProcessor hook — replace active effects without HTTP. */
     fun replaceEffectsForTest(effects: List<EffectData>) {
         _state.value = EffectState(effects = effects, isStale = false)

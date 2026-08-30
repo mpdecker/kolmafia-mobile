@@ -357,7 +357,12 @@ object ModifierDatabase {
         return getEternityCodpiece(name) != null
     }
 
-    fun get(type: String, name: String): ModifierEntry? = _byTypeAndName[type]?.get(name)
+    fun get(type: String, name: String): ModifierEntry? {
+        val map = _byTypeAndName[type] ?: return null
+        return map[name] ?: map.entries.firstOrNull {
+            it.key.equals(name.trim(), ignoreCase = true)
+        }?.value
+    }
 
     /** Mode-specific equipment modifiers (UnbreakableUmbrella, JurassicParka, etc.). */
     fun getModeable(type: String, mode: String): ModifierEntry? = get(type, mode)

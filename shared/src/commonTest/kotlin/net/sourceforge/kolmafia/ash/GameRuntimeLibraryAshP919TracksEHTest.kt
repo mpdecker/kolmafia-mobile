@@ -288,7 +288,7 @@ class GameRuntimeLibraryAshP919TracksEHTest {
     fun phase948_floristAvailable_checked() {
         val lib = GameRuntimeLibrary(preferences = prefs {
             putBoolean("floristFriarChecked", true)
-            putBoolean("_floristPlantsAvailable", true)
+            putBoolean("floristFriarAvailable", true)
         })
         val result = outputLib(lib, """print(florist_available());""")
         assertEquals("true", result)

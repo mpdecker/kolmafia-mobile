@@ -35,13 +35,31 @@ internal class HedgeMazeRunner(
     private val effectManager: EffectManager?,
     private val processQuestHooks: (html: String, url: String) -> Unit,
 ) {
-    private val mazeLocation = AdventureLocation("nstower", "The Hedge Maze", "Sorceress")
+    private val mazeLocation = AdventureLocation(
+        id = "ns_03_hedgemaze",
+        name = "The Hedge Maze",
+        zone = "Sorceress",
+        formSource = "place.php",
+        adventureId = "ns_03_hedgemaze",
+    )
 
     fun run(mode: HedgeMazeMode, print: (String) -> Unit): Boolean = runBlocking {
         runInternal(mode, print)
     }
 
     suspend fun runInternal(mode: HedgeMazeMode, print: (String) -> Unit): Boolean {
+        val statusBeforeEntry = questDatabase.getProgress(Quest.FINAL)
+        if (statusBeforeEntry != "step4") {
+            val message = when {
+                statusBeforeEntry == QuestDatabase.UNSTARTED ->
+                    "You haven't been given the quest to fight the Sorceress!"
+                questDatabase.isQuestLaterThan(Quest.FINAL, "step4") ->
+                    "You have already completed the Hedge Maze."
+                else -> "You haven't reached the Hedge Maze yet."
+            }
+            print(message)
+            return false
+        }
         val currentRoom = preferences.getInt("currentHedgeMazeRoom", 0)
         val turns = estimateMazeTurns(preferences, currentRoom)
         print(

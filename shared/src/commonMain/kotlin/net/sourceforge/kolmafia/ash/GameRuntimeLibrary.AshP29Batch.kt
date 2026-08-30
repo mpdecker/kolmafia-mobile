@@ -8,14 +8,14 @@ import net.sourceforge.kolmafia.modifiers.ElementNames
  */
 internal fun GameRuntimeLibrary.registerAshP29Batch(scope: AshScope) {
     val classModifierParams = listOf("cls" to AshType.CLASS, "modifier" to AshType.STRING)
-    regFn(scope, "numeric_modifier", AshType.FLOAT, classModifierParams) { _, _ ->
-        AshValue.of(0.0)
+    regFn(scope, "numeric_modifier", AshType.FLOAT, classModifierParams) { _, args ->
+        AshValue.of(numericFromEntry(resolveClassModifierEntry(args[0].toString()), args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, classModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, classModifierParams) { _, args ->
+        AshValue.of(booleanFromEntry(resolveClassModifierEntry(args[0].toString()), args[1].toString()))
     }
-    regFn(scope, "string_modifier", AshType.STRING, classModifierParams) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "string_modifier", AshType.STRING, classModifierParams) { _, args ->
+        AshValue.of(stringFromEntry(resolveClassModifierEntry(args[0].toString()), args[1].toString()))
     }
     regFn(scope, "type_of", AshType.STRING, listOf("cls" to AshType.CLASS)) { _, _ ->
         AshValue.of(AshType.CLASS.name)

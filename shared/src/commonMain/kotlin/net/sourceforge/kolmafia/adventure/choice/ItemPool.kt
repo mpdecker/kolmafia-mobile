@@ -1,6 +1,22 @@
 package net.sourceforge.kolmafia.adventure.choice
 
 object ItemPool {
+    // IoTM residuals (Phases 3531–3590)
+    const val CHIBIBUDDY_ON              = 5908
+    const val CHIBIBUDDY_OFF             = 5925
+    const val STRANGE_DISC_WHITE         = 8923
+    const val STRANGE_DISC_BLACK         = 8924
+    const val STRANGE_DISC_RED           = 8925
+    const val STRANGE_DISC_GREEN         = 8926
+    const val STRANGE_DISC_BLUE          = 8927
+    const val STRANGE_DISC_YELLOW        = 8928
+    const val DAYLIGHT_SHAVINGS_HELMET   = 10804
+    const val CURSED_MAGNIFYING_GLASS    = 10885
+    const val GOURD_JAR                  = 5899
+    const val KNOB_FIRECRACKER           = 747
+    const val CAN_LID                    = 559
+    const val SPIDER_WEB                 = 27
+
     // Woods items (IDs 1–12): items found via Three-Tined Fork and Footprints
     val WOODS_ITEM_IDS: IntArray = IntArray(12) { it + 1 }
 
@@ -244,4 +260,58 @@ object ItemPool {
     const val TALES_OF_SPELUNKING = 8063
     const val DODECAGRAM = 479
     const val BUTTERKNIFE = 481
+
+    // Grimstone / Rumple (Phases 3201–3230)
+    const val GRIMSTONE_MASK = 7061
+    const val STRAW = 7151
+    const val LEATHER = 7152
+    const val CLAY = 7153
+    const val FILLING = 7154
+    const val PARCHMENT = 7155
+    const val GLASS = 7156
+
+    // Cake Arena / FamiliarTraining (Phases 3231–3290)
+    const val LEAD_NECKLACE = 865
+    const val PLEXIGLASS_PITH_HELMET = 1231
+    const val GREEN_SNOWCONE = 1413
+    const val BLACK_SNOWCONE = 1417
+    const val PET_BUFFING_SPRAY = 1512
+    const val PUMPKIN_BUCKET = 1971
+    const val LUCRE = 2098
+    const val FAMILIAR_DOPPELGANGER = 2225
+    const val GREEN_CANDY = 2309
+    const val BAR_WHIP = 2455
+    const val MAYFLOWER_BOUQUET = 2541
+    const val HALF_ORCHID = 2546
+    const val SPIKY_COLLAR = 2667
+    const val CRUMPLED_FELT_FEDORA = 3328
+    const val FIREWORKS = 3421
+    const val BATHYSPHERE = 3470
+    const val DULL_FISH_SCALE = 3486
+    const val ROUGH_FISH_SCALE = 3487
+    const val PRISTINE_FISH_SCALE = 3488
+    const val DAS_BOOT = 3609
+    const val SUGAR_SHIELD = 4183
+    const val BUGGED_BEANIE = 4575
+    const val PET_SWEATER = 5040
+    const val RAT_BALLOON = 1218
+
+    // IoTM manager residuals (Phases 3711–3770)
+    const val CHATEAU_MUSCLE = 8023
+    const val CHATEAU_MYST = 8024
+    const val CHATEAU_MOXIE = 8025
+    const val CHATEAU_FAN = 8026
+    const val CHATEAU_CHANDELIER = 8027
+    const val CHATEAU_SKYLIGHT = 8028
+    const val CHATEAU_BANK = 8029
+    const val CHATEAU_JUICE_BAR = 8030
+    const val CHATEAU_PENS = 8031
+    const val CHATEAU_WATERCOLOR = 8033
+    const val MINIATURE_CRYSTAL_BALL = 10730
+    const val COMBAT_LOVERS_LOCKET = 10893
+    const val JUNE_CLEAVER = 10920
+    const val STILLSUIT = 10932
+    const val MODEL_TRAIN_SET = 11045
+    const val PING_PONG_TABLE = 11059
+    const val REPLICA_MINIATURE_CRYSTAL_BALL = 11247
 }

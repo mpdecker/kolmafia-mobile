@@ -171,6 +171,17 @@ open class SessionManager(
                             TCRSDatabase.resetModifiers(preferences, charState.level)
                             TCRSDatabase.reset()
                         }
+                        if (preferences.getBoolean("pingLogin", false)) {
+                            httpClient?.let { client ->
+                                PingManager.runPingTest(
+                                    client = client,
+                                    count = preferences.getInt("pingDefaultTestPings", 4),
+                                    page = preferences.getString("pingDefaultTestPage", "api"),
+                                    preferences = preferences,
+                                    checkTriggers = true,
+                                )
+                            }
+                        }
                         val sources = buildIngredientSources(charState)
                         val aggregatedCounts = ConcoctionAvailableIngredients.aggregate(sources)
                         ConcoctionDatabase.refreshConcoctionsFromAggregated(

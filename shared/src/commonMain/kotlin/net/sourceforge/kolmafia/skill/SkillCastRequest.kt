@@ -7,11 +7,13 @@ import io.ktor.http.parameters
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.DailyLimitDatabase
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
+import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.RequestAbortGate
+import net.sourceforge.kolmafia.request.UneffectRemovableMaps
 import net.sourceforge.kolmafia.session.EquipmentManager
 import net.sourceforge.kolmafia.session.RequestLogger
 import net.sourceforge.kolmafia.session.SessionLogger
@@ -24,6 +26,7 @@ class SkillCastRequest(
     private val equipmentManager: EquipmentManager? = null,
     private val equipmentRequest: EquipmentRequest? = null,
     private val sessionLogger: SessionLogger? = null,
+    private val effectManager: EffectManager? = null,
 ) {
 
     suspend fun cast(skillId: Int, quantity: Int = 1): Result<String> {
@@ -82,7 +85,13 @@ class SkillCastRequest(
                     Result.failure(Exception("Not enough MP"))
                 body.contains("daily limit", ignoreCase = true) ->
                     Result.failure(Exception("Daily limit reached"))
-                else -> Result.success(body)
+                else -> {
+                    val skillName = SkillDefinitionDatabase.getById(skillId)?.name.orEmpty()
+                    effectManager?.removeEffects(
+                        UneffectRemovableMaps.removableEffectIdsForSkill(skillName),
+                    )
+                    Result.success(body)
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)

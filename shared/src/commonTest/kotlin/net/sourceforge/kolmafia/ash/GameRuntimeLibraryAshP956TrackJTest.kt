@@ -67,6 +67,6 @@ class GameRuntimeLibraryAshP956TrackJTest {
         val pairCount = outputLib(lib, """print(count(sweet_synthesis_pair(to_effect("Synthesis: Hot"))));""").toInt()
         assertTrue(pairCount >= 0, "sweet_synthesis_pair should return an aggregate")
         assertTrue(GameRuntimeLibrary.REVISION.startsWith("phase"))
-        assertEquals("phase2450", GameRuntimeLibrary.REVISION)
+        assertEquals("phase3830", GameRuntimeLibrary.REVISION)
     }
 }

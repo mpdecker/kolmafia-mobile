@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.JunkListManager
 import net.sourceforge.kolmafia.request.ManageStoreRequest
+import net.sourceforge.kolmafia.request.AutoMallRequest
 import net.sourceforge.kolmafia.request.StoragePullRules
 
 /**
@@ -16,11 +17,13 @@ class AutoMallRunner(
     private val manageStoreRequest: ManageStoreRequest,
     private val character: KoLCharacter,
     private val gameDatabase: GameDatabase,
+    private val autoMallRequest: AutoMallRequest? = null,
 ) {
 
     suspend fun automall() {
         val canInteract = StoragePullRules.canInteract(character.state.value)
 
+        val offers = mutableListOf<AutoMallRequest.Offer>()
         for (itemId in junkListManager.profitableIds()) {
             if (junkListManager.isMemento(itemId)) continue
             if (itemId in SKIP_MALL_IDS) continue
@@ -30,7 +33,12 @@ class AutoMallRunner(
             if (qty <= 0) continue
 
             val price = gameDatabase.item(itemId)?.autosellPrice ?: continue
-            manageStoreRequest.addItem(itemId, price, quantity = qty)
+            offers += AutoMallRequest.Offer(itemId, qty, price.toLong())
+        }
+        if (autoMallRequest != null) {
+            autoMallRequest.addItems(offers)
+        } else {
+            offers.forEach { manageStoreRequest.addItem(it.itemId, it.price.toInt(), it.limit, it.quantity) }
         }
     }
 

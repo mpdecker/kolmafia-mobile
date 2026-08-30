@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
+import net.sourceforge.kolmafia.data.AdventureDatabase
 import net.sourceforge.kolmafia.adventure.AdventureResult
 import net.sourceforge.kolmafia.event.GameEvent
 import net.sourceforge.kolmafia.event.GameEventBus
@@ -99,7 +100,13 @@ fun AdventureScreen() {
                 onClick = {
                     stopMessage = null
                     val turns = turnsText.toIntOrNull() ?: 1
-                    val location = AdventureLocation(zoneId, zoneName.ifBlank { "Zone $zoneId" }, "")
+                    val location = AdventureDatabase.getByName(zoneName)?.toLocation()
+                        ?: AdventureDatabase.getBySnarfblat(zoneId)?.toLocation()
+                        ?: AdventureLocation(
+                            id = zoneId,
+                            name = zoneName.ifBlank { "Zone $zoneId" },
+                            zone = "",
+                        )
                     adventureManager.runAdventures(location, turns, scope)
                 },
                 enabled = !isRunning && zoneId.isNotBlank()

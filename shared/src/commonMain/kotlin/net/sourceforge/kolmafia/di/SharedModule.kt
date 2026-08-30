@@ -112,6 +112,10 @@ import net.sourceforge.kolmafia.request.GnomePartCreateRequest
 import net.sourceforge.kolmafia.request.SpacegateCreateRequest
 import net.sourceforge.kolmafia.request.FantasyRealmCreateRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
+import net.sourceforge.kolmafia.request.ClanMembersRequest
+import net.sourceforge.kolmafia.request.ClanLogRequest
+import net.sourceforge.kolmafia.request.ClanWarRequest
+import net.sourceforge.kolmafia.request.ClanBuffRequest
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.request.PlaceRequest
 import net.sourceforge.kolmafia.request.CharacterRequest
@@ -119,6 +123,7 @@ import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.request.OceanRequest
 import net.sourceforge.kolmafia.request.ResearchBenchRequest
+import net.sourceforge.kolmafia.request.GourdRequest
 import net.sourceforge.kolmafia.session.SessionManager
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.buffbot.BuffBotManager
@@ -136,6 +141,7 @@ import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
 import net.sourceforge.kolmafia.npc.NpcBuyRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
+import net.sourceforge.kolmafia.request.AutoMallRequest
 import net.sourceforge.kolmafia.request.BasementRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
 import net.sourceforge.kolmafia.request.UntinkerRequest
@@ -157,6 +163,7 @@ import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.request.StillSuitRequest
+import net.sourceforge.kolmafia.request.ActionBarRequest
 import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -184,11 +191,27 @@ val sharedModule = module {
     single { GameEventBus() }
     singleOf(::LoginRequest)
     singleOf(::CharacterRequest)
-    singleOf(::AdventureRequest)
+    single {
+        AdventureRequest(
+            client = get(),
+            preferences = get(),
+            effectManager = get(),
+            questDatabase = get(),
+        )
+    }
     singleOf(::FightRequest)
     singleOf(::ChoiceRequest)
     singleOf(::OceanRequest)
     singleOf(::ResearchBenchRequest)
+    single {
+        GourdRequest(
+            client = get(),
+            preferences = get(),
+            character = get(),
+            inventory = get(),
+            sessionLogger = get(),
+        )
+    }
     single { GoalManager() }
     single { QuestDatabase(get()) }
     single { QuestLogRequest(get(), get(), get(), get()) }
@@ -278,6 +301,7 @@ val sharedModule = module {
         )
     }
     singleOf(::AutosellRequest)
+    singleOf(::AutoMallRequest)
     singleOf(::BasementRequest)
     single { PulverizeRequest(get(), get(), get(), get(), get()) }
     single { JunkListManager(get()) }
@@ -302,6 +326,7 @@ val sharedModule = module {
             manageStoreRequest = get(),
             character = get(),
             gameDatabase = get(),
+            autoMallRequest = get(),
         )
     }
     single {
@@ -392,6 +417,10 @@ val sharedModule = module {
     }
     singleOf(::ClanRumpusRequest)
     singleOf(::ClanLoungeRequest)
+    singleOf(::ClanMembersRequest)
+    singleOf(::ClanLogRequest)
+    singleOf(::ClanWarRequest)
+    singleOf(::ClanBuffRequest)
     singleOf(::CafeRequest)
     single {
         HellKitchenRequest(cafeRequest = get())
@@ -603,6 +632,7 @@ val sharedModule = module {
             inventoryManager = get(),
         )
     }
+    singleOf(::ActionBarRequest)
     singleOf(::FloundryRequest)
     single {
         MayamRequest(
@@ -746,6 +776,7 @@ val sharedModule = module {
             equipmentManager = get(),
             equipmentRequest = get(),
             sessionLogger = get(),
+            effectManager = get(),
         )
     }
     single {
@@ -758,7 +789,18 @@ val sharedModule = module {
         )
     }
     singleOf(::RecoveryManager)
-    singleOf(::UneffectRequest)
+    single {
+        val retrieve: RetrieveItemService = get()
+        UneffectRequest(
+            client = get(),
+            effectManager = get(),
+            inventoryManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
+            retrieveItem = { itemId -> retrieve.retrieve(itemId, 1) > 0 },
+            passwordHash = { get<Preferences>().getString("pwdHash", "") },
+        )
+    }
     single { MoodManager(skillManager = get(), preferences = get(), uneffectRequest = get()) }
     singleOf(::ManaBurnManager)
     singleOf(::BanishManager)
@@ -802,7 +844,11 @@ val sharedModule = module {
         )
     }
     singleOf(::WildfireCampManager)
-    singleOf(::EffectManager)
+    single {
+        EffectManager(get(), get()).also { manager ->
+            UseItemConsumptionSync.effectManagerProvider = { manager }
+        }
+    }
     single {
         EdServantManager(
             httpClient = get(),
@@ -878,6 +924,7 @@ val sharedModule = module {
             chewRequest      = get(),
             cafePurchaseRequest = get(),
             stillSuitRequest = get(),
+            actionBarRequest = get(),
             autosellRequest  = get(),
             closetRequest    = get(),
             storageRequest   = get(),
@@ -940,6 +987,7 @@ val sharedModule = module {
             chatProbe = get(),
             chatManager = get(),
             researchBenchRequest = get(),
+            gourdRequest = get(),
             concoctionQueueRunner = get(),
             concoctionCreateRequest = get(),
             modeableRequest = get(),
@@ -1028,6 +1076,9 @@ val sharedModule = module {
             trendyRequest    = get(),
             specialtyCreateProvider = { get() },
             createItemIngredientsProvider = { get() },
+            equipmentRequest = get(),
+            familiarManager = get(),
+            untinkerRequest = get(),
         )
     }
     single {

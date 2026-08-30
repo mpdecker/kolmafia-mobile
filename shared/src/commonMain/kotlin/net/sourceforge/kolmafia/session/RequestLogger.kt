@@ -4,9 +4,26 @@ import net.sourceforge.kolmafia.character.FamTeamSync
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.ArcadeRequest
 import net.sourceforge.kolmafia.request.BatFellowRequest
+import net.sourceforge.kolmafia.request.DwarfContraptionRequest
+import net.sourceforge.kolmafia.request.DwarfFactoryRequest
 import net.sourceforge.kolmafia.request.ElvmachineRequest
 import net.sourceforge.kolmafia.request.PeeVPeeRequest
+import net.sourceforge.kolmafia.request.AutoMallRequest
+import net.sourceforge.kolmafia.request.ManageStoreRequest
+import net.sourceforge.kolmafia.request.MonsterManuelRequest
+import net.sourceforge.kolmafia.request.MushroomRequest
+import net.sourceforge.kolmafia.request.ScrapheapRequest
+import net.sourceforge.kolmafia.request.UneffectRequest
+import net.sourceforge.kolmafia.request.CakeArenaRequest
+import net.sourceforge.kolmafia.request.BountyHunterHunterRequest
+import net.sourceforge.kolmafia.request.NemesisRequest
+import net.sourceforge.kolmafia.request.TavernRequest
+import net.sourceforge.kolmafia.request.GourdRequest
+import net.sourceforge.kolmafia.session.DvorakManager
+import net.sourceforge.kolmafia.mall.MallPurchaseRequest
+import net.sourceforge.kolmafia.quest.SorceressLairSync
 import net.sourceforge.kolmafia.shop.SwaggerShopSync
 
 /**
@@ -74,6 +91,33 @@ object RequestLogger {
             return false
         }
 
+        if (NemesisRequest.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (DvorakManager.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (TavernRequest.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (GourdRequest.registerRequest(urlString, preferences = preferences, logger = sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("messages.php", ignoreCase = true) ||
+            urlString.startsWith("mail.php", ignoreCase = true)
+        ) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("account_contactlist.php", ignoreCase = true)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
         // Adventure snarfblat / location
         if (registerAdventure(urlString, sessionLogger, preferences)) {
             wasLastRequestSimple = false
@@ -85,7 +129,9 @@ object RequestLogger {
             return true
         }
 
-        if (urlString.startsWith("choice.php") && registerChoice(urlString, sessionLogger, formFields)) {
+        if (urlString.startsWith("choice.php") &&
+            registerChoice(urlString, sessionLogger, preferences, formFields)
+        ) {
             wasLastRequestSimple = false
             return true
         }
@@ -116,7 +162,61 @@ object RequestLogger {
             return true
         }
 
+        MallPurchaseRequest.registerRequest(urlString) { ItemDatabase.getItemName(it) }.let { message ->
+            if (message != null) {
+                updateSessionLog(message, sessionLogger)
+                wasLastRequestSimple = false
+                return true
+            }
+        }
+        ManageStoreRequest.registerRequest(urlString) { ItemDatabase.getItemName(it) }.let { message ->
+            if (message != null) {
+                updateSessionLog(message, sessionLogger)
+                wasLastRequestSimple = false
+                return true
+            }
+        }
+        AutoMallRequest.registerRequest(urlString)?.let {
+            updateSessionLog(it, sessionLogger)
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("sellstuff.php") || urlString.startsWith("sellstuff_ugly.php")) {
+            updateSessionLog("autosell", sessionLogger)
+            wasLastRequestSimple = false
+            return true
+        }
+
         if (WereProfessorResearchSync.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (MonsterManuelRequest.registerRequest(urlString)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (MushroomRequest.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (urlString.startsWith("arena.php") &&
+            CakeArenaRequest.registerRequest(urlString, sessionLogger = sessionLogger)
+        ) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (urlString.startsWith("bounty.php") &&
+            BountyHunterHunterRequest.registerRequest(urlString, preferences, sessionLogger)
+        ) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (UneffectRequest.registerRequest(urlString, sessionLogger = sessionLogger)) {
             wasLastRequestSimple = false
             return true
         }
@@ -246,7 +346,11 @@ object RequestLogger {
         preferences: Preferences?,
     ): Boolean {
         if (!url.startsWith("place.php")) return false
+        if (SorceressLairSync.registerRequest(url, preferences, sessionLogger)) return true
         val place = queryParam(url, "whichplace") ?: return true
+        if (place == "scrapheap" && ScrapheapRequest.registerRequest(url, sessionLogger)) {
+            return true
+        }
         if (place == "spelunky") {
             val action = queryParam(url, "action").orEmpty()
             updateSessionLog(
@@ -288,7 +392,7 @@ object RequestLogger {
         "mountains" -> if (action == "mts_melvin") "Talking to Melvin" else null
         "town_right" -> when (action) {
             "townright_lrr" -> "Visiting The League of Loathing Radio"
-            "town_right=townright_vote" -> "Voting Booth"
+            "townright_vote" -> "Voting Booth"
             else -> null
         }
         "town_wrong" -> when (action) {
@@ -332,6 +436,7 @@ object RequestLogger {
     private fun registerChoice(
         url: String,
         sessionLogger: SessionLogger?,
+        preferences: Preferences?,
         formFields: Map<String, String>,
     ): Boolean {
         if (!url.startsWith("choice.php")) return false
@@ -341,9 +446,19 @@ object RequestLogger {
         val option = queryParam(url, "option")
             ?: formFields["option"]
             ?: "0"
+        val choiceId = choice.toIntOrNull() ?: 0
+        val optionId = option.toIntOrNull() ?: 0
+
+        if (SorceressLairSync.registerChoice(choiceId, optionId, preferences, sessionLogger)) {
+            return true
+        }
+
+        if (YouRobotManager.registerRequest(url, sessionLogger, preferences)) {
+            return true
+        }
 
         // Track C — high-traffic IoTM choice logs
-        val iotm = choiceIotmMessage(choice.toIntOrNull() ?: 0, option, url, formFields)
+        val iotm = choiceIotmMessage(choiceId, option, url, formFields)
         if (iotm != null) {
             updateSessionLog(iotm, sessionLogger)
             return true
@@ -428,7 +543,7 @@ object RequestLogger {
         1523 -> "WereProfessor research"
         1551 -> "TakerSpace"
         // Wax / meteoroid / newspaper / wool creation choices
-        1002, 1003 -> "Burning Newspaper"
+        1002 -> "Burning Newspaper"
         1018, 1019 -> "Metal Meteoroid"
         1054, 1055 -> "Wax Glob"
         1116 -> "Walford"
@@ -685,7 +800,19 @@ object RequestLogger {
             }
 
             url.startsWith("arcade.php") || url.contains("whichplace=arcade") -> {
-                updateSessionLog("arcade", sessionLogger)
+                if (!ArcadeRequest.registerRequest(url, sessionLogger)) {
+                    updateSessionLog("arcade", sessionLogger)
+                }
+                return true
+            }
+
+            url.startsWith("dwarffactory.php") -> {
+                DwarfFactoryRequest.registerRequest(url, sessionLogger)
+                return true
+            }
+
+            url.startsWith("dwarfcontraption.php") -> {
+                DwarfContraptionRequest.registerRequest(url, sessionLogger)
                 return true
             }
 

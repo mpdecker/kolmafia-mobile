@@ -107,12 +107,29 @@ object TelescopeSync {
         character?.setCampground(telescopeUpgrades = resolvedUpgrades)
     }
 
-    private fun challengeData(challenge: Int): List<Triple<String, String, String>>? = when (challenge) {
-        1 -> crowd2Data
-        2 -> crowd3Data
-        3 -> mazeTrap1Data
-        4 -> mazeTrap2Data
-        5 -> mazeTrap3Data
-        else -> null
+    fun getChallengeName(challenge: Int): String = when (challenge) {
+        0 -> "Crowd #1"
+        1 -> "Crowd #2"
+        2 -> "Crowd #3"
+        3 -> "Maze Trap #1"
+        4 -> "Maze Trap #2"
+        5 -> "Maze Trap #3"
+        else -> "Unknown Challenge"
     }
+
+    fun getChallengeDescription(challenge: Int, test: String): String {
+        if (challenge == 0) return "Fastest Adventurer"
+        val data = challengeData(challenge) ?: return "(bogus)"
+        return data.firstOrNull { it.third.equals(test, ignoreCase = true) }?.second ?: "($test)"
+    }
+
+    internal fun challengeData(challenge: Int): List<Triple<String, String, String>>? =
+        when (challenge) {
+            1 -> crowd2Data
+            2 -> crowd3Data
+            3 -> mazeTrap1Data
+            4 -> mazeTrap2Data
+            5 -> mazeTrap3Data
+            else -> null
+        }
 }

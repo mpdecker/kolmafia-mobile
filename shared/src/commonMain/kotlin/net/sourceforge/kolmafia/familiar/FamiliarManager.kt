@@ -30,6 +30,7 @@ private data class FamiliarApiEntry(
     val exp: Int = 0,
     val kills: Int = 0,
     @SerialName("active") val isActive: Boolean = false,
+    @SerialName("favorite") val isFavorite: Boolean = false,
     /** Equipped familiar item id; 0 when none. */
     val item: Int = 0,
 )
@@ -81,6 +82,7 @@ open class FamiliarManager(
                     pokeLevel = existing?.pokeLevel ?: 0,
                     soupWeight = existing?.soupWeight ?: 0,
                     soupAttributes = existing?.soupAttributes ?: emptySet(),
+                    favorite = e.isFavorite || existing?.favorite == true,
                     equipment = e.item.takeIf { it > 0 }?.let { itemId ->
                         InventoryItem(itemId, "Familiar item", 1, ItemType.FAMILIAR_ITEM)
                     },
@@ -203,6 +205,12 @@ open class FamiliarManager(
         val active = _state.value.activeFamiliar ?: return
         val updated = active.copy(weight = weight, experience = experience)
         applyActiveFamiliarLocally(updated)
+    }
+
+    fun applyActiveFeastedLocally(feasted: Boolean) {
+        val active = _state.value.activeFamiliar ?: return
+        if (active.feasted == feasted) return
+        applyActiveFamiliarLocally(active.copy(feasted = feasted))
     }
 
     /** Desktop `CharPaneRequest.checkPokeFam` owned-familiar upsert from charpane team. */

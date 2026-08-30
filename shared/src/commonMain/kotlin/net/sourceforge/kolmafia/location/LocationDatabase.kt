@@ -5,7 +5,7 @@ object LocationDatabase {
     val ALL_LOCATIONS: List<LocationData> = listOf(
         // Level 1–4: Starter zones
         LocationData("18",  "The Haunted Pantry",                    "The Nearby Plains",           1),
-        LocationData("20",  "The Spooky Forest",                     "The Nearby Plains",           1),
+        LocationData("15",  "The Spooky Forest",                     "The Nearby Plains",           1),
         LocationData("23",  "The Degrassi Knoll Garage",             "The Nearby Plains",           2),
         LocationData("24",  "The Degrassi Knoll Gym",                "The Nearby Plains",           2),
         LocationData("28",  "Cobb's Knob Kitchen",                   "Cobb's Knob",                 3),

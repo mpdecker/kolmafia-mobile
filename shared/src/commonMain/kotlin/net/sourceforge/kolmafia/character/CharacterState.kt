@@ -16,6 +16,10 @@ data class CharacterState(
     val ascensionNumber: Int = 0,
     val gender: Gender = Gender.UNKNOWN,
     val title: String = "",
+    /** Relative avatar path from charpane (e.g. otherimages/classav4a.gif). */
+    val avatar: String = "",
+    /** Desktop CharPaneRequest.canInteract — mall/pull/storage gate (Phases 2451–2465). */
+    val canInteract: Boolean = true,
 
     // ── HP / MP ──────────────────────────────────────────────────────────────
     val currentHp: Int = 0,
@@ -116,6 +120,10 @@ data class CharacterState(
     val familiarName: String = "",
     val familiarWeight: Int = 0,
     val familiarExp: Int = 0,
+    /** Familiar image basename from charpane/api (e.g. familiar1.gif). */
+    val familiarImage: String = "",
+    /** Desktop familiar_wellfed / "well-fed" feast flag. */
+    val familiarWellFed: Boolean = false,
     val enthronedFamiliarId: Int = 0,      // Crown of Thrones familiar
     val enthronedFamiliarName: String = "",
     val bjornedFamiliarId: Int = 0,        // Buddy Bjorn familiar

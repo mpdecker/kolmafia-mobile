@@ -160,7 +160,15 @@ object MoodRemovalTriggerExecution {
 
         val uneffectCtx = buildUneffectContext(trigger, preferences, charState, skillState)
         MoodUneffectActionParser.parse(action, uneffectCtx)?.let { parsed ->
-            executeUneffectAction(parsed, action, multiplicity, skillManager, cliExecutor)
+            executeUneffectAction(
+                parsed,
+                trigger.effectId,
+                action,
+                multiplicity,
+                skillManager,
+                uneffectRequest,
+                cliExecutor,
+            )
             return
         }
 
@@ -223,13 +231,17 @@ object MoodRemovalTriggerExecution {
                     skill.mpCost <= charState.currentMp &&
                     (skill.dailyLimit == 0 || skill.timesCast < skill.dailyLimit)
             },
+            inGLover = charState.inGLover,
+            hasGs = net.sourceforge.kolmafia.character.Beeosity::hasGs,
         )
 
     private suspend fun executeUneffectAction(
         action: UneffectAction,
+        effectId: Int,
         rawAction: String,
         multiplicity: Int,
         skillManager: SkillManager,
+        uneffectRequest: UneffectRequest?,
         cliExecutor: (suspend (String) -> Unit)?,
     ) {
         when (action) {
@@ -246,7 +258,13 @@ object MoodRemovalTriggerExecution {
                 }
                 cliExecutor?.invoke(cmd)
             }
-            UneffectAction.HttpUneffect -> Unit
+            UneffectAction.HttpUneffect -> {
+                if (uneffectRequest != null) {
+                    uneffectRequest.remove(effectId)
+                } else {
+                    cliExecutor?.invoke("uneffect [$effectId]")
+                }
+            }
         }
     }
 }

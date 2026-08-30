@@ -32,7 +32,7 @@ object PlaceSync {
             "falloutshelter" -> FalloutShelterSync.parseResponse(url, html, preferences, character)
             "scrapheap" -> ScrapheapSync.parseResponse(url, html, preferences, character)
             "rabbithole" -> {
-                preferences?.setBoolean("rabbitHoleVisited", true)
+                RabbitHoleRequest.parseResponse(url, html, preferences)
                 ResultProcessor.processResults(false, html, inventory, character, preferences)
             }
             "arcade" -> {

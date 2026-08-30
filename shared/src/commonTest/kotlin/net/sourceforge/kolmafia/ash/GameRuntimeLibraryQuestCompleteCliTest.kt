@@ -46,7 +46,7 @@ class GameRuntimeLibraryQuestCompleteCliTest {
     fun dvorak_status_stub() {
         val lib = GameRuntimeLibrary()
         val out = outputLib(lib, """cli_execute("dvorak");""")
-        assertTrue(out.contains("not ported"), out)
+        assertTrue(out.contains("Dvorak"), out)
     }
 
     @Test

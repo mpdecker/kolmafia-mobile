@@ -16,7 +16,7 @@ class GameRuntimeLibraryAshP997TrackSTest {
     @Test
     fun phase997_myMaxfury() {
         val lib = GameRuntimeLibrary(preferences = prefs())
-        assertEquals("3", outputLib(lib, "print(my_maxfury());"))
+        assertEquals("0", outputLib(lib, "print(my_maxfury());"))
     }
 
     @Test

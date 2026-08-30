@@ -93,4 +93,22 @@ object FamiliarDefinitionDatabase {
 
     fun withAttribute(attr: String): List<FamiliarDefinition> =
         _byId.values.filter { attr in it.attributes }
+
+    /** Desktop FamiliarDatabase.getFamiliarSkills — [cm, sh, oc, hs] arena ranks. */
+    fun getFamiliarSkills(id: Int): IntArray {
+        val def = _byId[id] ?: return intArrayOf(0, 0, 0, 0)
+        return intArrayOf(def.arenaCombatMoves, def.arenaStrength, def.arenaOc, def.arenaHs)
+    }
+
+    fun isTrainable(id: Int): Boolean =
+        getFamiliarSkills(id).any { it > 0 }
+
+    internal fun registerForTest(familiar: FamiliarDefinition) {
+        _byId[familiar.id] = familiar
+        _byName[familiar.name.lowercase()] = familiar
+        if (familiar.image.isNotEmpty()) {
+            _byImage[familiar.image.lowercase()] = familiar
+        }
+        loaded = true
+    }
 }

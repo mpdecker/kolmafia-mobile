@@ -102,14 +102,14 @@ private fun MallListingCard(listing: MallListing, onBuy: () -> Unit) {
         ) {
             Column {
                 Text("Item #${listing.itemId}", style = MaterialTheme.typography.bodyMedium)
-                Text("Shop #${listing.shopId}",
+                Text(listing.shopName.ifBlank { "Shop #${listing.shopId}" },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text("${listing.price} Meat")
                 Text("Qty: ${listing.quantity}", style = MaterialTheme.typography.bodySmall)
-                Button(onClick = onBuy) { Text("Buy") }
+                Button(onClick = onBuy, enabled = listing.canPurchase) { Text("Buy") }
             }
         }
     }

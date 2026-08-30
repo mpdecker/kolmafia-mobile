@@ -76,4 +76,48 @@ class FightActionCostSyncTest {
         FightActionCostSync.payActionCost(html = "You attack", character = character)
         assertEquals(before, character.state.value.currentMp)
     }
+
+    @Test
+    fun naughtySorceressFirstFormDoesNotConsumeBlockedItem() {
+        assertFalse(
+            FightActionCostSync.isItemConsumed(
+                itemId = 123,
+                html = "You start to use the seal tooth, but the Sorceress bats it aside.",
+                monsterName = "Naughty Sorceress",
+                itemName = "seal tooth",
+            ),
+        )
+        assertTrue(
+            FightActionCostSync.isItemConsumed(
+                itemId = 123,
+                html = "You start to use the seal tooth, but the Sorceress bats it aside.",
+                monsterName = "Naughty Sorceress",
+                itemName = "spices",
+            ),
+        )
+    }
+
+    @Test
+    fun naughtySorceressSecondFormDoesNotConsumeBlockedItem() {
+        assertFalse(
+            FightActionCostSync.isItemConsumed(
+                itemId = 123,
+                html = "The seal tooth is shattered into a million pieces before you can use it.",
+                monsterName = "Naughty Sorceress (2)",
+                itemName = "seal tooth",
+            ),
+        )
+    }
+
+    @Test
+    fun shadowKnockAwayDoesNotConsumeEitherFunkslungItem() {
+        assertFalse(
+            FightActionCostSync.isItemConsumed(
+                itemId = 123,
+                html = "Your Shadow knocks it out of your hands.",
+                monsterName = "Your Shadow",
+                itemName = "seal tooth",
+            ),
+        )
+    }
 }

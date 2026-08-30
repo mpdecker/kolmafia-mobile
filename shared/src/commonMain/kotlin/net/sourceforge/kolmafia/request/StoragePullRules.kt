@@ -24,8 +24,11 @@ object StoragePullRules {
         val freepulls: Map<Int, Int>,
     )
 
-    fun canInteract(characterState: CharacterState?): Boolean =
-        characterState?.let { !it.isHardcore && !it.isInRonin } ?: true
+    /** Desktop [CharPaneRequest.checkInteraction] via [CharpaneInteraction]. */
+    fun canInteract(characterState: CharacterState?): Boolean {
+        if (characterState == null) return true
+        return net.sourceforge.kolmafia.character.CharpaneInteraction.checkInteraction(characterState)
+    }
 
     fun classifyContents(
         raw: Map<Int, Int>,

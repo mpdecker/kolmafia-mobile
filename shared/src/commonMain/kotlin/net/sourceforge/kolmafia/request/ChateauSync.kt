@@ -49,6 +49,7 @@ object ChateauSync {
     }
 
     fun parseFurniture(html: String, preferences: Preferences?) {
+        ChateauRequest.parseFurniture(html, preferences)
         preferences ?: return
         val found = linkedSetOf<String>()
         FURNITURE.findAll(html).forEach { found.add(it.groupValues[1].trim().lowercase()) }

@@ -57,19 +57,78 @@ open class InventoryManager(
                 _state.value = _state.value.copy(isStale = true)
                 return
             }
-            // api.php?what=inventory returns {"itemId": quantity, ...}
-            // Verify actual response format against live KoL API before shipping.
             val rawMap: Map<String, Int> = invResponse.body()
-            val items = rawMap.entries.associate { (idStr, qty) ->
-                val id = idStr.toIntOrNull()
-                    ?: return@associate idStr.hashCode() to InventoryItem(idStr.hashCode(), idStr, qty, ItemType.OTHER)
-                id to InventoryItem(id, "Item #$id", qty, ItemType.OTHER)
-            }
-            StandardRewardCurrencySync.onInventoryDelta(before, items.mapValues { it.value.quantity }, preferences)
-            _state.value = _state.value.copy(items = items, isStale = false)
-        } catch (e: Exception) {
+            applyParsedInventory(parseInventory(rawMap))
+            StandardRewardCurrencySync.onInventoryDelta(
+                before,
+                _state.value.items.mapValues { it.value.quantity },
+                preferences,
+            )
+        } catch (_: Exception) {
             _state.value = _state.value.copy(isStale = true)
         }
+    }
+
+    /**
+     * Desktop [InventoryManager.parseInventory] — resolve names from [ItemDatabase]
+     * without wiping unrelated local state when applying.
+     */
+    fun parseInventory(rawMap: Map<String, Int>): Map<Int, InventoryItem> =
+        rawMap.entries.mapNotNull { (idStr, qty) ->
+            val id = idStr.toIntOrNull() ?: return@mapNotNull null
+            if (qty <= 0) return@mapNotNull null
+            val existing = _state.value.items[id]
+            val name = ItemDatabase.getItemName(id).ifEmpty {
+                existing?.name ?: "Item #$id"
+            }
+            val type = existing?.type ?: ItemType.OTHER
+            id to InventoryItem(id, name, qty, type)
+        }.toMap()
+
+    open fun applyParsedInventory(items: Map<Int, InventoryItem>) {
+        _state.value = _state.value.copy(items = items, isStale = false)
+        InventoryRefresh.fireInventoryChanged()
+    }
+
+    /**
+     * Desktop [InventoryManager.checkItem] selective desc residual —
+     * returns whether the item is currently in inventory (crown/bjorn hooks
+     * remain in DynamicItemModifierSync).
+     */
+    open fun checkItem(itemId: Int): Boolean =
+        (_state.value.items[itemId]?.quantity ?: 0) > 0
+
+    open fun getCount(itemId: Int): Int =
+        _state.value.items[itemId]?.quantity ?: 0
+
+    /** Local inventory gain after PvP loot / visit parse (no HTTP round-trip). */
+    open fun gainItemLocally(itemId: Int, quantity: Int = 1) {
+        if (quantity <= 0 || itemId < 0) return
+        val current = _state.value
+        val existing = current.items[itemId]
+        val name = existing?.name
+            ?: ItemDatabase.getItemName(itemId).ifEmpty { "Item #$itemId" }
+        val type = existing?.type ?: ItemType.OTHER
+        val updated = current.items.toMutableMap()
+        updated[itemId] = InventoryItem(itemId, name, (existing?.quantity ?: 0) + quantity, type)
+        _state.value = current.copy(items = updated)
+        InventoryRefresh.fireInventoryChanged()
+    }
+
+    /** Local inventory adjustment after NC consumption (no HTTP round-trip). */
+    open fun consumeItemLocally(itemId: Int, quantity: Int = 1) {
+        if (quantity <= 0) return
+        val current = _state.value
+        val item = current.items[itemId] ?: return
+        val remaining = item.quantity - quantity
+        val updated = current.items.toMutableMap()
+        if (remaining <= 0) {
+            updated.remove(itemId)
+        } else {
+            updated[itemId] = item.copy(quantity = remaining)
+        }
+        _state.value = current.copy(items = updated)
+        InventoryRefresh.fireInventoryChanged()
     }
 
     suspend fun useItem(item: InventoryItem): Result<Unit> = try {
@@ -187,33 +246,5 @@ open class InventoryManager(
         }
     } catch (e: Exception) {
         Result.failure(e)
-    }
-
-    /** Local inventory gain after PvP loot / visit parse (no HTTP round-trip). */
-    open fun gainItemLocally(itemId: Int, quantity: Int = 1) {
-        if (quantity <= 0 || itemId < 0) return
-        val current = _state.value
-        val existing = current.items[itemId]
-        val name = existing?.name
-            ?: ItemDatabase.getItemName(itemId).ifEmpty { "Item #$itemId" }
-        val type = existing?.type ?: ItemType.OTHER
-        val updated = current.items.toMutableMap()
-        updated[itemId] = InventoryItem(itemId, name, (existing?.quantity ?: 0) + quantity, type)
-        _state.value = current.copy(items = updated)
-    }
-
-    /** Local inventory adjustment after NC consumption (no HTTP round-trip). */
-    open fun consumeItemLocally(itemId: Int, quantity: Int = 1) {
-        if (quantity <= 0) return
-        val current = _state.value
-        val item = current.items[itemId] ?: return
-        val remaining = item.quantity - quantity
-        val updated = current.items.toMutableMap()
-        if (remaining <= 0) {
-            updated.remove(itemId)
-        } else {
-            updated[itemId] = item.copy(quantity = remaining)
-        }
-        _state.value = current.copy(items = updated)
     }
 }

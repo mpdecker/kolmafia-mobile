@@ -36,7 +36,7 @@ class LocationDatabaseTest {
 
     @Test
     fun findBySnarfblat_returnsCorrectZone() {
-        val zone = LocationDatabase.findBySnarfblat("20")
+        val zone = LocationDatabase.findBySnarfblat("15")
         assertNotNull(zone)
         assertTrue(zone.name.contains("Spooky Forest", ignoreCase = true))
     }

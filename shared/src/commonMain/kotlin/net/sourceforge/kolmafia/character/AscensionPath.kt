@@ -265,6 +265,7 @@ enum class AscensionPath(
     LOW_KEY("Low Key", pathId = 39, pathImage = "littlelock.gif"),
     KINGDOM_OF_EXPLOATHING("Kingdom of Exploathing", pathId = 37, pathImage = "puff.gif"),
     SURPRISING_FIST("Way of the Surprising Fist", pathId = 6, pathImage = "wosp_fist.gif"),
+    JOURNEYMAN("Journeyman", pathId = 45, pathImage = "map"),
     STANDARD("Standard", pathId = 22, pathImage = "standardicon.gif"),
     SLOW_AND_STEADY("Slow and Steady", pathId = 18, pathImage = "sas"),
 

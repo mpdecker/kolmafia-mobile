@@ -22,6 +22,8 @@ data class UneffectActionContext(
     val hasItemId: (Int) -> Boolean,
     val hasSkill: (String) -> Boolean,
     val canCastSkill: (String) -> Boolean,
+    val inGLover: Boolean = false,
+    val hasGs: (String) -> Boolean = { true },
     val canRetrieveRemedy: Boolean = false,
     val canAcquireUneffectItem: (Int) -> Boolean = { false },
 )
@@ -31,7 +33,12 @@ object UneffectActionResolver {
     fun resolve(ctx: UneffectActionContext): UneffectAction {
         resolveMoodPredefinedAction(ctx)?.let { return it }
 
-        val skillName = UneffectRemovableMaps.getUneffectSkill(ctx.effectId, ctx.hasSkill)
+        val skillName = UneffectRemovableMaps.getUneffectSkill(
+            ctx.effectId,
+            ctx.inGLover,
+            ctx.hasGs,
+            ctx.hasSkill,
+        )
         if (skillName.isNotEmpty() && ctx.canCastSkill(skillName)) {
             return UneffectAction.CastSkill(skillName)
         }

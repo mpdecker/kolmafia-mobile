@@ -10,7 +10,7 @@ import net.sourceforge.kolmafia.session.ResultProcessor
  * Desktop AutoSellRequest.parseCompact / parseDetailed (Phases 2286–2300).
  */
 object AutosellSync {
-    private val ITEMID = Regex("""whichitem(?:\[\]|=)(\d+)""", RegexOption.IGNORE_CASE)
+    private val ITEMID = Regex("""whichitem(?:\[\])?=(\d+)""", RegexOption.IGNORE_CASE)
     private val HOWMANY = Regex("""howmany(?:\[\]|=)(\d+)""", RegexOption.IGNORE_CASE)
     private val QUANTITY = Regex("""quantity(?:\[\]|=)(\d+)""", RegexOption.IGNORE_CASE)
     private val YOU_GAIN_MEAT = Regex("""You gain ([\d,]+) Meat""", RegexOption.IGNORE_CASE)
@@ -21,14 +21,24 @@ object AutosellSync {
         character: KoLCharacter?,
     ): Boolean {
         if (!url.contains("sellstuff.php", ignoreCase = true)) return false
-        val itemId = ITEMID.find(url)?.groupValues?.get(1)?.toIntOrNull() ?: return false
-        val qty = HOWMANY.find(url)?.groupValues?.get(1)?.toIntOrNull()
+        val itemIds = ITEMID.findAll(url).mapNotNull { it.groupValues[1].toIntOrNull() }.toList()
+        if (itemIds.isEmpty()) return false
+        val requested = HOWMANY.find(url)?.groupValues?.get(1)?.toIntOrNull()
             ?: QUANTITY.find(url)?.groupValues?.get(1)?.toIntOrNull()
             ?: 1
-        val price = ItemDatabase.getById(itemId)?.autosellPrice ?: 0
-        inventory?.consumeItemLocally(itemId, qty)
-        if (price > 0 && character != null) {
-            ResultProcessor.processMeat(price.toLong() * qty, character)
+        var total = 0L
+        itemIds.forEach { itemId ->
+            val inventoryCount = inventory?.state?.value?.items?.get(itemId)?.quantity ?: requested
+            val qty = when {
+                url.contains("type=allbutone", true) -> (inventoryCount - 1).coerceAtLeast(0)
+                url.contains("type=all", true) -> inventoryCount
+                else -> requested
+            }
+            inventory?.consumeItemLocally(itemId, qty)
+            total += (ItemDatabase.getById(itemId)?.autosellPrice ?: 0).toLong() * qty
+        }
+        if (total > 0 && character != null) {
+            ResultProcessor.processMeat(total, character)
         }
         return true
     }
@@ -40,20 +50,20 @@ object AutosellSync {
         character: KoLCharacter?,
     ): Boolean {
         if (!url.contains("sellstuff", ignoreCase = true)) return false
-        val itemId = ITEMID.find(url)?.groupValues?.get(1)?.toIntOrNull()
+        val itemIds = ITEMID.findAll(url).mapNotNull { it.groupValues[1].toIntOrNull() }.toList()
         val qty = HOWMANY.find(url)?.groupValues?.get(1)?.toIntOrNull()
             ?: QUANTITY.find(url)?.groupValues?.get(1)?.toIntOrNull()
             ?: 1
-        if (itemId != null && itemId > 0) {
-            inventory?.consumeItemLocally(itemId, qty)
+        if (itemIds.isNotEmpty()) {
+            itemIds.forEach { inventory?.consumeItemLocally(it, qty) }
         }
         val meat = YOU_GAIN_MEAT.find(html)?.groupValues?.get(1)?.replace(",", "")?.toLongOrNull()
         if (meat != null && meat > 0) {
             ResultProcessor.processMeat(meat, character)
-        } else if (itemId != null && itemId > 0) {
-            val price = ItemDatabase.getById(itemId)?.autosellPrice ?: 0
-            if (price > 0) ResultProcessor.processMeat(price.toLong() * qty, character)
+        } else if (itemIds.isNotEmpty()) {
+            val fallback = itemIds.sumOf { (ItemDatabase.getById(it)?.autosellPrice ?: 0).toLong() * qty }
+            if (fallback > 0) ResultProcessor.processMeat(fallback, character)
         }
-        return itemId != null || meat != null
+        return itemIds.isNotEmpty() || meat != null
     }
 }

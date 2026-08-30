@@ -16,4 +16,7 @@ internal fun GameRuntimeLibrary.registerAshP865Batch(scope: AshScope) {
     regFn(scope, "grey_you_absorption_count", AshType.INT, emptyList()) { _, _ ->
         AshValue.of(GreyYouManager.absorbedMonsters.size)
     }
+    regFn(scope, "absorbed_monsters", AshType.BOOLEAN, listOf("monster_id" to AshType.MONSTER)) { _, args ->
+        AshValue.of(GreyYouManager.haveAbsorbed(args[0].toLong().toInt()))
+    }
 }

@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.data.KolGameHolidayCalendar
+import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
 
 /**
  * AshP1004–1010 Track T — Date / time / misc residuals.
@@ -87,6 +88,11 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
     regFn(scope, "current_maximizer_score", AshType.FLOAT, emptyList()) { _, _ ->
         AshValue.of(0.0)
     }
+    regFn(scope, "current_maximizer_score", AshType.FLOAT,
+        listOf("evaluationString" to AshType.STRING)) { _, args ->
+        AshValue.of(net.sourceforge.kolmafia.maximizer.Evaluator(args[0].toString())
+            .getScore(buildCurrentModifiers()))
+    }
 
     // ── Phase 1008: council / tavern ────────────────────────────────
     regFn(scope, "council", AshType.VOID, emptyList()) { rt, _ ->
@@ -137,17 +143,29 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
     regFn(scope, "familiar_equipment", AshType.ITEM,
         listOf("fam" to AshType.FAMILIAR)) { _, args ->
         val race = args[0].toString()
-        val fm = familiarManager ?: return@regFn AshValue.item("")
-        val fam = fm.state.value.ownedFamiliars
-            .firstOrNull { it.race.equals(race, ignoreCase = true) }
-        val eqName = fam?.equipment?.name.orEmpty()
-        AshValue.item(eqName)
+        val defaultItem = gameDatabase?.familiar(race)?.familiarItem
+            ?: FamiliarDefinitionDatabase.getByName(race)?.familiarItem
+        AshValue.item(defaultItem.orEmpty())
+    }
+
+    regFn(scope, "familiar_equipped_equipment", AshType.ITEM,
+        listOf("fam" to AshType.FAMILIAR)) { _, args ->
+        val race = args[0].toString()
+        val item = familiarManager?.state?.value?.ownedFamiliars
+            ?.firstOrNull { it.race.equals(race, ignoreCase = true) }
+            ?.equipment?.name
+        AshValue.item(item.orEmpty())
     }
 
     val famToBool = AggregateType(AshType.FAMILIAR, AshType.BOOLEAN)
     regFn(scope, "favorite_familiars", famToBool, emptyList()) { _, _ ->
         val result = AggregateValue(famToBool)
-        val favs = preferences?.getString("favoriteFamiliars", "")?.takeIf { it.isNotBlank() }
+        val owned = familiarManager?.state?.value?.ownedFamiliars.orEmpty()
+        for (familiar in owned.filter { it.favorite }) {
+            result[AshValue.familiar(familiar.race)] = AshValue.TRUE
+        }
+        val favs = preferences?.getString("favoriteFamiliars", "")
+            ?.takeIf { it.isNotBlank() && owned.isEmpty() }
         if (favs != null) {
             for (race in favs.split("|").filter { it.isNotBlank() }) {
                 result[AshValue.familiar(race)] = AshValue.TRUE

@@ -2,7 +2,9 @@ package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
+import net.sourceforge.kolmafia.clan.ClanManager
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.session.StoreManager
 
 /**
  * AshP911–AshP918 — Clan / shop / session ASH surface (Track D).
@@ -16,13 +18,20 @@ internal fun GameRuntimeLibrary.registerAshP911Batch(scope: AshScope) {
 
     regFn(scope, "get_clan_lounge", itemToInt, emptyList()) { _, _ ->
         val result = AggregateValue(itemToInt)
-        val loungeItems = preferences?.getString("clanLounge", "")?.takeIf { it.isNotBlank() }
-        if (loungeItems != null) {
+        val cached = ClanManager.getClanLounge()
+        if (cached.isNotEmpty()) {
+            for ((name, count) in cached) {
+                result[AshValue.item(name)] = AshValue.of(count.toLong())
+            }
+        } else {
+            val loungeItems = preferences?.getString("clanLounge", "")?.takeIf { it.isNotBlank() }
+            if (loungeItems != null) {
             for (entry in loungeItems.split("|").filter { it.isNotBlank() }) {
                 val parts = entry.split(":")
                 val name = parts.getOrNull(0) ?: continue
                 val count = parts.getOrNull(1)?.toIntOrNull() ?: 1
                 result[AshValue.item(name)] = AshValue.of(count.toLong())
+            }
             }
         }
         result
@@ -30,9 +39,10 @@ internal fun GameRuntimeLibrary.registerAshP911Batch(scope: AshScope) {
 
     regFn(scope, "get_clan_rumpus", stringToInt, emptyList()) { _, _ ->
         val result = AggregateValue(stringToInt)
-        val rumpus = preferences?.getString("clanRumpus", "")?.takeIf { it.isNotBlank() }
-        if (rumpus != null) {
-            for (entry in rumpus.split("|").filter { it.isNotBlank() }) {
+        val cached = ClanManager.getClanRumpus()
+        val rumpusEntries = if (cached.isNotEmpty()) cached
+            else preferences?.getString("clanRumpus", "")?.split("|")?.filter { it.isNotBlank() }.orEmpty()
+        for (entry in rumpusEntries) {
                 val countIdx = entry.indexOf(" (")
                 if (countIdx != -1) {
                     val name = entry.substring(0, countIdx)
@@ -41,23 +51,12 @@ internal fun GameRuntimeLibrary.registerAshP911Batch(scope: AshScope) {
                 } else {
                     result[AshValue.of(entry)] = AshValue.of(1L)
                 }
-            }
         }
         result
     }
 
     regFn(scope, "get_chateau", itemToInt, emptyList()) { _, _ ->
-        val result = AggregateValue(itemToInt)
-        val chateau = preferences?.getString("chateauMonster", "")?.takeIf { it.isNotBlank() }
-        if (chateau != null) {
-            for (entry in chateau.split("|").filter { it.isNotBlank() }) {
-                val parts = entry.split(":")
-                val name = parts.getOrNull(0) ?: continue
-                val count = parts.getOrNull(1)?.toIntOrNull() ?: 1
-                result[AshValue.item(name)] = AshValue.of(count.toLong())
-            }
-        }
-        result
+        chateauFurnitureMap()
     }
 }
 
@@ -70,6 +69,13 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val result = AggregateValue(itemToInt)
         val hasStore = character?.state?.value?.hasStore ?: false
         if (!hasStore) return@regFn result
+        if (StoreManager.soldItemsRetrieved) {
+            StoreManager.getSoldItemList().forEach { sold ->
+                val name = gameDatabase?.item(sold.itemId)?.name ?: "item #${sold.itemId}"
+                result[AshValue.item(name)] = AshValue.of(sold.quantity.toLong())
+            }
+            return@regFn result
+        }
         val shopItems = preferences?.getString("shopInventory", "")?.takeIf { it.isNotBlank() }
         if (shopItems != null) {
             for (entry in shopItems.split("|").filter { it.isNotBlank() }) {
@@ -87,6 +93,10 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val itemName = args[0].toString()
         val hasStore = character?.state?.value?.hasStore ?: false
         if (!hasStore) return@regFn AshValue.of(0L)
+        val itemId = gameDatabase?.item(itemName)?.id
+        if (itemId != null && StoreManager.soldItemsRetrieved) {
+            return@regFn AshValue.of(StoreManager.shopAmount(itemId).toLong())
+        }
         val shopItems = preferences?.getString("shopInventory", "")?.takeIf { it.isNotBlank() }
             ?: return@regFn AshValue.of(0L)
         val qty = findShopEntry(shopItems, itemName)?.second ?: 0
@@ -98,6 +108,10 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val itemName = args[0].toString()
         val hasStore = character?.state?.value?.hasStore ?: false
         if (!hasStore) return@regFn AshValue.of(0L)
+        val itemId = gameDatabase?.item(itemName)?.id
+        if (itemId != null && StoreManager.soldItemsRetrieved) {
+            return@regFn AshValue.of(StoreManager.getPrice(itemId))
+        }
         val shopPrices = preferences?.getString("shopPrices", "")?.takeIf { it.isNotBlank() }
             ?: return@regFn AshValue.of(0L)
         val price = findShopEntry(shopPrices, itemName)?.second ?: 0
@@ -109,6 +123,10 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val itemName = args[0].toString()
         val hasStore = character?.state?.value?.hasStore ?: false
         if (!hasStore) return@regFn AshValue.of(0L)
+        val itemId = gameDatabase?.item(itemName)?.id
+        if (itemId != null && StoreManager.soldItemsRetrieved) {
+            return@regFn AshValue.of(StoreManager.getLimit(itemId).toLong())
+        }
         val shopLimits = preferences?.getString("shopLimits", "")?.takeIf { it.isNotBlank() }
             ?: return@regFn AshValue.of(0L)
         val limit = findShopEntry(shopLimits, itemName)?.second ?: 0

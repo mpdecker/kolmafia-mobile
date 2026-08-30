@@ -91,10 +91,18 @@ object ChoiceCost {
         add(295, Cost(1, Kind.ITEM, -5, HOBO_NICKEL))
         add(304, Cost(1, Kind.MP, -200))
         add(305, Cost(1, Kind.ITEM, -1, ItemPool.MERKIN_PRESSUREGLOBE))
+        add(
+            310,
+            Cost(1, Kind.ITEM, -10, ItemPool.DULL_FISH_SCALE),
+            Cost(2, Kind.ITEM, -10, ItemPool.ROUGH_FISH_SCALE),
+            Cost(4, Kind.ITEM, 10, ItemPool.DULL_FISH_SCALE),
+            Cost(5, Kind.ITEM, 10, ItemPool.ROUGH_FISH_SCALE),
+        )
         add(438, Cost(1, Kind.ITEM, -1, UNDERWORLD_ACORN))
         add(
             504,
             Cost(1, Kind.ITEM, -1, BAR_SKIN),
+            Cost(2, Kind.ITEM, 1, BAR_SKIN),
             Cost(3, Kind.MEAT, -100),
         )
         add(507, Cost(1, Kind.ITEM, -1, ItemPool.TREE_HOLED_COIN))

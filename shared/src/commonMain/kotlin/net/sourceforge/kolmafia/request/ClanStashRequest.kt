@@ -7,15 +7,13 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.clan.ClanManager
+import net.sourceforge.kolmafia.data.ItemDatabase
 
 open class ClanStashRequest(
     private val client: HttpClient,
     private val inventoryManager: InventoryManager? = null,
 ) {
-
-    companion object {
-        private val ITEM_ROW = Regex("""whichitem=(\d+)[^>]*>[^<]*(?:\((\d+)\))?""")
-    }
 
     /** Contribute [quantity] of item [itemId] to the clan stash. */
     open suspend fun putIn(itemId: Int, quantity: Int): Result<String> {
@@ -85,13 +83,26 @@ open class ClanStashRequest(
     open suspend fun fetchContents(): Map<Int, Int> {
         return try {
             val html = client.get("$KOL_BASE_URL/clan_stash.php").bodyAsText()
-            parseContents(html)
+            parseAndStoreContents(html)
         } catch (_: Exception) {
             emptyMap()
         }
     }
 
     fun parseContents(html: String): Map<Int, Int> {
+        return parseContentsStatic(html)
+    }
+
+    fun parseAndStoreContents(html: String): Map<Int, Int> {
+        val result = parseContentsStatic(html)
+        storeContents(result)
+        return result
+    }
+
+    companion object {
+        private val ITEM_ROW = Regex("""whichitem=(\d+)[^>]*>[^<]*(?:\((\d+)\))?""")
+
+        fun parseContentsStatic(html: String): Map<Int, Int> {
         val result = mutableMapOf<Int, Int>()
         for (m in ITEM_ROW.findAll(html)) {
             val id = m.groupValues[1].toIntOrNull() ?: continue
@@ -99,5 +110,13 @@ open class ClanStashRequest(
             result[id] = (result[id] ?: 0) + qty
         }
         return result
+        }
+
+        fun storeContents(contents: Map<Int, Int>) {
+            ClanStashSync.stashCounts = contents.toMutableMap()
+            ClanManager.setStash(contents.map { (id, qty) ->
+                ClanManager.StashItem(id, ItemDatabase.getItemName(id).ifEmpty { id.toString() }, qty)
+            })
+        }
     }
 }

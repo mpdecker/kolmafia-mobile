@@ -1381,6 +1381,9 @@ open class MaximizerManager(
             familiarWeight = charState.familiarWeight,
             charState = charState,
             preferences = preferences,
+            hasSkill = { skillId ->
+                skillManager?.state?.value?.skills?.any { it.id == skillId } == true
+            },
         )
         MaximizerSynergyAdjustments.apply(buckets, spec, charState, gameDatabase)
         MaximizerOutfitAdjustments.apply(buckets, autoContext.usefulOutfits, spec, charState, gameDatabase)

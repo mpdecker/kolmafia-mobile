@@ -5,6 +5,7 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConsumableDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.EquipmentManager
@@ -30,6 +31,8 @@ object UseItemConsumptionSync {
 
     /** Optional DI for gear-mutation arms (bootskin/folder/sticker/discard). */
     var equipmentManagerProvider: (() -> EquipmentManager?)? = null
+    /** Optional active-effect state hook for antidotes, tiny houses, cocoa, and similar removers. */
+    var effectManagerProvider: (() -> EffectManager?)? = null
 
     fun rememberLastItem(itemId: Int, count: Int) {
         lastItemUsedId = itemId
@@ -94,7 +97,7 @@ object UseItemConsumptionSync {
         val name = ItemDatabase.getItemName(itemId)
         val primary = ItemDatabase.getById(itemId)?.primaryUse
 
-        return when {
+        val success = when {
             primary == ItemPrimaryUse.FOOD ||
                 primary == ItemPrimaryUse.FOOD_HELPER ||
                 ConsumableDatabase.getFullnessByName(name) > 0 ||
@@ -113,6 +116,11 @@ object UseItemConsumptionSync {
                     preferences, character, inventory, consumeConfirmed,
                 )
         }
+        if (success) {
+            val removed = UneffectRemovableMaps.removableEffectIdsForItem(itemId)
+            effectManagerProvider?.invoke()?.removeEffects(removed)
+        }
+        return success
     }
 
     fun isFailureGate(responseText: String): Boolean =

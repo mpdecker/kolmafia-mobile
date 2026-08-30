@@ -13,6 +13,10 @@ data class FamiliarDefinition(
     val arenaHs: Int,               // hs
     val attributes: Set<String>,     // "sentient", "organic", "haswings", etc.
 ) {
+    /** Column six in familiars.txt is the familiar's default equipment item. */
+    val familiarItem: String
+        get() = hatchlingItem
+
     private fun hasType(type: String) = type in types
 
     private fun hasAnyType(vararg typeCodes: String) = typeCodes.any { it in types }

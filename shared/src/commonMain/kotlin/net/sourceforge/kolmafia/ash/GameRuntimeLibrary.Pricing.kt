@@ -1,5 +1,9 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.NpcStoreDatabase
+import net.sourceforge.kolmafia.item.RetrievePricing
+
 internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
 
     regFn(scope, "autosell_price", AshType.INT,
@@ -14,31 +18,58 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
         AshValue.of(price.toLong())
     }
 
-    // mall_price(it: item) → int — cheapest listed mall price; -1 if not found
+    // mall_price(it: item) → int — desktop anti-mallbot fifth-cheapest price
     regFn(scope, "mall_price", AshType.INT,
         listOf("it" to AshType.ITEM)) { _, args ->
         val itemName = args[0].toString()
+        val itemId = gameDatabase?.item(itemName)?.id ?: return@regFn AshValue.ZERO
         val price = kotlinx.coroutines.runBlocking {
-            mallManager?.cheapestPrice(itemName) ?: -1L
+            if (mallPriceManager != null) mallManager?.getMallPrice(itemId) ?: -1L
+            else mallManager?.cheapestPrice(itemName) ?: -1L
         }
         AshValue.of(price)
     }
 
-    // retrieve_price(it: item) → int — cheapest acquisition price (mall vs NPC)
+    regFn(scope, "mall_price", AshType.INT,
+        listOf("it" to AshType.ITEM, "maxAge" to AshType.FLOAT)) { _, args ->
+        val itemId = gameDatabase?.item(args[0].toString())?.id ?: return@regFn AshValue.ZERO
+        val price = kotlinx.coroutines.runBlocking {
+            mallManager?.getMallPrice(itemId, args[1].toDouble()) ?: -1L
+        }
+        AshValue.of(price)
+    }
+
+    // retrieve_price(it: item) → int — cheapest acquisition (mall/NPC/create)
     regFn(scope, "retrieve_price", AshType.INT,
         listOf("it" to AshType.ITEM)) { _, args ->
         val itemName = args[0].toString()
-        val npc = gameDatabase?.npcPrice(itemName) ?: 0
+        val itemId = gameDatabase?.item(itemName)?.id
+            ?: ItemDatabase.getByName(itemName)?.id
+            ?: return@regFn AshValue.of(-1L)
         val mall = kotlinx.coroutines.runBlocking {
-            mallManager?.cheapestPrice(itemName) ?: -1L
-        }.toInt()
-        val best = when {
-            mall > 0 && npc > 0 -> minOf(mall, npc)
-            mall > 0 -> mall
-            npc > 0 -> npc
-            else -> -1
+            if (mallPriceManager != null) mallManager?.getMallPrice(itemId) ?: -1L
+            else mallManager?.cheapestPrice(itemName) ?: -1L
         }
-        AshValue.of(best.toLong())
+        val historical = mallPriceManager?.getHistoricalPrice(itemId) ?: 0L
+        val ctx = RetrievePricing.PriceContext(
+            inventoryCount = { id ->
+                inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
+            },
+            mallPrice = { id ->
+                if (id == itemId) mall else (mallPriceManager?.getMallPrice(id) ?: -1L)
+            },
+            historicalMallPrice = { id ->
+                if (id == itemId && historical > 0) historical
+                else mallPriceManager?.getHistoricalPrice(id) ?: 0L
+            },
+            npcPrice = { id ->
+                val name = ItemDatabase.getItemName(id)
+                if (name.isBlank()) 0L else NpcStoreDatabase.npcPrice(name).toLong()
+            },
+            prefs = preferences,
+            canCreate = { true },
+        )
+        AshValue.of(RetrievePricing.retrievePrice(itemId, ctx))
     }
 
     regFn(scope, "historical_price", AshType.INT,

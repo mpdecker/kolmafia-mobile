@@ -98,10 +98,16 @@ data class CharacterApiResponse(
     val familiarname: String = "",
     val familiarweight: String = "0",
     val familiarexp: String = "0",
+    /** Desktop famlevel — weight after modifiers (preferred over familiarweight when set). */
+    val famlevel: String = "0",
+    val familiarpic: String = "",
+    val familiar_wellfed: String = "0",
     val enthroned: String = "0",           // enthroned familiar id
     val enthronedname: String = "",
     val bjorned: String = "0",             // bjorned familiar id
     val bjornedname: String = "",
+    /** Comma-separated coolitems tokens from api.php status (IoTM access). */
+    val coolitems: String = "",
 
     // ── Moon / KoL calendar ──────────────────────────────────────────────────
     val moonphase: String = "0",

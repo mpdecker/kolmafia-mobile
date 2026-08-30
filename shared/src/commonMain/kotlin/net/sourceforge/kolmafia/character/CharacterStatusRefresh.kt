@@ -6,8 +6,9 @@ import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
+import net.sourceforge.kolmafia.session.EquipmentManager
 
-/** Desktop [ApiRequest.updateStatus] routing for mobile status/effects refresh (Phase 408). */
+/** Desktop [ApiRequest.updateStatus] routing for mobile status/effects refresh (Phase 408+2510). */
 object CharacterStatusRefresh {
 
     /** Quantum Terrarium qterrarium.php pre-fetch before status refresh (Phase 413). */
@@ -17,6 +18,7 @@ object CharacterStatusRefresh {
         effectManager: EffectManager? = null,
         preferences: Preferences? = null,
         familiarManager: FamiliarManager? = null,
+        equipmentManager: EquipmentManager? = null,
     ): Boolean {
         val state = character.state.value
         if (state.inQuantum && characterRequest != null) {
@@ -26,10 +28,16 @@ object CharacterStatusRefresh {
                 preferences,
             )
             if (parseResult.needsStatusRefresh) {
-                refreshFromApi(characterRequest, character, effectManager)
+                refreshFromApi(
+                    characterRequest, character, effectManager, preferences,
+                    familiarManager, equipmentManager,
+                )
             }
         }
-        return refresh(characterRequest, character, effectManager, preferences, familiarManager)
+        return refresh(
+            characterRequest, character, effectManager, preferences,
+            familiarManager, equipmentManager,
+        )
     }
 
     fun needsCharpaneFallback(state: CharacterState): Boolean =
@@ -46,12 +54,18 @@ object CharacterStatusRefresh {
         effectManager: EffectManager? = null,
         preferences: Preferences? = null,
         familiarManager: FamiliarManager? = null,
+        equipmentManager: EquipmentManager? = null,
     ): Boolean {
         val state = character.state.value
         return if (CharpaneValhallaSync.inValhalla || needsCharpaneFallback(state)) {
-            refreshFromCharpane(characterRequest, character, effectManager, preferences, familiarManager)
+            refreshFromCharpane(
+                characterRequest, character, effectManager, preferences, familiarManager,
+            )
         } else {
-            refreshFromApi(characterRequest, character, effectManager)
+            refreshFromApi(
+                characterRequest, character, effectManager, preferences,
+                familiarManager, equipmentManager,
+            )
         }
     }
 
@@ -59,13 +73,33 @@ object CharacterStatusRefresh {
         characterRequest: CharacterRequest?,
         character: KoLCharacter,
         effectManager: EffectManager?,
+        preferences: Preferences? = null,
+        familiarManager: FamiliarManager? = null,
+        equipmentManager: EquipmentManager? = null,
     ): Boolean {
         val req = characterRequest ?: return false
-        val statusOk = req.fetchCharacterState()
-            .onSuccess { character.updateFromApiResponse(it) }
-            .isSuccess
+        val raw = req.fetchCharacterStatusRaw().getOrNull() ?: return false
+        val decoded = try {
+            kotlinx.serialization.json.Json { ignoreUnknownKeys = true; isLenient = true }
+                .decodeFromString(CharacterApiResponse.serializer(), raw)
+        } catch (_: Exception) {
+            null
+        }
+        if (decoded != null) {
+            character.updateFromApiResponse(decoded)
+        }
+        ApiStatusSync.parseStatus(
+            responseText = raw,
+            character = character,
+            preferences = preferences,
+            effectManager = effectManager,
+            equipmentManager = equipmentManager,
+            familiarManager = familiarManager,
+        )
+        // Dedicated effects endpoint — Maximizer/refresh_status parity when status omits effects
+        // or returns an empty array (desktop still refreshes via api.php?what=effects paths).
         effectManager?.fetchEffects()
-        return statusOk
+        return true
     }
 
     private suspend fun refreshFromCharpane(
@@ -80,9 +114,10 @@ object CharacterStatusRefresh {
         val state = character.state.value
         if (CharpaneValhallaSync.isValhallaHtml(html, state.limitMode)) {
             CharpaneValhallaSync.apply(character, html, preferences, effectManager)
+            CharpaneInteraction.applyInteraction(character, preferences)
         } else {
             CharpaneValhallaSync.reset()
-            CharpaneStatusSync.apply(character, html, preferences)
+            CharpaneStatusSync.apply(character, html, preferences, familiarManager)
             if (state.inPokefam) {
                 CharpanePokefamSync.apply(character, html, familiarManager)
             }

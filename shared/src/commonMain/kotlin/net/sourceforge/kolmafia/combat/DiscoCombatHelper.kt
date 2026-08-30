@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.combat
 
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.NemesisManager
 
 /**
  * Desktop [DiscoCombatHelper] core (Phases 1551–1610) — rave combo prefs, fight learning,
@@ -243,9 +244,9 @@ object DiscoCombatHelper {
 
     /** Desktop [NemesisManager.ensureUpdatedNemesisStatus] raveCombo clear slice. */
     fun ensureUpdatedNemesisStatus(preferences: Preferences, ascensions: Int): Boolean {
-        if (preferences.getInt("lastNemesisReset", -1) == ascensions) return false
-        for (i in 1..6) preferences.setString("raveCombo$i", "")
-        preferences.setInt("lastNemesisReset", ascensions)
+        val alreadyCurrent = preferences.getInt("lastNemesisReset", -1) == ascensions
+        NemesisManager.resetForAscension(preferences, ascensions)
+        if (alreadyCurrent) return false
         if (canCombo) {
             for (i in 0 until NUM_COMBOS) checkCombo(i)
         }

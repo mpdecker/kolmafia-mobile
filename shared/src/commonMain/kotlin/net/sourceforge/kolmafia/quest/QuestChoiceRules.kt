@@ -6,6 +6,11 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.CryptManager
+import net.sourceforge.kolmafia.session.GrimstoneManager
+import net.sourceforge.kolmafia.session.HaciendaManager
+import net.sourceforge.kolmafia.session.ChibiBuddyManager
+import net.sourceforge.kolmafia.session.RabbitHoleManager
+import net.sourceforge.kolmafia.session.WumpusManager
 
 /** Quest step bumps from choice adventure response text. */
 object QuestChoiceRules {
@@ -66,6 +71,27 @@ object QuestChoiceRules {
     ): Boolean {
         var advanced = false
         when (choiceId) {
+            in ChibiBuddyManager.CHOICE_IDS -> {
+                advanced = ChibiBuddyManager.postChoice(
+                    choiceId, decision, responseText, preferences, inventoryManager,
+                ) || advanced
+            }
+            WumpusManager.CHOICE_ID -> {
+                advanced = WumpusManager.applyChoice(decision, responseText) || advanced
+            }
+            RabbitHoleManager.TEA_PARTY_CHOICE,
+            RabbitHoleManager.RABBIT_HOLE_CHOICE,
+            RabbitHoleManager.CHESS_CHOICE,
+            -> {
+                advanced = RabbitHoleManager.applyChoice(
+                    choiceId = choiceId,
+                    decision = decision,
+                    choiceUrl = choiceUrl,
+                    responseText = responseText,
+                    preferences = preferences,
+                    consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
+                ) || advanced
+            }
             SpelunkyChoiceSync.ENTER,
             SpelunkyChoiceSync.EXIT,
             -> {
@@ -78,6 +104,7 @@ object QuestChoiceRules {
                     inventory = inventoryManager,
                     skillManager = skillManager,
                     setLimitMode = setLimitMode,
+                    sessionLog = sessionLog,
                 ) || advanced
             }
             in 1028..1045 -> {
@@ -90,6 +117,7 @@ object QuestChoiceRules {
                     inventory = inventoryManager,
                     skillManager = skillManager,
                     setLimitMode = setLimitMode,
+                    sessionLog = sessionLog,
                 ) || advanced
             }
             FloristFriarChoiceSync.CHOICE_ID ->
@@ -797,6 +825,24 @@ object QuestChoiceRules {
                     html = responseText,
                     preferences = preferences,
                     choiceUrl = choiceUrl,
+                    character = character,
+                    skillManager = skillManager,
+                    decision = decision,
+                ) || advanced
+            }
+            GrimstoneManager.MASK_CHOICE,
+            822, 823, 824, 825, 826, 827,
+            830, 831, 832, 833, 834,
+            837, 838, 839, 840, 841, 842,
+            844, 845, 846, 847, 848, 849, 850,
+            -> {
+                advanced = GrimstoneManager.apply(
+                    choiceId = choiceId,
+                    html = responseText,
+                    preferences = preferences,
+                    decision = decision,
+                    inventory = inventoryManager,
+                    sessionLogger = null,
                 ) || advanced
             }
             ElfGratitudeChoiceSync.CABOOSE_CHOICE,
@@ -1477,6 +1523,17 @@ object QuestChoiceRules {
             }
             in 1545..1550 -> {
                 advanced = CyberRealmSync.applyFromChoice(choiceId, preferences) || advanced
+            }
+            in HaciendaChoiceSync.CHOICE_IDS -> {
+                advanced = HaciendaChoiceSync.applyPostChoice(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    preferences = preferences,
+                    questDatabase = questDatabase,
+                    choiceUrl = choiceUrl,
+                    sessionLog = sessionLog,
+                ) || advanced
             }
         }
         return advanced

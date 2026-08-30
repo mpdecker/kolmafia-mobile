@@ -1,13 +1,18 @@
 package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.campground.MushroomManager
 import net.sourceforge.kolmafia.campground.MushroomPlotSync
+import net.sourceforge.kolmafia.request.MushroomRequest
 import net.sourceforge.kolmafia.character.MainStat
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.request.DwarfFactoryRequest
 import net.sourceforge.kolmafia.quest.LightsOutChoiceSync
 import net.sourceforge.kolmafia.quest.TalesOfDreadChoiceSync
 import net.sourceforge.kolmafia.quest.TavernCellarSync
 import net.sourceforge.kolmafia.session.TurnCounter
+import net.sourceforge.kolmafia.session.DvorakManager
+import net.sourceforge.kolmafia.session.GourdManager
 
 /** Phases 1033–1042 — quest-complete / basement / nemesis / Lights Out / Tales of Dread / mushroom field CLIs. */
 
@@ -121,19 +126,24 @@ internal fun GameRuntimeLibrary.cliGourd(parameters: String, print: (String) -> 
             print("Usage: gourd [trade|visit]")
         }
         arg == "visit" || arg == "refresh" -> {
-            val html = visitKolPage("town_right.php?place=gourd", applyQuestHooks = true)
-            if (html == null) {
-                print("HTTP client is not available.")
-                return
+            val html = gourdRequest?.let { request ->
+                kotlinx.coroutines.runBlocking { request.visit().getOrNull() }
             }
+                ?: visitKolPage("town_right.php?place=gourd", applyQuestHooks = true)
+            if (html == null) return
             val updated = preferences?.getInt("gourdItemCount", needed) ?: needed
             print("Visited Captain of the Gourd (next trade wants $updated).")
         }
         arg == "trade" -> {
-            // No GourdManager/GourdRequest yet — status + visit tip.
-            print("Gourd auto-trade is not ported yet.")
-            print("Next trade wants $needed $itemName(s); you have $have.")
-            print("Visit with: gourd visit")
+            val request = gourdRequest
+            if (request == null) {
+                print("HTTP client is not available.")
+                return
+            }
+            val trades = kotlinx.coroutines.runBlocking {
+                GourdManager.tradeGourdItems(request)
+            }
+            print("Gourd trading complete ($trades trade${if (trades == 1) "" else "s"}).")
         }
         else -> print("Usage: gourd [status|trade|visit]")
     }
@@ -149,13 +159,28 @@ private fun GameRuntimeLibrary.gourdItemId(): Int =
 internal fun GameRuntimeLibrary.cliDvorak(parameters: String, print: (String) -> Unit) {
     val arg = parameters.trim().lowercase()
     when (arg) {
-        "", "status" -> {
-            print("Dvorak tile puzzle solver is not ported yet.")
-            print("Usage: dvorak [solve|step]")
+        "", "status" -> print(DvorakManager.status())
+        "visit", "refresh" -> {
+            val html = visitKolPage("tiles.php", applyQuestHooks = true)
+            if (html == null) print("HTTP client is not available.")
+            print(DvorakManager.status())
         }
-        "solve", "step" -> {
-            print("Dvorak $arg is not available (DvorakManager not ported).")
-            print("Navigate to tiles.php in-game to continue the puzzle.")
+        "step" -> {
+            val url = DvorakManager.nextStepUrl()
+            if (url == null) {
+                print(DvorakManager.status())
+                return
+            }
+            visitKolPage(url, applyQuestHooks = true)
+            print(DvorakManager.status())
+        }
+        "solve" -> {
+            var steps = 0
+            while (steps++ < 7) {
+                val url = DvorakManager.nextStepUrl() ?: break
+                if (visitKolPage(url, applyQuestHooks = true) == null) break
+            }
+            print(DvorakManager.status())
         }
         else -> print("Usage: dvorak [solve|step]")
     }
@@ -178,13 +203,82 @@ internal fun GameRuntimeLibrary.cliSven(parameters: String, print: (String) -> U
 
 internal fun GameRuntimeLibrary.cliBasement(parameters: String, print: (String) -> Unit) {
     val fromPref = preferences?.getInt("basementLevel", -1)?.takeIf { it >= 0 }
-    val level = fromPref ?: buildMonsterExpressionContext().basementLevel
+    val level = fromPref
+        ?: net.sourceforge.kolmafia.request.BasementSync.basementLevel.takeIf { it > 0 }
+        ?: buildMonsterExpressionContext().basementLevel
     print("Fernswarthy's Basement (Level $level)")
-    if (parameters.trim().equals("visit", ignoreCase = true) ||
-        parameters.trim().equals("refresh", ignoreCase = true)
+    val summary = net.sourceforge.kolmafia.request.BasementSync.getBasementLevelSummary()
+    if (summary.isNotBlank()) print(summary)
+    val arg = parameters.trim()
+    if (arg.equals("visit", ignoreCase = true) ||
+        arg.equals("refresh", ignoreCase = true) ||
+        arg.equals("check", ignoreCase = true) ||
+        arg.isEmpty()
     ) {
-        visitKolPage("basement.php", applyQuestHooks = true)
-            ?: print("HTTP client is not available for basement refresh.")
+        if (arg.equals("check", ignoreCase = true) || arg.isEmpty()) {
+            // Prefer live check when HTTP available; otherwise print cached summary.
+        }
+        if (arg.equals("visit", ignoreCase = true) ||
+            arg.equals("refresh", ignoreCase = true) ||
+            arg.equals("check", ignoreCase = true)
+        ) {
+            visitKolPage("basement.php", applyQuestHooks = true)
+                ?: print("HTTP client is not available for basement refresh.")
+            val after = net.sourceforge.kolmafia.request.BasementSync
+            print(after.getBasementLevelName())
+            after.getBasementLevelSummary().takeIf { it.isNotBlank() }?.let(print)
+            after.basementErrorMessage?.let(print)
+        }
+    }
+}
+
+internal fun GameRuntimeLibrary.cliDwarfFactory(parameters: String, print: (String) -> Unit) {
+    val prefs = preferences ?: run {
+        print("Preferences unavailable.")
+        return
+    }
+    val tokens = parameters.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    if (tokens.isEmpty()) {
+        print("Usage: dwarf check|report|setdigits|solve|vacuum <item>")
+        return
+    }
+    when (tokens[0].lowercase()) {
+        "check" -> DwarfFactoryRequest.check(prefs, print)
+        "solve" -> DwarfFactoryRequest.solve(prefs, print)
+        "report" -> {
+            if (tokens.size >= 2) {
+                DwarfFactoryRequest.report(tokens[1].trim().uppercase(), prefs, print)
+            } else {
+                DwarfFactoryRequest.report(prefs, print)
+            }
+        }
+        "setdigits" -> {
+            val digits = tokens.getOrNull(1)?.trim()?.uppercase().orEmpty()
+            if (digits.length != 7) {
+                print("Must supply a 7 character digit string")
+            } else {
+                DwarfFactoryRequest.setDigits(digits, prefs)
+                print("Digit runes set to $digits")
+            }
+        }
+        "vacuum" -> {
+            val itemString = parameters.substringAfter("vacuum").trim()
+            if (itemString.isEmpty()) {
+                print("Usage: dwarf vacuum <item>")
+                return
+            }
+            val itemId = gameDatabase?.item(itemString)?.id
+                ?: ItemDatabase.getByName(itemString)?.id
+            if (itemId == null || itemId <= 0) {
+                print("Unable to find item: $itemString")
+                return
+            }
+            visitKolPage(
+                "dwarfcontraption.php?action=dochamber&howmany=1&whichitem=$itemId",
+                applyQuestHooks = true,
+            ) ?: print("HTTP client is not available for vacuum chamber.")
+        }
+        else -> print("Usage: dwarf check|report|setdigits|solve|vacuum <item>")
     }
 }
 
@@ -361,6 +455,7 @@ private fun extractTaleOfDread(html: String): String {
 
 internal fun GameRuntimeLibrary.cliField(parameters: String, print: (String) -> Unit) {
     val prefs = preferences
+    val client = httpClient
     val tokens = parameters.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
     val command = tokens.getOrNull(0)?.lowercase().orEmpty()
     when (command) {
@@ -369,18 +464,69 @@ internal fun GameRuntimeLibrary.cliField(parameters: String, print: (String) -> 
                 print("Syntax: field plant square spore")
                 return
             }
-            print("Mushroom plant HTTP is not ported yet.")
-            print("Would plant ${tokens.drop(2).joinToString(" ")} in square ${tokens[1]}.")
+            val square = tokens[1].toIntOrNull()
+            if (square == null || square !in 1..16) {
+                print("Squares are numbered from 1 to 16.")
+                return
+            }
+            val sporeName = tokens.drop(2).joinToString(" ")
+            val sporeId = MushroomManager.resolveSporeId(sporeName)
+            val data = sporeId?.let { MushroomManager.getSporeDataByType(it) }
+            if (data == null) {
+                print("Unknown spore: $sporeName")
+                return
+            }
+            if (client == null) {
+                print("HTTP client is not available.")
+                return
+            }
+            val request = MushroomRequest(client, prefs, character, inventoryManager, sessionLogger)
+            kotlinx.coroutines.runBlocking {
+                request.plant(square, MushroomManager.getSporeIndex(data)).onFailure {
+                    print(it.message ?: "Plant failed.")
+                }.onSuccess {
+                    print("Spore successfully planted.")
+                }
+            }
         }
         "pick" -> {
             if (tokens.size < 2) {
                 print("Syntax: field pick square")
                 return
             }
-            print("Mushroom pick HTTP is not ported yet.")
-            print("Would pick square ${tokens[1]}.")
+            val square = tokens[1].toIntOrNull()
+            if (square == null || square !in 1..16) {
+                print("Squares are numbered from 1 to 16.")
+                return
+            }
+            if (client == null) {
+                print("HTTP client is not available.")
+                return
+            }
+            val request = MushroomRequest(client, prefs, character, inventoryManager, sessionLogger)
+            kotlinx.coroutines.runBlocking {
+                request.pick(square).onFailure {
+                    print(it.message ?: "Pick failed.")
+                }.onSuccess {
+                    print("Square picked.")
+                }
+            }
         }
-        "harvest" -> print("Mushroom harvest HTTP is not ported yet.")
+        "harvest" -> {
+            if (client == null) {
+                print("HTTP client is not available.")
+                return
+            }
+            val request = MushroomRequest(client, prefs, character, inventoryManager, sessionLogger)
+            kotlinx.coroutines.runBlocking {
+                for (square in 1..16) {
+                    request.pick(square).onFailure {
+                        print(it.message ?: "Harvest failed at square $square.")
+                        return@runBlocking
+                    }
+                }
+            }
+        }
         "refresh", "visit" -> {
             visitKolPage("knoll_mushrooms.php", applyQuestHooks = true)
                 ?: print("HTTP client is not available.")
@@ -396,9 +542,8 @@ internal fun GameRuntimeLibrary.cliField(parameters: String, print: (String) -> 
     if (lastPlot != ascension) {
         print("No mushroom plot recorded for this ascension. Visit knoll_mushrooms.php or: field refresh")
     }
-    val grid = MushroomPlotSync.plotGrid(prefs)
     print("Current:")
-    for (row in 0 until 4) {
-        print(grid[row].joinToString(" "))
-    }
+    print(MushroomManager.getMushroomManager(false, prefs).trimEnd())
+    print("Forecast:")
+    print(MushroomManager.getForecastedPlot(false, prefs).trimEnd())
 }

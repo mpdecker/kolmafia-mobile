@@ -6,6 +6,7 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.ChateauRequest
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,6 +17,7 @@ class GameRuntimeLibraryAshP911TrackDTest {
     @AfterTest
     fun tearDown() {
         ModifierDatabase.resetForTest()
+        ChateauRequest.reset()
     }
 
     private fun prefs(block: MapSettings.() -> Unit = {}): Preferences {
@@ -40,6 +42,7 @@ class GameRuntimeLibraryAshP911TrackDTest {
 
     @Test
     fun phase911_getChateau_emptyByDefault() {
+        ChateauRequest.reset()
         val lib = GameRuntimeLibrary(preferences = prefs())
         assertEquals("0", outputLib(lib, "print(count(get_chateau()));"))
     }

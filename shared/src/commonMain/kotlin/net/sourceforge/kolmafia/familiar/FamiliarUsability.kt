@@ -6,6 +6,7 @@ import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
 import net.sourceforge.kolmafia.data.RestrictedItemType
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.StandardRequest
+import net.sourceforge.kolmafia.session.YouRobotManager
 
 /** Desktop [KoLCharacter.isUsable] / [KoLCharacter.usableFamiliar] parity. */
 object FamiliarUsability {
@@ -67,6 +68,9 @@ object FamiliarUsability {
         preferences: Preferences? = null,
     ): FamiliarData? {
         if (characterState != null && !characterState.ascensionPath.canUseFamiliars()) {
+            return null
+        }
+        if (characterState?.inRobocore == true && !YouRobotManager.canUseFamiliars()) {
             return null
         }
         if (characterState?.inQuantum == true) {

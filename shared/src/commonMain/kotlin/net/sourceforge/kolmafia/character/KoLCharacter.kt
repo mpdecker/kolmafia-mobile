@@ -33,6 +33,8 @@ class KoLCharacter {
             ascensionNumber = response.ascensions.toIntOrNull() ?: 0,
             gender = Gender.fromApiString(response.gender),
             title = response.title,
+            avatar = prev.avatar,
+            canInteract = prev.canInteract,
 
             // HP / MP
             currentHp = response.hp.toIntOrNull() ?: 0,
@@ -126,8 +128,14 @@ class KoLCharacter {
             // Familiar
             familiarId = response.familiar.toIntOrNull() ?: 0,
             familiarName = response.familiarname,
-            familiarWeight = response.familiarweight.toIntOrNull() ?: 0,
+            familiarWeight = response.familiarweight.toIntOrNull()
+                ?: response.famlevel.toIntOrNull()
+                ?: 0,
             familiarExp = response.familiarexp.toIntOrNull() ?: 0,
+            familiarImage = response.familiarpic.takeIf { it.isNotBlank() }
+                ?.let { if (it.endsWith(".gif") || it.endsWith(".png")) it else "$it.gif" }
+                ?: prev.familiarImage,
+            familiarWellFed = response.familiar_wellfed == "1" || response.familiar_wellfed == "true",
             enthronedFamiliarId = response.enthroned.toIntOrNull() ?: 0,
             enthronedFamiliarName = response.enthronedname,
             bjornedFamiliarId = response.bjorned.toIntOrNull() ?: 0,
@@ -145,12 +153,55 @@ class KoLCharacter {
 
             isLoggedIn = true
         )
+        CharpaneInteraction.applyInteraction(this)
     }
 
     // ── Partial update helpers — avoid full API round-trips for frequent changes ──
 
     fun setKingLiberated(liberated: Boolean = true) {
         _state.value = _state.value.copy(kingLiberated = liberated)
+        CharpaneInteraction.applyInteraction(this)
+    }
+
+    fun setCanInteract(interact: Boolean) {
+        _state.value = _state.value.copy(canInteract = interact)
+    }
+
+    fun setAvatar(avatar: String) {
+        _state.value = _state.value.copy(avatar = avatar)
+    }
+
+    fun setTitle(title: String) {
+        _state.value = _state.value.copy(title = title)
+    }
+
+    fun setLevel(level: Int) {
+        if (level > 0) _state.value = _state.value.copy(level = level)
+    }
+
+    fun setFamiliarPane(
+        weight: Int? = null,
+        wellFed: Boolean? = null,
+        image: String? = null,
+    ) {
+        val prev = _state.value
+        _state.value = prev.copy(
+            familiarWeight = weight ?: prev.familiarWeight,
+            familiarWellFed = wellFed ?: prev.familiarWellFed,
+            familiarImage = image ?: prev.familiarImage,
+        )
+    }
+
+    fun setYouRobotScraps(scraps: Int) {
+        _state.value = _state.value.copy(youRobotScraps = scraps)
+    }
+
+    fun setYouRobotEnergy(energy: Int) {
+        _state.value = _state.value.copy(youRobotEnergy = energy)
+    }
+
+    fun setHatTrickHatIds(ids: List<Int>) {
+        _state.value = _state.value.copy(hatTrickHatIds = ids)
     }
 
     fun updateLimitMode(mode: String) {
@@ -222,6 +273,10 @@ class KoLCharacter {
             familiarId = id, familiarName = name,
             familiarWeight = weight, familiarExp = exp
         )
+    }
+
+    fun updateArenaWins(wins: Int) {
+        _state.value = _state.value.copy(arenaWins = wins.coerceAtLeast(0))
     }
 
     fun updateEnthroned(id: Int, name: String) {
@@ -378,6 +433,19 @@ class KoLCharacter {
         r: CharacterApiResponse,
         prevEquipment: Map<EquipmentSlot, String>,
     ): Map<EquipmentSlot, String> {
+        val hasFlatEquipment =
+            r.hat.isNotBlank() || r.weapon.isNotBlank() || r.offhand.isNotBlank() ||
+                r.shirt.isNotBlank() || r.pants.isNotBlank() ||
+                r.acc1.isNotBlank() || r.acc2.isNotBlank() || r.acc3.isNotBlank() ||
+                r.familiarequip.isNotBlank() || r.container.isNotBlank() ||
+                r.eternitycod.any { it > 0 } ||
+                r.stickers.any { it > 0 } ||
+                r.folder_holder.any { it > 0 } ||
+                r.hats.isNotEmpty()
+        // Empty/partial status payloads (e.g. Maximizer mock `{}`) omit equipment —
+        // preserve the previous map instead of wiping slots.
+        if (!hasFlatEquipment) return prevEquipment
+
         val map = mutableMapOf<EquipmentSlot, String>()
         if (r.hat.isNotBlank())           map[EquipmentSlot.HAT]       = r.hat
         if (r.weapon.isNotBlank())        map[EquipmentSlot.WEAPON]    = r.weapon

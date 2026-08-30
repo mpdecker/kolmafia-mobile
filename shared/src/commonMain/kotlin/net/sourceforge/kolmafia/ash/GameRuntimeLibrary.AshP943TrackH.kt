@@ -138,9 +138,7 @@ internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
     }
 
     regFn(scope, "florist_available", AshType.BOOLEAN, emptyList()) { _, _ ->
-        val checked = preferences?.getBoolean("floristFriarChecked") ?: false
-        val have = preferences?.getBoolean("_floristPlantsAvailable") ?: false
-        AshValue.of(checked && have)
+        AshValue.of(net.sourceforge.kolmafia.request.FloristRequest.haveFlorist(preferences))
     }
 
     // ── Phase 949: allied_radio ────────────────────────────────────

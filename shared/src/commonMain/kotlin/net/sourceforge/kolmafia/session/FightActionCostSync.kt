@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.session
 
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -14,6 +16,17 @@ object FightActionCostSync {
 
     const val CHAOS_BUTTERFLY = 615
     const val COSMIC_BOWLING_BALL = 10891
+    const val ICEBALL = 3391
+    const val SPOOKY_PUTTY_SHEET = 3665
+    const val RAIN_DOH_BOX = 5563
+    const val CAMERA = 4169
+    const val CRAPPY_CAMERA = 7173
+    const val PHOTOCOPIER = 4864
+    const val PRINT_SCREEN = 9022
+    const val ANTIDOTE = 829
+    const val GLOB_OF_BLANK_OUT = 4872
+    const val BLACK_CAT = 93
+    const val OAF = 67
 
     /** Desktop [FightRequest.nextAction] — set before a round when known. */
     var nextAction: String = ""
@@ -25,6 +38,16 @@ object FightActionCostSync {
     private val THUNDER = Regex("""swallow <b>(\d+)</b> dB of it""")
     private val RAIN = Regex("""recovering <b>(\d+)</b> drops""")
     private val LIGHTNING = Regex("""recovering <b>(\d+)</b> bolts""")
+    private val NS1_BLOCK_PATTERNS = listOf(
+        Regex("""you pull the (.*?) out of your pocket""", RegexOption.IGNORE_CASE),
+        Regex("""start to use the (.*?), but the Sorceress""", RegexOption.IGNORE_CASE),
+        Regex("""grabs the (.*?) out of your hands""", RegexOption.IGNORE_CASE),
+    )
+    private val NS2_BLOCK_PATTERNS = listOf(
+        Regex("""tears the (.*?) out of your hands""", RegexOption.IGNORE_CASE),
+        Regex("""the (.*?) is shattered""", RegexOption.IGNORE_CASE),
+        Regex("""use the (.*?), a nasty-looking pseudopod""", RegexOption.IGNORE_CASE),
+    )
 
     fun reset() {
         nextAction = ""
@@ -43,12 +66,27 @@ object FightActionCostSync {
         inventory: InventoryManager? = null,
         preferences: Preferences? = null,
         action: String = nextAction,
+        familiarId: Int = 0,
     ): Boolean {
         var changed = false
         changed = applyResourceGains(html, character) || changed
 
         val act = action.trim()
         if (act.isEmpty()) return changed
+
+        // These familiars prevent the requested skill/item from happening;
+        // neither the original resource nor the item should be charged.
+        if (familiarId == BLACK_CAT && html.contains("jumps onto the keyboard", true)) {
+            nextAction = "attack"
+            return changed
+        }
+        if (familiarId == BLACK_CAT && html.contains("bats it out of your hand", true)) {
+            return changed
+        }
+        if (familiarId == OAF && html.contains("calculated to be sub-optimal", true)) {
+            nextAction = "attack"
+            return changed
+        }
 
         when {
             act == "attack" || act == "runaway" || act == "abort" || act == "steal" ->
@@ -61,7 +99,7 @@ object FightActionCostSync {
             }
 
             act.startsWith("skill") -> {
-                if (html.contains("You don't have that skill")) return changed
+                if (isActionFailure(html)) return changed
                 val skillId = act.removePrefix("skill").toIntOrNull() ?: return changed
                 changed = paySkillCost(skillId, character) || changed
             }
@@ -123,6 +161,7 @@ object FightActionCostSync {
             inventory.consumeItemLocally(itemId, 1)
             changed = true
         }
+        changed = applySpecialItemState(itemId, itemId2, html, preferences) || changed
         return changed
     }
 
@@ -149,26 +188,162 @@ object FightActionCostSync {
         return changed
     }
 
-    private fun isItemSuccess(html: String): Boolean =
+    fun isItemSuccess(html: String): Boolean =
         html.contains("You use") ||
             html.contains("You throw") ||
             html.contains("You slap") ||
             html.contains("You hurl")
 
+    fun isItemDamageSuccess(html: String): Boolean =
+        html.contains("dealing", true) ||
+            html.contains("damage", true) ||
+            html.contains("hurl a thing", true) ||
+            html.contains("combat items!", true)
+
+    fun isItemRunawaySuccess(html: String): Boolean =
+        html.contains("wings on your heels", true) ||
+            html.contains("beat a retreat", true) ||
+            html.contains("are no longer anywhere", true) ||
+            html.contains("burps taste like pride", true)
+
+    private fun isActionFailure(html: String): Boolean =
+        html.contains("You don't have that skill", true) ||
+            html.contains("You can't use that skill", true) ||
+            html.contains("not enough", true) ||
+            html.contains("calculated to be sub-optimal", true) ||
+            html.contains("bats it out of your hand", true)
+
     /**
      * Desktop [FightRequest.isItemConsumed] practical default: consume unless the
      * server rejected the use with a known failure phrase.
      */
-    fun isItemConsumed(itemId: Int, html: String): Boolean {
+    fun isItemConsumed(
+        itemId: Int,
+        html: String,
+        monsterName: String = MonsterStatusTracker.getLastMonsterName(),
+        itemName: String = ItemDatabase.getItemName(itemId),
+    ): Boolean {
         if (itemId <= 0) return false
-        if (html.contains("You don't have that item") ||
-            html.contains("You can't use that item") ||
-            html.contains("You are too scared of Bs")
+        if (html.contains("You don't have that item", true) ||
+            html.contains("You can't use that item", true) ||
+            html.contains("You are too scared of Bs", true) ||
+            html.contains("you don't have enough", true) ||
+            html.contains("calculated to be sub-optimal", true) ||
+            html.contains("bats it out of your hand", true)
         ) {
             return false
         }
         // Reusable combat items that should not be consumed on use
-        if (itemId == COSMIC_BOWLING_BALL) return false
+        if (itemId == COSMIC_BOWLING_BALL || ItemDatabase.isCombatReusable(itemId)) return false
+
+        val itemDamageSuccess = isItemDamageSuccess(html)
+        val itemRunawaySuccess = isItemRunawaySuccess(html)
+        val itemSuccess = isItemSuccess(html)
+        if (itemId == ICEBALL) {
+            when {
+                html.contains("completely disintegrates", true) -> return true
+                html.contains("pretty slushy", true) -> return false
+                html.contains("back in your sack", true) -> return false
+                itemDamageSuccess -> return false
+            }
+            return false
+        }
+        when (monsterName.trim().lowercase()) {
+            "bonerdagon" -> {
+                val blocked = Regex(
+                    """(?:can't|cannot).*?use (?:the )?([^.<]+)""",
+                    RegexOption.IGNORE_CASE,
+                ).find(html)?.groupValues?.getOrNull(1)
+                if (blocked?.trim()?.equals(itemName, true) == true) return false
+            }
+            "your shadow" -> {
+                if (html.contains("knocks it out of your hands", ignoreCase = true)) return false
+            }
+            "naughty sorceress" -> {
+                if (matchesBlockedItem(NS1_BLOCK_PATTERNS, html, itemName)) return false
+            }
+            "naughty sorceress (2)" -> {
+                if (matchesBlockedItem(NS2_BLOCK_PATTERNS, html, itemName)) return false
+            }
+        }
         return true
     }
+
+    private fun applySpecialItemState(
+        itemId: Int,
+        itemId2: Int,
+        html: String,
+        preferences: Preferences?,
+    ): Boolean {
+        val prefs = preferences ?: return false
+        val monster = MonsterStatusTracker.getLastMonsterName()
+        val success = isItemSuccess(html) || isItemDamageSuccess(html) || isItemRunawaySuccess(html)
+        var changed = false
+        when (itemId) {
+            ICEBALL -> {
+                val uses = when {
+                    html.contains("completely disintegrates", true) -> 3
+                    html.contains("pretty slushy", true) -> 2
+                    html.contains("back in your sack", true) -> 1
+                    success -> (prefs.getInt("_iceballUses", 0) + 1).coerceAtMost(3)
+                    else -> prefs.getInt("_iceballUses", 0)
+                }
+                if (uses != prefs.getInt("_iceballUses", 0)) {
+                    prefs.setInt("_iceballUses", uses)
+                    changed = true
+                }
+            }
+            SPOOKY_PUTTY_SHEET -> if (html.contains("make a perfect copy", true) || success) {
+                prefs.setInt("spookyPuttyCopiesMade", prefs.getInt("spookyPuttyCopiesMade", 0) + 1)
+                prefs.setString("spookyPuttyMonster", monster)
+                prefs.setString("autoPutty", "")
+                changed = true
+            }
+            RAIN_DOH_BOX -> if (html.contains("ghostly image of your opponent", true) || success) {
+                prefs.setInt("_raindohCopiesMade", prefs.getInt("_raindohCopiesMade", 0) + 1)
+                prefs.setString("rainDohMonster", monster)
+                prefs.setString("autoPutty", "")
+                changed = true
+            }
+            CAMERA -> if (html.contains("old-timey", true) && html.contains("POOF", true) || success) {
+                prefs.setString("cameraMonster", monster)
+                prefs.setInt("camerasUsed", prefs.getInt("camerasUsed", 0) + 1)
+                prefs.setString("autoPutty", "")
+                changed = true
+            }
+            CRAPPY_CAMERA -> if (html.contains("old-timey", true) && html.contains("POOF", true) || success) {
+                prefs.setString("crappyCameraMonster", monster)
+                prefs.setString("autoPutty", "")
+                changed = true
+            }
+            PHOTOCOPIER -> if (html.contains("press the COPY button", true) || success) {
+                prefs.setString("photocopyMonster", monster)
+                prefs.setString("autoPutty", "")
+                changed = true
+            }
+            PRINT_SCREEN -> if (html.contains("You copy", true) || success) {
+                prefs.setString("screencappedMonster", monster)
+                changed = true
+            }
+            ANTIDOTE -> if (html.contains("quickly quaff", true) || success) changed = true
+            GLOB_OF_BLANK_OUT -> if (
+                html.contains("your hand is finally clean", true) ||
+                (isItemRunawaySuccess(html) && prefs.getInt("blankOutUsed", 0) >= 5)
+            ) {
+                prefs.setInt("blankOutUsed", 0)
+                changed = true
+            }
+        }
+        if (itemId2 > 0) {
+            // Funslinging applies the same item-specific state to the second item.
+            changed = applySpecialItemState(itemId2, 0, html, preferences) || changed
+        }
+        return changed
+    }
+
+    private fun matchesBlockedItem(patterns: List<Regex>, html: String, itemName: String): Boolean =
+        patterns.any { pattern ->
+            pattern.find(html)?.groupValues?.getOrNull(1)?.trim()
+                ?.equals(itemName, ignoreCase = true) == true
+        }
 }

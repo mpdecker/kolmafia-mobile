@@ -16,9 +16,10 @@ internal fun GameRuntimeLibrary.registerAshP118Batch(scope: AshScope) {
             val ok = CharacterStatusRefresh.refreshWithQuantumPreflight(
                 characterRequest = characterRequest,
                 character = char,
-                effectManager = null,
+                effectManager = effectManager,
                 preferences = preferences,
                 familiarManager = familiarManager,
+                equipmentManager = equipmentManager,
             )
             AshValue.of(ok)
         }
@@ -63,6 +64,7 @@ internal suspend fun GameRuntimeLibrary.refreshCharacterStates(): Triple<Charact
             effectManager = effectManager,
             preferences = preferences,
             familiarManager = familiarManager,
+            equipmentManager = equipmentManager,
         )
     }
     return Triple(

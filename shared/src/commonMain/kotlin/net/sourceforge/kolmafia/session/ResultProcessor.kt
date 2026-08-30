@@ -18,7 +18,7 @@ import net.sourceforge.kolmafia.shop.DesertBeachUnlockSync
  */
 object ResultProcessor {
     private val ITEM_GAINED = Regex(
-        """You acquire an item:\s*<b>(.*?)</b>(?:\s*\((stored in Hagnk's Ancestral Mini-Storage|automatically equipped)\))?""",
+        """You acquire (?:and equip )?an item:\s*<b>(.*?)</b>(?:\s*\((\d+)\))?(?:\s*\((stored in Hagnk's Ancestral Mini-Storage|automatically equipped)\))?""",
         RegexOption.IGNORE_CASE,
     )
     private val MEAT_GAINED = Regex("""You gain ([\d,]+) Meat""")
@@ -90,9 +90,10 @@ object ResultProcessor {
         val counts = linkedMapOf<String, Int>()
         ITEM_GAINED.findAll(html).forEach { m ->
             val name = m.groupValues[1].trim()
-            val comment = m.groupValues.getOrNull(2).orEmpty()
+            val quantity = m.groupValues.getOrNull(2)?.toIntOrNull() ?: 1
+            val comment = m.groupValues.getOrNull(3).orEmpty()
             if (name.isNotEmpty() && !comment.contains("Hagnk", ignoreCase = true)) {
-                counts[name] = (counts[name] ?: 0) + 1
+                counts[name] = (counts[name] ?: 0) + quantity
             }
         }
         return counts.map { it.key to it.value }
@@ -101,7 +102,7 @@ object ResultProcessor {
     fun parseAutoEquipped(html: String): List<String> =
         ITEM_GAINED.findAll(html).mapNotNull { m ->
             val name = m.groupValues[1].trim()
-            val comment = m.groupValues.getOrNull(2).orEmpty()
+            val comment = m.groupValues.getOrNull(3).orEmpty()
             if (name.isNotEmpty() && comment.contains("automatically equipped", ignoreCase = true)) {
                 name
             } else {

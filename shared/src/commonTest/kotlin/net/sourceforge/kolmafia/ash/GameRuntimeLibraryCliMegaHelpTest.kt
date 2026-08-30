@@ -8,8 +8,8 @@ import kotlin.test.assertTrue
 class GameRuntimeLibraryCliMegaHelpTest {
 
     @Test
-    fun revision_isphase2450() {
-        assertEquals("phase2450", GameRuntimeLibrary.REVISION)
+    fun revision_isphase2750() {
+        assertEquals("phase3830", GameRuntimeLibrary.REVISION)
     }
 
     @Test

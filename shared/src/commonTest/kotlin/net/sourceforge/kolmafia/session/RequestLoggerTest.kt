@@ -57,6 +57,68 @@ class RequestLoggerTest {
     }
 
     @Test
+    fun sorceressTowerRequestsUseDescriptiveLines() {
+        assertTrue(
+            RequestLogger.registerRequest(
+                "place.php?whichplace=nstower&action=ns_01_contestbooth",
+                logger,
+                prefs,
+            ),
+        )
+        assertEquals("[0] Tower: Contest Booth", logger.recentLines().last())
+
+        assertTrue(
+            RequestLogger.registerRequest(
+                "place.php?whichplace=nstower&action=ns_11_prism",
+                logger,
+                prefs,
+            ),
+        )
+        assertEquals("[0] Freeing King Ralph", logger.recentLines().last())
+    }
+
+    @Test
+    fun sorceressContestChoicesAreNotBurningNewspaper() {
+        prefs.setString("nsChallenge1", "Muscle")
+        assertTrue(
+            RequestLogger.registerRequest(
+                "choice.php?whichchoice=1003&option=2",
+                logger,
+                prefs,
+            ),
+        )
+        assertEquals("Registering for the Strongest Adventurer Contest", logger.recentLines().last())
+        assertTrue(
+            RequestLogger.registerRequest(
+                "choice.php?whichchoice=1003&option=4",
+                logger,
+                prefs,
+            ),
+        )
+        assertEquals("Claiming your prize", logger.recentLines().last())
+    }
+
+    @Test
+    fun sorceressEncounterChoicesSuppressUrlLogging() {
+        assertTrue(
+            RequestLogger.registerRequest(
+                "choice.php?whichchoice=1008&option=2",
+                logger,
+                prefs,
+            ),
+        )
+        assertTrue(logger.recentLines().isEmpty())
+        assertTrue(
+            RequestLogger.registerRequest(
+                "choice.php?whichchoice=1021&option=1",
+                logger,
+                prefs,
+            ),
+        )
+        assertTrue(logger.recentLines().isEmpty())
+    }
+
+    @Test
     fun choiceGenericAndIotm() {
         assertTrue(RequestLogger.registerRequest("choice.php?whichchoice=123&option=2", logger, prefs))
         assertTrue(logger.recentLines().any { it == "choice 123/2" })

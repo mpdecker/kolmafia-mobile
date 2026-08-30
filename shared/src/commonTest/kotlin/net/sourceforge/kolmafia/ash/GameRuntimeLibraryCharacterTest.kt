@@ -210,11 +210,13 @@ class GameRuntimeLibraryCharacterTest {
     }
 
     @Test
-    fun resolveLocation_spookyForest_usesSnarfblat20() {
+    fun resolveLocation_spookyForest_usesSnarfblatFromAdventureDatabase() {
         val lib = GameRuntimeLibrary.forTesting()
         val loc = lib.resolveLocation("The Spooky Forest")
-        assertEquals("20", loc?.id)
+        // adventures.txt: Woods / adventure=15 / The Spooky Forest
+        assertEquals("15", loc?.id)
         assertEquals("The Spooky Forest", loc?.name)
+        assertEquals("adventure.php", loc?.formSource)
     }
 
     @Test

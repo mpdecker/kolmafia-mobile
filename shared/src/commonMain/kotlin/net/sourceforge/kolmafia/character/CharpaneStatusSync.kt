@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.character
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.SpelunkyRequest
 import net.sourceforge.kolmafia.session.BatManager
+import net.sourceforge.kolmafia.session.YouRobotManager
 
 /** Parses charpane.php HTML for status fields when api.php status is incomplete (Phase 408). */
 object CharpaneStatusSync {
@@ -119,11 +120,22 @@ object CharpaneStatusSync {
         character: KoLCharacter,
         html: String,
         preferences: Preferences? = null,
+        familiarManager: net.sourceforge.kolmafia.familiar.FamiliarManager? = null,
     ) {
         val state = character.state.value
         val parsed = parse(html, state)
         character.updateFromCharpane(parsed)
         ClassResourceCharpaneSync.apply(character, html)
+        parseAvatar(html, character, state)
+        parseTitle(html, character)
+        parseLevel(html, character)
+        setLastAdventure(html, preferences)
+        checkNoncombatForcers(html, preferences)
+        checkOtherModifiers(html, preferences)
+        checkFamiliar(html, character, familiarManager)
+        checkClancy(html, preferences, state)
+        checkYouRobot(html, character, state, preferences)
+        CharpaneInteraction.applyInteraction(character, preferences)
         val mode = character.state.value.limitMode
         if (preferences != null) {
             when {
@@ -140,6 +152,247 @@ object CharpaneStatusSync {
         if (preferences != null && hasTransfunctionerEquipped(state)) {
             apply8BitScore(html, preferences)
         }
+    }
+
+    private val avatarPattern = Regex(
+        """<img\s+(?:crossorigin="Anonymous"\s+|)?src=[^>]*?(?:cloudfront\.net|images\.kingdomofloathing\.com|/images)/([^>'"\s]+)""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val titlePattern = Regex(
+        """<a class=nounder target=mainpane href="charsheet\.php"><b>[^>]*?</b></a><br>(?<title>[^<]*?)<br>[^<]*?<table""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val levelPattern = Regex("""<br>(?:\(?Level |Lvl\. )(\d+)\)?<""")
+
+    fun parseAvatar(html: String, character: KoLCharacter, state: CharacterState = character.state.value) {
+        if (state.inRobocore) return
+        val path = avatarPattern.find(html)?.groupValues?.getOrNull(1) ?: return
+        character.setAvatar(path)
+    }
+
+    fun parseTitle(html: String, character: KoLCharacter) {
+        val title = titlePattern.find(html)?.groups?.get("title")?.value ?: return
+        if (title.isNotBlank()) character.setTitle(title.trim())
+    }
+
+    fun parseLevel(html: String, character: KoLCharacter) {
+        val level = levelPattern.find(html)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: return
+        character.setLevel(level)
+    }
+
+    private val noncombatForcerPattern = Regex(
+        """<b><font size=2>Adventure Modifiers:</font></b><br><div style='text-align: left'><small>(.*?)</small>""",
+        RegexOption.DOT_MATCHES_ALL,
+    )
+    private val noncombatForcers = mapOf(
+        "You are temporarily in the mostly-combatless world of Clara's Bell." to "clara",
+        "Your spikes are scaring away most monsters." to "spikolodon",
+        "With the jelly all over you, you are probably not going to encounter anything" to "stench jelly",
+        "You've engaged exit mode on your cincho and will avoid most combats." to "cincho exit",
+        "You are avoiding fights until something cool happens." to "sneakisol",
+        "Your tuba playing has scared away most monsters." to "band tuba",
+        "You triggered an avalanche clearing the area of monsters." to "ski avalanche",
+        "A sniper is guiding you out of trouble." to "sniper support",
+    )
+
+    fun checkNoncombatForcers(html: String, preferences: Preferences?) {
+        preferences ?: return
+        val match = noncombatForcerPattern.find(html)
+        val active = match != null
+        preferences.setBoolean(Preferences.Keys.NONCOMBAT_FORCER_ACTIVE, active)
+        if (!active) {
+            preferences.setString("noncombatForcers", "")
+            return
+        }
+        val body = match!!.groupValues[1]
+        val tokens = body.split("<br>", ignoreCase = true)
+            .map { it.trim() }
+            .mapNotNull { desc ->
+                noncombatForcers.entries.firstOrNull { (key, _) ->
+                    desc.startsWith(key) || desc.contains(key)
+                }?.value
+            }
+        preferences.setString("noncombatForcers", tokens.joinToString("|"))
+    }
+
+    private val legendaryAmygdalaPattern =
+        Regex("""Your amygdala full of legendary noodles will lead you into (\d+) more fight""")
+    private val legendarySkinPattern =
+        Regex("""Your skin will be really tough for (\d+) more fight""")
+    private val legendaryStomachPattern =
+        Regex("""Your stomach will be more efficient for (\d+) more meal""")
+
+    fun checkOtherModifiers(html: String, preferences: Preferences?) {
+        preferences ?: return
+        preferences.setInt(
+            "legendaryNoodlesAmygdala",
+            legendaryAmygdalaPattern.find(html)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0,
+        )
+        preferences.setInt(
+            "legendaryNoodlesSkin",
+            legendarySkinPattern.find(html)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0,
+        )
+        preferences.setInt(
+            "legendaryNoodlesStomach",
+            legendaryStomachPattern.find(html)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0,
+        )
+    }
+
+    private val compactLastAdventurePattern = Regex(
+        """<a onclick=[^>]+ title="Last Adventure: ([^"]+)" target=mainpane href="([^"]*)">.*?</a>:""",
+        RegexOption.DOT_MATCHES_ALL,
+    )
+    private val expandedLastAdventurePattern = Regex(
+        """Last Adventure:</a></b></font><br>\s*<table.*?><tr><td><font.*?><a .*?href="(?<link>[^"]*)">(?<name>[^<]*)</a>""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+    private val compactTrailPattern = Regex(
+        """<span id="lastadvmenu"[^>]*><font size=1>(?<trail>.*?)</font></span>""",
+        RegexOption.DOT_MATCHES_ALL,
+    )
+    private val trailElementPattern = Regex(
+        """<nobr><a [^>]*?href="(?<link>.*?)">(?<name>[^<]*?)</a></nobr>""",
+    )
+
+    fun setLastAdventure(html: String, preferences: Preferences?) {
+        preferences ?: return
+        val compact = isCompact(html)
+        var adventureName: String? = null
+        var adventureUrl: String? = null
+        var trailString: String? = null
+        if (compact) {
+            compactLastAdventurePattern.find(html)?.let {
+                adventureName = it.groupValues[1]
+                adventureUrl = it.groupValues[2]
+            }
+            trailString = compactTrailPattern.find(html)?.groups?.get("trail")?.value
+        } else {
+            expandedLastAdventurePattern.find(html)?.let { m ->
+                adventureName = m.groups["name"]?.value
+                adventureUrl = m.groups["link"]?.value
+            }
+            // Trail after the last-adventure table (optional)
+            val after = adventureName?.let { name ->
+                val idx = html.indexOf(name)
+                if (idx >= 0) html.substring(idx) else null
+            }
+            if (after != null) {
+                trailString = trailElementPattern.findAll(after).joinToString("|") {
+                    it.groups["name"]!!.value
+                }.takeIf { it.isNotBlank() }
+            }
+        }
+        if (adventureName.isNullOrBlank() || adventureName == "The Naughty Sorceress' Tower") {
+            return
+        }
+        preferences.setString("lastAdventure", adventureName!!)
+        if (!adventureUrl.isNullOrBlank()) {
+            preferences.setString("lastAdventureUrl", adventureUrl!!)
+        }
+        if (!trailString.isNullOrBlank()) {
+            val trail = if (compact) {
+                val list = mutableListOf<String>()
+                trailElementPattern.findAll(trailString!!).forEach { list.add(it.groups["name"]!!.value) }
+                list
+            } else {
+                listOf(adventureName!!) + trailString!!.split("|").filter {
+                    it.isNotBlank() && it != adventureName
+                }
+            }
+            if (trail.isNotEmpty()) {
+                preferences.setString("lastAdventureTrail", trail.joinToString("|"))
+            }
+        }
+    }
+
+    private val compactFamiliarWeightPattern = Regex("""<br>(\d+) lb""")
+    private val expandedFamiliarWeightPattern = Regex("""<b>(\d+)</b> pound""")
+    private val familiarImagePattern = Regex(
+        """<a.*?class="familiarpick"><img.*?((?:item|other)images)/(.*?\.(?:gif|png))""",
+        RegexOption.DOT_MATCHES_ALL,
+    )
+
+    fun checkFamiliar(
+        html: String,
+        character: KoLCharacter,
+        familiarManager: net.sourceforge.kolmafia.familiar.FamiliarManager? = null,
+    ) {
+        val state = character.state.value
+        if (state.isAxecore || state.inPokefam || state.inRobocore) return
+        val compact = isCompact(html)
+        val weightPattern = if (compact) compactFamiliarWeightPattern else expandedFamiliarWeightPattern
+        val weight = weightPattern.find(html)?.groupValues?.getOrNull(1)?.toIntOrNull()
+        val wellFed = html.contains("well-fed", ignoreCase = true)
+        val image = familiarImagePattern.find(html)?.groupValues?.getOrNull(2)
+        if (weight != null || image != null) {
+            character.setFamiliarPane(weight = weight, wellFed = wellFed, image = image)
+        } else if (wellFed) {
+            character.setFamiliarPane(wellFed = true)
+        }
+        if (weight != null) {
+            familiarManager?.applyActiveWeightXpLocally(weight, state.familiarExp)
+            familiarManager?.applyActiveFeastedLocally(wellFed)
+        }
+    }
+
+    private val compactClancyPattern = Regex(
+        """otherimages/clancy_([123])(_att)?\.gif.*?L\. (\d+)""",
+        RegexOption.DOT_MATCHES_ALL,
+    )
+    private val expandedClancyPattern = Regex(
+        """<b>Clancy</b>.*?Level <b>(\d+)</b>.*?otherimages/clancy_([123])(_att)?\.gif""",
+        RegexOption.DOT_MATCHES_ALL,
+    )
+
+    fun checkClancy(html: String, preferences: Preferences?, state: CharacterState) {
+        preferences ?: return
+        if (!state.isAxecore) return
+        val compact = isCompact(html)
+        val match = (if (compact) compactClancyPattern else expandedClancyPattern).find(html) ?: return
+        val level: Int
+        val instrument: String
+        val wantsAttention: Boolean
+        if (compact) {
+            instrument = match.groupValues[1]
+            wantsAttention = match.groupValues[2].isNotBlank()
+            level = match.groupValues[3].toIntOrNull() ?: return
+        } else {
+            level = match.groupValues[1].toIntOrNull() ?: return
+            instrument = match.groupValues[2]
+            wantsAttention = match.groupValues[3].isNotBlank()
+        }
+        preferences.setInt("clancyLevel", level)
+        preferences.setString(
+            "clancyInstrument",
+            when (instrument) {
+                "1" -> "sackbut"
+                "2" -> "crumhorn"
+                "3" -> "lute"
+                else -> ""
+            },
+        )
+        preferences.setBoolean("clancyWantsAttention", wantsAttention)
+    }
+
+    private val youRobotScrapsExpanded = Regex("""scrap\.gif.*?>([\d,]+)<""")
+    private val youRobotScrapsCompact = Regex("""Scrap.*?<b>([\d,]+)</b>""", RegexOption.DOT_MATCHES_ALL)
+
+    fun checkYouRobot(
+        html: String,
+        character: KoLCharacter,
+        state: CharacterState,
+        preferences: Preferences? = null,
+    ) {
+        if (!state.inRobocore) return
+        YouRobotManager.restoreFromPreferences(preferences)
+        YouRobotManager.parseAvatar(html, preferences)
+        val compact = isCompact(html)
+        val pattern = if (compact) youRobotScrapsCompact else youRobotScrapsExpanded
+        val scraps = pattern.find(html)?.groupValues?.getOrNull(1)
+            ?.replace(",", "")
+            ?.toIntOrNull()
+            ?: return
+        character.setYouRobotScraps(scraps)
     }
 
     private fun apply8BitScore(html: String, preferences: Preferences) {

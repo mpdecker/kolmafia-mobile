@@ -149,6 +149,51 @@ object BountyDatabase {
         return _byName.values.filter { it.monster.lowercase() == lower }
     }
 
+    /** Desktop BountyDatabase.getName(plural) — resolve canonical name from plural form. */
+    fun getName(pluralOrName: String): String? {
+        val lower = pluralOrName.trim().lowercase()
+        if (lower.isEmpty()) return null
+        _byName.values.firstOrNull { it.plural.equals(pluralOrName, ignoreCase = true) }
+            ?.let { return it.name }
+        return getByName(pluralOrName)?.name ?: resolve(pluralOrName)
+    }
+
+    fun getLocation(name: String): String? =
+        getByName(name)?.bestLocation?.takeIf { it.isNotEmpty() }
+
+    fun getNumber(name: String): Int = getByName(name)?.count ?: 0
+
+    fun getPlural(name: String): String = getByName(name)?.plural ?: name
+
+    fun getType(name: String): String? = getByName(name)?.typeString()?.takeIf { it.isNotEmpty() }
+
+    /** Runtime overlay for unknown bounty discovery during fights. */
+    fun setValue(
+        name: String,
+        plural: String,
+        type: String,
+        image: String,
+        number: Int,
+        monster: String,
+        location: String,
+    ) {
+        val bountyType = when (type.lowercase()) {
+            "easy" -> BountyType.EASY
+            "hard" -> BountyType.HARD
+            "special" -> BountyType.SPECIAL
+            else -> BountyType.UNKNOWN
+        }
+        val bounty = BountyData(name, plural, bountyType, image, number, monster, location)
+        _byName[name.lowercase()] = bounty
+        when (bountyType) {
+            BountyType.EASY -> if (_easy.none { it.name.equals(name, true) }) _easy.add(bounty)
+            BountyType.HARD -> if (_hard.none { it.name.equals(name, true) }) _hard.add(bounty)
+            BountyType.SPECIAL -> if (_special.none { it.name.equals(name, true) }) _special.add(bounty)
+            BountyType.UNKNOWN -> Unit
+        }
+        rebuildCanonicalIndex()
+    }
+
     private fun substringMatches(name: String, search: String, wordStart: Boolean): Boolean {
         if (search.isEmpty()) return false
         var index = name.indexOf(search)

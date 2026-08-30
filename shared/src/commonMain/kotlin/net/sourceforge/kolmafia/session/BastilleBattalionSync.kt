@@ -65,6 +65,27 @@ object BastilleBattalionSync {
 
     fun isBastilleChoice(choiceId: Int): Boolean = choiceId in BASTILLE_CHOICES
 
+    /** Desktop reset hub: daily and per-game properties plus in-memory simulation state. */
+    fun reset(prefs: Preferences) {
+        currentStyles.clear()
+        currentStats = Stats()
+        currentCastle = null
+        currentBattle = null
+        prefs.setInt(PREF_GAMES, 0)
+        prefs.setString(PREF_BOOSTS, "")
+        prefs.setString(PREF_CURRENT_STYLES, "")
+        prefs.setString(PREF_STATS, "")
+        prefs.setInt(PREF_GAME_TURN, 0)
+        prefs.setInt(PREF_CHEESE, 0)
+        prefs.setString(PREF_ENEMY_CASTLE, "")
+        prefs.setString(PREF_ENEMY_NAME, "")
+        clearChoices(prefs)
+        prefs.setString(PREF_LAST_ENCOUNTER, "")
+        prefs.setString(PREF_LAST_BATTLE_RESULTS, "")
+        prefs.setBoolean(PREF_LAST_BATTLE_WON, false)
+        prefs.setInt(PREF_LAST_CHEESE, 0)
+    }
+
     fun registerRequest(
         choiceId: Int,
         decision: Int,

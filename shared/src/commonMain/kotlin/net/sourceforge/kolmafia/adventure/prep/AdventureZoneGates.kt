@@ -4,6 +4,8 @@ import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.data.AdventureZone
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.request.SpaaaceRequest
+import net.sourceforge.kolmafia.session.GrimstoneManager
 
 /**
  * Desktop [KoLAdventure.preValidateAdventure] + [KoLAdventure.canAdventure] high-traffic
@@ -135,8 +137,7 @@ object AdventureZoneGates {
 
         // Grimstone / psychoses — can-gate only (prepare must not use the jar/mask)
         if (zone.zoneName.contains("Grimstone", ignoreCase = true)) {
-            return ctx.prefBool("grimstoneAvailable") ||
-                ctx.prefString("grimstoneZone").isNotEmpty()
+            return GrimstoneManager.zoneGateOpen(ctx.preferences)
         }
         if (zone.zoneName.contains("Psychoses", ignoreCase = true)) {
             return ctx.prefString("currentPsychoses").isNotEmpty()
@@ -197,8 +198,9 @@ object AdventureZoneGates {
                 ctx.isAtLeast(Quest.NEMESIS, "step20") || ctx.isFinished(Quest.NEMESIS)
             zone.zoneName.contains("Snojo", ignoreCase = true) ->
                 ctx.prefBool("snojoAvailable") || ctx.prefBool("_snojoFreeFights")
-            zone.zoneName.contains("Spaaace", ignoreCase = true) ||
-                zone.zoneName.contains("Hole in the Sky", ignoreCase = true) ->
+            zone.zoneName.contains("Spaaace", ignoreCase = true) ->
+                SpaaaceRequest.accessible(emptySet(), { id -> ctx.inventoryCount(id) }, ctx.quests) == null
+            zone.zoneName.contains("Hole in the Sky", ignoreCase = true) ->
                 ctx.hasItem(ItemIds.TRANSFUNCTIONER) || AdventureUnlockHelpers.woodsOpen(ctx)
             zone.zoneName.contains("Rabbit Hole", ignoreCase = true) ->
                 ctx.prefBool("rabbitHoleAvailable") || ctx.prefString("lastRabbitHole").isNotEmpty()
