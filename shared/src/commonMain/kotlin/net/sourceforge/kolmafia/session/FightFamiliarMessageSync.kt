@@ -78,9 +78,17 @@ object FightFamiliarMessageSync {
         preferences: Preferences?,
         familiarId: Int = 0,
         familiarImage: String = "",
+        goalManager: GoalManager? = null,
+        currentRun: Int = 0,
     ): Boolean {
         if (preferences == null || html.isBlank()) return false
-        var changed = false
+        var changed = LeprecondoManager.handlePostCombatMessage(
+            text = html,
+            image = familiarImage,
+            preferences = preferences,
+            currentRun = currentRun,
+            goalManager = goalManager,
+        )
         changed = applyBellydancer(html, preferences) || changed
         when {
             familiarId == FAMILIAR_GHOST_COMMERCE ||

@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.character
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.SpelunkyRequest
 import net.sourceforge.kolmafia.session.BatManager
+import net.sourceforge.kolmafia.session.YouRobotManager
 
 /** Parses charpane.php HTML for status fields when api.php status is incomplete (Phase 408). */
 object CharpaneStatusSync {
@@ -133,7 +134,7 @@ object CharpaneStatusSync {
         checkOtherModifiers(html, preferences)
         checkFamiliar(html, character, familiarManager)
         checkClancy(html, preferences, state)
-        checkYouRobot(html, character, state)
+        checkYouRobot(html, character, state, preferences)
         CharpaneInteraction.applyInteraction(character, preferences)
         val mode = character.state.value.limitMode
         if (preferences != null) {
@@ -376,8 +377,15 @@ object CharpaneStatusSync {
     private val youRobotScrapsExpanded = Regex("""scrap\.gif.*?>([\d,]+)<""")
     private val youRobotScrapsCompact = Regex("""Scrap.*?<b>([\d,]+)</b>""", RegexOption.DOT_MATCHES_ALL)
 
-    fun checkYouRobot(html: String, character: KoLCharacter, state: CharacterState) {
+    fun checkYouRobot(
+        html: String,
+        character: KoLCharacter,
+        state: CharacterState,
+        preferences: Preferences? = null,
+    ) {
         if (!state.inRobocore) return
+        YouRobotManager.restoreFromPreferences(preferences)
+        YouRobotManager.parseAvatar(html, preferences)
         val compact = isCompact(html)
         val pattern = if (compact) youRobotScrapsCompact else youRobotScrapsExpanded
         val scraps = pattern.find(html)?.groupValues?.getOrNull(1)

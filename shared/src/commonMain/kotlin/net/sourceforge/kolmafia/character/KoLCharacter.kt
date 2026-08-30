@@ -196,6 +196,10 @@ class KoLCharacter {
         _state.value = _state.value.copy(youRobotScraps = scraps)
     }
 
+    fun setYouRobotEnergy(energy: Int) {
+        _state.value = _state.value.copy(youRobotEnergy = energy)
+    }
+
     fun setHatTrickHatIds(ids: List<Int>) {
         _state.value = _state.value.copy(hatTrickHatIds = ids)
     }
@@ -269,6 +273,10 @@ class KoLCharacter {
             familiarId = id, familiarName = name,
             familiarWeight = weight, familiarExp = exp
         )
+    }
+
+    fun updateArenaWins(wins: Int) {
+        _state.value = _state.value.copy(arenaWins = wins.coerceAtLeast(0))
     }
 
     fun updateEnthroned(id: Int, name: String) {

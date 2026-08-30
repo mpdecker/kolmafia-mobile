@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.adventure.choice
 
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
+
 object ChoiceUtilities {
 
     private val CHOICE_ID_REGEX =
@@ -59,8 +61,8 @@ object ChoiceUtilities {
             .toMap()
 
     /**
-     * Desktop [ChoiceUtilities.parseChoicesWithSpoilers] — appends title= spoilers when present.
-     * Full ChoiceAdventures spoiler DB is not ported; title attributes cover common cases.
+     * Desktop [ChoiceUtilities.parseChoicesWithSpoilers] — appends title= spoilers when present,
+     * then catalog spoilers from [ChoiceAdventures] for the current choice id.
      */
     fun parseChoicesWithSpoilers(html: String): Map<Int, String> {
         val base = parseChoices(html).toMutableMap()
@@ -75,6 +77,17 @@ object ChoiceUtilities {
                 if (!current.contains(title)) {
                     base[n] = "$current ($title)"
                 }
+            }
+        }
+        val choiceId = extractChoiceId(html)
+            ?: ChoiceCombatAshState.lastChoice.takeIf { it > 0 }
+            ?: return base
+        val spoilers = ChoiceAdventures.choiceSpoilers(choiceId) ?: return base
+        for ((decision, text) in base.toList()) {
+            val option = ChoiceAdventures.findOption(spoilers.options, decision) ?: continue
+            val spoiler = option.name
+            if (spoiler.isNotEmpty() && !text.contains(spoiler)) {
+                base[decision] = "$text ($spoiler)"
             }
         }
         return base

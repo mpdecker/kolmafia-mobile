@@ -30,12 +30,13 @@ object MaximizerEquipmentEnumerator {
         familiarWeight: Int = 10,
         charState: CharacterState? = null,
         preferences: Preferences? = null,
+        hasSkill: (Int) -> Boolean = { false },
     ): SlotList<MaximizerRankedItem> {
         val buckets = SlotList<MaximizerRankedItem>(switchFamiliars.size)
         val dual = spec.requireHands
         val accessible: (Int) -> Int = { id -> checkedItem(id).totalCount() }
         val gloveAvail = MaximizerWeaponGates.gloveAvailable(accessible)
-        val hasRigatoni: (Int) -> Boolean = { false }
+        val hasRigatoni: (Int) -> Boolean = hasSkill
         val canChefstaff = MaximizerWeaponGates.canUseChefstaff(charState, hasRigatoni, gloveAvail)
 
         for (itemId in candidateIds) {
@@ -54,6 +55,7 @@ object MaximizerEquipmentEnumerator {
                     evaluator = spec.evaluator,
                     charState = charState,
                     canChefstaff = canChefstaff,
+                    hasSkill = hasSkill,
                 )
             ) {
                 continue
@@ -242,6 +244,7 @@ object MaximizerEquipmentEnumerator {
         slots: List<MaximizerSlot>,
         usedElsewhere: Set<String> = emptySet(),
         limit: Int = Int.MAX_VALUE,
+        sortByScore: Boolean = true,
     ): List<Pair<String, Double>> {
         val seen = mutableSetOf<String>()
         val merged = mutableListOf<MaximizerRankedItem>()
@@ -253,7 +256,19 @@ object MaximizerEquipmentEnumerator {
             }
         }
         val pinned = merged.filter { it.automatic || it.required }
-        val scored = merged.filterNot { it.automatic || it.required }.take(limit)
+        // Buckets are slot-grouped, not globally ranked. Sort before applying
+        // the bounded DFS candidate limit so a strong item in a later bucket
+        // cannot be discarded merely because an earlier slot was visited first.
+        val unpinned = merged.filterNot { it.automatic || it.required }
+        val scored = (if (sortByScore) {
+            unpinned.sortedWith(
+                compareByDescending<MaximizerRankedItem> { it.score }.thenBy { it.name },
+            )
+        } else {
+            // A price-ranked bucket must retain its price ordering. The caller
+            // supplies buckets already sorted by the requested price level.
+            unpinned
+        }).take(limit)
         return (pinned + scored).map { it.name to it.score }
     }
 
@@ -262,6 +277,7 @@ object MaximizerEquipmentEnumerator {
         familiarIndex: Int,
         usedElsewhere: Set<String> = emptySet(),
         limit: Int = Int.MAX_VALUE,
+        sortByScore: Boolean = true,
     ): List<Pair<String, Double>> {
         if (familiarIndex !in 0 until buckets.familiarCount()) return emptyList()
         val pinned = mutableListOf<MaximizerRankedItem>()
@@ -270,7 +286,14 @@ object MaximizerEquipmentEnumerator {
             if (item.name in usedElsewhere) continue
             if (item.automatic || item.required) pinned.add(item) else scored.add(item)
         }
-        return (pinned + scored.take(limit)).map { it.name to it.score }
+        val ordered = if (sortByScore) {
+            scored.sortedWith(
+                compareByDescending<MaximizerRankedItem> { it.score }.thenBy { it.name },
+            )
+        } else {
+            scored
+        }
+        return (pinned + ordered.take(limit)).map { it.name to it.score }
     }
 
     private fun isCurrentlyEquipped(name: String, charState: CharacterState?): Boolean =
@@ -352,9 +375,21 @@ object MaximizerEquipmentEnumerator {
                 else -> MaximizerSlot.fromEquipmentSlot(equipSlot)?.let { listOf(it) }.orEmpty()
             }
             var ranked = if (equipSlot == EquipmentSlot.FAMILIAR && familiarBucketIndex != null) {
-                mergeFamiliarBucket(buckets, familiarBucketIndex, usedElsewhere, perSlotLimit)
+                mergeFamiliarBucket(
+                    buckets,
+                    familiarBucketIndex,
+                    usedElsewhere,
+                    perSlotLimit,
+                    sortByScore = spec.maxPrice == null && spec.minPrice == null,
+                )
             } else {
-                mergeBuckets(buckets, maximizerSlots, usedElsewhere, perSlotLimit)
+                mergeBuckets(
+                    buckets,
+                    maximizerSlots,
+                    usedElsewhere,
+                    perSlotLimit,
+                    sortByScore = spec.maxPrice == null && spec.minPrice == null,
+                )
             }
             if (equipSlot == EquipmentSlot.FAMILIAR &&
                 familiarBucketIndex == null &&

@@ -19,6 +19,7 @@ import net.sourceforge.kolmafia.request.ClanLogRequest
 import net.sourceforge.kolmafia.request.ClanWarRequest
 import net.sourceforge.kolmafia.request.ManageStoreSync
 import net.sourceforge.kolmafia.request.PirateSpecialSync
+import net.sourceforge.kolmafia.request.PlaceSync
 import net.sourceforge.kolmafia.request.SendMailSync
 
 /**
@@ -40,6 +41,7 @@ object ResponseTextParser {
             url.contains("account.php", ignoreCase = true) -> "account"
             url.contains("charsheet.php", ignoreCase = true) -> "charsheet"
             url.contains("api.php", ignoreCase = true) -> "api"
+            url.contains("actionbar.php", ignoreCase = true) -> "actionbar"
             url.contains("sellstuff_ugly.php", ignoreCase = true) -> "sellstuff_ugly"
             url.contains("sellstuff.php", ignoreCase = true) -> "sellstuff"
             url.contains("backoffice.php", ignoreCase = true) ||
@@ -57,6 +59,18 @@ object ResponseTextParser {
             url.contains("clan_detailedroster.php", ignoreCase = true) -> "clan_detailedroster"
             url.contains("sendmessage.php", ignoreCase = true) -> "sendmessage"
             url.contains("inventory.php", ignoreCase = true) -> "inventory"
+            url.contains("campground.php", ignoreCase = true) -> "campground"
+            url.contains("cafe.php", ignoreCase = true) -> "cafe"
+            url.contains("choice.php", ignoreCase = true) -> "choice"
+            url.contains("desc_item.php", ignoreCase = true) ||
+                url.contains("desc_effect.php", ignoreCase = true) ||
+                url.contains("desc_skill.php", ignoreCase = true) -> "description"
+            url.contains("familiar.php", ignoreCase = true) -> "familiar"
+            url.contains("guild.php", ignoreCase = true) -> "guild"
+            url.contains("questlog.php", ignoreCase = true) -> "questlog"
+            url.contains("shop.php", ignoreCase = true) -> "shop"
+            url.contains("island.php", ignoreCase = true) -> "island"
+            url.contains("place.php", ignoreCase = true) -> "place"
             url.contains("basement.php", ignoreCase = true) -> "basement"
             url.contains("arena.php", ignoreCase = true) -> "arena"
             url.contains("bounty.php", ignoreCase = true) -> "bounty"
@@ -81,6 +95,7 @@ object ResponseTextParser {
         onRoute(page)
         val u = url.orEmpty()
         when (page) {
+            "actionbar" -> ActionBarManager.update(html)
             "account" -> AccountSync.parseAccountData(u, html, preferences, character)
             "charsheet" -> CharSheetSync.parseStatus(html, character, preferences)
             "sellstuff" -> AutosellSync.parseCompact(u, inventory, character)
@@ -108,6 +123,12 @@ object ResponseTextParser {
             "clan_attack", "clan_war" -> ClanWarRequest.parseResponse(u, html, preferences)
             "sendmessage" -> SendMailSync.parseTransfer(u, html, emptyList(), 0, inventory, character)
             "inventory" -> InventoryActionSync.parse(u, html, inventory, character, preferences)
+            "place" -> PlaceSync.parseResponse(u, html, preferences, character, inventory)
+            "campground", "cafe", "choice", "guild", "island", "shop" -> {
+                // These pages frequently contain acquire/loss and auto-create text. Specialized
+                // visit hooks run before this router; this pass only handles generic result text.
+                ResultProcessor.processResults(false, html, inventory, character, preferences)
+            }
             "basement" -> BasementSync.checkBasement(html, preferences)
             "arena" -> CakeArenaSync.parseResponse(u, html, preferences, character, inventory)
             "bounty" -> BountyHunterSync.parseResponse(u, html, preferences, character, inventory)

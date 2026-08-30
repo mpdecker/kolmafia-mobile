@@ -25,6 +25,7 @@ object SpelunkyChoiceSync {
         inventory: InventoryManager? = null,
         skillManager: SkillManager? = null,
         setLimitMode: (String) -> Unit = {},
+        sessionLog: (String) -> Unit = {},
     ): Boolean {
         return when (choiceId) {
             ENTER -> {
@@ -51,7 +52,7 @@ object SpelunkyChoiceSync {
                 true
             }
             in 1028..1045 -> {
-                SpelunkyRequest.parseChoice(choiceId, html, decision, preferences)
+                SpelunkyRequest.parseChoice(choiceId, html, decision, preferences, sessionLog)
             }
             else -> false
         }

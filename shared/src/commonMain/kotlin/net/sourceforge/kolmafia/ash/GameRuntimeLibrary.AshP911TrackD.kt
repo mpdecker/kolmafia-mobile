@@ -56,17 +56,7 @@ internal fun GameRuntimeLibrary.registerAshP911Batch(scope: AshScope) {
     }
 
     regFn(scope, "get_chateau", itemToInt, emptyList()) { _, _ ->
-        val result = AggregateValue(itemToInt)
-        val chateau = preferences?.getString("chateauMonster", "")?.takeIf { it.isNotBlank() }
-        if (chateau != null) {
-            for (entry in chateau.split("|").filter { it.isNotBlank() }) {
-                val parts = entry.split(":")
-                val name = parts.getOrNull(0) ?: continue
-                val count = parts.getOrNull(1)?.toIntOrNull() ?: 1
-                result[AshValue.item(name)] = AshValue.of(count.toLong())
-            }
-        }
-        result
+        chateauFurnitureMap()
     }
 }
 

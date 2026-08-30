@@ -39,6 +39,14 @@ object UneffectSkillEffectMap {
         return skillToEffectMap[skillName.lowercase()]
     }
 
+    fun skillToEffects(skillName: String): List<String> {
+        ensureBuilt()
+        return effectToSkill.entries
+            .filter { it.value.equals(skillName, ignoreCase = true) }
+            .map { it.key }
+            .distinct()
+    }
+
     internal fun resetForTest() {
         effectToSkill = emptyMap()
         skillToEffectMap = emptyMap()

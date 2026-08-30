@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.quest
 import net.sourceforge.kolmafia.adventure.RufusManager
 import net.sourceforge.kolmafia.adventure.choice.ItemPool
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.StillSuitManager
 
 object RufusCallChoiceSync {
     fun apply(
@@ -148,17 +149,10 @@ object AminoSacChoiceSync {
 }
 
 object StillSuitChoiceSync {
-    private val drams = Regex("""(?:<b>(\d+)</b> drams|Looks like there are (\d+) drams)""")
-
     fun apply(choiceId: Int, decision: Int, html: String, preferences: Preferences?): Boolean {
         if (choiceId != 1476 || preferences == null) return false
-        drams.find(html)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }?.toIntOrNull()?.let {
-            preferences.setInt("familiarSweat", it)
-        }
-        if (decision == 1 && html.contains("You put your lips to the nozzle")) {
-            preferences.setInt("familiarSweat", 0)
-            preferences.setString("nextDistillateMods", "")
-        }
+        StillSuitManager.parseChoice(html, preferences)
+        if (decision == 1) StillSuitManager.handleDrink(html, preferences)
         return true
     }
 }

@@ -148,7 +148,11 @@ object EncounterManager {
         if (type == EncounterType.NONE) return
 
         if (type == EncounterType.BADMOON) {
-            preferences?.setBoolean("_badMoonEncounter_$encounterName", true)
+            BadMoonManager.registerAdventure(
+                encounterName,
+                preferences,
+                preferences?.getInt("knownAscensions", 0) ?: 0,
+            )
         }
 
         if (!type.isAutostop) return

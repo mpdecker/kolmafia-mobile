@@ -11,4 +11,6 @@ data class FamiliarData(
     val equipment: InventoryItem? = null,
     val modifiers: Map<String, String> = emptyMap(),
     val feasted: Boolean = false,
+    /** Desktop FamiliarDatabase favorite flag, populated by the familiars API when available. */
+    val favorite: Boolean = false,
 )

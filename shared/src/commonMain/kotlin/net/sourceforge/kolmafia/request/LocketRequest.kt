@@ -8,6 +8,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import io.ktor.http.parameters
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.preferences.Preferences
 
 /** Desktop [net.sourceforge.kolmafia.request.LocketRequest] — Combat Lover's Locket reminisce. */
 open class LocketRequest(private val client: HttpClient) {
@@ -60,5 +61,16 @@ open class LocketRequest(private val client: HttpClient) {
         const val CHOICE_ID = 1463
         const val PREF_FOUGHT = "_locketMonstersFought"
         const val LOCKET_NAME = "combat lover's locket"
+
+        fun recordReminisce(preferences: Preferences, monsterId: Int) {
+            if (monsterId <= 0) return
+            net.sourceforge.kolmafia.session.LocketManager.rememberMonster(monsterId)
+            val fought = preferences.getString(PREF_FOUGHT, "")
+                .split('|', ',')
+                .mapNotNull { it.trim().toIntOrNull() }
+                .toMutableList()
+            if (monsterId !in fought) fought.add(monsterId)
+            preferences.setString(PREF_FOUGHT, fought.joinToString(","))
+        }
     }
 }

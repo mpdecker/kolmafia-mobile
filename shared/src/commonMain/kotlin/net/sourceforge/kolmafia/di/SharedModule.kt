@@ -123,6 +123,7 @@ import net.sourceforge.kolmafia.request.LoginRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.request.OceanRequest
 import net.sourceforge.kolmafia.request.ResearchBenchRequest
+import net.sourceforge.kolmafia.request.GourdRequest
 import net.sourceforge.kolmafia.session.SessionManager
 import net.sourceforge.kolmafia.buffbot.BuffBotDatabase
 import net.sourceforge.kolmafia.buffbot.BuffBotManager
@@ -162,6 +163,7 @@ import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.request.StillSuitRequest
+import net.sourceforge.kolmafia.request.ActionBarRequest
 import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
@@ -201,6 +203,15 @@ val sharedModule = module {
     singleOf(::ChoiceRequest)
     singleOf(::OceanRequest)
     singleOf(::ResearchBenchRequest)
+    single {
+        GourdRequest(
+            client = get(),
+            preferences = get(),
+            character = get(),
+            inventory = get(),
+            sessionLogger = get(),
+        )
+    }
     single { GoalManager() }
     single { QuestDatabase(get()) }
     single { QuestLogRequest(get(), get(), get(), get()) }
@@ -621,6 +632,7 @@ val sharedModule = module {
             inventoryManager = get(),
         )
     }
+    singleOf(::ActionBarRequest)
     singleOf(::FloundryRequest)
     single {
         MayamRequest(
@@ -764,6 +776,7 @@ val sharedModule = module {
             equipmentManager = get(),
             equipmentRequest = get(),
             sessionLogger = get(),
+            effectManager = get(),
         )
     }
     single {
@@ -776,7 +789,18 @@ val sharedModule = module {
         )
     }
     singleOf(::RecoveryManager)
-    singleOf(::UneffectRequest)
+    single {
+        val retrieve: RetrieveItemService = get()
+        UneffectRequest(
+            client = get(),
+            effectManager = get(),
+            inventoryManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
+            retrieveItem = { itemId -> retrieve.retrieve(itemId, 1) > 0 },
+            passwordHash = { get<Preferences>().getString("pwdHash", "") },
+        )
+    }
     single { MoodManager(skillManager = get(), preferences = get(), uneffectRequest = get()) }
     singleOf(::ManaBurnManager)
     singleOf(::BanishManager)
@@ -820,7 +844,11 @@ val sharedModule = module {
         )
     }
     singleOf(::WildfireCampManager)
-    singleOf(::EffectManager)
+    single {
+        EffectManager(get(), get()).also { manager ->
+            UseItemConsumptionSync.effectManagerProvider = { manager }
+        }
+    }
     single {
         EdServantManager(
             httpClient = get(),
@@ -896,6 +924,7 @@ val sharedModule = module {
             chewRequest      = get(),
             cafePurchaseRequest = get(),
             stillSuitRequest = get(),
+            actionBarRequest = get(),
             autosellRequest  = get(),
             closetRequest    = get(),
             storageRequest   = get(),
@@ -958,6 +987,7 @@ val sharedModule = module {
             chatProbe = get(),
             chatManager = get(),
             researchBenchRequest = get(),
+            gourdRequest = get(),
             concoctionQueueRunner = get(),
             concoctionCreateRequest = get(),
             modeableRequest = get(),

@@ -13,6 +13,8 @@ import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.maximizer.MaximizerSubSlotItems
 import net.sourceforge.kolmafia.effect.EffectData
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.GreyYouManager
+import net.sourceforge.kolmafia.session.YouRobotManager
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -331,6 +333,11 @@ class CurrentModifiers(
             if (raw != null) total = total + ModifierParser.parse(raw, ctxWithAccumulated())
         }
 
+        // 5a. You, Robot part/CPU modifiers (desktop YouRobotManager.addRobotModifiers)
+        if (state.inRobocore) {
+            total = YouRobotManager.addRobotModifiers(total, ctxWithAccumulated())
+        }
+
         // 5b. Ascension class
         ClassModifiers.modifierString(state.className)?.let { raw ->
             total = total + ModifierParser.parse(raw, ctxWithAccumulated())
@@ -384,11 +391,18 @@ class CurrentModifiers(
 
         // 12. Custom overlay (desktop MaximizerSpeculation.setCustom — noobcore absorb)
         val overlay = customModifierOverlay?.takeIf { it.isNotBlank() }
-        if (overlay != null) {
+            ?: greyYouOverlay(state)
+        if (overlay != null && overlay.isNotBlank()) {
             total = total + ModifierParser.parse(overlay, ctxWithAccumulated())
         }
 
         return total
+    }
+
+    private fun greyYouOverlay(state: CharacterState): String? {
+        if (state.ascensionPath != AscensionPath.GREY_YOU) return null
+        GreyYouManager.loadRegistry()
+        return GreyYouManager.modifierOverlay().takeIf { it.isNotBlank() }
     }
 
     companion object {

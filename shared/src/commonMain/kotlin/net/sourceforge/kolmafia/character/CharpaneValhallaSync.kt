@@ -13,6 +13,10 @@ object CharpaneValhallaSync {
     private val karmaPatternCompact = Regex("""Karma:.*?<b>([^<]*)</b>""", RegexOption.DOT_MATCHES_ALL)
     private val karmaPatternExpanded = Regex("""karma\.gif.*?<br>([^<]*)</td>""", RegexOption.DOT_MATCHES_ALL)
 
+    fun markInValhalla() {
+        inValhalla = true
+    }
+
     fun reset() {
         inValhalla = false
     }

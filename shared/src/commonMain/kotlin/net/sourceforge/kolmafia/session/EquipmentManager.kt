@@ -12,6 +12,7 @@ import net.sourceforge.kolmafia.data.TorsoAwareness
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.modifiers.BooleanModifier
 import net.sourceforge.kolmafia.quest.EquipmentDiscard
+import net.sourceforge.kolmafia.session.YouRobotManager
 import net.sourceforge.kolmafia.skill.SkillManager
 
 /**
@@ -173,9 +174,20 @@ class EquipmentManager(
                 if (state.ascensionPath != AscensionPath.AVATAR_OF_WEST_OF_LOATHING) return false
             ItemPrimaryUse.SHIRT -> {
                 val skills = skillManager?.state?.value?.skills.orEmpty()
-                if (!TorsoAwareness.hasTorsoAwareness(skills)) return false
+                if (!TorsoAwareness.hasTorsoAwareness(skills) &&
+                    !(state.inRobocore && YouRobotManager.hasEquipped(YouRobotManager.RobotUpgrade.TOPOLOGY_GRID))
+                ) {
+                    return false
+                }
             }
             else -> Unit
+        }
+
+        if (state.inRobocore) {
+            val skills = skillManager?.state?.value?.skills.orEmpty()
+            val hasTorso = TorsoAwareness.hasTorsoAwareness(skills) ||
+                YouRobotManager.hasEquipped(YouRobotManager.RobotUpgrade.TOPOLOGY_GRID)
+            if (!YouRobotManager.canEquip(item.primaryUse, hasTorso)) return false
         }
 
         if (state.isFistcore &&

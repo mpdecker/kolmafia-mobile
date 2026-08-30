@@ -134,3 +134,6 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
 }
 
 internal expect fun currentEpochSeconds(): Long
+
+/** Shared wall-clock source for timestamped session records. */
+fun currentEpochMillis(): Long = currentEpochSeconds() * 1000L

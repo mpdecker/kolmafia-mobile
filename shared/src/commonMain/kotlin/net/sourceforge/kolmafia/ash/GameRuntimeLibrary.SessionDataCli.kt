@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.session.MailManager
+
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.session.SessionLogger
 
@@ -165,7 +167,14 @@ internal fun GameRuntimeLibrary.cliMail(parameters: String, rt: AshRuntimeContex
             trimmed.equals("inbox", ignoreCase = true) -> {
             visitKolPage("mail.php")
             rt.print("Inbox:")
-            rt.print("(mail listing not available in KoLmafia Mobile)")
+            val messages = MailManager.messages()
+            if (messages.isEmpty()) {
+                rt.print("(empty)")
+            } else {
+                messages.forEach { message ->
+                    rt.print("${message.id}: ${message.sender} ${message.date}".trim())
+                }
+            }
         }
         else -> {
             visitKolPage("mail.php")

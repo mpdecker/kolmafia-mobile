@@ -160,9 +160,18 @@ object UneffectRemovableMaps {
     }
 
     /** Desktop [UneffectRequest.getUneffectSkill] — returns skill name or empty string. */
-    fun getUneffectSkill(effectId: Int, hasSkill: (String) -> Boolean): String {
+    fun getUneffectSkill(effectId: Int, hasSkill: (String) -> Boolean): String =
+        getUneffectSkill(effectId, false, { true }, hasSkill)
+
+    fun getUneffectSkill(
+        effectId: Int,
+        inGLover: Boolean,
+        hasGs: (String) -> Boolean,
+        hasSkill: (String) -> Boolean,
+    ): String {
         for ((skillName, removables) in removeWithSkillMap) {
             if (!removables.contains(effectId)) continue
+            if (inGLover && !hasGs(skillName)) continue
             if (hasSkill(skillName)) return skillName
         }
         return ""
@@ -214,6 +223,13 @@ object UneffectRemovableMaps {
 
     internal fun removableEffectIdsForItem(itemId: Int): Set<Int> =
         removeWithItemMap[itemId]?.toSet() ?: emptySet()
+
+    internal fun removableEffectIdsForSkill(skillName: String): Set<Int> =
+        removeWithSkillMap.entries
+            .firstOrNull { it.key.equals(skillName, ignoreCase = true) }
+            ?.value
+            ?.toSet()
+            ?: emptySet()
 
     private fun putItemRemovables(itemId: Int, vararg effectIds: Int) {
         removeWithItemMap[itemId] = effectIds.toMutableSet()

@@ -18,6 +18,7 @@ class GoalManager {
     private var factoidGoal: String? = null
     private var choiceGoalId: Int? = null
     private var substatsGoal: Boolean = false
+    private var leprecondoGoalCount: Int = 0
 
     // ── Factoid goal (response text match) ────────────────────────────────────
 
@@ -84,6 +85,14 @@ class GoalManager {
         substatsGoal && responseText.contains("You gain", ignoreCase = true) &&
             Regex("""You gain \d+ \w+ \(\d+ exp\)""").containsMatchIn(responseText)
 
+    /** Desktop [GoalManager.GOAL_LEPRECONDO] furniture-discovery progress. */
+    fun setLeprecondoGoal(count: Int) { leprecondoGoalCount = count.coerceAtLeast(0) }
+    fun clearLeprecondoGoal() { leprecondoGoalCount = 0 }
+    fun hasLeprecondoGoal(): Boolean = leprecondoGoalCount > 0
+    fun noteLeprecondoProgress() {
+        if (leprecondoGoalCount > 0) leprecondoGoalCount--
+    }
+
     /** Remove the first item goal matching [itemName] (case-insensitive). */
     fun removeGoal(itemName: String) { removeItemGoalByName(itemName) }
 
@@ -96,6 +105,7 @@ class GoalManager {
         factoidGoal?.let { add("factoid:$it") }
         choiceGoalId?.let { add("choice:$it") }
         if (substatsGoal) add("substats")
+        if (leprecondoGoalCount > 0) add("leprecondo:$leprecondoGoalCount")
     }
 
     // ── Clear all ─────────────────────────────────────────────────────────────
@@ -105,6 +115,7 @@ class GoalManager {
         _itemGoalNames.clear()
         choiceGoalId = null
         substatsGoal = false
+        leprecondoGoalCount = 0
         meatGoal = null
         levelGoal = null
         factoidGoal = null
@@ -125,6 +136,7 @@ class GoalManager {
         val factoidGoal: String?,
         val choiceGoalId: Int?,
         val substatsGoal: Boolean,
+        val leprecondoGoalCount: Int,
     )
 
     fun captureSnapshot(): GoalSnapshot = GoalSnapshot(
@@ -135,6 +147,7 @@ class GoalManager {
         factoidGoal = factoidGoal,
         choiceGoalId = choiceGoalId,
         substatsGoal = substatsGoal,
+        leprecondoGoalCount = leprecondoGoalCount,
     )
 
     fun restoreSnapshot(snapshot: GoalSnapshot) {
@@ -146,6 +159,7 @@ class GoalManager {
         snapshot.factoidGoal?.let { setFactoidGoal(it) }
         snapshot.choiceGoalId?.let { setChoiceGoal(it) }
         if (snapshot.substatsGoal) setSubstatsGoal(true)
+        leprecondoGoalCount = snapshot.leprecondoGoalCount
     }
 
     /**

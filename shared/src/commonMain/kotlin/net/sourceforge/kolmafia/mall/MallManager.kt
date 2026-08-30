@@ -77,6 +77,27 @@ open class MallManager(
         }.also { MallPriceDatabase.save() }
     }
 
+    /** Desktop MallPriceManager.getMallPrices(item set, max age) return value. */
+    open suspend fun refreshMallPrices(itemIds: Collection<Int>, maxAgeDays: Double = 0.0): Int {
+        var refreshed = 0
+        for (itemId in itemIds.distinct()) {
+            if (itemId <= 0) continue
+            val cachedAge = priceManager?.getHistoricalAge(itemId) ?: -1
+            val cached = priceManager?.getCachedPrice(itemId)?.price ?: 0L
+            if (cached > 0L && (maxAgeDays <= 0.0 || cachedAge in 0..(maxAgeDays * 86_400).toInt())) {
+                continue
+            }
+            val name = gameDatabase?.item(itemId)?.name ?: continue
+            val offers = searchRequest.search("\"$name\"", limit = 0)
+            if (offers.isNotEmpty()) {
+                cachePrice(itemId, offers)
+                refreshed++
+            }
+        }
+        if (refreshed > 0) MallPriceDatabase.save()
+        return refreshed
+    }
+
     private fun cachePrice(itemId: Int, offers: List<MallListing>) {
         if (offers.isEmpty()) return
         priceManager?.saveMallSearch(itemId, offers)

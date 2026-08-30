@@ -33,6 +33,8 @@ object ChoiceAdventuresUsed {
         in 1005..1013 -> 1
         // Gym workouts
         770, 792 -> if (option > 0) 1 else 0
+        // Barrel Full of Barrels — crank/smash cost a turn; exit is free
+        1099 -> if (option == 3) 0 else 1
         else -> 0
     }
 }

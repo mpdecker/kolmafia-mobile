@@ -1,9 +1,14 @@
 package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.adventure.AdventureManager
+import net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures
+import net.sourceforge.kolmafia.adventure.choice.ItemPool
 import net.sourceforge.kolmafia.character.ZodiacSign
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.quest.HashingChoiceSync
+import net.sourceforge.kolmafia.session.BadMoonManager
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
 /**
  * Phases 1053–1062 — Oddball CLI Track E:
@@ -278,21 +283,43 @@ internal fun GameRuntimeLibrary.cliCrimboTrain(parameters: String, print: (Strin
     }
 }
 
+/** Desktop PingPongCommand — curse.php use of portable ping-pong table #11059. */
+internal fun GameRuntimeLibrary.cliPingPong(parameters: String, print: (String) -> Unit) {
+    val target = parameters.trim()
+    if (target.isEmpty()) {
+        print("Play ping-pong with whom?")
+        return
+    }
+    if (httpClient == null) {
+        print("HTTP client is not available.")
+        return
+    }
+    print("Playing ping-pong with $target...")
+    val html = visitKolPost(
+        "curse.php",
+        "action=use&whichitem=${ItemPool.PING_PONG_TABLE}&targetplayer=$target",
+    )
+    when {
+        html == null -> print("Ping-pong failed.")
+        html.contains("That player could not be found", ignoreCase = true) ->
+            print("$target could not be found.")
+        html.contains("try again later", ignoreCase = true) ||
+            html.contains("cannot be used", ignoreCase = true) ||
+            html.contains("can't use this item", ignoreCase = true) ->
+            print("Can't play ping-pong with that player at the moment.")
+        else -> print("pingpong $target")
+    }
+}
+
 /** Desktop BadMoonCommand — zodiac / encounter pref status report. */
 internal fun GameRuntimeLibrary.cliBadMoon(@Suppress("UNUSED_PARAMETER") parameters: String, print: (String) -> Unit) {
-    val signName = character?.state?.value?.zodiacSign.orEmpty().ifBlank { "(unknown)" }
-    val sign = ZodiacSign.find(signName)
-    print("Zodiac sign: $signName")
-    print("In Bad Moon: ${sign?.isBadMoon == true}")
-    val prefs = preferences
-    var have = 0
-    for (i in 1..48) {
-        val key = "badMoonEncounter" + i.toString().padStart(2, '0')
-        val done = prefs?.getBoolean(key, false) == true
-        if (done) have++
-        print("$key: ${if (done) "have" else "NEED"}")
-    }
-    print("Special encounters completed: $have / 48")
+    BadMoonManager.report(
+        print = print,
+        preferences = preferences,
+        ascensionNumber = character?.state?.value?.ascensionNumber ?: preferences?.getInt("knownAscensions", 0) ?: 0,
+    )
+    val completed = BadMoonManager.completedCount(preferences)
+    print("Special encounters completed: $completed / 48")
 }
 
 /** Desktop FlickerCommand — flickering pixel pref status table. */
@@ -311,4 +338,29 @@ private fun GameRuntimeLibrary.resolveCurseItem(query: String): net.sourceforge.
     val lower = query.lowercase()
     val matches = ItemDatabase.all().filter { it.name.lowercase().contains(lower) }
     return matches.singleOrNull()
+}
+
+/** Desktop CompleteQuestCommand `choice-goal` — automate the current choice via catalog goals. */
+internal fun GameRuntimeLibrary.cliChoiceGoal(print: (String) -> Unit) {
+    val choiceId = ChoiceCombatAshState.lastChoice.takeIf { it > 0 }
+        ?: preferences?.getInt(AdventureManager.LAST_CHOICE_ID, 0)
+        ?: 0
+    if (choiceId <= 0) {
+        print("You are not currently in a choice adventure.")
+        return
+    }
+    val pref = preferences?.getInt("choiceAdventure$choiceId", 0) ?: 0
+    val option = ChoiceAdventures.pickGoalChoice(
+        choiceId,
+        if (pref > 0) pref else 1,
+        goalManager,
+        inventoryManager?.state?.value,
+    )
+    if (option <= 0) {
+        print("Manual control.")
+        return
+    }
+    val desc = ChoiceAdventures.choiceDescription(choiceId, option)
+    print("choice-goal $choiceId → $option ($desc)")
+    cliChoice(choiceId, option)
 }

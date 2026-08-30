@@ -1,7 +1,6 @@
 package net.sourceforge.kolmafia.session
 
 import net.sourceforge.kolmafia.preferences.Preferences
-import net.sourceforge.kolmafia.quest.TrainsetChoiceSync
 
 /**
  * Desktop [FightRequest.processP] high-traffic pref writers (Phases 1626–1640).
@@ -135,24 +134,8 @@ object FightProcessPSync {
     }
 
     /** Desktop [TrainsetManager.onTrainsetMove] — always increments position. */
-    fun onTrainsetMove(pieceName: String, preferences: Preferences): Boolean {
-        val newPos = preferences.getInt("trainsetPosition", 0) + 1
-        preferences.setInt("trainsetPosition", newPos)
-        val config = preferences.getString("trainsetConfiguration", "")
-        if (config.isBlank()) return false
-        val pieces = config.split(",").map { token ->
-            TrainsetChoiceSync.Piece.entries.firstOrNull {
-                it.displayName.equals(token, ignoreCase = true) ||
-                    it.shortName.equals(token, ignoreCase = true)
-            } ?: TrainsetChoiceSync.Piece.UNKNOWN
-        }
-        if (pieces.size != 8) return false
-        val expected = pieces[newPos % 8]
-        return expected.displayName.equals(pieceName, ignoreCase = true) ||
-            expected.shortName.equals(pieceName, ignoreCase = true) ||
-            pieceName.equals("empty track", ignoreCase = true) &&
-            expected == TrainsetChoiceSync.Piece.EMPTY_TRACK
-    }
+    fun onTrainsetMove(pieceName: String, preferences: Preferences): Boolean =
+        TrainsetManager.onTrainsetMove(pieceName, preferences)
 
     fun applyResearchPoints(
         text: String,

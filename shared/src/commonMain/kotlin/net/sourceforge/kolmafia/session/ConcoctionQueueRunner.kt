@@ -653,8 +653,7 @@ class ConcoctionQueueRunner(
 
             if (itemId <= 0) return Result.success(Unit)
 
-            val cpuUpgrades = prefs?.getString("youRobotCPUUpgrades", "") ?: ""
-            val canUsePotions = !state.inRobocore || cpuUpgrades.contains("robot_potions")
+            val canUsePotions = !state.inRobocore || YouRobotManager.canUsePotions()
             if (!canUsePotions) {
                 return Result.failure(IllegalStateException("Cannot use potions: $name"))
             }

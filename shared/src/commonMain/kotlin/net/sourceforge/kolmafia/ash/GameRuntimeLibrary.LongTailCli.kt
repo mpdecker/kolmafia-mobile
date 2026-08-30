@@ -1829,21 +1829,36 @@ internal fun GameRuntimeLibrary.runVersionCli(rt: AshRuntimeContext) {
 }
 
 internal fun GameRuntimeLibrary.runGreyYouCli(parameters: String, rt: AshRuntimeContext) {
-    val filter = parameters.trim().lowercase()
-    GreyYouManager.loadRegistry()
-    val rows = GreyYouManager.allAbsorptions.values
-        .filter {
-            filter.isBlank() ||
-                it.monsterName.lowercase().contains(filter) ||
-                it.skillName.orEmpty().lowercase().contains(filter)
+    val tokens = parameters.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+    var showAll = true
+    var filterType: GreyYouManager.AbsorptionType? = null
+    for (token in tokens) {
+        when (token) {
+            "all" -> showAll = true
+            "needed" -> showAll = false
+            "skill", "skills" -> filterType = GreyYouManager.AbsorptionType.SKILL
+            "adventures", "advs" -> filterType = GreyYouManager.AbsorptionType.ADVENTURES
+            "muscle", "mus" -> filterType = GreyYouManager.AbsorptionType.MUSCLE
+            "mysticality", "myst", "mys" -> filterType = GreyYouManager.AbsorptionType.MYSTICALITY
+            "moxie", "mox" -> filterType = GreyYouManager.AbsorptionType.MOXIE
+            "maxhp" -> filterType = GreyYouManager.AbsorptionType.MAX_HP
+            "maxmp" -> filterType = GreyYouManager.AbsorptionType.MAX_MP
         }
-        .sortedBy { it.monsterName.lowercase() }
-    rows.forEach {
-        val status = if (GreyYouManager.haveAbsorbed(it.monsterId)) "[x]" else "[ ]"
-        val reward = it.skillName ?: "${it.type} +${it.value}"
-        rt.print("$status ${it.monsterName}: $reward")
     }
-    if (rows.isEmpty()) rt.print("No Grey You absorptions matched.")
+    GreyYouManager.loadRegistry()
+    rt.print("Zone | Have | Monster | Reward")
+    GreyYouManager.zoneAbsorptions.forEach { (zone, absorptions) ->
+        val rows = absorptions.filter { absorption ->
+            val have = absorption.haveAbsorbed()
+            (showAll || !have) && (filterType == null || absorption.type == filterType)
+        }
+        if (rows.isEmpty()) return@forEach
+        rows.forEachIndexed { index, absorption ->
+            val prefix = if (index == 0) "$zone | " else " | "
+            val have = if (absorption.haveAbsorbed()) "yes" else "no"
+            rt.print("$prefix$have | ${absorption.monsterName} | ${absorption.rewardLabel()}")
+        }
+    }
 }
 
 internal fun GameRuntimeLibrary.runBurnCli(parameters: String, rt: AshRuntimeContext) {
@@ -2775,12 +2790,12 @@ internal fun GameRuntimeLibrary.runPoolSkillCli(rt: AshRuntimeContext) {
 }
 
 internal val IMPLEMENTED_CLI_COMMANDS = listOf(
-    "aa", "abort", "absorb", "absorptions", "accordions", "acquire", "adv", "adventure", "alias", "alliedradio",
+    "aa", "abort", "absorb", "absorptions", "accordions", "acquire", "actionbar", "adv", "adventure", "alias", "alliedradio",
     "ash", "ashq", "ashref", "ashwiki", "attack", "autoattack", "automall", "autosell", "autumnaton", "backupcamera",
     "badmoon", "bake", "bang", "banishes", "baron", "basement", "beach", "bjornify", "boombox", "bootskin",
     "bootspur", "bounty", "breakfast", "budget", "buff", "buffbot", "bugbears", "burn", "buy", "cache",
     "call", "campground", "cardsleeve", "cargo", "cast", "ccs", "cheapest", "cheat", "checkpoint", "chew",
-    "chewqueue", "chibi", "chips", "choice", "cleanup", "closet", "cmc", "coinmaster", "condition", "condref",
+    "chewqueue", "chibi", "chips", "choice", "choice-goal", "cleanup", "closet", "cmc", "coinmaster", "condition", "condref",
     "council", "counters", "create", "createqueue", "crimbotrain", "csend", "demons", "devilcandyegg", "display", "donate",
     "drink", "drinkqueue", "drinksilent", "dusty", "dvorak", "eat", "eatqueue", "eatsilent", "echo", "editmood",
     "edpiece", "effects", "else", "elseif", "encounters", "enthrone", "equip", "events", "exit", "expensive",
@@ -2791,7 +2806,7 @@ internal val IMPLEMENTED_CLI_COMMANDS = listOf(
     "location", "locations", "logecho", "logout", "logprint", "lookup", "macro", "mail", "make", "mallbuy",
     "mallsell", "maximize", "mayam", "mcd", "min", "mind-control", "mix", "modifiers", "modifies", "modref",
     "monsters", "mood", "moon", "moons", "mummery", "nemesis", "note", "numberology", "ocean", "olfact",
-    "olfaction", "outfit", "overdrink", "panda", "parka", "play", "ply", "prefref", "print", "profile",
+    "olfaction", "outfit", "overdrink", "panda", "parka", "ping", "pingpong", "play", "ply", "prefref", "print", "profile",
     "pull", "pulverize", "putty", "pvp", "quark", "quit", "raffle", "recipe", "recover", "refresh",
     "relog", "relogin", "remedy", "reminisce", "remove", "repeat", "reprice", "rest", "restore", "retrieve",
     "retrocape", "roboequeue", "saber", "safe", "searchmall", "sell", "send", "servant", "servants", "session",

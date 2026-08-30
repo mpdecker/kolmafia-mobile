@@ -84,7 +84,9 @@ class GameRuntimeLibraryFamiliarPathCliTest {
         // May print registry rows or the empty-match line depending on MonsterDatabase load.
         val out = outputLib(lib, """cli_execute("absorptions");""")
         assertTrue(
-            out.contains("Grey You") || out.contains("[") || out.contains("No Grey You"),
+            out.contains("Zone | Have | Monster | Reward") ||
+                out.contains("Grey You") ||
+                out.contains("No Grey You"),
             out,
         )
     }
@@ -181,9 +183,9 @@ class GameRuntimeLibraryFamiliarPathCliTest {
             character = KoLCharacter(),
         )
         val out = outputLib(lib, """cli_execute("train");""")
-        assertTrue(out.contains("not available"), out)
         assertTrue(out.contains("Angry Goat"), out)
         assertTrue(out.contains("weight 12"), out)
+        assertTrue(out.contains("Usage: train"), out)
     }
 
     @Test

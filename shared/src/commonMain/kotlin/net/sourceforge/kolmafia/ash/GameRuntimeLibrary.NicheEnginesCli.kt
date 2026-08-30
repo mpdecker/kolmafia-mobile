@@ -8,6 +8,13 @@ import net.sourceforge.kolmafia.session.LeafletManager
 import net.sourceforge.kolmafia.session.RabbitHoleAvailability
 import net.sourceforge.kolmafia.session.RabbitHoleManager
 import net.sourceforge.kolmafia.session.WumpusManager
+import net.sourceforge.kolmafia.session.BastilleBattalionAdvisor
+import net.sourceforge.kolmafia.session.BastilleBattleSimulation
+import net.sourceforge.kolmafia.session.BastilleBoosts
+import net.sourceforge.kolmafia.session.BastilleCheeseEncounter
+import net.sourceforge.kolmafia.data.BastilleDatabase.Castle
+import net.sourceforge.kolmafia.session.RumpleManager
+import net.sourceforge.kolmafia.session.YouRobotManager
 
 internal fun GameRuntimeLibrary.cliChess(parameters: String, print: (String) -> Unit) {
     val command = parameters.trim().lowercase().ifBlank { "board" }
@@ -112,6 +119,99 @@ internal fun GameRuntimeLibrary.cliLeaflet(parameters: String, print: (String) -
                 .onFailure { print(it.message ?: "Leaflet automation failed.") }
             else -> print("Usage: leaflet [nomagic|location]")
         }
+    }
+}
+
+internal fun GameRuntimeLibrary.cliBastille(parameters: String, print: (String) -> Unit) {
+    val prefs = preferences ?: run {
+        print("Preferences are not available.")
+        return
+    }
+    when (parameters.trim().lowercase()) {
+        "test" -> {
+            print("${BastilleCheeseEncounter.scalingEncounters().size} scaling cheese formulae loaded.")
+            val stats = BastilleBattalionAdvisor.parseStats(prefs.getString("_bastilleStats"))
+            val enemy = Castle.entries.firstOrNull { it.prefix == prefs.getString("_bastilleEnemyCastle") }
+            if (enemy != null) {
+                val battle = ((prefs.getInt("_bastilleGameTurn") + 2) / 3).coerceAtLeast(1)
+                BastilleBattleSimulation.probabilities(
+                    stats,
+                    BastilleBoosts(prefs.getString("_bastilleBoosts")),
+                    enemy,
+                    battle,
+                ).forEach { (stance, chance) ->
+                    print("${stance.label}: ${(chance * 100).toInt()}%")
+                }
+            }
+        }
+        "", "status", "advise" -> {
+            val choice = when {
+                prefs.getString("_bastilleChoice1").isNotBlank() -> {
+                    val first = prefs.getString("_bastilleChoice1")
+                    if (BastilleCheeseEncounter.forName(first) != BastilleCheeseEncounter.unknown) 1319 else 1317
+                }
+                prefs.getString("_bastilleEnemyCastle").isNotBlank() -> 1315
+                else -> 0
+            }
+            val advice = BastilleBattalionAdvisor.advise(choice, prefs)
+            if (advice == null) {
+                print("No Bastille choice is ready for advice.")
+            } else {
+                print("Bastille recommends option ${advice.option}: ${advice.reason}")
+            }
+        }
+        "reset" -> {
+            net.sourceforge.kolmafia.session.BastilleBattalionSync.reset(prefs)
+            print("Bastille state reset.")
+        }
+        else -> print("Usage: bastille [status|advise|test|reset]")
+    }
+}
+
+internal fun GameRuntimeLibrary.cliRobot(parameters: String, print: (String) -> Unit) {
+    val prefs = preferences
+    val state = character?.state?.value
+    if (state?.inRobocore != true) {
+        print("You are not a robot.")
+        return
+    }
+    val command = parameters.trim().lowercase().ifBlank { "status" }
+    when (command.substringBefore(' ')) {
+        "status", "" -> YouRobotManager.statusLines(prefs, character).forEach(print)
+        "restore" -> {
+            YouRobotManager.restoreFromPreferences(prefs, skillManager)
+            print("Restored You, Robot parts from preferences.")
+            YouRobotManager.statusLines(prefs, character).forEach(print)
+        }
+        "chrono", "chronolith" -> {
+            val before = state.youRobotEnergy
+            print("Energy before chronolith: $before")
+            visitKolPage("place.php?whichplace=scrapheap&action=sh_chronolith", applyQuestHooks = true)
+            val after = character?.state?.value?.youRobotEnergy ?: prefs?.getInt("youRobotEnergy", 0) ?: 0
+            print("Energy after chronolith: $after (next cost ${prefs?.getInt("_chronolithNextCost", 0) ?: 0})")
+        }
+        "power" -> {
+            val before = state.youRobotEnergy
+            print("Energy before collect: $before")
+            visitKolPage("place.php?whichplace=scrapheap&action=sh_getpower", applyQuestHooks = true)
+            val after = character?.state?.value?.youRobotEnergy ?: prefs?.getInt("youRobotEnergy", 0) ?: 0
+            print("Energy after collect: $after")
+        }
+        else -> print("Usage: robot [status|restore|chrono|power]")
+    }
+}
+
+internal fun GameRuntimeLibrary.cliRumple(parameters: String, print: (String) -> Unit) {
+    val prefs = preferences
+    val command = parameters.trim().lowercase().ifBlank { "status" }
+    when (command.substringBefore(' ')) {
+        "status", "" -> RumpleManager.statusLines(prefs).forEach(print)
+        "advise" -> RumpleManager.advisorLines(prefs).forEach(print)
+        "reset" -> {
+            RumpleManager.reset(0, inventoryManager, prefs)
+            print("Rumple materials and sins reset.")
+        }
+        else -> print("Usage: rumple [status|advise|reset]")
     }
 }
 

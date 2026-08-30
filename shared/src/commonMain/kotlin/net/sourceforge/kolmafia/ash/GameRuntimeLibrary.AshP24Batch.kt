@@ -12,8 +12,8 @@ internal fun GameRuntimeLibrary.registerAshP24Batch(scope: AshScope) {
         val entry = resolveClassModifierEntry(args[0].toString())
         AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, classModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, classModifierParams) { _, args ->
+        AshValue.of(booleanFromEntry(resolveClassModifierEntry(args[0].toString()), args[1].toString()))
     }
     regFn(scope, "string_modifier", AshType.STRING, classModifierParams) { _, args ->
         val entry = resolveClassModifierEntry(args[0].toString())

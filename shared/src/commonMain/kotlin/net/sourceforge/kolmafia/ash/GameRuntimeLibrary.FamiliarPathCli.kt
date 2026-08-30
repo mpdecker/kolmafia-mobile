@@ -2,7 +2,10 @@ package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.quest.CandyDevilerChoiceSync
+import net.sourceforge.kolmafia.request.CakeArenaRequest
 import net.sourceforge.kolmafia.session.BugbearManager
+import net.sourceforge.kolmafia.session.ChibiBuddyManager
+import net.sourceforge.kolmafia.session.FamiliarTrainingManager
 import net.sourceforge.kolmafia.session.GreyYouManager
 
 /**
@@ -48,24 +51,31 @@ internal fun GameRuntimeLibrary.runAbsorptionsCli(parameters: String, rt: AshRun
 
 /** Desktop GooSkillsCommand — list Grey You goo skills. */
 internal fun GameRuntimeLibrary.runGooSkillsCli(parameters: String, rt: AshRuntimeContext) {
-    val filter = parameters.trim().lowercase()
-    val neededOnly = filter.split(Regex("\\s+")).any { it == "needed" }
-    GreyYouManager.loadRegistry()
-    val rows = GreyYouManager.allGooSkills.values
-        .filter { !neededOnly || !GreyYouManager.haveLearned(it.skillId ?: 0) }
-        .filter {
-            filter.isBlank() ||
-                filter == "all" ||
-                filter == "needed" ||
-                it.skillName.orEmpty().lowercase().contains(filter) ||
-                it.monsterName.lowercase().contains(filter)
+    val tokens = parameters.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+    var showAll = true
+    var order = "type"
+    for (token in tokens) {
+        when (token) {
+            "all" -> showAll = true
+            "needed" -> showAll = false
+            "id", "name", "monster", "type", "zone" -> order = token
         }
-        .sortedBy { it.skillId ?: 0 }
-    rows.forEach {
-        val known = it.skillId?.let { id -> GreyYouManager.haveLearned(id) } == true
-        val status = if (known) "[x]" else "[ ]"
-        val effect = it.enchantments.ifBlank { it.type.name }
-        rt.print("$status ${it.skillName}: ${it.monsterName} — $effect")
+    }
+    GreyYouManager.loadRegistry()
+    val rows = GreyYouManager.sortedGooSkills(order)
+        .filter { showAll || !GreyYouManager.haveLearned(it.skillId ?: 0) }
+    rt.print("Name | Type | Known | Source | Effect")
+    rows.forEach { skill ->
+        val known = if (GreyYouManager.haveLearned(skill.skillId ?: 0)) "yes" else "no"
+        val typeLabel = buildString {
+            append(skill.skillTypeName)
+            if ((skill.mpCost) > 0) append(" (${skill.mpCost} MP)")
+        }
+        val source = buildString {
+            append(skill.monsterName)
+            if (skill.zone.isNotBlank()) append(" (${skill.zone})")
+        }
+        rt.print("${skill.skillName} | $typeLabel | $known | $source | ${skill.evaluatedEnchantments()}")
     }
     if (rows.isEmpty()) rt.print("No Grey You goo skills matched.")
 }
@@ -97,7 +107,17 @@ internal fun GameRuntimeLibrary.runChibiCli(parameters: String, rt: AshRuntimeCo
             rt.print("You've already chatted with your ChibiBuddy™ today")
             return
         }
-        rt.print("ChibiBuddy chat is not available in this build.")
+        val inventory = inventoryManager
+        if (inventory == null || !ChibiBuddyManager.haveChibiBuddyOn(inventory)) {
+            rt.print("You don't have an active ChibiBuddy™.")
+            return
+        }
+        useItemRequest?.let { request ->
+            kotlinx.coroutines.runBlocking {
+                request.use(net.sourceforge.kolmafia.adventure.choice.ItemPool.CHIBIBUDDY_ON)
+            }
+        }
+        cliChoice(627, 5)
         return
     }
     if (parameters.isNotBlank()) {
@@ -190,7 +210,7 @@ internal fun GameRuntimeLibrary.runDevilCandyEggCli(parameters: String, rt: AshR
     visitKolPage("choice.php?whichchoice=${CandyDevilerChoiceSync.CHOICE_ID}&option=1&a=$itemId")
 }
 
-/** Desktop TrainFamiliarCommand — mobile has no training UI; status stub. */
+/** Desktop TrainFamiliarCommand — live headless training via FamiliarTrainingManager. */
 internal fun GameRuntimeLibrary.runTrainFamiliarCli(parameters: String, rt: AshRuntimeContext) {
     val weight = familiarManager?.state?.value?.activeFamiliar?.weight
         ?: character?.state?.value?.familiarWeight
@@ -198,9 +218,65 @@ internal fun GameRuntimeLibrary.runTrainFamiliarCli(parameters: String, rt: AshR
     val race = familiarManager?.state?.value?.activeFamiliar?.race
         ?: character?.state?.value?.familiarName
         ?: "none"
-    rt.print("Familiar training UI is not available in this build.")
-    rt.print("Current familiar: $race (weight $weight)")
-    if (parameters.isNotBlank()) {
-        rt.print("Usage: train base <weight> | buffed <weight> | turns <number> (desktop only)")
+    val trimmed = parameters.trim()
+    if (trimmed.isBlank()) {
+        rt.print("Current familiar: $race (weight $weight)")
+        rt.print("Usage: train base <weight> | buffed <weight> | turns <number>")
+        return
+    }
+    val parts = trimmed.split(Regex("""\s+"""))
+    if (parts.size < 2) {
+        rt.print("Syntax: train type goal")
+        return
+    }
+    val type = when (parts[0].lowercase()) {
+        "base" -> FamiliarTrainingManager.Goal.BASE
+        "buff", "buffed" -> FamiliarTrainingManager.Goal.BUFFED
+        "turns" -> FamiliarTrainingManager.Goal.TURNS
+        else -> {
+            rt.print("Unknown training type: ${parts[0]}")
+            return
+        }
+    }
+    val goal = parts[1].toIntOrNull()
+    if (goal == null || goal <= 0) {
+        rt.print("Syntax: train type goal")
+        return
+    }
+    val client = httpClient
+    if (client == null) {
+        rt.print("HTTP client unavailable; cannot train.")
+        return
+    }
+    val arena = CakeArenaRequest(
+        client = client,
+        preferences = preferences,
+        character = character,
+        inventory = inventoryManager,
+        familiarManager = familiarManager,
+        sessionLogger = sessionLogger,
+    )
+    val deps = FamiliarTrainingManager.TrainingDeps(
+        cakeArenaRequest = arena,
+        character = character,
+        familiarManager = familiarManager,
+        inventory = inventoryManager,
+        preferences = preferences,
+        effectManager = effectManager,
+        skillManager = skillManager,
+        equipmentRequest = equipmentRequest,
+        familiarRequest = familiarRequest,
+        useItemRequest = useItemRequest,
+        sessionLogger = sessionLogger,
+    )
+    val debug = preferences?.getBoolean("debugFamiliarTraining", false) == true
+    val ok = kotlinx.coroutines.runBlocking {
+        FamiliarTrainingManager.levelFamiliar(goal, type, deps, debug)
+    }
+    for (line in FamiliarTrainingManager.getResults()) {
+        rt.print(line)
+    }
+    if (!ok) {
+        rt.print("Training failed or aborted.")
     }
 }

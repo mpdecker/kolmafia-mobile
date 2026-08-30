@@ -28,7 +28,7 @@ class GameRuntimeLibraryAshP981TrackPTest {
     @Test
     fun phase983_isShruggable() {
         val lib = GameRuntimeLibrary(preferences = prefs())
-        assertEquals("true", outputLib(lib, """print(is_shruggable(to_effect("none")));"""))
+        assertEquals("false", outputLib(lib, """print(is_shruggable(to_effect("none")));"""))
     }
 
     @Test

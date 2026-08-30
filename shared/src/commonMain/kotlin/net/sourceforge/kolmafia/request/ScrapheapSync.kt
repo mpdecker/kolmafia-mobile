@@ -2,10 +2,9 @@ package net.sourceforge.kolmafia.request
 
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.preferences.Preferences
-import net.sourceforge.kolmafia.session.ResultProcessor
 
 /**
- * Desktop PlaceRequest scrapheap whichplace sync (Phases 2361–2375).
+ * Desktop PlaceRequest scrapheap whichplace sync (Phases 2361–2375 + 3171–3200 deepen).
  */
 object ScrapheapSync {
     private val ENERGY = Regex(
@@ -23,29 +22,34 @@ object ScrapheapSync {
         preferences: Preferences?,
         character: KoLCharacter? = null,
     ) {
-        preferences?.setBoolean("scrapheapAvailable", true)
-        ENERGY.find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()?.let {
-            preferences?.setInt("scrapheapEnergy", it)
-            preferences?.setInt("youRobotEnergy", it)
-        }
-        CHRONOLITH.find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()?.let {
-            preferences?.setInt("_chronolithAdv", it)
-        }
+        // Prefer deepened ScrapheapRequest when action is present; still handle legacy paths.
+        ScrapheapRequest.parseResponse(url, html, preferences, character)
         val action = PlaceSync.action(url)
         when {
-            action.contains("chronolith") -> {
-                preferences?.setBoolean("_chronolithUsed", true)
-            }
-            action.contains("scavenge") || action.contains("scavenge1") -> {
+            action.contains("scavenge", ignoreCase = true) ||
+                action.contains("scavenge1", ignoreCase = true) ||
+                action.startsWith("sh_scrounge", ignoreCase = true) -> {
                 preferences?.setInt(
                     "_scrapheapScavenges",
                     preferences.getInt("_scrapheapScavenges", 0) + 1,
                 )
             }
-            action.contains("power") || action.contains("collect") -> {
-                preferences?.setBoolean("_scrapheapPowerCollected", true)
-            }
         }
-        ResultProcessor.processResults(false, html, null, character, preferences)
+    }
+
+    fun parseEnergyFields(
+        html: String,
+        preferences: Preferences?,
+        character: KoLCharacter? = null,
+    ) {
+        preferences?.setBoolean("scrapheapAvailable", true)
+        ENERGY.find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()?.let {
+            preferences?.setInt("scrapheapEnergy", it)
+            preferences?.setInt("youRobotEnergy", it)
+            character?.setYouRobotEnergy(it)
+        }
+        CHRONOLITH.find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()?.let {
+            preferences?.setInt("_chronolithAdv", it)
+        }
     }
 }

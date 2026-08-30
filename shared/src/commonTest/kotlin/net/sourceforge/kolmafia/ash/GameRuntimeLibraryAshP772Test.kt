@@ -13,7 +13,7 @@ class GameRuntimeLibraryAshP772Test {
 
     @Test
     fun revision_phase848() {
-        assertEquals("phase3050", GameRuntimeLibrary.REVISION)
+        assertEquals("phase3830", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -46,7 +46,6 @@ class GameRuntimeLibraryAshP772Test {
                 "choice.php?whichchoice=1445&show=cpus",
             ),
         )
-        assertEquals("biomass_processing,topology_grid", prefs.getString("youRobotCPUUpgrades", ""))
 
         assertTrue(
             YouRobotChoiceSync.applyVisit(

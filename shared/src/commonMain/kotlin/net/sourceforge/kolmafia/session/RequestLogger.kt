@@ -12,6 +12,16 @@ import net.sourceforge.kolmafia.request.ElvmachineRequest
 import net.sourceforge.kolmafia.request.PeeVPeeRequest
 import net.sourceforge.kolmafia.request.AutoMallRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
+import net.sourceforge.kolmafia.request.MonsterManuelRequest
+import net.sourceforge.kolmafia.request.MushroomRequest
+import net.sourceforge.kolmafia.request.ScrapheapRequest
+import net.sourceforge.kolmafia.request.UneffectRequest
+import net.sourceforge.kolmafia.request.CakeArenaRequest
+import net.sourceforge.kolmafia.request.BountyHunterHunterRequest
+import net.sourceforge.kolmafia.request.NemesisRequest
+import net.sourceforge.kolmafia.request.TavernRequest
+import net.sourceforge.kolmafia.request.GourdRequest
+import net.sourceforge.kolmafia.session.DvorakManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.quest.SorceressLairSync
 import net.sourceforge.kolmafia.shop.SwaggerShopSync
@@ -79,6 +89,33 @@ object RequestLogger {
             urlString.startsWith("logout")
         ) {
             return false
+        }
+
+        if (NemesisRequest.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (DvorakManager.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (TavernRequest.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (GourdRequest.registerRequest(urlString, preferences = preferences, logger = sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("messages.php", ignoreCase = true) ||
+            urlString.startsWith("mail.php", ignoreCase = true)
+        ) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("account_contactlist.php", ignoreCase = true)) {
+            wasLastRequestSimple = false
+            return true
         }
 
         // Adventure snarfblat / location
@@ -151,6 +188,35 @@ object RequestLogger {
         }
 
         if (WereProfessorResearchSync.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (MonsterManuelRequest.registerRequest(urlString)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (MushroomRequest.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (urlString.startsWith("arena.php") &&
+            CakeArenaRequest.registerRequest(urlString, sessionLogger = sessionLogger)
+        ) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (urlString.startsWith("bounty.php") &&
+            BountyHunterHunterRequest.registerRequest(urlString, preferences, sessionLogger)
+        ) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (UneffectRequest.registerRequest(urlString, sessionLogger = sessionLogger)) {
             wasLastRequestSimple = false
             return true
         }
@@ -282,6 +348,9 @@ object RequestLogger {
         if (!url.startsWith("place.php")) return false
         if (SorceressLairSync.registerRequest(url, preferences, sessionLogger)) return true
         val place = queryParam(url, "whichplace") ?: return true
+        if (place == "scrapheap" && ScrapheapRequest.registerRequest(url, sessionLogger)) {
+            return true
+        }
         if (place == "spelunky") {
             val action = queryParam(url, "action").orEmpty()
             updateSessionLog(
@@ -323,7 +392,7 @@ object RequestLogger {
         "mountains" -> if (action == "mts_melvin") "Talking to Melvin" else null
         "town_right" -> when (action) {
             "townright_lrr" -> "Visiting The League of Loathing Radio"
-            "town_right=townright_vote" -> "Voting Booth"
+            "townright_vote" -> "Voting Booth"
             else -> null
         }
         "town_wrong" -> when (action) {
@@ -381,6 +450,10 @@ object RequestLogger {
         val optionId = option.toIntOrNull() ?: 0
 
         if (SorceressLairSync.registerChoice(choiceId, optionId, preferences, sessionLogger)) {
+            return true
+        }
+
+        if (YouRobotManager.registerRequest(url, sessionLogger, preferences)) {
             return true
         }
 

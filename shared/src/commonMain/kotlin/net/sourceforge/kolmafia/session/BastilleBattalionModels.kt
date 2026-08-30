@@ -9,17 +9,34 @@ data class BastilleCheeseEncounter(
     val name: String,
     val stat: Stat = Stat.NONE,
     val positive: Boolean = true,
+    val formula: BastilleCheeseFormula? = null,
 ) {
+    fun expectedCheese(statValue: Int): Int = formula?.estimate(statValue)
+        ?: when (name) {
+            "Grab the boulder" -> 20
+            "Scrape out the mine" -> 50
+            "Raid the cart" -> 100
+            "Use the wishing well" -> 100 // 1/3 chance of about 300
+            else -> 0
+        }
+
     companion object {
         private val registry = mutableMapOf<String, BastilleCheeseEncounter>()
 
         val unknown = BastilleCheeseEncounter("UNKNOWN")
 
         fun register(name: String, stat: Stat = Stat.NONE, positive: Boolean = true) {
-            registry[name] = BastilleCheeseEncounter(name, stat, positive)
+            val formula = if (stat == Stat.NONE) null else BastilleCheeseFormula(
+                slope = if (positive) 10 else -10,
+                intercept = if (positive) 75 else 175,
+            )
+            registry[name] = BastilleCheeseEncounter(name, stat, positive, formula)
         }
 
         fun forName(name: String): BastilleCheeseEncounter = registry[name] ?: unknown
+        fun all(): Collection<BastilleCheeseEncounter> = registry.values
+        fun scalingEncounters(): List<BastilleCheeseEncounter> =
+            registry.values.filter { it.stat != Stat.NONE }
 
         init {
             register("Raid the cave", Stat.MA, positive = true)
@@ -45,6 +62,18 @@ data class BastilleCheeseEncounter(
     }
 }
 
+/**
+ * Headless estimate used by the choice advisor. KoL adds fuzz to these linear yields, so this
+ * deliberately represents the center estimate rather than promising an exact payout.
+ */
+data class BastilleCheeseFormula(
+    val slope: Int,
+    val intercept: Int,
+    val minimum: Int = 1,
+) {
+    fun estimate(statValue: Int): Int = (intercept + slope * statValue).coerceAtLeast(minimum)
+}
+
 enum class BastilleStance(val option: Int, val label: String) {
     OFFENSE(1, "offensive"),
     BIDE(2, "waiting"),
@@ -62,10 +91,15 @@ enum class BastilleStance(val option: Int, val label: String) {
 /** Active Bastille potion boosts from `_bastilleBoosts` pref (M/C/P). */
 data class BastilleBoosts(val value: String) {
     fun boostedBy(stat: Stat): Int = when (stat) {
-        Stat.MA, Stat.MD -> if (value.contains('M')) 1 else 0
-        Stat.CA, Stat.CD -> if (value.contains('C')) 1 else 0
-        Stat.PA, Stat.PD -> if (value.contains('P')) 1 else 0
+        Stat.MA, Stat.MD -> countFor('M')
+        Stat.CA, Stat.CD -> countFor('C')
+        Stat.PA, Stat.PD -> countFor('P')
         Stat.NONE -> 0
+    }
+
+    private fun countFor(code: Char): Int {
+        val match = Regex("""(\d*)$code""").find(value) ?: return 0
+        return match.groupValues[1].toIntOrNull() ?: 1
     }
 
     override fun toString(): String = value
@@ -89,7 +123,10 @@ data class BastilleBattleResults(
         }
 
     fun won(): Boolean =
-        (if (military) 1 else 0) + (if (castle) 1 else 0) + (if (psychological) 1 else 0) >= 2
+        winCount() >= 2
+
+    fun winCount(): Int =
+        (if (military) 1 else 0) + (if (castle) 1 else 0) + (if (psychological) 1 else 0)
 
     private fun appendPair(buf: StringBuilder, prefix: Char, aggressor: Boolean, won: Boolean) {
         buf.append(prefix)

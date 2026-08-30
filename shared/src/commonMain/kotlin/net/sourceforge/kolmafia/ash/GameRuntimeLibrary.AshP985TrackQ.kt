@@ -1,15 +1,17 @@
 package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.shop.CoinmasterRegistry
 import net.sourceforge.kolmafia.session.StoreManager
 
 /**
  * AshP985–990 Track Q — Shop / mall residuals.
  *
  * Phase 985: have_shop, have_display
- * Phase 986: mall_prices (pref-backed stub map)
- * Phase 987: get_shop_log (stub)
- * Phase 988: put_shop_using_storage (stub), well_stocked (pref)
+ * Phase 986: mall_prices
+ * Phase 987: get_shop_log
+ * Phase 988: put_shop_using_storage / well_stocked
  * Phase 989: daily_special
  * Phase 990: sells_skill (coinmaster placeholder)
  */
@@ -27,6 +29,18 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
     regFn(scope, "mall_prices", AshType.INT,
         listOf("category" to AshType.STRING)) { _, args ->
         val count = runBlocking { mallManager?.mallPrices(args[0].toString())?.size ?: 0 }
+        AshValue.of(count.toLong())
+    }
+
+    val itemSet = AggregateType(AshType.ITEM, AshType.BOOLEAN)
+    regFn(scope, "mall_prices", AshType.INT,
+        listOf("items" to itemSet)) { _, args ->
+        val ids = (args[0] as? AggregateValue)?.map?.keys
+            ?.mapNotNull { item ->
+                item.toString().toIntOrNull()
+                    ?: gameDatabase?.item(item.toString())?.id
+            }.orEmpty()
+        val count = runBlocking { mallManager?.refreshMallPrices(ids) ?: 0 }
         AshValue.of(count.toLong())
     }
 
@@ -77,7 +91,23 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
         val itemId = gameDatabase?.item(args[0].toString())?.id ?: return@regFn AshValue.FALSE
         val quantity = args[1].toLong().toInt()
         val price = args[2].toLong()
-        AshValue.of(StoreManager.shopAmount(itemId) >= quantity && StoreManager.getPrice(itemId) <= price)
+        val autosell = ItemDatabase.getById(itemId)?.autosellPrice?.toLong() ?: 0L
+        if (quantity < 6 || price < 2L * autosell) return@regFn AshValue.FALSE
+        val manager = mallManager
+        if (manager == null) {
+            return@regFn AshValue.of(
+                StoreManager.shopAmount(itemId) >= quantity &&
+                    StoreManager.getPrice(itemId) <= price,
+            )
+        }
+        val listings = runBlocking { manager.searchListings(args[0].toString(), 20) }
+        var available = 0
+        for (listing in listings.sortedBy { it.price }) {
+            if (!listing.canPurchase || listing.price > price) break
+            available += minOf(listing.quantity, listing.limit.coerceAtLeast(0))
+            if (available >= quantity) return@regFn AshValue.TRUE
+        }
+        AshValue.FALSE
     }
 
     // ── Phase 989: daily_special ────────────────────────────────────
@@ -90,5 +120,14 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
     regFn(scope, "sells_skill", AshType.BOOLEAN,
         listOf("cm" to AshType.COINMASTER)) { _, _ ->
         AshValue.FALSE
+    }
+
+    regFn(scope, "sells_skill", AshType.BOOLEAN,
+        listOf("cm" to AshType.COINMASTER, "skill" to AshType.SKILL)) { _, args ->
+        val master = CoinmasterRegistry.findByNickname(args[0].toString())
+        val skillId = gameDatabase?.skill(args[1].toString())?.id
+            ?: args[1].toString().toIntOrNull()
+            ?: return@regFn AshValue.FALSE
+        AshValue.of(master?.buyItems?.any { it.isSkillPurchase && it.item.itemId == skillId } == true)
     }
 }

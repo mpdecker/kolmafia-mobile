@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures
 import net.sourceforge.kolmafia.adventure.choice.ChoiceContext
 import net.sourceforge.kolmafia.adventure.choice.ChoiceCost
 import net.sourceforge.kolmafia.adventure.choice.ChoiceHandlerRegistry
@@ -18,11 +19,18 @@ import net.sourceforge.kolmafia.adventure.choice.DeferredChoice
 import net.sourceforge.kolmafia.adventure.choice.VioletFogManager
 import net.sourceforge.kolmafia.adventure.choice.solvers.FightersOfFighting
 import net.sourceforge.kolmafia.session.FightActionCostSync
+import net.sourceforge.kolmafia.session.FightStructuralSync
 import net.sourceforge.kolmafia.session.FightDiscoComboSync
 import net.sourceforge.kolmafia.session.FightDomSync
 import net.sourceforge.kolmafia.session.FightFamiliarMessageSync
+import net.sourceforge.kolmafia.session.JourneyManager
+import net.sourceforge.kolmafia.session.LeprecondoManager
 import net.sourceforge.kolmafia.session.FightFinalRoundSync
 import net.sourceforge.kolmafia.session.FightIotmSync
+import net.sourceforge.kolmafia.session.FightIotmResidualSync
+import net.sourceforge.kolmafia.session.StillSuitManager
+import net.sourceforge.kolmafia.session.CrystalBallManager
+import net.sourceforge.kolmafia.adventure.choice.ItemPool
 import net.sourceforge.kolmafia.session.FightMonsterHealthSync
 import net.sourceforge.kolmafia.session.FightCombatModeSync
 import net.sourceforge.kolmafia.session.FightTrackSync
@@ -132,7 +140,9 @@ import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.request.BarrelChoiceMapper
 import net.sourceforge.kolmafia.session.BarrelShrineSync
 import net.sourceforge.kolmafia.session.BastilleBattalionSync
+import net.sourceforge.kolmafia.session.BastilleBattalionAdvisor
 import net.sourceforge.kolmafia.session.BastilleSyncContext
+import net.sourceforge.kolmafia.session.ChibiBuddyManager
 import net.sourceforge.kolmafia.session.RequestLogger
 import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.session.SkillLearnFromResponse
@@ -152,6 +162,7 @@ import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 import net.sourceforge.kolmafia.session.EncounterManager
 import net.sourceforge.kolmafia.session.ResultProcessor
 import net.sourceforge.kolmafia.session.GreyYouManager
+import net.sourceforge.kolmafia.session.GrimstoneManager
 import net.sourceforge.kolmafia.mood.ManaBurnManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.recovery.BetweenBattleContext
@@ -218,6 +229,7 @@ open class AdventureManager(
     private var _fightFollowsChoice = false
     private var _inChoiceResolution = false
     private var lastFightHtml: String = ""
+    private val fightLifecycle = FightLifecycle()
 
     val inMultiFight: Boolean get() = _inMultiFight
     val fightFollowsChoice: Boolean get() = _fightFollowsChoice
@@ -403,6 +415,17 @@ open class AdventureManager(
     private suspend fun emitTurnConsumed(location: AdventureLocation, result: AdventureResult) {
         adventureSpentTracker?.recordNoncombatIfNeeded(location, result)
         adventureSpentTracker?.addTurn(location.name)
+        val turns = adventureSpentTracker?.getTurns(location.name) ?: 0
+        val charState = character.state.value
+        if (JourneyManager.isJourneymanPath(charState.ascensionPath)) {
+            JourneyManager.recordAdventureTurn(
+                locationName = location.name,
+                turnsSpent = turns,
+                characterClass = charState.characterClassEnum,
+                preferences = preferences,
+                sessionLog = { sessionLogger?.appendRawLine(it) },
+            )
+        }
         eventBus.emit(GameEvent.TurnConsumed(location, result))
         scriptHookRunner?.onTurnConsumed()
     }
@@ -745,6 +768,7 @@ open class AdventureManager(
         prepareCombatMonster(lastTurnResponseText)
         if (!_inMultiFight) {
             FightIotmSync.noteFightStart(preferences)
+            fightLifecycle.beginFight(_fightFollowsChoice)
             FightFamiliarMessageSync.noteFightStart(
                 preferences,
                 character.state.value.familiarId,
@@ -757,10 +781,18 @@ open class AdventureManager(
                 preferences,
                 maximumMp = character.state.value.maxMp.coerceAtLeast(0),
             )
-        val fightHtml = fightRequest.fight(macro).getOrElse {
+        val fightAction = FightAction.macro(macro)
+        fightLifecycle.beginRound(fightAction)
+        val fightHtml = fightRequest.execute(
+            fightAction,
+            sessionLogger = sessionLogger,
+            preferences = preferences,
+        ).getOrElse {
+            fightLifecycle.clear()
             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.NetworkError(it)))
             return null
         }
+        fightLifecycle.recordResponse(fightHtml)
         lastFightHtml = fightHtml
         ChoiceCombatAshState.noteFightRound(fightHtml)
         FightDiscoComboSync.apply(macro, fightHtml)
@@ -813,6 +845,21 @@ open class AdventureManager(
             character = character,
             inventory = inventory,
             preferences = preferences,
+            familiarId = character.state.value.familiarId,
+            action = "macro",
+        )
+        FightStructuralSync.apply(
+            FightStructuralSync.Context(
+                html = fightHtml,
+                location = location.name,
+                adventureId = location.id,
+                monsterName = result.monster,
+                won = result.won,
+                preferences = preferences,
+                inventory = inventory,
+                sessionLogger = sessionLogger,
+                clearEquipment = { slot -> character.updateEquipment(slot, "") },
+            ),
         )
         FightIotmSync.apply(
             html = fightHtml,
@@ -823,12 +870,38 @@ open class AdventureManager(
             won = result.won,
             adventureId = location.id,
         )
+        FightIotmResidualSync.apply(
+            html = fightHtml,
+            preferences = preferences,
+            monsterName = result.monster,
+            itemCount = { id -> inventory?.state?.value?.items?.get(id)?.quantity ?: 0 },
+            daylightShavingsEquipped = character.state.value.equipment.values.any {
+                it.contains("Daylight Shavings Helmet", ignoreCase = true)
+            },
+            cursedMagnifyingGlassEquipped = character.state.value.equipment.values.any {
+                it.contains("Cursed Magnifying Glass", ignoreCase = true)
+            },
+            locationName = location.name,
+            currentRun = character.state.value.currentRun,
+            familiarHasStillSuit = StillSuitManager.hasStillSuit(
+                character.state.value.equipment[EquipmentSlot.FAMILIAR],
+            ),
+            anyOwnedFamiliarHasStillSuit = familiarManager?.state?.value?.ownedFamiliars.orEmpty()
+                .any { it.equipment?.itemId == ItemPool.STILLSUIT },
+            crystalBallEquipped = CrystalBallManager.isEquipped(
+                character.state.value.equipment[EquipmentSlot.FAMILIAR],
+            ),
+        )
         FightFamiliarMessageSync.apply(
             html = fightHtml,
             preferences = preferences,
             familiarId = character.state.value.familiarId,
+            familiarImage = "",
+            goalManager = goalManager,
+            currentRun = character.state.value.currentRun,
         )
         FightMonsterHealthSync.apply(fightHtml)
+        net.sourceforge.kolmafia.request.MonsterManuelRequest.parseResponse("fight.php", fightHtml)
         FightFinalRoundSync.apply(
             html = fightHtml,
             preferences = preferences,
@@ -848,7 +921,7 @@ open class AdventureManager(
             when {
                 limitMode.equals("spelunky", ignoreCase = true) ||
                     limitMode.equals("spelunk", ignoreCase = true) ->
-                    SpelunkyRequest.wonFight(result.monster, fightHtml, preferences)
+                    SpelunkyRequest.wonFight(result.monster, fightHtml, preferences, sessionLogger)
                 limitMode.equals("batman", ignoreCase = true) ->
                     BatManager.wonFight(result.monster, fightHtml, preferences)
             }
@@ -878,6 +951,7 @@ open class AdventureManager(
             _fightFollowsChoice = false
             ChoiceCombatAshState.noteFightEnd(fightHtml)
             ChoiceCombatAshState.fightFollowsChoice = false
+            fightLifecycle.clear()
         }
         ChoiceCombatAshState.inMultiFight = _inMultiFight
         ChoiceCombatAshState.fightFollowsChoice = _fightFollowsChoice
@@ -1014,6 +1088,9 @@ open class AdventureManager(
                 responseText = fightHtml,
                 won = result.won,
             )
+            if (result.won) {
+                GrimstoneManager.incrementFights(location.id.toIntOrNull() ?: -1, preferences)
+            }
             ToppingPeakCombatSync.applyCombatWin(
                 preferences = preferences,
                 monster = result.monster,
@@ -1259,6 +1336,13 @@ open class AdventureManager(
         val maxSteps            = 20
 
         while (stepCount < maxSteps) {
+            ChibiBuddyManager.visit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+                character,
+                inventory,
+            )
             SorceressLairSync.visitChoice(
                 currentChoiceId,
                 currentResponseText,
@@ -1380,13 +1464,19 @@ open class AdventureManager(
                 goalManager    = goalManager,
                 questDatabase  = questDatabase,
                 solvers        = solvers,
-                preference     = preferences.getInt("choiceAdventure$currentChoiceId", 0),
+                preference     = ChoiceAdventures.pickGoalChoice(
+                    currentChoiceId,
+                    preferences.getInt("choiceAdventure$currentChoiceId", 0),
+                    goalManager,
+                    inventory?.state?.value,
+                ),
                 gameDatabase   = gameDatabase,
                 stepCount      = stepCount,
                 skillUses      = skillUses,
             )
             val option = registry.dispatch(ctx)
                 ?: preferences.getString("choiceAdventure$currentChoiceId").toIntOrNull()
+                ?: BastilleBattalionAdvisor.recommend(currentChoiceId, preferences).takeIf { it > 0 }
                 ?: 1
             val optionLabel = ctx.options[option]
             // skillUses decremented once per step — each choice interaction costs one skill use budget unit
@@ -1475,6 +1565,14 @@ open class AdventureManager(
             if (currentChoiceId == BarrelChoiceMapper.CHOICE_ID) {
                 BarrelShrineSync.syncPostChoice(option, preferences)
             }
+            ChibiBuddyManager.postChoice(
+                currentChoiceId,
+                option,
+                html,
+                preferences,
+                inventory,
+                character,
+            )
             if (WereProfessorResearchSync.isResearchBenchChoice(currentChoiceId)) {
                 WereProfessorResearchSync.registerRequest(url, sessionLogger)
                 WereProfessorResearchSync.postChoice2(url, html, preferences, sessionLogger)
