@@ -167,6 +167,7 @@ import net.sourceforge.kolmafia.request.ActionBarRequest
 import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.request.HashingViseRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
@@ -252,6 +253,15 @@ val sharedModule = module {
             questDatabase = get(),
             character = get(),
             inventoryManager = get(),
+        )
+    }
+    single {
+        HashingViseRequest(
+            client = get(),
+            choiceRequest = get(),
+            inventoryManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
         )
     }
     single {
@@ -964,6 +974,7 @@ val sharedModule = module {
             sendMailRequest     = get(),
             sendGiftRequest     = get(),
             choiceRequest       = get(),
+            hashingViseRequest  = get(),
             edServantManager    = get(),
             vykeaCompanionManager = get(),
             pastaThrallManager    = get(),

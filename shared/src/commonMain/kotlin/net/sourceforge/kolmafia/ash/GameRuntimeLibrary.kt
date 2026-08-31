@@ -273,6 +273,7 @@ import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.SushiConsumptionSync
 import net.sourceforge.kolmafia.request.BarrelChoiceMapper
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.request.HashingViseRequest
 import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
@@ -421,6 +422,7 @@ class GameRuntimeLibrary(
     internal val sendMailRequest: SendMailRequest? = null,
     internal val sendGiftRequest: SendGiftRequest? = null,
     internal val choiceRequest: ChoiceRequest? = null,
+    internal val hashingViseRequest: HashingViseRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
     internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
