@@ -118,3 +118,45 @@ Existing Gradle/JDK deprecation, disabled native-target, and unrelated Kotlin co
 ## Concerns
 
 None specific to Task 2. Existing build warnings are unchanged.
+
+## Review fix: no invent-gain checksum accounting
+
+Finding: `HashingViseRequest.parseResponse` invented a checksum gain when `checksumItemId` was provided but the HTML had no checksum `rel` metadata and `ResultProcessor.processResults` did not increase that count.
+
+### Fix
+
+- Removed the `ResultProcessor.processItem(checksumItemId, 1, ...)` fallback.
+- Kept schematic consumption via `HashingChoiceSync`.
+- Kept checksum gains that `HashingChoiceSync` confirms from KoL result-table `rel` metadata.
+- Kept `ResultProcessor.processResults` as an HTML-confirmed fallback only when `HashingChoiceSync` did not already apply a checksum gain.
+- Updated the success fixture to include real checksum `rel` metadata (`id=11789&...&n=1`).
+- Added `use_successWithoutChecksumMetadataConsumesSchematicWithoutInventingChecksum`, which uses crush HTML without checksum metadata, consumes the schematic, and leaves checksum count at 0.
+
+### TDD RED
+
+Command:
+
+```powershell
+.\gradlew.bat :shared:jvmTest --tests net.sourceforge.kolmafia.request.HashingViseRequestTest.use_successWithoutChecksumMetadataConsumesSchematicWithoutInventingChecksum
+```
+
+Result: `BUILD FAILED in 2m 37s`, exit code 1.
+
+```
+HashingViseRequestTest[jvm] > use_successWithoutChecksumMetadataConsumesSchematicWithoutInventingChecksum[jvm] FAILED
+    java.lang.AssertionError at HashingViseRequestTest.kt:58
+```
+
+The invented `processItem(checksumItemId, 1)` path made checksum count 1 instead of the expected 0.
+
+### TDD GREEN
+
+Command:
+
+```powershell
+.\gradlew.bat :shared:jvmTest --tests net.sourceforge.kolmafia.request.HashingViseRequestTest --tests net.sourceforge.kolmafia.ash.GameRuntimeLibraryOddballCliTest
+```
+
+Result: `BUILD SUCCESSFUL in 2m 33s`, exit code 0.
+
+Covering tests: `HashingViseRequestTest` (6 tests, including the no-invent-gain case) and `GameRuntimeLibraryOddballCliTest`. Existing Gradle/JDK deprecation, disabled native-target, and unrelated Kotlin compiler warnings remain.

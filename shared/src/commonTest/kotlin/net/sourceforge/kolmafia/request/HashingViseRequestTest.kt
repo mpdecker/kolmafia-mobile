@@ -55,6 +55,31 @@ class HashingViseRequestTest {
     }
 
     @Test
+    fun use_successWithoutChecksumMetadataConsumesSchematicWithoutInventingChecksum() = runTest {
+        val client = HttpClient(MockEngine { request ->
+            when (request.url.encodedPath) {
+                "/inv_use.php" -> respond(CHOICE_HTML, HttpStatusCode.OK)
+                "/choice.php" -> respond(SUCCESS_HTML_NO_CHECKSUM, HttpStatusCode.OK)
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        })
+        val inventory = inventory(client, schematicCount = 1, checksumCount = 0)
+        val request = HashingViseRequest(
+            client,
+            ChoiceRequest(client),
+            inventory,
+            Preferences(MapSettings()),
+            null,
+        )
+
+        val result = request.use(SCHEMATIC_ID, CHECKSUM_ID)
+
+        assertTrue(result.isSuccess, result.exceptionOrNull()?.message)
+        assertEquals(0, inventory.getCount(SCHEMATIC_ID))
+        assertEquals(0, inventory.getCount(CHECKSUM_ID))
+    }
+
+    @Test
     fun use_failedItemUseLeavesInventoryUnchanged() = runTest {
         val client = HttpClient(MockEngine {
             respond("no", HttpStatusCode.InternalServerError)
@@ -189,7 +214,9 @@ class HashingViseRequestTest {
         private const val SCHEMATIC_ID = 11194
         private const val CHECKSUM_ID = 11789
         private const val CHOICE_HTML = "<input name=whichchoice value=1551>"
-        private const val SUCCESS_HTML =
+        private const val SUCCESS_HTML_NO_CHECKSUM =
             "You crush the schematic into little bits of checksum."
+        private const val SUCCESS_HTML =
+            """You crush the schematic into little bits of checksum.<table class="item" style="float: none" rel="id=11789&s=2&q=0&d=1&g=0&t=1&n=1&m=0&p=0&u=."></table>"""
     }
 }

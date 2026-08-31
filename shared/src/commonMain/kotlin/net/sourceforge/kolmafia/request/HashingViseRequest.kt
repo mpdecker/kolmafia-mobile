@@ -98,7 +98,6 @@ open class HashingViseRequest(
     ): Boolean {
         if (schematicItemId <= 0) return false
         val inventory = inventoryManager
-        val checksumBefore = checksumItemId?.let { inventory?.getCount(it) }
         var parsedChecksum = false
         val handled = HashingChoiceSync.apply(
             choiceId = HashingChoiceSync.CHOICE_ID,
@@ -131,14 +130,6 @@ open class HashingViseRequest(
                 inventory = inventory,
                 preferences = preferences,
             )
-            if (checksumItemId != null && inventory?.getCount(checksumItemId) == checksumBefore) {
-                ResultProcessor.processItem(
-                    checksumItemId,
-                    1,
-                    preferences = preferences,
-                    inventory = inventory,
-                )
-            }
         }
         return true
     }
