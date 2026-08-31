@@ -88,3 +88,46 @@ The new test file was written before production changes. The first focused run p
 ## Commits
 
 One scoped Task 1 commit; the resulting hash is recorded in the final status response.
+
+## Reviewer-finding fixes
+
+### Implementation
+
+- Tea Tree choices 1104 and 1105 now require response HTML containing the validated success marker `You acquire an item` before `TeaTreeChoiceSync.apply` can mark `_pottedTeaTreeUsed`.
+- Failed and malformed Tea Tree responses remain unhandled and do not write the daily-use preference.
+- Replaced immediate-previous signature storage with a handled-signature set, so duplicate delivery remains suppressed across an `A -> B -> A` sequence.
+- Added `resetVisitResponseHookSignatures()` as the explicit request-boundary mechanism. Clearing the boundary permits a later legitimate request with an identical normalized URL and response body to be processed again.
+
+### Focused regression coverage
+
+- Added write-counting `Settings` coverage proving duplicate Tea Tree responses write `_pottedTeaTreeUsed` exactly once.
+- Added `A -> B -> A` coverage proving both unique handled responses write once while the repeated `A` remains suppressed.
+- Added request-boundary reset coverage proving a later identical handled response can write again.
+- Added failed and malformed Tea Tree HTML coverage proving zero preference writes.
+- Retained absolute/relative normalization, Hashing inventory idempotence, malformed choice URL, and request-label coverage.
+
+### Reviewer-fix TDD evidence
+
+RED command:
+
+```powershell
+.\gradlew.bat :shared:jvmTest --tests net.sourceforge.kolmafia.request.RequestRoutingResidualTest
+```
+
+RED result: exit code 1 in 20s at `:shared:compileTestKotlinJvm`; the new request-boundary test failed to compile with the expected `Unresolved reference 'resetVisitResponseHookSignatures'` before the mechanism was implemented.
+
+GREEN command:
+
+```powershell
+.\gradlew.bat :shared:jvmTest --tests net.sourceforge.kolmafia.request.RequestRoutingResidualTest
+```
+
+GREEN result: `BUILD SUCCESSFUL in 2m 45s`, exit code 0; all 8 focused tests passed. Gradle reported `14 actionable tasks: 4 executed, 10 up-to-date`. Existing JDK-target, deprecation, and unrelated compiler warnings remain.
+
+### Reviewer-fix self-review
+
+- Success validation occurs before the existing Tea Tree parser, keeping the synchronizer unchanged and preventing failure HTML from entering its decision-only logic.
+- Only successfully handled signatures enter the set; malformed or failed responses cannot poison deduplication.
+- Signature normalization still collapses absolute and relative KoL URLs before tracking.
+- Reset is explicit and scoped to `GameRuntimeLibrary`, allowing typed request wrappers added by later tasks to establish request boundaries without parallel state.
+- No unrelated working-tree changes were altered.

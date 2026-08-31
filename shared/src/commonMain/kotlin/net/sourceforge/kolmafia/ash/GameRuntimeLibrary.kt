@@ -460,7 +460,7 @@ class GameRuntimeLibrary(
     internal val sessionManager: net.sourceforge.kolmafia.session.SessionManager? = null,
 ) : RuntimeLibrary() {
 
-    private var lastResidualResponseSignature: Pair<String, String>? = null
+    private val handledResidualResponseSignatures = mutableSetOf<Pair<String, String>>()
 
     private val moodCliContext = object : AshRuntimeContext {
         override fun print(msg: String) = Unit
@@ -4276,17 +4276,21 @@ class GameRuntimeLibrary(
     ) {
         if (normalizedUrl.isBlank()) return
         val signature = normalizedUrl to html
-        if (signature == lastResidualResponseSignature) return
+        if (signature in handledResidualResponseSignatures) return
 
         val handled = when (choiceId) {
             TeaTreeChoiceSync.TREE_TEA,
             TeaTreeChoiceSync.SPECIFICI_TEA,
-            -> TeaTreeChoiceSync.apply(
-                choiceId = choiceId,
-                decision = extractChoiceDecision(normalizedUrl),
-                preferences = preferences,
-                choiceUrl = normalizedUrl,
-            )
+            -> if (isTeaTreeSuccess(html)) {
+                TeaTreeChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = extractChoiceDecision(normalizedUrl),
+                    preferences = preferences,
+                    choiceUrl = normalizedUrl,
+                )
+            } else {
+                false
+            }
             HashingChoiceSync.CHOICE_ID -> HashingChoiceSync.apply(
                 choiceId = choiceId,
                 html = html,
@@ -4298,9 +4302,17 @@ class GameRuntimeLibrary(
             else -> false
         }
         if (handled) {
-            lastResidualResponseSignature = signature
+            handledResidualResponseSignatures += signature
         }
     }
+
+    /** Start a new request boundary where an identical response may be handled again. */
+    internal fun resetVisitResponseHookSignatures() {
+        handledResidualResponseSignatures.clear()
+    }
+
+    private fun isTeaTreeSuccess(html: String): Boolean =
+        html.contains("You acquire an item", ignoreCase = true)
 
     private fun extractChoiceDecision(url: String): Int =
         Regex("""(?:^|[?&])(?:option|decision)=(\d+)""", RegexOption.IGNORE_CASE)
