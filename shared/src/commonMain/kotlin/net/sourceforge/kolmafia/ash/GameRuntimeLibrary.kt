@@ -260,6 +260,7 @@ import net.sourceforge.kolmafia.quest.HashingChoiceSync
 import net.sourceforge.kolmafia.quest.HybridizationChoiceSync
 import net.sourceforge.kolmafia.quest.IceHouseChoiceSync
 import net.sourceforge.kolmafia.quest.MonkeyPawChoiceSync
+import net.sourceforge.kolmafia.quest.TeaTreeChoiceSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.SpookyravenManorVisitSync
 import net.sourceforge.kolmafia.quest.SorceressLairSync
@@ -458,6 +459,8 @@ class GameRuntimeLibrary(
     internal val raffleRequest: net.sourceforge.kolmafia.request.RaffleRequest? = null,
     internal val sessionManager: net.sourceforge.kolmafia.session.SessionManager? = null,
 ) : RuntimeLibrary() {
+
+    private var lastResidualResponseSignature: Pair<String, String>? = null
 
     private val moodCliContext = object : AshRuntimeContext {
         override fun print(msg: String) = Unit
@@ -2796,6 +2799,15 @@ class GameRuntimeLibrary(
     }
 
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
+        val normalizedUrl = url.orEmpty()
+            .removePrefix(KOL_BASE_URL)
+            .removePrefix("/")
+        val choiceId = WHICH_CHOICE_URL_PATTERN.find(normalizedUrl)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+        processVisitResponseHooksForPath(normalizedUrl, html, choiceId)
+
         net.sourceforge.kolmafia.request.MonsterManuelRequest.parseResponse(url, html)
         if (url?.contains("town_right.php", ignoreCase = true) == true) {
             GourdRequest.parseResponse(url, html, preferences, inventoryManager)
@@ -4252,6 +4264,51 @@ class GameRuntimeLibrary(
             }
         }
     }
+
+    /**
+     * Normalized residual-request dispatcher. Request-specific parsers are added
+     * here so typed requests and generic visit wrappers share one response path.
+     */
+    internal fun processVisitResponseHooksForPath(
+        normalizedUrl: String,
+        html: String,
+        choiceId: Int?,
+    ) {
+        if (normalizedUrl.isBlank()) return
+        val signature = normalizedUrl to html
+        if (signature == lastResidualResponseSignature) return
+
+        val handled = when (choiceId) {
+            TeaTreeChoiceSync.TREE_TEA,
+            TeaTreeChoiceSync.SPECIFICI_TEA,
+            -> TeaTreeChoiceSync.apply(
+                choiceId = choiceId,
+                decision = extractChoiceDecision(normalizedUrl),
+                preferences = preferences,
+                choiceUrl = normalizedUrl,
+            )
+            HashingChoiceSync.CHOICE_ID -> HashingChoiceSync.apply(
+                choiceId = choiceId,
+                html = html,
+                choiceUrl = normalizedUrl,
+                consumeItem = { itemId, qty ->
+                    inventoryManager?.consumeItemLocally(itemId, qty)
+                },
+            )
+            else -> false
+        }
+        if (handled) {
+            lastResidualResponseSignature = signature
+        }
+    }
+
+    private fun extractChoiceDecision(url: String): Int =
+        Regex("""(?:^|[?&])(?:option|decision)=(\d+)""", RegexOption.IGNORE_CASE)
+            .find(url)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+            ?: 0
 
     private fun shouldSkipTavernExplore(state: CharacterState?): Boolean {
         if (state == null) return false

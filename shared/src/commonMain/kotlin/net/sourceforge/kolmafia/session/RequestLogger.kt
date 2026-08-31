@@ -500,6 +500,7 @@ object RequestLogger {
             if (seed != null) "Calculate $seed with Calculate the Universe" else "Calculate the Universe"
         }
         1074 -> "Sausage grinder"
+        1104, 1105 -> "Tea Tree"
         1079 -> { // Tea Tree
             if (option != "0") "Potted Tea Tree: option $option" else "Visiting Potted Tea Tree"
         }
@@ -541,7 +542,7 @@ object RequestLogger {
         1489, 1490, 1491 -> "Mayam Calendar"
         1510, 1511 -> "Autumnaton"
         1523 -> "WereProfessor research"
-        1551 -> "TakerSpace"
+        1551 -> "Hashing Vise"
         // Wax / meteoroid / newspaper / wool creation choices
         1002 -> "Burning Newspaper"
         1018, 1019 -> "Metal Meteoroid"
