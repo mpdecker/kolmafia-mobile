@@ -28,7 +28,7 @@ class ModeableRequestTest {
             if (request.method == HttpMethod.Post) {
                 requests += request.method to request.body.toByteArray().decodeToString()
             }
-            respond("ok", HttpStatusCode.OK)
+            respond("You dangle by the handle and the umbrella assumes a bucket style.", HttpStatusCode.OK)
         }
         val prefs = Preferences(MapSettings())
         val request = ModeableRequest(

@@ -314,4 +314,8 @@ object ItemPool {
     const val MODEL_TRAIN_SET = 11045
     const val PING_PONG_TABLE = 11059
     const val REPLICA_MINIATURE_CRYSTAL_BALL = 11247
+    const val PALM_FROND = 2605
+    const val PALM_FROND_FAN = 2606
+    const val DIABOLIC_PIZZA_CUBE = 10335
+    const val DIABOLIC_PIZZA = 10336
 }

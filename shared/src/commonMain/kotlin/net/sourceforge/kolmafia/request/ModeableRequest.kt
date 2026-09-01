@@ -4,11 +4,12 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import net.sourceforge.kolmafia.adventure.ChoiceRequest
-import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.equipment.Modeable
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.EquipmentManager
 import net.sourceforge.kolmafia.session.ModeableChoiceSync
 
 /** HTTP mode switching for modeable equipment (desktop ModeCommand run paths). */
@@ -18,6 +19,8 @@ open class ModeableRequest(
     private val equipmentRequest: EquipmentRequest? = null,
     private val character: KoLCharacter? = null,
     private val preferences: Preferences? = null,
+    private val inventoryManager: InventoryManager? = null,
+    private val equipmentManager: EquipmentManager? = null,
 ) {
     open suspend fun setMode(modeable: Modeable, mode: String): Result<Unit> {
         val resolvedMode = when (modeable) {
@@ -63,11 +66,16 @@ open class ModeableRequest(
     }
 
     private suspend fun setUmbrella(mode: String): Result<Unit> {
+        if (missingOwnership(Modeable.UMBRELLA)) {
+            return Result.failure(IllegalStateException("You need an Unbreakable Umbrella first."))
+        }
         val option = UMBRELLA_OPTIONS[mode.lowercase()]
             ?: return Result.failure(IllegalArgumentException("Unknown umbrella mode: $mode"))
         visitInventoryAction("useumbrella").getOrElse { return Result.failure(it) }
-        choose(1466, option).getOrElse { return Result.failure(it) }
-        ModeableChoiceSync.writeModePref(preferences, Modeable.UMBRELLA, mode)
+        val (html, _) = choiceRequest.choose(1466, option).getOrElse { return Result.failure(it) }
+        if (!ModeableChoiceSync.applyUmbrellaMode(html, mode, preferences)) {
+            return Result.failure(IllegalStateException("Umbrella mode change was not successful."))
+        }
         return Result.success(Unit)
     }
 
@@ -149,7 +157,17 @@ open class ModeableRequest(
         }
         val request = equipmentRequest
             ?: return Result.failure(IllegalStateException("EquipmentRequest unavailable"))
-        return equipmentRequest.equipItem(modeable.itemId, slot)
+        return request.equipItem(modeable.itemId, slot)
+    }
+
+    private fun missingOwnership(modeable: Modeable): Boolean {
+        val canCheck = inventoryManager != null || equipmentManager != null || character != null
+        if (!canCheck) return false
+        if ((inventoryManager?.getCount(modeable.itemId) ?: 0) > 0) return false
+        if (equipmentManager?.hasEquipped(modeable.itemId) == true) return false
+        val itemName = modeable.itemName
+        return character?.state?.value?.equipment?.values
+            ?.any { it.equals(itemName, ignoreCase = true) } != true
     }
 
     companion object {

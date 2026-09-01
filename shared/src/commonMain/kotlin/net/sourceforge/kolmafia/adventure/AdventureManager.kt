@@ -158,6 +158,7 @@ import net.sourceforge.kolmafia.session.OceanManager
 import net.sourceforge.kolmafia.session.WereProfessorResearchSync
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.session.MonsterManuelManager
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 import net.sourceforge.kolmafia.session.EncounterManager
 import net.sourceforge.kolmafia.session.ResultProcessor
@@ -225,6 +226,7 @@ open class AdventureManager(
     private var lastTurnResponseText: String = ""
     private var lastTurnUrl: String = ""
     private var itemGoalMetThisTurn = false
+    private var factoidGoalMetThisTurn = false
     private var _inMultiFight = false
     private var _fightFollowsChoice = false
     private var _inChoiceResolution = false
@@ -234,6 +236,20 @@ open class AdventureManager(
     val inMultiFight: Boolean get() = _inMultiFight
     val fightFollowsChoice: Boolean get() = _fightFollowsChoice
     val inChoiceResolution: Boolean get() = _inChoiceResolution
+
+    sealed interface ItemStopResult {
+        val message: String
+
+        data class Acquired(val itemId: Int, val count: Int) : ItemStopResult {
+            override val message: String = "item $itemId acquired"
+        }
+
+        data class AlreadyPresent(val itemId: Int, val count: Int) : ItemStopResult {
+            override val message: String = "item $itemId already present"
+        }
+
+        data class Stopped(override val message: String, val count: Int) : ItemStopResult
+    }
 
     /** Desktop ChoiceManager.canWalkAway — allow-list from ChoiceControl.canWalkFromChoice. */
     fun canWalkAwayFromChoice(): Boolean {
@@ -474,6 +490,7 @@ open class AdventureManager(
                 repeat(turns) {
                     if (!isActive) return@launch
                     itemGoalMetThisTurn = false
+                    factoidGoalMetThisTurn = false
 
                     // Zone pre-flight: if all monsters in the zone are banished, stop immediately
                     val bm = banishManager
@@ -515,6 +532,11 @@ open class AdventureManager(
                     if (itemGoalMetThisTurn) {
                         emitTurnConsumed(location, result)
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("item goal met")))
+                        return@launch
+                    }
+                    if (factoidGoalMetThisTurn) {
+                        emitTurnConsumed(location, result)
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("factoid count goal met")))
                         return@launch
                     }
 
@@ -621,6 +643,39 @@ open class AdventureManager(
                 _isRunning.value = false
             }
         }.also { currentJob = it }
+
+    /**
+     * Run a temporary item side trip and stop on a positive inventory delta.
+     *
+     * The goal snapshot is restored even when the adventure loop fails or is
+     * cancelled, so callers can safely use this for quest orchestration.
+     */
+    suspend fun runUntilItem(
+        location: AdventureLocation,
+        itemId: Int,
+        initialCount: Int,
+        maxTurns: Int,
+        scope: CoroutineScope,
+    ): ItemStopResult {
+        if (itemId <= 0) return ItemStopResult.Stopped("no target item", initialCount)
+        if (initialCount > 0) return ItemStopResult.AlreadyPresent(itemId, initialCount)
+        if (maxTurns <= 0) return ItemStopResult.Stopped("no adventures left", initialCount)
+
+        val snapshot = goalManager.captureSnapshot()
+        try {
+            goalManager.clearGoals()
+            goalManager.addItemGoal(itemId)
+            runAdventures(location, maxTurns, scope).join()
+        } finally {
+            goalManager.restoreSnapshot(snapshot)
+        }
+        val count = inventory?.getCount(itemId) ?: 0
+        return if (count > initialCount) {
+            ItemStopResult.Acquired(itemId, count)
+        } else {
+            ItemStopResult.Stopped("item was not acquired", count)
+        }
+    }
 
     fun stop() { currentJob?.cancel() }
 
@@ -902,6 +957,12 @@ open class AdventureManager(
         )
         FightMonsterHealthSync.apply(fightHtml)
         net.sourceforge.kolmafia.request.MonsterManuelRequest.parseResponse("fight.php", fightHtml)
+        if (result.won && fightHtml.contains("monstermanuel.gif", ignoreCase = true)) {
+            if (goalManager.noteFactoidLearned()) {
+                factoidGoalMetThisTurn = true
+            }
+            gameDatabase?.monster(result.monster)?.id?.let { MonsterManuelManager.reset(it) }
+        }
         FightFinalRoundSync.apply(
             html = fightHtml,
             preferences = preferences,
@@ -1630,7 +1691,33 @@ open class AdventureManager(
                     clearActiveFamiliar = { familiarManager?.clearActiveFamiliarLocally() },
                 )
             }
+            val choiceResults = ResultProcessor.parseResults(html)
+            if (choiceResults.items.isNotEmpty() ||
+                choiceResults.meat != 0 ||
+                choiceResults.effectsGained.isNotEmpty() ||
+                choiceResults.effectsLost.isNotEmpty()
+            ) {
+                ResultProcessor.processResults(
+                    adventureResults = true,
+                    html = html,
+                    inventory = inventory,
+                    character = character,
+                    preferences = preferences,
+                    effectManager = effects,
+                    questDatabase = questDatabase,
+                )
+                emitItemEvents(choiceResults.items.flatMap { (name, count) ->
+                    List(count.coerceAtMost(20)) { name }
+                })
+            }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
+            if (goalManager.hasChoiceAdventureGoal()) {
+                goalManager.noteChoiceAdventureCompleted()
+                if (!goalManager.hasChoiceAdventureGoal()) {
+                    eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("choice adventure goal met")))
+                    return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
+                }
+            }
             if (goalManager.hasChoiceGoal(currentChoiceId)) {
                 goalManager.clearChoiceGoal()
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("choice goal met: $currentChoiceId")))

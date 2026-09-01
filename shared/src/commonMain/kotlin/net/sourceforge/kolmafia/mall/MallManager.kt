@@ -16,7 +16,8 @@ open class MallManager(
                 priceManager?.saveMallSearch(itemId, it)
             })
             .filter {
-                it.price <= maxPrice && it.quantity > 0 && it.canPurchase &&
+                it.shopId > 0 && it.source == MallListingSource.MALL &&
+                    it.price <= maxPrice && it.quantity > 0 && it.canPurchase &&
                     MallPurchaseRequest.canPurchase(it.shopId)
             }
             .sortedBy { it.price }

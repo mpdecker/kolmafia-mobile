@@ -94,6 +94,8 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.quest.QuestManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
+import net.sourceforge.kolmafia.request.BeachCombRequest
+import net.sourceforge.kolmafia.request.SkateParkRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.BatFellowRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
@@ -260,6 +262,7 @@ import net.sourceforge.kolmafia.quest.HashingChoiceSync
 import net.sourceforge.kolmafia.quest.HybridizationChoiceSync
 import net.sourceforge.kolmafia.quest.IceHouseChoiceSync
 import net.sourceforge.kolmafia.quest.MonkeyPawChoiceSync
+import net.sourceforge.kolmafia.quest.TeaTreeChoiceSync
 import net.sourceforge.kolmafia.quest.QuestLogSync
 import net.sourceforge.kolmafia.quest.SpookyravenManorVisitSync
 import net.sourceforge.kolmafia.quest.SorceressLairSync
@@ -272,6 +275,14 @@ import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.SushiConsumptionSync
 import net.sourceforge.kolmafia.request.BarrelChoiceMapper
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.request.HashingViseRequest
+import net.sourceforge.kolmafia.request.PottedTeaTreeRequest
+import net.sourceforge.kolmafia.request.ForeseeRequest
+import net.sourceforge.kolmafia.request.KgbRequest
+import net.sourceforge.kolmafia.request.PizzaCubeRequest
+import net.sourceforge.kolmafia.request.FleaMarketRequest
+import net.sourceforge.kolmafia.request.FleaMarketSellRequest
+import net.sourceforge.kolmafia.request.AscensionHistoryRequest
 import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
@@ -286,6 +297,7 @@ import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.BastilleBattalionSync
 import net.sourceforge.kolmafia.session.BarrelShrineSync
 import net.sourceforge.kolmafia.session.GuildVisitSync
+import net.sourceforge.kolmafia.session.GuildUnlockManager
 import net.sourceforge.kolmafia.session.BastilleSyncContext
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DreadScrollManager
@@ -321,6 +333,12 @@ import net.sourceforge.kolmafia.session.WumpusManager
 import net.sourceforge.kolmafia.session.PeeVPeeSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
+import net.sourceforge.kolmafia.session.DadCliState
+import net.sourceforge.kolmafia.session.SlimeStackManager
+import net.sourceforge.kolmafia.session.ClanCliManager
+import net.sourceforge.kolmafia.session.TcrsCliManager
+import net.sourceforge.kolmafia.request.SpadeRequest
+import net.sourceforge.kolmafia.request.PandamoniumRequest
 import net.sourceforge.kolmafia.session.CargoCultManager
 import net.sourceforge.kolmafia.session.CargoPocketSync
 import net.sourceforge.kolmafia.session.SkillLearnFromResponse
@@ -420,6 +438,16 @@ class GameRuntimeLibrary(
     internal val sendMailRequest: SendMailRequest? = null,
     internal val sendGiftRequest: SendGiftRequest? = null,
     internal val choiceRequest: ChoiceRequest? = null,
+    internal val hashingViseRequest: HashingViseRequest? = null,
+    internal val pottedTeaTreeRequest: PottedTeaTreeRequest? = null,
+    internal val foreseeRequest: ForeseeRequest? = null,
+    internal val kgbRequest: KgbRequest? = null,
+    internal val pizzaCubeRequest: PizzaCubeRequest? = null,
+    internal val fleaMarketRequest: FleaMarketRequest? = null,
+    internal val fleaMarketSellRequest: FleaMarketSellRequest? = null,
+    internal val ascensionHistoryRequest: AscensionHistoryRequest? = null,
+    internal val beachCombRequest: BeachCombRequest? = null,
+    internal val skateParkRequest: SkateParkRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
     internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
@@ -451,13 +479,20 @@ class GameRuntimeLibrary(
     internal val boomBoxRequest: BoomBoxRequest? = null,
     internal val mindControlRequest: MindControlRequest? = null,
     internal val absorbRequest: AbsorbRequest? = null,
+    internal val guildUnlockManager: GuildUnlockManager? = null,
     internal val numberologyRequest: net.sourceforge.kolmafia.request.NumberologyRequest? = null,
     internal val grandpaRequest: net.sourceforge.kolmafia.request.GrandpaRequest? = null,
     internal val shrineRequest: net.sourceforge.kolmafia.request.ShrineRequest? = null,
     internal val npcBuyRequest: net.sourceforge.kolmafia.npc.NpcBuyRequest? = null,
     internal val raffleRequest: net.sourceforge.kolmafia.request.RaffleRequest? = null,
     internal val sessionManager: net.sourceforge.kolmafia.session.SessionManager? = null,
+    internal val clanCliManager: ClanCliManager? = null,
+    internal val tcrsCliManager: TcrsCliManager? = null,
+    internal val spadeRequest: SpadeRequest? = null,
+    internal val pandamoniumRequest: PandamoniumRequest? = null,
 ) : RuntimeLibrary() {
+
+    private val handledResidualResponseSignatures = mutableSetOf<Pair<String, String>>()
 
     private val moodCliContext = object : AshRuntimeContext {
         override fun print(msg: String) = Unit
@@ -519,7 +554,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase3830"
+        const val REVISION = "phase4190"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -893,6 +928,9 @@ class GameRuntimeLibrary(
         Regex("^teatree(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliTeatree(m.groupValues.getOrNull(1).orEmpty(), rt::print)
         },
+        Regex("^foresee(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliForesee(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
         Regex("^mummery(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliMummery(m.groupValues.getOrNull(1).orEmpty(), rt::print)
         },
@@ -927,6 +965,30 @@ class GameRuntimeLibrary(
         },
         Regex("^dvorak(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliDvorak(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^dad$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliDad(rt::print)
+        },
+        Regex("^ascensionhistory(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliAscensionHistory(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^(?:slime-stack|slime-stacks|slimestack)$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliSlimeStack(rt::print)
+        },
+        Regex("^clan(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking {
+                cliClan(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+            }
+        },
+        Regex("^tcrs(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking {
+                cliTcrs(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+            }
+        },
+        Regex("^spade(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking {
+                cliSpade(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+            }
         },
         Regex("^sven(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliSven(m.groupValues.getOrNull(1).orEmpty(), rt::print)
@@ -965,18 +1027,35 @@ class GameRuntimeLibrary(
             }
         },
 
-        // "servant type" — Ed entombed servant switch
+        // "servant [type]" — Ed entombed servant switch or current status
+        Regex("^servant$", RegexOption.IGNORE_CASE) to { _, rt ->
+            edServantManager?.printCurrentServant { message -> rt.print(message) }
+                ?: rt.print("Only Ed the Undying has entombed servants!")
+        },
         Regex("^servant\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val type = m.groupValues[1].trim()
-            kotlinx.coroutines.runBlocking {
-                edServantManager?.useServant(type) { message -> rt.print(message) }
+            if (type.isEmpty()) {
+                edServantManager?.printCurrentServant { message -> rt.print(message) }
+                    ?: rt.print("Only Ed the Undying has entombed servants!")
+            } else {
+                kotlinx.coroutines.runBlocking {
+                    edServantManager?.useServant(type) { message -> rt.print(message) }
+                }
+                edServantManager?.printCurrentServant { message -> rt.print(message) }
             }
         },
 
-        // "servants" — list summoned Ed servants
+        // "servants" — full Ed servant catalog table (+ current servant when Ed)
         Regex("^servants$", RegexOption.IGNORE_CASE) to { _, rt ->
-            edServantManager?.printStatus { message -> rt.print(message) }
-                ?: rt.print("Only Ed the Undying has entombed servants!")
+            val manager = edServantManager
+            if (manager == null) {
+                rt.print("Only Ed the Undying has entombed servants!")
+            } else {
+                manager.printServantsCatalog { message -> rt.print(message) }
+                if (manager.isEd()) {
+                    manager.printCurrentServant { message -> rt.print(message) }
+                }
+            }
         },
 
         // "retrieve N item" / acquire / find — compound retrieve (qty optional, comma lists)
@@ -1465,6 +1544,9 @@ class GameRuntimeLibrary(
 
         Regex("^beach(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliBeach(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^complete\\s+quest\\s+guild$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliCompleteGuild(rt::print)
         },
 
         // Phases 1053–1062 Oddball CLI Track E
@@ -1994,6 +2076,12 @@ class GameRuntimeLibrary(
                 ModeableRequest.normalizeUmbrellaParameter(m.groupValues.getOrNull(1).orEmpty()),
                 rt,
             )
+        },
+        Regex("^kgb(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliKgb(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^flea(?:market)?(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFlea(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
         Regex("^parka(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             val mode = ModeableRequest.normalizeParkaParameter(m.groupValues.getOrNull(1).orEmpty())
@@ -2599,7 +2687,7 @@ class GameRuntimeLibrary(
         Regex("^shop(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runShopCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
-        Regex("^stickers(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+        Regex("^(?:sticker|stickers)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runStickersCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
         Regex("^folders(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
@@ -2796,6 +2884,15 @@ class GameRuntimeLibrary(
     }
 
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
+        val normalizedUrl = url.orEmpty()
+            .removePrefix(KOL_BASE_URL)
+            .removePrefix("/")
+        val choiceId = WHICH_CHOICE_URL_PATTERN.find(normalizedUrl)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+        processVisitResponseHooksForPath(normalizedUrl, html, choiceId)
+
         net.sourceforge.kolmafia.request.MonsterManuelRequest.parseResponse(url, html)
         if (url?.contains("town_right.php", ignoreCase = true) == true) {
             GourdRequest.parseResponse(url, html, preferences, inventoryManager)
@@ -2950,7 +3047,25 @@ class GameRuntimeLibrary(
                 html,
                 preferences,
                 url,
+                sessionLogger,
             )
+        }
+        if (url?.contains("choice.php", ignoreCase = true) == true &&
+            url.contains("whichchoice=1388", ignoreCase = true)
+        ) {
+            val decision = Regex("""(?:option|decision)=(\d+)""", RegexOption.IGNORE_CASE)
+                .find(url)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+            BeachCombChoiceSync.apply(
+                choiceId = BeachCombChoiceSync.CHOICE_ID,
+                decision = decision,
+                html = html,
+                preferences = preferences,
+                choiceUrl = url,
+                sessionLogger = sessionLogger,
+            )
+        }
+        if (url?.contains("sea_skatepark.php", ignoreCase = true) == true) {
+            SkateParkRequest.parseResponseFromUrl(url, html, preferences)
         }
         if (url?.contains("familiar.php", ignoreCase = true) == true &&
             url.contains("ajax=1", ignoreCase = true) != true
@@ -4253,6 +4368,129 @@ class GameRuntimeLibrary(
         }
     }
 
+    /**
+     * Normalized residual-request dispatcher. Request-specific parsers are added
+     * here so typed requests and generic visit wrappers share one response path.
+     */
+    internal fun processVisitResponseHooksForPath(
+        normalizedUrl: String,
+        html: String,
+        choiceId: Int?,
+    ) {
+        if (normalizedUrl.isBlank()) return
+        val signature = normalizedUrl to html
+        if (signature in handledResidualResponseSignatures) return
+
+        val handled = when (choiceId) {
+            TeaTreeChoiceSync.TREE_TEA,
+            TeaTreeChoiceSync.SPECIFICI_TEA,
+            -> if (isTeaTreeSuccess(html)) {
+                TeaTreeChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = extractChoiceDecision(normalizedUrl),
+                    preferences = preferences,
+                    choiceUrl = normalizedUrl,
+                    html = html,
+                )
+            } else {
+                false
+            }
+            HashingChoiceSync.CHOICE_ID -> HashingChoiceSync.apply(
+                choiceId = choiceId,
+                html = html,
+                choiceUrl = normalizedUrl,
+                consumeItem = { itemId, qty ->
+                    inventoryManager?.consumeItemLocally(itemId, qty)
+                },
+            )
+            else -> if (KgbRequest.isKgbUrl(normalizedUrl)) {
+                KgbRequest.parseResponse(normalizedUrl, html, preferences) {
+                    checkDynamicModifiers()
+                }
+            } else if (PizzaCubeRequest.isPizzaUrl(normalizedUrl)) {
+                val cube = pizzaCubeRequest
+                if (cube != null) {
+                    cube.parseResponse(normalizedUrl, html)
+                } else {
+                    val parsed = PizzaCubeRequest.parseResponse(
+                        normalizedUrl,
+                        html,
+                        inventoryManager,
+                        preferences,
+                    )
+                    if (parsed) {
+                        ResultProcessor.processResults(
+                            adventureResults = false,
+                            html = html,
+                            inventory = inventoryManager,
+                            preferences = preferences,
+                        )
+                    }
+                    parsed
+                }
+            } else if (FleaMarketRequest.isBuyUrl(normalizedUrl)) {
+                val flea = fleaMarketRequest
+                if (flea != null) {
+                    flea.parseResponse(normalizedUrl, html)
+                } else {
+                    val parsed = FleaMarketRequest.parseResponse(
+                        normalizedUrl,
+                        html,
+                        inventoryManager,
+                        character,
+                        sessionLogger,
+                    )
+                    if (parsed) {
+                        ResultProcessor.processResults(
+                            adventureResults = false,
+                            html = html,
+                            inventory = inventoryManager,
+                            character = character,
+                            preferences = preferences,
+                        )
+                    }
+                    parsed
+                }
+            } else if (FleaMarketSellRequest.isSellUrl(normalizedUrl)) {
+                val fleaSell = fleaMarketSellRequest
+                if (fleaSell != null) {
+                    fleaSell.parseResponse(normalizedUrl, html)
+                } else {
+                    FleaMarketSellRequest.parseResponse(
+                        normalizedUrl,
+                        html,
+                        inventoryManager,
+                        character,
+                        sessionLogger,
+                    )
+                }
+            } else if (AscensionHistoryRequest.isHistoryUrl(normalizedUrl)) {
+                ascensionHistoryRequest?.parseResponse(html) == true
+            } else {
+                false
+            }
+        }
+        if (handled) {
+            handledResidualResponseSignatures += signature
+        }
+    }
+
+    /** Start a new request boundary where an identical response may be handled again. */
+    internal fun resetVisitResponseHookSignatures() {
+        handledResidualResponseSignatures.clear()
+    }
+
+    private fun isTeaTreeSuccess(html: String): Boolean =
+        html.contains("You acquire an item", ignoreCase = true)
+
+    private fun extractChoiceDecision(url: String): Int =
+        Regex("""(?:^|[?&])(?:option|decision)=(\d+)""", RegexOption.IGNORE_CASE)
+            .find(url)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+            ?: 0
+
     private fun shouldSkipTavernExplore(state: CharacterState?): Boolean {
         if (state == null) return false
         return state.adventuresLeft == 0 ||
@@ -4273,7 +4511,6 @@ class GameRuntimeLibrary(
         Regex("""whichskill=(\d+)""").find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
 
     internal fun processVisitQuestHooks(html: String, url: String? = null) {
-        processVisitResponseHooks(html, url)
         if (url?.contains("choice.php", ignoreCase = true) == true) {
             val choice = Regex("""whichchoice=(\d+)""", RegexOption.IGNORE_CASE)
                 .find(url)?.groupValues?.get(1).orEmpty()
@@ -4894,6 +5131,146 @@ class GameRuntimeLibrary(
             request.setMode(modeable, mode)
                 .onSuccess { rt.print("${modeable.command} $mode") }
                 .onFailure { rt.print("Mode change failed: ${it.message}") }
+        }
+    }
+
+    internal fun cliKgb(rest: String, rt: AshRuntimeContext) {
+        val request = kgbRequest
+        if (request == null) {
+            rt.print("KGB request unavailable")
+            return
+        }
+        val trimmed = rest.trim()
+        if (trimmed.isEmpty()) {
+            val clicks = preferences?.getInt("_kgbClicksUsed", 0) ?: 0
+            val dispenser = preferences?.getInt("_kgbDispenserUses", 0) ?: 0
+            rt.print("KGB clicks used: $clicks")
+            rt.print("KGB dispenser uses: $dispenser")
+            return
+        }
+        val tokens = trimmed.split(Regex("\\s+"))
+        val verb = tokens[0]
+        when {
+            verb.equals("button", ignoreCase = true) && tokens.size < 2 -> {
+                rt.print("Usage: kgb button <action>")
+                return
+            }
+            verb.equals("dispenser", ignoreCase = true) && tokens.size < 2 -> {
+                rt.print("Usage: kgb dispenser <itemId>")
+                return
+            }
+        }
+        kotlinx.coroutines.runBlocking {
+            val result = when {
+                verb.equals("button", ignoreCase = true) ->
+                    request.button(tokens.drop(1).joinToString(" "))
+                verb.equals("dispenser", ignoreCase = true) -> {
+                    val itemId = tokens.getOrNull(1)?.toIntOrNull()
+                    if (itemId == null) {
+                        Result.failure(IllegalArgumentException("KGB dispenser requires an item id."))
+                    } else {
+                        request.dispenser(itemId)
+                    }
+                }
+                verb.equals("visit", ignoreCase = true) -> request.visit()
+                else -> request.button(verb)
+            }
+            result
+                .onSuccess { rt.print("kgb $trimmed") }
+                .onFailure { rt.print(it.message ?: "KGB request failed") }
+        }
+    }
+
+    internal fun cliAscensionHistory(rest: String, rt: AshRuntimeContext) {
+        val request = ascensionHistoryRequest ?: run {
+            rt.print("Ascension history HTTP unavailable.")
+            return
+        }
+        val trimmed = rest.trim()
+        val playerId = resolveAscensionHistoryPlayerId(rest)
+        if (trimmed.isNotEmpty() && playerId == null) {
+            rt.print("Unknown player: $trimmed.")
+            return
+        }
+        kotlinx.coroutines.runBlocking {
+            request.fetch(playerId)
+                .onSuccess { records ->
+                    request.lastCompareSummary().forEach { rt.print(it) }
+                    records.forEach { rt.print(AscensionHistoryRequest.formatRecord(it)) }
+                }
+                .onFailure {
+                    request.statusLines().forEach { rt.print(it) }
+                }
+        }
+    }
+
+    private fun resolveAscensionHistoryPlayerId(raw: String): Int? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+        trimmed.toIntOrNull()?.takeIf { it > 0 }?.let { return it }
+        return ProfileRequest.fromPlayerName(trimmed).playerId.toIntOrNull()?.takeIf { it > 0 }
+    }
+
+    internal fun cliFlea(rest: String, rt: AshRuntimeContext) {
+        val trimmed = rest.trim()
+        val tokens = trimmed.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (tokens.isEmpty()) {
+            rt.print("Usage: flea buy [qty] <itemId> | flea sell [qty] <itemId> <price>")
+            return
+        }
+        val verb = tokens[0]
+        kotlinx.coroutines.runBlocking {
+            val result = when {
+                verb.equals("buy", ignoreCase = true) -> {
+                    val buy = fleaMarketRequest
+                    if (buy == null) {
+                        Result.failure(IllegalStateException("Flea Market buy unavailable"))
+                    } else {
+                        val qty: Int
+                        val itemId: Int
+                        when (tokens.size) {
+                            2 -> {
+                                qty = 1
+                                itemId = tokens[1].toIntOrNull() ?: -1
+                            }
+                            else -> {
+                                qty = tokens.getOrNull(1)?.toIntOrNull() ?: -1
+                                itemId = tokens.getOrNull(2)?.toIntOrNull() ?: -1
+                            }
+                        }
+                        buy.buy(itemId, qty)
+                    }
+                }
+                verb.equals("sell", ignoreCase = true) -> {
+                    val sell = fleaMarketSellRequest
+                    if (sell == null) {
+                        Result.failure(IllegalStateException("Flea Market sell unavailable"))
+                    } else {
+                        val qty: Int
+                        val itemId: Int
+                        val price: Int
+                        when (tokens.size) {
+                            3 -> {
+                                qty = 1
+                                itemId = tokens[1].toIntOrNull() ?: -1
+                                price = tokens[2].toIntOrNull() ?: -1
+                            }
+                            else -> {
+                                qty = tokens.getOrNull(1)?.toIntOrNull() ?: -1
+                                itemId = tokens.getOrNull(2)?.toIntOrNull() ?: -1
+                                price = tokens.getOrNull(3)?.toIntOrNull() ?: -1
+                            }
+                        }
+                        sell.sell(itemId, qty, price)
+                    }
+                }
+                else -> Result.failure(
+                    IllegalArgumentException("Usage: flea buy [qty] <itemId> | flea sell [qty] <itemId> <price>"),
+                )
+            }
+            result
+                .onSuccess { rt.print("flea $trimmed") }
+                .onFailure { rt.print(it.message ?: "Flea Market request failed") }
         }
     }
 

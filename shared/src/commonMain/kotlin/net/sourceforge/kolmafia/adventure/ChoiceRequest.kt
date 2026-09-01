@@ -23,7 +23,11 @@ class ChoiceRequest(private val client: HttpClient) {
                 }
             }
         )
-        Result.success(response.bodyAsText() to response.request.url.toString())
+        if (response.status.isSuccess()) {
+            Result.success(response.bodyAsText() to response.request.url.toString())
+        } else {
+            Result.failure(Exception("HTTP ${response.status.value}"))
+        }
     } catch (e: Exception) {
         Result.failure(e)
     }

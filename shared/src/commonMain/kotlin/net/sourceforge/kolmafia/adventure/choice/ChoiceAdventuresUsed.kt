@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.adventure.choice
 
+import net.sourceforge.kolmafia.request.BeachCombRequest
+
 /**
  * Desktop [ChoiceControl.getAdventuresUsed] high-traffic choice-URL subset (Phases 1701–1715).
  */
@@ -12,19 +14,26 @@ object ChoiceAdventuresUsed {
      * Adventures consumed by submitting [urlString] for a choice.php action.
      * Returns 0 when unknown / free.
      */
-    fun getAdventuresUsed(urlString: String): Int {
+    fun getAdventuresUsed(urlString: String, freeBeachWalksUsed: Int = 11): Int {
         if (!urlString.contains("choice.php", ignoreCase = true)) return 0
         val choice = WHICH_CHOICE.find(urlString)?.groupValues?.getOrNull(1)?.toIntOrNull()
             ?: return 0
         val option = OPTION.find(urlString)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
-        return adventuresForChoice(choice, option)
+        return adventuresForChoice(choice, option, freeBeachWalksUsed)
     }
 
-    fun adventuresForChoice(choice: Int, option: Int = 0): Int = when (choice) {
+    fun adventuresForChoice(
+        choice: Int,
+        option: Int = 0,
+        freeBeachWalksUsed: Int = 11,
+    ): Int = when (choice) {
         // Deck of Every Card draws (high-traffic)
         1085, 1086 -> 1
-        // Beach Comb / sandworm / etc. commonly 1
-        1388, 1389, 1390, 1391 -> 1
+        // Beach Comb uses free walks until all eleven have been consumed.
+        1388 -> BeachCombRequest.getAdventuresUsed(
+            "choice.php?whichchoice=1388&option=$option",
+            freeBeachWalksUsed,
+        )
         // Reminisce / Locket
         1463 -> 1
         // Deferred temple/black forest already billed via DeferredChoice

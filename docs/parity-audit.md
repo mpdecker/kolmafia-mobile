@@ -1,30 +1,30 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-08-30 after Phases 3771–3830 at `phase3830`)*
+*Generated: 2026-06-03 (updated 2026-09-01 after Phases 4071–4130 at `phase4130`)*
 
 ## Scale Comparison
 
 
 | Metric                   | Desktop (Java)              | Mobile (Kotlin)              | Coverage                |
 | ------------------------ | --------------------------- | ---------------------------- | ----------------------- |
-| Source files             | 1,172 classes               | 1,496 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
-| Lines of code            | 327,838                     | 169,396 (commonMain)         | **~52%**                |
-| Test files               | 411                         | 1,265                        | Mobile wins on isolation |
-| Tests                    | ~1,800+                     | 8,228 (`@Test`)              | Mobile wins on volume   |
+| Source files             | 1,172 classes               | 1,520 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
+| Lines of code            | 327,838                     | 171,295 (commonMain)         | **~52%**                |
+| Test files               | 411                         | 1,278                        | Mobile wins on isolation |
+| Tests                    | ~1,800+                     | 8,366 (`@Test`)              | Mobile wins on volume   |
 | ASH overload signatures  | ~890                        | 1,032 `regFn` sites          | **≥100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~450–500 live                | **~55–60%** (behavioral) |
-| `*Manager` files         | 94                          | 91                           | **~97%** by name        |
-| `*Request` files         | 319                         | 154                          | **~48%** — largest class gap |
+| `*Manager` files         | 94                          | 97                           | **over-parity** by name |
+| `*Request` files         | 319                         | 165                          | **~52%** — named residual holes closed (3951–4010) |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN)      | **100%**                |
 | BreakfastManager actions | 22 (20 universal + 2 niche) | 22                           | **100%**                |
 | Build target             | JVM 21                      | Android + iOS                | —                       |
 
 
-The mobile app is a focused reimplementation, not a line-for-line port. **LOC (~52%) is the honest size comparison** — file counts overstate because one desktop class is often many mobile `*Sync` / `AshP*` files. Remaining user impact is GuildUnlock/Beach residual and CLI leftovers — not another missing-manager sweep.
+The mobile app is a focused reimplementation, not a line-for-line port. **LOC (~52%) is the honest size comparison** — file counts overstate because one desktop class is often many mobile `*Sync` / `AshP*` files. Remaining user impact is Low-priority deepen-partials and explicit non-goals — not another missing-manager or named-request sweep.
 
 **ASH dual metric:** `AshFunctionInventoryTest` enforces ≥890 *registered* overloads (signature parity
 with desktop `RuntimeLibrary.java`; mobile now has **1,032** `regFn` call sites). Remaining gap is
-**behavioral depth**; `git_*`/`svn_*` are headless stubs and `get_florist_plants` is live. `xpath` stays empty-array **non-goal** (`Stubs.kt` is empty). See
+**behavioral depth**; `git_*`/`svn_*` are headless stubs and `get_florist_plants` is live. `xpath()` is a **minimal live SimpleXPath** implementation (not full HtmlCleaner). See
 [ASH Behavioral Parity](#ash-behavioral-parity) below.
 
 ---
@@ -56,6 +56,9 @@ with desktop `RuntimeLibrary.java`; mobile now has **1,032** `regFn` call sites)
 | Nemesis / Tavern / Dvorak / Mail / Spading                                          | `session/NemesisManager.java`, `TavernManager.java`, `DvorakManager.java`, `MailboxRequest.java`, `SpadingManager.java` | `session/NemesisManager.kt`, `request/NemesisRequest.kt`, `request/TavernRequest.kt`, `session/DvorakManager.kt`, `session/MailManager.kt` | Headless cave/paper-strip and cellar state; Dvorak board solver; mailbox/contact parsing; non-UI spading boundaries; request/visit/session-log glue *(Phases 3411–3470)* |
 | **IoTM manager residuals** *(Phases 3711–3770)* | `LocketManager.java` / `StillSuitManager.java` / `CrystalBallManager.java` / `JuneCleaverManager.java` / `TrainsetManager.java` + `FloristRequest` / `ChateauRequest` / `PingPongCommand` | `session/LocketManager.kt` + `StillSuitManager.kt` + `CrystalBallManager.kt` + `JuneCleaverManager.kt` + `TrainsetManager.kt` + `request/FloristRequest.kt` + `ChateauRequest.kt` + `GameRuntimeLibrary.Phase3770.kt` | Known-monster catalog/fought/phylum; fight-sweat + distillate mods; 11 fight-HTML predictions; cleaver color flashes; trainset piece API; `get_florist_plants`; furniture `get_chateau`; `pingpong` CLI #11059; `git_*`/`svn_*` stubs |
 | **ChoiceAdventures catalog** *(Phases 3771–3830)* | `ChoiceAdventures.java` ~9.7k / 454 configurable + 66 spoilers | `adventure/choice/ChoiceAdventures.kt` + `ChoiceOption.kt` + 4 generated `Catalog*.kt` files | Static name/zone/option/item-goal tables; `parseChoicesWithSpoilers` + `pickGoalChoice` + `choice-goal` CLI; ChoiceCost fish-scale/bar-skin expand; dynamic Violet Fog/Louvre spoilers stay on existing managers |
+| **Guild unlock / Beach residual** *(Phases 3831–3890)* | `GuildRequest.java` / `GuildUnlockManager` / `BeachCombRequest.java` / `SkateParkRequest.java` | `request/GuildRequest.kt` + `session/GuildUnlockManager.kt` + `session/BeachManager.kt` + Beach/Skate requests | Typed guild visits and stat-specific unlock orchestration; inventory-delta stop API; canonical Beach Comb state, turn accounting, request logging, Desert Beach fallbacks, Skate Park reset/equipment/error handling; `complete quest guild` CLI |
+| **CLI Tier-4 mega** *(Phases 3891–3950)* | `DadCommand.java` / `SlimeStackCommand.java` / `ClanCommand.java` / `TCRSCommand.java` / `SubmitSpadeDataCommand.java` / `PandaCommand.java` | `session/DadCliState.kt` + `SlimeStackManager.kt` + `ClanCliManager.kt` + `TcrsCliManager.kt` + `request/SpadeRequest.kt` + `request/PandamoniumRequest.kt` | Live `dad`, `slime-stack`, `clan`, `tcrs`, `spade submit`, and `sven solve` CLI paths; validated local TCRS operations, explicit kmail submission with partial-failure preservation, Pandamonium response synchronization; GUI/Relay, JavaScript, full TCRS dump generation, and desktop scripting remain non-goals |
+| **HTTP request residual mega** *(Phases 3951–4010)* | `HashingViseRequest.java` / `PottedTeaTreeRequest.java` / `UmbrellaRequest` / `KGBRequest.java` / `ForeseeRequest` / Palm Frond MUSE / `PizzaCubeRequest` / `FleaMarketRequest` / `AscensionHistoryRequest` | `request/HashingViseRequest.kt` + `PottedTeaTreeRequest.kt` + `KgbRequest.kt` + `ForeseeRequest.kt` + `PizzaCubeRequest.kt` + `FleaMarketRequest.kt` + `FleaMarketSellRequest.kt` + `AscensionHistoryRequest.kt` + `session/AscensionHistoryManager.kt` | Typed vise/tea-tree/KGB/foresee/pizza/flea buy-sell/history HTTP; Umbrella mode validation on the existing modeable path; Palm Frond/MUSE accounting without a second crafting engine; CLI `vise`/`teatree`/`umbrella`/`foresee`/`kgb`/`flea`/`fleamarket`/`ascensionhistory` (no `pizza` CLI); GUI/Relay, JavaScript, full TCRS dumps, and desktop scripting remain non-goals |
 | Coinmaster shops                                                                     | `request/coinmaster/` (19 classes)                      | `shop/CoinmasterRegistry.kt`                                                                                                         | 30+ coinmasters                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Mall search/buy                                                                      | `MallSearchRequest` / `MallPurchaseRequest` / `MallPriceManager` | `mall/` + `session/StoreManager.kt` + economy requests                                                                                | **Live** — paginated desktop-row/store parsing, seller filters, partial buys, fifth-cheapest 60s search cache, local `mallprices.txt`, store inventory/log/reprice parsers *(Phases 2931–2990)*                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **MallManager** *(Phase 16)*                                                         | `MallSearchRequest` orchestration                       | `mall/MallManager.kt`                                                                                                                | Search → sort by price → iterate sellers via `MallPurchaseRequest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -153,11 +156,11 @@ with desktop `RuntimeLibrary.java`; mobile now has **1,032** `regFn` call sites)
 | ~~**IoTM manager residuals**~~ | LocketManager / StillSuitManager / CrystalBallManager / JuneCleaverManager / TrainsetManager | **Live (3711–3770).** Catalog, sweat hub, fight predictions, cleaver colors, trainset piece API. |
 | ~~**FloristRequest / ChateauRequest residual**~~ | Plant catalog + chateau furniture set | **Live (3711-3770).** get_florist_plants / furniture get_chateau. |
 | ~~**PingPong CLI**~~ | PingPongCommand (pingpong <player> #11059) | **Live (3711-3770).** Distinct from latency PingManager. |
-| ~~**ASH tooling names (git_*/svn_*)**~~ | git_* / svn_* (+ xpath) | **Live stubs (3711-3770)** so scripts parse. xpath stays empty-array **non-goal**. |
+| ~~**ASH tooling names (git_*/svn_*)**~~ | git_* / svn_* (+ xpath) | **Live stubs (3711-3770)** so scripts parse. ~~xpath empty-array stub~~ **live minimal SimpleXPath (4131–4170)**. |
 | ~~**ChoiceAdventures catalog**~~ | ChoiceAdventures.java ~9.7k / 454 configurable + 66 spoilers | **Live (3771–3830).** Static spoiler/decision/item-goal tables + `choice-goal` CLI. Dynamic spoilers stay on existing managers. |
-| **GuildUnlockManager** | Guild-open orchestration | **High — next mega.** GuildVisitSync / GuildQuestSync exist; no canUnlockGuild adventure+choice flow. |
-| **CLI Tier-4 leftovers** | ~399 unique desktop verbs; ~45-55 unmatched after aliases | **Medium.** Unify sven, plus dad / spade / tcrs / alias polish. Not wholesale check* / svn / js. |
-| **HTTP Request class gap** | 319 desktop vs 154 mobile | **Medium.** Many have Sync/CLI stand-ins; remaining named holes include HashingVise, TeaTree, Umbrella, KGB, Foresee, PalmFrond, Pizza, FleaMarket, AscensionHistory. |
+| ~~**GuildUnlockManager + Beach residual**~~ | Guild-open orchestration, Beach Comb/Desert Beach/Skate Park residuals | **Live (3831–3890).** Typed guild request/manager, inventory-delta stop API, canonical Beach state boundary, Skate Park request lifecycle, accounting and logging. |
+| ~~**CLI Tier-4 leftovers**~~ | ~399 unique desktop verbs; ~45-55 unmatched after aliases | **Live (3891–3950).** Dad, slime-stack, clan, TCRS local operators, explicit spade submission, Sven/Pandamonium solve, and alias/help closure. GUI/Relay, JavaScript, full TCRS dumps, and desktop scripting remain non-goals. |
+| ~~**HTTP Request class gap**~~ | HashingVise, TeaTree, Umbrella, KGB, Foresee, PalmFrond, Pizza, FleaMarket, AscensionHistory | **Live (3951–4010).** Typed residual HTTP requests, CLI/help/DI closure, and visit-hook idempotence. Remaining `*Request` gap is unnamed Sync/CLI stand-ins, not the named holes. |
 | **Ed servant HTML table** | servants.php parse | **Low.** Prefs + combat sync live (Phase 68); full HTML table still deferred. |
 | **GoalManager special stops** | GOAL_CHOICE variants | **Low.** Factoid/autostop live; some choice-goal variants remain. |
 | **Mall HTML parser edge cases** | Regex mall search | **Low.** |
@@ -169,7 +172,7 @@ with desktop `RuntimeLibrary.java`; mobile now has **1,032** `regFn` call sites)
 | **Relay server** | webui/ 20+ decorators | **Non-goal.** Skipped; 
 elay on/off is stub echo. |
 | **JavaScript runtime** | Rhino bridge | **Non-goal.** ASH-only. |
-| **TCRS class/sign dumps** | ~160 files under data/TCRS/ | **Non-goal.** Two astral summaries only. |
+| **TCRS class/sign dumps** | ~160 files under data/TCRS/ | **Partial:** `tcrs fetch` from GitHub + prefs load **live**; full local derive sweep remains **non-goal**. |
 | **ManaBurn unused-skill sweep** | Desktop still TODO | **Non-goal.** |
 | ~~cli_execute remaining dispatch~~ | KoLmafiaCLI | **Superseded** — ~308 of ~399 unique verbs matched. |
 | ~~create/craft response parsing~~ | concoction | **Mostly closed.** |
@@ -372,7 +375,7 @@ Desktop `textui/RuntimeLibrary.java` registers **~890 `LibraryFunction` instance
 (enforced by `AshFunctionInventoryTest`). Signature parity is essentially complete after AshP8–P18.
 
 **Behavioral parity is lower:** Estimate **~450–500 behaviorally live** implementations vs **~500+ stub/partial** among 1,032 registrations — refined via
-`AshCompatibilityCorpusTest` (191 `corpus_*` tests). `git_*`/`svn_*` are headless stubs; `get_florist_plants` is live. `xpath` stays empty-array **non-goal**.
+`AshCompatibilityCorpusTest` (191 `corpus_*` tests). `git_*`/`svn_*` are headless stubs; `get_florist_plants` is live. `xpath()` uses minimal **SimpleXPath** (4131–4170).
 
 **Architecture:** `GameRuntimeLibrary.kt` core registrations plus extension files (`GameRuntimeLibrary.*.kt`) via the `regFn()` bridge.
 
@@ -428,7 +431,7 @@ Desktop `textui/RuntimeLibrary.java` registers **~890 `LibraryFunction` instance
 | Category         | Key absent functions                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------- |
 | Type conversions | ~~`to_modifier`, `to_thrall`, `to_vykea`, `to_servant`, `to_bounty`~~ *(ASH-P8 live)* |
-| ASH tooling      | ~~`git_*` / `svn_*`~~ **live stubs (3711–3770)**; `xpath` empty-array **non-goal**; ~~`get_florist_plants`~~ **live (3711–3770)** |
+| ASH tooling      | ~~`git_*` / `svn_*`~~ **live stubs (3711–3770)**; ~~`xpath` empty-array stub~~ **live minimal SimpleXPath (4131–4170)**; ~~`get_florist_plants`~~ **live (3711–3770)** |
 | CLI              | ~45–55 unmatched verbs after aliases (`sven` unify, `dad`, `spade`, `tcrs`) |
 | PvP              | **Resolved** *(Phase 766)* |
 | Holiday          | combo-day polish (Bill 1 / Drunksgiving) — low |                       |
@@ -461,6 +464,9 @@ script failures.
 | `GameRuntimeLibrary.AshP763Batch.kt` | `ranked_fam()` live tougher random flower fight *(Phase 763)* |
 | `GameRuntimeLibrary.Phase3770.kt` | `get_florist_plants`; `git_*`/`svn_*` headless stubs *(Phases 3711–3770)* |
 | `adventure/choice/ChoiceAdventures.kt` | Static 454+66 spoiler catalog; `available_choice_options(true)` catalog append; `choice-goal` CLI *(Phases 3771–3830)* |
+| `GameRuntimeLibrary.GuildBeach.kt` + typed requests/managers | `complete quest guild`; guild/Beach/Skate Park orchestration and lifecycle adapters *(Phases 3831–3890)* |
+| `GameRuntimeLibrary.CliTier4.kt` + typed CLI requests/managers | `dad`, `slime-stack`, `clan`, `tcrs`, `spade submit`, `sven solve`; local reporting, live kmail/Pandamonium forms, and response sync *(Phases 3891–3950)* |
+| typed residual HTTP requests + CLI/help | `vise`, `teatree`, `umbrella`, `foresee`, `kgb`, `flea`/`fleamarket`, `ascensionhistory`; pizza visit/log path (no `pizza` CLI); GUI/Relay/JS/TCRS dumps/desktop scripting non-goals *(Phases 3951–4010)* |
 
 **Stub / partial behavior** (registered but not desktop-equivalent):
 
@@ -491,11 +497,11 @@ Mobile has a 10-file `modifiers/` package covering the full passive prediction a
 Breadth gaps dominate full parity. Desktop wins on one-off commands, requests, and session managers;
 mobile wins on core automation paths and test isolation.
 
-| Subsystem | Desktop | Mobile (`phase3830`) | Gap |
+| Subsystem | Desktop | Mobile (`phase4130`) | Gap |
 | --------- | ------- | ----------------- | --- |
-| CLI commands | ~399 unique `register()` verbs / ~260 `*Command.java` | ~426 `cliDispatch` regex entries; ~308 verbs matched | **~23% unmatched** (~45–55 real after aliases) |
-| HTTP requests | 319 `*Request.java` (coinmaster included) | 154 `*Request.kt` + generic `CoinmasterRequest` | **~52% class gap** (many Sync/CLI stand-ins) |
-| Session managers | 82 `session/*Manager.java` (94 `*Manager.java` total) | 91 `*Manager.kt` | **~3% by name** — remaining work is deepen-partials |
+| CLI commands | ~399 unique `register()` verbs / ~260 `*Command.java` | ~431 `cliDispatch` regex entries; ~273 help verbs listed | **help/alias closure live**; unnamed leftovers remain after aliases |
+| HTTP requests | 319 `*Request.java` (coinmaster included) | 165 `*Request.kt` + generic `CoinmasterRequest` | **~48% class gap** (named residual holes closed; remaining are Sync/CLI stand-ins) |
+| Session managers | 82 `session/*Manager.java` (94 `*Manager.java` total) | 97 `*Manager.kt` | **over-parity by name** — remaining work is deepen-partials |
 | Choice automation | ~1,000 cases + `ChoiceAdventures.java` ~9.7k / 454 configurable | 146 `*ChoiceSync.kt` + `QuestChoiceRules` + 6 solvers + static spoiler catalog | **State sync + catalog live**; dynamic spoilers remain on managers |
 | Maximizer | ~5,877 lines (12 classes) | `Evaluator` + ranked buckets + constraint flags + global loadout gates + automatic bucket pins + equipment DB scan + synergy post-compare + outfit post-compare + tryOutfits speculation + tryAll per-familiar loop + tryFamiliarItems + per-familiar FAMILIAR buckets + tryContainers + tryHats Crown/Bjorn branching + carriedFamiliars auto-discovery + `Modeable`/`MaximizerModeSelection` mode-aware scoring + modeable backup slots + card sleeve best-card selection + fold dedup + garbage shirt/champagne auto-pin + `+current`/`-current` enumeration + `checkEquipment` outfit/equip gates + `PriceLevel.ALL` emit mall re-check + `bonus`/`letter`/`number`/`plumber`/`cold plumber` goal terms + `-equip` exclusion + `MaximizerEmitSlot` boost/retrieve emission + `RetrieveItemSimulator` + `MaximizerBoostExecutor` + `MaximizerBoostCostSuffix` organ/resource cost suffixes + `MaximizerNonEquipmentBoosts` horsery/boombox/MCD/effect/noobcore absorb post-equipment pass + `MaximizerNoobcoreAbsorbBoosts` + `NoobcoreAbsorbs` + `AbsorbRequest` + `MaximizerBoostSourceRules` cast/cargo/alliedradio/barrelprayer/clan/friars/pillkeeper/VIP-facility/telescope/fortune/mom/concert/summon/mayosoak/witchess/monorail/toggle/crossstreams/monkeypaw/genie/gong/styx/play/skeleton/gap/spacegate/daycare/vault3/grim/aprilband/terminal enhance/campaway cloud/loathingidol/mayam/asdonmartin drive/beach head/skate/hatter/synthesize effect-source rules + `MayamAvailability`/`CampAwayAvailability`/`BeachHeadAvailability`/`SkateParkAvailability`/`RabbitHoleAvailability`/`CandyDatabase` + `CampgroundItemSync.asdonMartinFuel` + `SkillCastCosts`/`SkillRequiredItemForEffect` + `MaximizerBoostVerboseSuffix` duration/uses brackets + `MaximizerMcdAvailability` + `HorseryRequest`/`BoomBoxRequest`/`MindControlRequest`/`AbsorbRequest` CLI + `MaximizerSubSlotItems`/`MaximizerSubSlotPreservation` folder/sticker/bootskin sub-slots + CONTAINER search slot + `MaximizerSpecWriteBack` Generated `_spec` write-back + `ModifierValuesFormatter` + `ModifierDatabase.overrideGenerated` + ASH `numeric_modifier("Generated:_spec", …)` Type:name lookup + `NonEquipmentBaseline` PLAN_OVERLAY vs LIVE_EQUIPPED + `scorePostEquipmentLive`/`modifierValuesForPostEquipmentLive` + `CharacterStatusRefresh`/`CharpaneStatusSync`/`CharpaneEffectsSync` charpane fallback (Noobcore/Pokefam/Disguises/spelunky/batman/transfunctioner) + `MaximizerPostEquipRefresh` + `MaximizerPreSearchRefresh` + `MaximizerProgress` throttled combination-count progress + `progressDisplay`/`#events` notify + speculate progress line in `MaximizerSearchStatus` + `MaximizerContinuation` cooperative abort + `MaximizerSearchStatus` combination-limit/score-cap/interrupted output + `MaximizerMutexViolations` speculation/effect-gain gating + `MaximizerBoost.priority` sort + `MaximizerCheckedItem` validate + MVP + `MaximizerSpeculation` DFS | **~99.99%** |
 | Quest parsing | ~4,200 lines (QuestManager + QuestDatabase + QuestLog) | Quest*Rules + distributed `*Sync` + `QuestManager` hub + `QuestLogSync` | **Parity** |
@@ -506,7 +512,7 @@ mobile wins on core automation paths and test isolation.
 | Swing GUI | 153 files | Compose (~12 tabs) | Replaced, not 1:1 |
 | Banisher enum | 70 entries | 70 entries | **0%** |
 | Breakfast actions | 22 actions | 22 actions | **0%** |
-| Data files loaded | 51 core + TCRS | 50 core wired / 53 bundled (incl. junk/memento/singleton) | Core wired; TCRS class/sign dumps non-goal |
+| Data files loaded | 51 core + TCRS | 50 core wired / 53 bundled (incl. junk/memento/singleton) | Core wired; TCRS GitHub fetch live; full derive sweep non-goal |
 
 ---
 
@@ -519,9 +525,9 @@ mobile wins on core automation paths and test isolation.
 | State management          | Static singletons                               | StateFlow + Koin DI                                                          | Mobile is cleaner                                |
 | UI                        | Swing (aging)                                   | Compose Multiplatform                                                        | Mobile is modern                                 |
 | Concurrency               | Manual threading                                | Coroutines                                                                   | Mobile is cleaner                                |
-| Data                      | 51 `.txt` files + TCRS variants               | 53 bundled; 50 core loaded at runtime                                    | Core wired; TCRS class/sign dumps non-goal |
-| Testing                   | 411 test classes, many integration            | 1,265 unit test files, 8,228 tests                                       | Mobile wins on volume and isolation        |
-| Scripting                 | Full ASH + CLI (890 functions) + JS           | ASH 1,032 `regFn` (~450–500 live); ~308/399 CLI verbs; no JS             | Registration over-parity; behavior + CLI leftovers remain |
+| Data                      | 51 `.txt` files + TCRS variants               | 53 bundled; 50 core loaded at runtime                                    | Core wired; TCRS GitHub fetch live; full derive sweep non-goal |
+| Testing                   | 411 test classes, many integration            | 1,278 unit test files, 8,352 tests                                       | Mobile wins on volume and isolation        |
+| Scripting                 | Full ASH + CLI (890 functions) + JS           | ASH 1,032 `regFn` (~450–500 live); ~273 help verbs; no JS             | Registration over-parity; behavior leftovers remain; JS non-goal |
 | Events                    | Ad-hoc listeners                              | GameEventBus pub/sub + `EventHistory`                                    | Mobile is cleaner                          |
 | Choice automation         | ~1,000 handler cases + ChoiceAdventures catalog | 146 ChoiceSync files; 6 solvers; **static spoiler catalog live (3771–3830)** | State sync + catalog live; dynamic spoilers remain |
 | Recovery/mood             | 9 classes, full persistence + mood library    | 6 files, named library + inheritance + malignant clearing + AT song eviction | Near parity — multi-skill libram ManaBurn wired |
@@ -535,31 +541,36 @@ mobile wins on core automation paths and test isolation.
 
 ## Top Priorities
 
-*Updated 2026-08-30 at `phase3830`. ChoiceAdventures static catalog is live. GuildUnlock/Beach residual is the next mega.*
+*Updated 2026-09-01 at `phase4190`. Non-goals reopen mega delivered headless TCRS GitHub fetch, live minimal `xpath()`, and mall-search relay decoration; full RelayServer, JavaScript/Rhino, and desktop-scale TCRS derive sweeps remain explicit non-goals.*
 
-Manager **name coverage is nearly complete**. Remaining user impact is GuildUnlock/Beach residual and CLI leftovers.
+Manager **name coverage is nearly complete**. Remaining user impact is mostly explicit non-goals and partial headless substitutes.
 
 ### Remaining queue (script / automation impact)
 
-1. **GuildUnlockManager + Beach residual** — `canUnlockGuild` adventure+choice flow; BeachManager depth beyond BeachComb.
-2. **CLI Tier-4 leftovers** — ~45–55 unmatched verbs after aliases (`sven` unify onto panda HTTP, `dad`, `spade`, `tcrs`, alias polish). Not wholesale `check*` / svn / js.
-3. **TCRS class/sign dumps** — remain explicit **non-goal** (2 astral summaries only).
-4. **Relay server / decorate UI** — remain explicit **non-goal**.
-5. **JavaScript runtime** — remain explicit **non-goal**.
-6. **PvP** — **Resolved** *(Phase 766)*.
-7. **Monster modifier entity rows** — remain deferred (0 `Monster` rows in desktop *and* mobile `modifiers.txt`; stub is correct).
+1. **Relay server / browser proxy** — remain explicit **non-goal** (headless `relay on/off/status` pref + `MallSearchDecorator` mall-search HTML only).
+2. **JavaScript runtime** — remain explicit **non-goal** (ASH-only).
+3. **TCRS full derive sweep** — remain explicit **non-goal** (desktop parallel desc visits); **`tcrs fetch`** from GitHub + prefs load is **live**.
+4. **PvP** — **Resolved** *(Phase 766)*.
+5. **Monster modifier entity rows** — remain deferred (0 `Monster` rows in desktop *and* mobile `modifiers.txt`; stub is correct).
+6. **ManaBurn unused-skill sweep** — remain explicit **non-goal** (desktop TODO).
 
 ### Closed (do not re-queue)
 
-~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live (1071–1130)**; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830~~ **live**.
+~~Ed servant HTML table~~ **live** *(4011–4025)*; ~~GoalManager condition variants~~ **live** *(4011–4070)*; ~~Mall item-detail parse~~ **live** *(4011–4070)*; ~~Ascension history player header~~ **live** *(4011–4070)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~Mall NPC/coinmaster overlay~~ **live** *(4086–4100)*; ~~Ascension snapshot compare~~ **live** *(4101–4115)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator** *(4171–4180)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live (1071–1130)**; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4130~~ **live**.
 
-*Next mega (Phases 3831–3890):* **GuildUnlockManager + Beach residual**. CLI leftovers (`sven`, `dad`, `spade`, `tcrs`) follow.
+*Next mega:* none queued — continue only if new desktop gaps are identified or Relay/JS/full TCRS derive are explicitly reopened.
 
 ---
 
 ## Phase History (2026)
 
 ```
+Phases 4131–4190 → Non-goals reopen mega Tracks A–D (TCRSRemoteFetch GitHub pull + `tcrs fetch` CLI + TCRSDeriver/DescriptionParser; live minimal SimpleXPath/HtmlTreeParser for common KoL xpath patterns; headless MallSearchDecorator mall-search buy-button/forbidden-store HTML; runtime revision `phase4190`; 8,382 tests; RelayServer/JavaScript/full TCRS derive sweep remain non-goals)
+Phases 4071–4130 → Low-priority deepen-partials mega Tracks A–D (Manuel factoid count goal decrement on fight win + adventure-loop stop; MallSearchOverlay NPC/coinmaster rows in mall search + MallListingSource; AscensionHistoryCompare snapshot delta + ascensionhistory CLI compare lines; runtime revision `phase4130`; 8,366 tests
+Phases 4011–4070 → Ed servant + GoalManager + Mall + Ascension deepen mega Tracks A–D (EdServantHtmlFormatter full catalog HTML table + servants/servant CLI parity; GoalConditionParser + count-based item/choice/factoid/floundry/autostop goals + condition add/remove/set/list CLI; MallSearchRequest item-detail descitem parse + limited-row canPurchase fallback; AscensionHistoryManager player header cache + AfterLife reincarnate session-log; runtime revision `phase4070`; 8,360 tests
+Phases 3951–4010 → Residual HTTP request mega Tracks A–D (typed Hashing Vise, Potted Tea Tree, KGB, Foresee, Pizza Cube, Flea Market buy/sell, and read-only Ascension History; Umbrella mode validation; Palm Frond/MUSE accounting; CLI/help/DI closure for `vise`/`teatree`/`umbrella`/`foresee`/`kgb`/`flea`/`fleamarket`/`ascensionhistory`; GUI/Relay, JavaScript, full TCRS dumps, and desktop scripting remain non-goals); phase4010; 8,352 tests
+Phases 3891–3950 → CLI Tier-4 mega Tracks A–D (CLI inventory and alias/help closure; Dad and Slimeling local reporters; read-only clan status/snapshot/stash-log/refresh; validated local TCRS load/save/derive/check/apply/reset/status; explicit live spade kmail submission with partial-failure preservation; typed Pandamonium request and synchronized Sven solve; focused malformed-response and HTTP-form coverage); phase3950; 8,244 tests
+Phases 3831–3890 → GuildUnlock + Beach residual mega Tracks A–D (typed GuildRequest/GuildUnlockManager; stat-specific unlock plans and inventory-delta AdventureManager stop result; Moxie pants restoration; canonical BeachManager state boundary; Beach Comb lifecycle/equipment/logging/accounting; Desert Beach fallback access; Skate Park request reset/equipment/error handling; `complete quest guild` CLI; focused regression coverage); phase3890; 8,237 tests
 Phases 3771–3830 → ChoiceAdventures catalog mega Tracks A–D (ChoiceOption + ChoiceAdventures static catalog: 454 configurable + 66 spoilers extracted from desktop; parseChoicesWithSpoilers catalog append; pickGoalChoice item-goal / complete-the-outfit override; choice-goal CLI; ChoiceCost fish-scale + bar-skin expand; ChoiceAdventuresUsed barrel 1099); phase3830; 8,228 tests
 Phases 3711–3770 → IoTM manager residual mega Tracks A–D (LocketManager known-monster catalog/fought/phylum parse; StillSuitManager fight-sweat + choice-1476 dram/mods; CrystalBallManager 11 fight-HTML predictions + ponder/expiry; JuneCleaverManager fight color flashes; TrainsetManager piece API; FloristRequest plant catalog + live get_florist_plants; ChateauRequest GIF furniture + live get_chateau; pingpong CLI curse #11059; git_*/svn_* headless stubs); phase3770; 8,212 tests
 Audit 2026-08-30 → Full recount at phase3710: 1,482 commonMain files / 147,787 LOC / 1,261 test files / 8,208 @Test / 1,023 ASH regFn / 86 managers / 152 requests / 146 ChoiceSync. Scale tables and Subsystem Scale refreshed. Deferred Florist/Chateau residual, PingPong CLI, git_*/svn_* stubs, and get_florist_plants returned to Top Priorities. Next mega: IoTM manager residuals (Locket/StillSuit/CrystalBall/JuneCleaver/Trainset) + deferred-return sidecar. ChoiceAdventures catalog is the following mega. Non-goals unchanged: Relay decorate, xpath live, JS, TCRS dumps, monster modifier rows, ManaBurn unused-skill sweep.

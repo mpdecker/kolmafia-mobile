@@ -62,8 +62,10 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
     internal fun cachedAtForTest(itemId: Int): Long? = cache[itemId]?.cachedAt
 
     fun filterMallSearch(results: List<MallListing>): List<MallListing> =
-        results.filter { it.canPurchase && MallPurchaseRequest.canPurchase(it.shopId) }
-            .sortedBy { it.price }
+        results.filter {
+            it.source == MallListingSource.MALL && it.shopId > 0 &&
+                it.canPurchase && MallPurchaseRequest.canPurchase(it.shopId)
+        }.sortedBy { it.price }
 
     fun nthCheapestPrice(quantity: Int = NTH_CHEAPEST_COUNT, results: List<MallListing>): Long {
         var needed = quantity.coerceAtLeast(1)

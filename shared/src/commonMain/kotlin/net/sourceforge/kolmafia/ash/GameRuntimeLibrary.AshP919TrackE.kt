@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.platform.UserDataFileIO
+import net.sourceforge.kolmafia.utilities.SimpleXPath
 import net.sourceforge.kolmafia.utilities.CharacterEntities
 import net.sourceforge.kolmafia.utilities.PHPLCG
 import net.sourceforge.kolmafia.utilities.PHPMTRandom
@@ -9,7 +10,7 @@ import net.sourceforge.kolmafia.utilities.PHPMTRandom
  * AshP919–927 Track E — Matcher / file / URL / PHP random.
  *
  * Phase 919: create_matcher + find/group/start/end/replace_first/replace_all/reset/group_count
- * Phase 920: xpath (stub — no KMP XPath lib)
+ * Phase 920: xpath (minimal SimpleXPath for common KoL HTML patterns)
  * Phase 921: file_to_map / map_to_file (simple key/value via UserDataFileIO)
  * Phase 922: url_encode / url_decode
  * Phase 923: entity_encode / entity_decode
@@ -94,12 +95,18 @@ internal fun GameRuntimeLibrary.registerAshP919TrackEBatch(scope: AshScope) {
         AshValue.of(ms.groupCount().toLong())
     }
 
-    // ── Phase 920: xpath stub ──────────────────────────────────────
+    // ── Phase 920: xpath ───────────────────────────────────────────
     val stringArrayType = AggregateType(AshType.INT, AshType.STRING)
     regFn(scope, "xpath", stringArrayType,
-        listOf("html" to AshType.STRING, "xpath" to AshType.STRING)) { _, _ ->
-        // TODO: No KMP XPath library available; returns empty string[]
-        AggregateValue(stringArrayType)
+        listOf("html" to AshType.STRING, "xpath" to AshType.STRING)) { _, args ->
+        val html = args[0].toString()
+        val expression = args[1].toString()
+        val results = SimpleXPath.evaluate(html, expression)
+        val aggregate = AggregateValue(stringArrayType)
+        results.forEachIndexed { index, value ->
+            aggregate[AshValue.of(index.toLong())] = AshValue.of(value)
+        }
+        aggregate
     }
 
     // ── Phase 921: file_to_map / map_to_file ───────────────────────
@@ -188,7 +195,7 @@ internal fun GameRuntimeLibrary.registerAshP919TrackEBatch(scope: AshScope) {
 
     // ── Phase 925 / 970–971: PHP random ─────────────────────────────
     // Desktop: php_seed/php_rand use LCG; php_mt_* use Mersenne Twister.
-    // xpath remains an empty-array stub (no KMP XPath lib — explicit non-goal).
+    // xpath remains a minimal SimpleXPath implementation (not full HtmlCleaner).
     regFn(scope, "php_seed", AshType.VOID, listOf("seed" to AshType.INT)) { _, args ->
         phpLcgRandom = PHPLCG(args[0].toLong())
         AshValue.VOID

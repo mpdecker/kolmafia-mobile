@@ -187,18 +187,47 @@ internal fun GameRuntimeLibrary.cliDvorak(parameters: String, print: (String) ->
 }
 
 internal fun GameRuntimeLibrary.cliSven(parameters: String, print: (String) -> Unit) {
-    val arg = parameters.trim()
-    if (arg.isEmpty()) {
-        print("Pandamonium Sven band solve is not ported yet.")
-        print("Usage: sven member=item [member=item ...]")
-        print("Visit pandamonium.php and talk to Sven first.")
+    val tokens = parameters.trim().split(Regex("\\s+")).filter(String::isNotBlank)
+    if (tokens.isEmpty()) {
+        print("Usage: sven solve member=item [member=item ...] (also: sven member=item)")
         return
     }
-    // Thin: accept give-list syntax but cannot POST without PandamoniumRequest.
-    print("Sven solve HTTP is not available yet.")
-    print("Requested gifts: $arg")
-    visitKolPage("pandamonium.php", applyQuestHooks = true)
-        ?: print("(Optional) Visit pandamonium.php once HTTP is connected.")
+    val solveTokens = if (tokens.first().equals("solve", ignoreCase = true)) tokens.drop(1) else tokens
+    if (solveTokens.isEmpty()) {
+        print("Usage: sven solve member=item [member=item ...] (also: sven member=item)")
+        return
+    }
+    val request = pandamoniumRequest ?: run {
+        print("Sven solve is unavailable.")
+        return
+    }
+    val pairs = solveTokens.mapNotNull { token ->
+        val separator = token.indexOf('=')
+        if (separator <= 0 || separator == token.lastIndex) {
+            print("Invalid Sven gift '$token'; use member=item.")
+            null
+        } else {
+            token.substring(0, separator) to token.substring(separator + 1)
+        }
+    }
+    if (pairs.size != solveTokens.size) return
+    kotlinx.coroutines.runBlocking {
+        for ((member, itemText) in pairs) {
+            val itemId = itemText.toIntOrNull()
+                ?: gameDatabase?.item(itemText)?.id
+                ?: ItemDatabase.getByName(itemText)?.id
+            if (itemId == null || itemId <= 0) {
+                print("Unable to find item: $itemText")
+                return@runBlocking
+            }
+            val result = request.give(member, itemId)
+            if (result.isFailure) {
+                print("Sven solve stopped: ${result.exceptionOrNull()?.message ?: "request failed"}")
+                return@runBlocking
+            }
+            print("Gave ${ItemDatabase.getItemName(itemId).ifBlank { itemId.toString() }} to $member.")
+        }
+    }
 }
 
 internal fun GameRuntimeLibrary.cliBasement(parameters: String, print: (String) -> Unit) {

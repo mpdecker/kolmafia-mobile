@@ -6,7 +6,6 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures
 import net.sourceforge.kolmafia.adventure.choice.ItemPool
 import net.sourceforge.kolmafia.character.ZodiacSign
 import net.sourceforge.kolmafia.data.ItemDatabase
-import net.sourceforge.kolmafia.quest.HashingChoiceSync
 import net.sourceforge.kolmafia.session.BadMoonManager
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
@@ -128,17 +127,12 @@ internal fun GameRuntimeLibrary.cliVise(parameters: String, print: (String) -> U
         print("Usage: vise [count] <item> [, <another>]...")
         return
     }
-    val useReq = useItemRequest
-    val choice = choiceRequest
-    if (useReq == null || choice == null) {
+    val request = hashingViseRequest
+    if (request == null) {
         print("Hashing vise HTTP is not available.")
         return
     }
     runBlocking {
-        useReq.use(HASHING_VISE_ID, 1).exceptionOrNull()?.let {
-            print(it.message ?: "Failed to use hashing vise.")
-            return@runBlocking
-        }
         for ((schematicName, qty) in specs) {
             val itemId = ItemDatabase.getByName(schematicName)?.id
                 ?: gameDatabase?.item(schematicName)?.id
@@ -152,18 +146,7 @@ internal fun GameRuntimeLibrary.cliVise(parameters: String, print: (String) -> U
                 print("(hashable quantity of $schematicName is limited to $available by availability in inventory)")
             }
             repeat(needed) {
-                choice.choose(
-                    HashingChoiceSync.CHOICE_ID,
-                    1,
-                    mapOf("iid" to itemId.toString()),
-                ).onSuccess { (html, url) ->
-                    HashingChoiceSync.apply(
-                        HashingChoiceSync.CHOICE_ID,
-                        html,
-                        choiceUrl = url,
-                    ) { id, amount ->
-                        inventoryManager?.consumeItemLocally(id, amount)
-                    }
+                request.use(itemId).onSuccess {
                     print("vise $schematicName")
                 }.onFailure {
                     print(it.message ?: "Failed to smash $schematicName")

@@ -11,13 +11,18 @@ import net.sourceforge.kolmafia.adventure.AdventureManager
  * Supports item goals by ID, item goals by name (case-insensitive), meat goals, and level goals.
  */
 class GoalManager {
-    private val _itemGoalIds   = mutableSetOf<Int>()
-    private val _itemGoalNames = mutableSetOf<String>()  // stored lowercase+trimmed
+    private val _itemGoalIds   = mutableMapOf<Int, Int>()
+    private val _itemGoalNames = mutableMapOf<String, Int>()  // stored lowercase+trimmed -> count
     private var meatGoal: Int?  = null
     private var levelGoal: Int? = null
     private var factoidGoal: String? = null
+    private var factoidGoalCount: Int = 0
     private var choiceGoalId: Int? = null
+    private var choiceAdventureCount: Int = 0
+    private var floundryGoalCount: Int = 0
+    private var autostopGoalCount: Int = 0
     private var substatsGoal: Boolean = false
+    private val substatsCounts = IntArray(3)
     private var leprecondoGoalCount: Int = 0
 
     // ── Factoid goal (response text match) ────────────────────────────────────
@@ -32,16 +37,32 @@ class GoalManager {
 
     // ── ID-based item goals ───────────────────────────────────────────────────
 
-    fun addItemGoal(itemId: Int)    { _itemGoalIds.add(itemId) }
+    fun addItemGoal(itemId: Int, count: Int = 1) {
+        if (count <= 0) {
+            removeItemGoal(itemId)
+            return
+        }
+        _itemGoalIds[itemId] = (_itemGoalIds[itemId] ?: 0) + count
+    }
     fun removeItemGoal(itemId: Int) { _itemGoalIds.remove(itemId) }
-    fun hasItemGoal(itemId: Int): Boolean = _itemGoalIds.contains(itemId)
-    fun itemGoalIds(): Set<Int> = _itemGoalIds.toSet()
+    fun hasItemGoal(itemId: Int): Boolean = (_itemGoalIds[itemId] ?: 0) > 0
+    fun itemGoalCount(itemId: Int): Int = _itemGoalIds[itemId] ?: 0
+    fun itemGoalIds(): Set<Int> = _itemGoalIds.filterValues { it > 0 }.keys
 
     // ── Name-based item goals (case-insensitive) ──────────────────────────────
 
-    fun addItemGoalByName(name: String)    { _itemGoalNames.add(name.lowercase().trim()) }
+    fun addItemGoalByName(name: String, count: Int = 1) {
+        val key = name.lowercase().trim()
+        if (key.isEmpty()) return
+        if (count <= 0) {
+            removeItemGoalByName(name)
+            return
+        }
+        _itemGoalNames[key] = (_itemGoalNames[key] ?: 0) + count
+    }
     fun removeItemGoalByName(name: String) { _itemGoalNames.remove(name.lowercase().trim()) }
-    fun hasItemGoalByName(name: String): Boolean = _itemGoalNames.contains(name.lowercase().trim())
+    fun hasItemGoalByName(name: String): Boolean = (_itemGoalNames[name.lowercase().trim()] ?: 0) > 0
+    fun itemGoalNameCount(name: String): Int = _itemGoalNames[name.lowercase().trim()] ?: 0
 
     // ── Meat goal ─────────────────────────────────────────────────────────────
 
@@ -60,7 +81,8 @@ class GoalManager {
     // ── Phase 10 ASH helpers ──────────────────────────────────────────────────
 
     /** True if any item goal (by ID or name) is active. */
-    fun hasItemGoals(): Boolean = _itemGoalIds.isNotEmpty() || _itemGoalNames.isNotEmpty()
+    fun hasItemGoals(): Boolean =
+        _itemGoalIds.values.any { it > 0 } || _itemGoalNames.values.any { it > 0 }
 
     /** True if a meat goal has been set (regardless of current meat). */
     fun hasMeatGoalSet(): Boolean = meatGoal != null
@@ -75,12 +97,58 @@ class GoalManager {
     fun setChoiceGoal(choiceId: Int) { choiceGoalId = choiceId }
     fun clearChoiceGoal() { choiceGoalId = null }
     fun hasChoiceGoal(choiceId: Int): Boolean = choiceGoalId == choiceId
+    fun hasChoiceGoalSet(): Boolean = choiceGoalId != null
+
+    fun setChoiceAdventureGoal(count: Int) { choiceAdventureCount = count.coerceAtLeast(0) }
+    fun clearChoiceAdventureGoal() { choiceAdventureCount = 0 }
+    fun hasChoiceAdventureGoal(): Boolean = choiceAdventureCount > 0
+    fun noteChoiceAdventureCompleted() {
+        if (choiceAdventureCount > 0) choiceAdventureCount--
+    }
+
+    fun setFactoidCountGoal(count: Int) {
+        factoidGoalCount = count.coerceAtLeast(0)
+        if (count > 0) factoidGoal = null
+    }
+    fun clearFactoidCountGoal() { factoidGoalCount = 0 }
+    fun hasFactoidCountGoal(): Boolean = factoidGoalCount > 0
+    /** Desktop GOAL_FACTOID progress — returns true when the count goal just reached zero. */
+    fun noteFactoidLearned(count: Int = 1): Boolean {
+        if (factoidGoalCount <= 0) return false
+        factoidGoalCount = (factoidGoalCount - count).coerceAtLeast(0)
+        return factoidGoalCount == 0
+    }
+
+    fun setFloundryGoal(count: Int) { floundryGoalCount = count.coerceAtLeast(0) }
+    fun clearFloundryGoal() { floundryGoalCount = 0 }
+    fun hasFloundryGoal(): Boolean = floundryGoalCount > 0
+    fun noteFloundryFishCaught() {
+        if (floundryGoalCount > 0) floundryGoalCount--
+    }
+
+    fun setAutostopGoal(count: Int = 1) { autostopGoalCount = count.coerceAtLeast(0) }
+    fun clearAutostopGoal() { autostopGoalCount = 0 }
+    fun hasAutostopGoal(): Boolean = autostopGoalCount > 0
 
     // ── Substats goal (stop when a substat is gained) ─────────────────────────
 
     fun setSubstatsGoal(enabled: Boolean = true) { substatsGoal = enabled }
-    fun clearSubstatsGoal() { substatsGoal = false }
+    fun clearSubstatsGoal() {
+        substatsGoal = false
+        substatsCounts.fill(0)
+    }
     fun hasSubstatsGoal(): Boolean = substatsGoal
+    fun setSubstatsCounts(muscle: Int, mysticality: Int, moxie: Int) {
+        substatsCounts[0] = muscle.coerceAtLeast(0)
+        substatsCounts[1] = mysticality.coerceAtLeast(0)
+        substatsCounts[2] = moxie.coerceAtLeast(0)
+        substatsGoal = substatsCounts.any { it > 0 }
+    }
+    fun noteSubstatGain(index: Int, amount: Int = 1) {
+        if (!substatsGoal || index !in 0..2) return
+        substatsCounts[index] = (substatsCounts[index] - amount).coerceAtLeast(0)
+        if (substatsCounts.all { it == 0 }) clearSubstatsGoal()
+    }
     fun matchesSubstats(responseText: String): Boolean =
         substatsGoal && responseText.contains("You gain", ignoreCase = true) &&
             Regex("""You gain \d+ \w+ \(\d+ exp\)""").containsMatchIn(responseText)
@@ -98,15 +166,101 @@ class GoalManager {
 
     /** Serialize all active goals as human-readable strings. */
     fun allGoalsAsStrings(): List<String> = buildList {
-        _itemGoalIds.forEach  { add("item id:$it") }
-        _itemGoalNames.forEach { add("item name:$it") }
+        _itemGoalIds.forEach { (id, count) -> add("item id:$id x$count") }
+        _itemGoalNames.forEach { (name, count) ->
+            add(if (count == 1) "item name:$name" else "item name:$name x$count")
+        }
         meatGoal?.let  { add("meat:$it") }
         levelGoal?.let { add("level:$it") }
         factoidGoal?.let { add("factoid:$it") }
-        choiceGoalId?.let { add("choice:$it") }
-        if (substatsGoal) add("substats")
+        if (factoidGoalCount > 0) add("factoid-count:$factoidGoalCount")
+        choiceGoalId?.let { add("choice-id:$it") }
+        if (choiceAdventureCount > 0) add("choice:$choiceAdventureCount")
+        if (substatsGoal) add("substats:${substatsCounts.joinToString("/")}")
         if (leprecondoGoalCount > 0) add("leprecondo:$leprecondoGoalCount")
+        if (floundryGoalCount > 0) add("floundry:$floundryGoalCount")
+        if (autostopGoalCount > 0) add("autostop:$autostopGoalCount")
     }
+
+    fun applyCondition(parsed: GoalConditionParser.ParsedCondition, mode: ConditionMode) {
+        when (parsed.kind) {
+            GoalConditionParser.ParsedCondition.Kind.MEAT -> when (mode) {
+                ConditionMode.SET -> setMeatGoal(parsed.count)
+                ConditionMode.ADD -> setMeatGoal(parsed.count)
+                ConditionMode.REMOVE -> clearMeatGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.LEVEL -> when (mode) {
+                ConditionMode.SET -> setLevelGoal(parsed.count)
+                ConditionMode.ADD -> setLevelGoal(parsed.count)
+                ConditionMode.REMOVE -> clearLevelGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.CHOICE_ADVENTURES -> when (mode) {
+                ConditionMode.SET -> setChoiceAdventureGoal(parsed.count)
+                ConditionMode.ADD -> setChoiceAdventureGoal(choiceAdventureCount + parsed.count)
+                ConditionMode.REMOVE -> clearChoiceAdventureGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.CHOICE_ID -> when (mode) {
+                ConditionMode.SET, ConditionMode.ADD -> parsed.choiceId?.let { setChoiceGoal(it) }
+                ConditionMode.REMOVE -> clearChoiceGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.FACTOID_TEXT -> when (mode) {
+                ConditionMode.SET, ConditionMode.ADD -> parsed.text?.let { setFactoidGoal(it) }
+                ConditionMode.REMOVE -> clearFactoidGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.FACTOID_COUNT -> when (mode) {
+                ConditionMode.SET -> setFactoidCountGoal(parsed.count)
+                ConditionMode.ADD -> setFactoidCountGoal(factoidGoalCount + parsed.count)
+                ConditionMode.REMOVE -> clearFactoidCountGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.LEPRECONDO -> when (mode) {
+                ConditionMode.SET -> setLeprecondoGoal(parsed.count)
+                ConditionMode.ADD -> setLeprecondoGoal(leprecondoGoalCount + parsed.count)
+                ConditionMode.REMOVE -> clearLeprecondoGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.FLOUNDRY -> when (mode) {
+                ConditionMode.SET -> setFloundryGoal(parsed.count)
+                ConditionMode.ADD -> setFloundryGoal(floundryGoalCount + parsed.count)
+                ConditionMode.REMOVE -> clearFloundryGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.AUTOSTOP -> when (mode) {
+                ConditionMode.SET -> setAutostopGoal(parsed.count)
+                ConditionMode.ADD -> setAutostopGoal(autostopGoalCount + parsed.count)
+                ConditionMode.REMOVE -> clearAutostopGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.SUBSTATS -> when (mode) {
+                ConditionMode.SET, ConditionMode.ADD -> setSubstatsGoal(true)
+                ConditionMode.REMOVE -> clearSubstatsGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.ITEM_NAME -> {
+                val name = parsed.itemName ?: return
+                when (mode) {
+                    ConditionMode.SET -> {
+                        _itemGoalNames.clear()
+                        addItemGoalByName(name, parsed.count)
+                    }
+                    ConditionMode.ADD -> addItemGoalByName(name, parsed.count)
+                    ConditionMode.REMOVE -> removeItemGoalByName(name)
+                }
+            }
+            GoalConditionParser.ParsedCondition.Kind.ITEM_ID -> Unit
+            GoalConditionParser.ParsedCondition.Kind.REMOVE -> Unit
+        }
+    }
+
+    enum class ConditionMode { ADD, SET, REMOVE }
+
+    fun noteItemProgress(itemId: Int, count: Int = 1) {
+        val current = _itemGoalIds[itemId] ?: return
+        if (current <= count) _itemGoalIds.remove(itemId) else _itemGoalIds[itemId] = current - count
+    }
+
+    fun noteItemProgressByName(name: String, count: Int = 1) {
+        val key = name.lowercase().trim()
+        val current = _itemGoalNames[key] ?: return
+        if (current <= count) _itemGoalNames.remove(key) else _itemGoalNames[key] = current - count
+    }
+
+    fun hasAnyGoals(): Boolean = allGoalsAsStrings().isNotEmpty()
 
     // ── Clear all ─────────────────────────────────────────────────────────────
 
@@ -114,7 +268,12 @@ class GoalManager {
         _itemGoalIds.clear()
         _itemGoalNames.clear()
         choiceGoalId = null
+        choiceAdventureCount = 0
+        factoidGoalCount = 0
+        floundryGoalCount = 0
+        autostopGoalCount = 0
         substatsGoal = false
+        substatsCounts.fill(0)
         leprecondoGoalCount = 0
         meatGoal = null
         levelGoal = null
@@ -129,36 +288,52 @@ class GoalManager {
     }
 
     data class GoalSnapshot(
-        val itemGoalIds: Set<Int>,
-        val itemGoalNames: Set<String>,
+        val itemGoalIds: Map<Int, Int>,
+        val itemGoalNames: Map<String, Int>,
         val meatGoal: Int?,
         val levelGoal: Int?,
         val factoidGoal: String?,
+        val factoidGoalCount: Int,
         val choiceGoalId: Int?,
+        val choiceAdventureCount: Int,
+        val floundryGoalCount: Int,
+        val autostopGoalCount: Int,
         val substatsGoal: Boolean,
+        val substatsCounts: IntArray,
         val leprecondoGoalCount: Int,
     )
 
     fun captureSnapshot(): GoalSnapshot = GoalSnapshot(
-        itemGoalIds = _itemGoalIds.toSet(),
-        itemGoalNames = _itemGoalNames.toSet(),
+        itemGoalIds = _itemGoalIds.toMap(),
+        itemGoalNames = _itemGoalNames.toMap(),
         meatGoal = meatGoal,
         levelGoal = levelGoal,
         factoidGoal = factoidGoal,
+        factoidGoalCount = factoidGoalCount,
         choiceGoalId = choiceGoalId,
+        choiceAdventureCount = choiceAdventureCount,
+        floundryGoalCount = floundryGoalCount,
+        autostopGoalCount = autostopGoalCount,
         substatsGoal = substatsGoal,
+        substatsCounts = substatsCounts.copyOf(),
         leprecondoGoalCount = leprecondoGoalCount,
     )
 
     fun restoreSnapshot(snapshot: GoalSnapshot) {
         clearGoals()
-        snapshot.itemGoalIds.forEach { addItemGoal(it) }
-        snapshot.itemGoalNames.forEach { addItemGoalByName(it) }
+        snapshot.itemGoalIds.forEach { (id, count) -> addItemGoal(id, count) }
+        snapshot.itemGoalNames.forEach { (name, count) -> addItemGoalByName(name, count) }
         snapshot.meatGoal?.let { setMeatGoal(it) }
         snapshot.levelGoal?.let { setLevelGoal(it) }
         snapshot.factoidGoal?.let { setFactoidGoal(it) }
+        factoidGoalCount = snapshot.factoidGoalCount
         snapshot.choiceGoalId?.let { setChoiceGoal(it) }
-        if (snapshot.substatsGoal) setSubstatsGoal(true)
+        choiceAdventureCount = snapshot.choiceAdventureCount
+        floundryGoalCount = snapshot.floundryGoalCount
+        autostopGoalCount = snapshot.autostopGoalCount
+        if (snapshot.substatsGoal) {
+            setSubstatsCounts(snapshot.substatsCounts[0], snapshot.substatsCounts[1], snapshot.substatsCounts[2])
+        }
         leprecondoGoalCount = snapshot.leprecondoGoalCount
     }
 
@@ -177,13 +352,14 @@ class GoalManager {
         if (maxTurns <= 0) return false
 
         val snapshot = captureSnapshot()
+        val initialCount = itemCount()
         clearGoals()
         addItemGoal(itemId)
 
         val job: Job = adventureManager.runAdventures(location, maxTurns, scope)
         joinAll(job)
 
-        val obtained = itemCount() > 0
+        val obtained = itemCount() > initialCount
         restoreSnapshot(snapshot)
         return obtained
     }

@@ -34,6 +34,9 @@ object CampgroundSync {
         if (!url.contains("campground.php", ignoreCase = true)) return
         parseCampground(url, html, preferences, character)
         val action = url.substringAfter("action=", "").substringBefore('&').lowercase()
+        if (action == "pizza" || action == "makepizza") {
+            return
+        }
         when {
             action.contains("rest") -> parseRest(html, preferences, character, inventory)
             action.contains("inspectdwelling") -> parseFurnishings(html, preferences)

@@ -28,7 +28,13 @@ internal fun GameRuntimeLibrary.registerGoalQueries(scope: AshScope) {
             "item"  -> goalManager?.hasItemGoals() ?: false
             "meat"  -> goalManager?.hasMeatGoalSet() ?: false
             "level" -> goalManager?.hasLevelGoalSet() ?: false
-            "factoid", "autostop" -> goalManager?.hasFactoidGoalSet() ?: false
+            "factoid", "autostop" -> goalManager?.hasFactoidGoalSet() ?: false ||
+                (goalManager?.hasFactoidCountGoal() == true) ||
+                (goalManager?.hasAutostopGoal() == true)
+            "choice" -> (goalManager?.hasChoiceGoalSet() == true) ||
+                (goalManager?.hasChoiceAdventureGoal() == true)
+            "floundry" -> goalManager?.hasFloundryGoal() ?: false
+            "leprecondo" -> goalManager?.hasLeprecondoGoal() ?: false
             else    -> false
         }
         AshValue.of(result)

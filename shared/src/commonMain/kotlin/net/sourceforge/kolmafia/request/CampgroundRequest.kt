@@ -11,6 +11,7 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.RequestLogger
+import net.sourceforge.kolmafia.session.ResultProcessor
 import net.sourceforge.kolmafia.session.SessionLogger
 
 open class CampgroundRequest(
@@ -32,7 +33,10 @@ open class CampgroundRequest(
     open suspend fun useSpinningWheel(): Result<String> = visitAction("spinningwheel")
 
     /** POSTs campground.php?action=&lt;token&gt; for generic campground CLI actions. */
-    open suspend fun visitAction(action: String): Result<String> {
+    open suspend fun visitAction(
+        action: String,
+        extraFields: Map<String, String> = emptyMap(),
+    ): Result<String> {
         return try {
             if (RequestAbortGate.abortIfInFightOrChoice()) {
                 return Result.failure(
@@ -47,15 +51,32 @@ open class CampgroundRequest(
                 url = "$KOL_BASE_URL/campground.php",
                 formParameters = parameters {
                     append("action", action)
+                    extraFields.forEach { (key, value) -> append(key, value) }
                 },
             )
             if (!response.status.isSuccess()) {
                 Result.failure(Exception("HTTP ${response.status.value}"))
             } else {
                 val html = response.bodyAsText()
-                val url = "campground.php?action=$action"
+                val url = buildString {
+                    append("campground.php?action=").append(action)
+                    extraFields.forEach { (key, value) ->
+                        append('&').append(key).append('=').append(value)
+                    }
+                }
                 RequestLogger.registerRequest(url, sessionLogger, preferences)
                 CampgroundSync.parseResponse(url, html, preferences, character, inventoryManager)
+                if (PizzaCubeRequest.isPizzaUrl(url) &&
+                    PizzaCubeRequest.parseResponse(url, html, inventoryManager, preferences)
+                ) {
+                    ResultProcessor.processResults(
+                        adventureResults = false,
+                        html = html,
+                        inventory = inventoryManager,
+                        character = character,
+                        preferences = preferences,
+                    )
+                }
                 net.sourceforge.kolmafia.recovery.BetweenBattleInvoker.run(true)
                 Result.success(html)
             }

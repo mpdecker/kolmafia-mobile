@@ -11,7 +11,7 @@ import net.sourceforge.kolmafia.quest.ColdMedicineChoiceSync
 import net.sourceforge.kolmafia.quest.FloristFriarChoiceSync
 import net.sourceforge.kolmafia.quest.LeprecondoChoiceSync
 import net.sourceforge.kolmafia.quest.MummeryChoiceSync
-import net.sourceforge.kolmafia.quest.TeaTreeChoiceSync
+import net.sourceforge.kolmafia.quest.PerilChoiceSync
 import net.sourceforge.kolmafia.quest.TimeSpinnerChoiceSync
 import net.sourceforge.kolmafia.request.CampgroundRequest
 import net.sourceforge.kolmafia.session.HeistManager
@@ -304,10 +304,6 @@ internal fun GameRuntimeLibrary.cliTeatree(parameters: String, print: (String) -
         print("You have already harvested tea from your potted tea tree today.")
         return
     }
-    val choice = choiceRequest ?: run {
-        print("Choice request is not available.")
-        return
-    }
     val lower = trimmed.lowercase()
     val shake = lower.startsWith("shake") || lower.startsWith("random")
     val teaId = if (shake) null else resolveTeaItemId(trimmed)
@@ -315,28 +311,48 @@ internal fun GameRuntimeLibrary.cliTeatree(parameters: String, print: (String) -
         print("I don't know how to harvest $trimmed")
         return
     }
+    val request = pottedTeaTreeRequest ?: run {
+        print("Tea tree HTTP is not available.")
+        return
+    }
     runBlocking {
-        val client = httpClient
-        if (client != null) {
-            CampgroundRequest(client).visitAction("teatree").exceptionOrNull()
-        }
         if (shake) {
-            choice.choose(TeaTreeChoiceSync.TREE_TEA, 1)
-                .onSuccess { (_, url) ->
-                    TeaTreeChoiceSync.apply(TeaTreeChoiceSync.TREE_TEA, 1, preferences, url)
-                    print("Shook the potted tea tree.")
-                }
+            request.shake()
+                .onSuccess { print("Shook the potted tea tree.") }
                 .onFailure { print(it.message ?: "Tea harvest failed.") }
         } else {
-            choice.choose(
-                TeaTreeChoiceSync.SPECIFICI_TEA,
-                1,
-                mapOf("itemid" to teaId!!.toString()),
-            ).onSuccess { (_, url) ->
-                TeaTreeChoiceSync.apply(TeaTreeChoiceSync.SPECIFICI_TEA, 1, preferences, url)
-                print("Harvested tea item #$teaId.")
-            }.onFailure { print(it.message ?: "Tea harvest failed.") }
+            request.select(teaId!!)
+                .onSuccess { print("Harvested tea item #$teaId.") }
+                .onFailure { print(it.message ?: "Tea harvest failed.") }
         }
+    }
+}
+
+internal fun GameRuntimeLibrary.cliForesee(parameters: String, print: (String) -> Unit) {
+    val trimmed = parameters.trim()
+    val used = preferences?.getInt("_perilsForeseen", 0) ?: 0
+    if (trimmed.isEmpty()) {
+        print("Perils foreseen today: $used / ${PerilChoiceSync.MAX_PERILS}")
+        print("Usage: foresee <player id>")
+        return
+    }
+    if (used >= PerilChoiceSync.MAX_PERILS) {
+        print("You can only foresee peril thrice daily.")
+        return
+    }
+    val perilId = trimmed.toIntOrNull()
+    if (perilId == null || perilId <= 0) {
+        print("Usage: foresee <player id>")
+        return
+    }
+    val request = foreseeRequest ?: run {
+        print("Foresee HTTP is not available.")
+        return
+    }
+    runBlocking {
+        request.foresee(perilId)
+            .onSuccess { print("Foreseeing peril for $perilId.") }
+            .onFailure { print(it.message ?: "Foresee failed.") }
     }
 }
 

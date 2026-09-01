@@ -38,6 +38,10 @@ object TCRSDatabase {
 
     fun getEntry(itemId: Int): TcrsEntry? = tcrsMap[itemId]
 
+    fun isLoaded(): Boolean = currentClassSign.isNotEmpty() && tcrsMap.isNotEmpty()
+
+    fun entryCount(): Int = tcrsMap.size
+
     fun applyModifiers(characterLevel: Int): Int {
         EffectDatabase.stripConsumableActions()
         var applied = 0
@@ -277,4 +281,38 @@ object TCRSDatabase {
     internal fun currentClassSignForTest(): String = currentClassSign
 
     internal fun mapSizeForTest(): Int = tcrsMap.size
+
+    fun importFetchedText(
+        className: String,
+        signName: String,
+        suffix: String,
+        text: String,
+    ): Int {
+        if (!validate(className, signName)) return 0
+        val entries = parseFromText(text)
+        when (suffix) {
+            "" -> {
+                tcrsMap.clear()
+                tcrsMap.putAll(entries)
+                currentClassSign = "$className/$signName"
+            }
+            CAFE_BOOZE_SUFFIX -> {
+                tcrsBoozeMap.clear()
+                tcrsBoozeMap.putAll(entries)
+            }
+            CAFE_FOOD_SUFFIX -> {
+                tcrsFoodMap.clear()
+                tcrsFoodMap.putAll(entries)
+            }
+            else -> return 0
+        }
+        return entries.size
+    }
+
+    fun putDerivedEntry(itemId: Int, entry: TcrsEntry) {
+        tcrsMap[itemId] = entry
+    }
+
+    fun deriveEntry(itemId: Int, html: String): TcrsEntry =
+        TCRSDeriver.deriveFromHtml(itemId, html)
 }

@@ -490,6 +490,20 @@ object ResultProcessor {
         }
     }
 
+    /** Consume one or more item IDs, coalescing duplicates, after a successful craft/use. */
+    fun consumeItems(
+        itemIds: List<Int>,
+        preferences: Preferences? = null,
+        inventory: InventoryManager? = inventoryProvider?.invoke(),
+        questDatabase: QuestDatabase? = null,
+    ) {
+        if (itemIds.isEmpty()) return
+        val counts = itemIds.filter { it > 0 }.groupingBy { it }.eachCount()
+        for ((itemId, qty) in counts) {
+            processItem(itemId, -qty, preferences, questDatabase, inventory)
+        }
+    }
+
     /**
      * Desktop [ResultProcessor.autoCreate] subset — crafts blackbird/crow when both
      * ingredients are present and `autoCraft` is enabled.

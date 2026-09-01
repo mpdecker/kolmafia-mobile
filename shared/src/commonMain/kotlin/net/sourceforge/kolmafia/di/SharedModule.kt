@@ -51,6 +51,7 @@ import net.sourceforge.kolmafia.request.AlliedRadioRequest
 import net.sourceforge.kolmafia.request.SummoningChamberRequest
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.SessionLogger
+import net.sourceforge.kolmafia.session.GuildUnlockManager
 import net.sourceforge.kolmafia.character.DailyResourceTracker
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.quest.QuestDatabase
@@ -164,10 +165,26 @@ import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.StandardRequest
 import net.sourceforge.kolmafia.request.StillSuitRequest
 import net.sourceforge.kolmafia.request.ActionBarRequest
+import net.sourceforge.kolmafia.request.BeachCombRequest
+import net.sourceforge.kolmafia.request.SkateParkRequest
+import net.sourceforge.kolmafia.request.GuildRequest
 import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.request.HashingViseRequest
+import net.sourceforge.kolmafia.request.PottedTeaTreeRequest
+import net.sourceforge.kolmafia.request.ForeseeRequest
+import net.sourceforge.kolmafia.request.KgbRequest
+import net.sourceforge.kolmafia.request.PizzaCubeRequest
+import net.sourceforge.kolmafia.request.FleaMarketRequest
+import net.sourceforge.kolmafia.request.FleaMarketSellRequest
+import net.sourceforge.kolmafia.request.AscensionHistoryRequest
+import net.sourceforge.kolmafia.session.AscensionHistoryManager
 import net.sourceforge.kolmafia.request.ClanStashRequest
+import net.sourceforge.kolmafia.request.SpadeRequest
+import net.sourceforge.kolmafia.request.PandamoniumRequest
+import net.sourceforge.kolmafia.session.ClanCliManager
+import net.sourceforge.kolmafia.session.TcrsCliManager
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
 import net.sourceforge.kolmafia.shop.CoinmasterRequest
@@ -201,6 +218,26 @@ val sharedModule = module {
     }
     singleOf(::FightRequest)
     singleOf(::ChoiceRequest)
+    single {
+        BeachCombRequest(
+            client = get(),
+            choiceRequest = get(),
+            character = get(),
+            equipmentManager = get(),
+            equipmentRequest = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        SkateParkRequest(
+            client = get(),
+            character = get(),
+            inventory = get(),
+            equipmentManager = get(),
+            equipmentRequest = get(),
+            sessionLogger = get(),
+        )
+    }
     singleOf(::OceanRequest)
     singleOf(::ResearchBenchRequest)
     single {
@@ -214,6 +251,18 @@ val sharedModule = module {
     }
     single { GoalManager() }
     single { QuestDatabase(get()) }
+    single {
+        GuildRequest(
+            client = get(),
+            character = get(),
+            preferences = get(),
+            questDatabase = get(),
+            inventoryManager = get(),
+            skillManager = get(),
+            eventBus = get(),
+            sessionLogger = get(),
+        )
+    }
     single { QuestLogRequest(get(), get(), get(), get()) }
     single {
         ChoiceSolvers(
@@ -252,6 +301,77 @@ val sharedModule = module {
             questDatabase = get(),
             character = get(),
             inventoryManager = get(),
+        )
+    }
+    single {
+        HashingViseRequest(
+            client = get(),
+            choiceRequest = get(),
+            inventoryManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        PottedTeaTreeRequest(
+            client = get(),
+            campgroundRequest = get(),
+            choiceRequest = get(),
+            inventoryManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        ForeseeRequest(
+            client = get(),
+            choiceRequest = get(),
+            inventoryManager = get(),
+            equipmentManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        KgbRequest(
+            client = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        PizzaCubeRequest(
+            client = get(),
+            inventoryManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        FleaMarketRequest(
+            client = get(),
+            inventoryManager = get(),
+            character = get(),
+            sessionLogger = get(),
+            preferences = get(),
+        )
+    }
+    single {
+        FleaMarketSellRequest(
+            client = get(),
+            inventoryManager = get(),
+            character = get(),
+            sessionLogger = get(),
+            preferences = get(),
+        )
+    }
+    single { AscensionHistoryManager() }
+    single {
+        AscensionHistoryRequest(
+            client = get(),
+            manager = get(),
+            character = get(),
+            preferences = get(),
         )
     }
     single {
@@ -366,6 +486,22 @@ val sharedModule = module {
     singleOf(::DisplayCaseRequest)
     singleOf(::ClanStashRequest)
     singleOf(::SendMailRequest)
+    single {
+        SpadeRequest(
+            sendMailRequest = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        PandamoniumRequest(
+            client = get(),
+            questDatabase = get(),
+            inventoryManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
     singleOf(::SendGiftRequest)
     singleOf(::ManageStoreRequest)
     single {
@@ -419,6 +555,13 @@ val sharedModule = module {
     singleOf(::ClanLoungeRequest)
     singleOf(::ClanMembersRequest)
     singleOf(::ClanLogRequest)
+    single {
+        ClanCliManager(
+            membersRequest = get(),
+            logRequest = get(),
+            stashRequest = get(),
+        )
+    }
     singleOf(::ClanWarRequest)
     singleOf(::ClanBuffRequest)
     singleOf(::CafeRequest)
@@ -489,9 +632,19 @@ val sharedModule = module {
                 },
             ),
             museCreateRequest = MuseCreateRequest(
-                useItemRequest = get(),
+                useItemRequest = UseItemRequest(
+                    client = get(),
+                    preferences = get(),
+                    sessionLogger = get(),
+                    eventBus = get(),
+                    questDatabase = get(),
+                    character = get(),
+                ),
                 createItemIngredients = get(),
                 gameDatabase = get(),
+                inventoryManager = get(),
+                preferences = get(),
+                sessionLogger = get(),
             ),
             phineasCreateRequest = PhineasCreateRequest(
                 client = get(),
@@ -685,6 +838,8 @@ val sharedModule = module {
             equipmentRequest = get(),
             character = get(),
             preferences = get(),
+            inventoryManager = get(),
+            equipmentManager = get(),
         )
     }
     single {
@@ -906,6 +1061,27 @@ val sharedModule = module {
         )
     }
     single {
+        GuildUnlockManager(
+            request = get(),
+            adventureManager = get(),
+            character = get(),
+            preferences = get(),
+            questDatabase = get(),
+            inventoryManager = get(),
+            equipmentManager = get(),
+            equipmentRequest = get(),
+            retrieveItemService = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        TcrsCliManager(
+            character = get(),
+            preferences = get(),
+            httpClient = get(),
+        )
+    }
+    single {
         GameRuntimeLibrary(
             character        = get(),
             inventoryManager = get(),
@@ -964,6 +1140,16 @@ val sharedModule = module {
             sendMailRequest     = get(),
             sendGiftRequest     = get(),
             choiceRequest       = get(),
+            hashingViseRequest  = get(),
+            pottedTeaTreeRequest = get(),
+            foreseeRequest      = get(),
+            kgbRequest          = get(),
+            pizzaCubeRequest    = get(),
+            fleaMarketRequest   = get(),
+            fleaMarketSellRequest = get(),
+            ascensionHistoryRequest = get(),
+            beachCombRequest    = get(),
+            skateParkRequest    = get(),
             edServantManager    = get(),
             vykeaCompanionManager = get(),
             pastaThrallManager    = get(),
@@ -995,6 +1181,11 @@ val sharedModule = module {
             boomBoxRequest = get(),
             mindControlRequest = get(),
             absorbRequest = get(),
+            guildUnlockManager = get(),
+            clanCliManager = get(),
+            tcrsCliManager = get(),
+            spadeRequest = get(),
+            pandamoniumRequest = get(),
         )
     }
     singleOf(::ScriptManager)

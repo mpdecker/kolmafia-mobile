@@ -6,6 +6,7 @@ import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
 class MallSearchRequest(private val client: HttpClient) {
@@ -21,7 +22,8 @@ class MallSearchRequest(private val client: HttpClient) {
             val total = page?.groupValues?.get(3)?.toIntOrNull()
             start = if (end != null && total != null && end < total) end else null
         } while (start != null && (limit <= 0 || results.size < limit))
-        return if (limit <= 0) results else results.take(limit)
+        val trimmed = if (limit <= 0) results else results.take(limit)
+        return MallSearchOverlay.merge(itemName, trimmed, if (limit <= 0) Int.MAX_VALUE else limit)
     }
 
     suspend fun searchStore(storeId: Int): List<MallListing> {
@@ -91,6 +93,9 @@ class MallSearchRequest(private val client: HttpClient) {
         val desktopRows = parseDesktopMallHtml(html, limit)
         if (desktopRows.isNotEmpty()) return desktopRows
 
+        val itemDetailRows = parseItemDetailMallHtml(html, limit)
+        if (itemDetailRows.isNotEmpty()) return itemDetailRows
+
         val storePattern = Regex("""mallstore\.php\?whichstore=(\d+)""")
         val itemPattern = Regex("""name="whichitem"\s+value="(\d+)"""")
         val pricePattern = Regex("""<b>(\d+)</b>\s*Meat""")
@@ -109,6 +114,47 @@ class MallSearchRequest(private val client: HttpClient) {
             MallListing(shopId = shopId, shopName = "", itemId = itemId,
                 price = price, quantity = qty)
         }
+    }
+
+    private fun parseItemDetailMallHtml(html: String, limit: Int): List<MallListing> {
+        val rows = mutableListOf<MallListing>()
+        val storeListResult = html.substringAfter("Search Results:", html)
+        ITEMDETAIL_PATTERN.findAll(storeListResult).forEach { itemMatch ->
+            val itemId = itemMatch.groupValues[1].toIntOrNull() ?: return@forEach
+            val descId = itemMatch.groupValues[2]
+            val itemName = itemMatch.groupValues[3].trim()
+            val dataName = ItemDatabase.getById(itemId)?.name
+            if (dataName == null || !dataName.equals(itemName, ignoreCase = true)) {
+                ItemDatabase.registerItem(itemId, itemName, descId)
+            }
+            val itemBody = itemMatch.groupValues[4]
+            STOREDETAIL_PATTERN.findAll(itemBody).forEach rowLoop@{ row ->
+                if (rows.size >= limit) return rows
+                val linkText = row.value
+                val quantity = LISTQUANTITY_PATTERN.find(linkText)?.groupValues?.get(1)
+                    ?.replace(",", "")?.toIntOrNull() ?: 0
+                var dailyLimit = quantity
+                var canPurchase = true
+                LISTLIMIT_PATTERN.find(linkText)?.let { limitMatch ->
+                    dailyLimit = limitMatch.groupValues[1].replace(",", "").toIntOrNull() ?: quantity
+                    canPurchase = !linkText.contains("graybelow limited", ignoreCase = true)
+                }
+                val detail = LISTDETAIL_PATTERN.find(linkText) ?: return@rowLoop
+                rows += MallListing(
+                    shopId = detail.groupValues[1].toInt(),
+                    shopName = detail.groupValues[4]
+                        .replace(Regex("""(?i)<br\s*/?>"""), " ")
+                        .stripTags()
+                        .trim(),
+                    itemId = itemId,
+                    price = detail.groupValues[3].toLong(),
+                    quantity = quantity,
+                    limit = minOf(quantity, dailyLimit),
+                    canPurchase = canPurchase,
+                )
+            }
+        }
+        return rows
     }
 
     private fun parseDesktopMallHtml(html: String, limit: Int): List<MallListing> {
@@ -160,6 +206,10 @@ class MallSearchRequest(private val client: HttpClient) {
 
     companion object {
         private val ITERATION_PATTERN = Regex("""\(Items ([\d,]+)-([\d,]+) of ([\d,]+)\)""")
+        private val ITEMDETAIL_PATTERN = Regex(
+            """<table class="itemtable".*?item_(\d+).*?descitem\((\d+)\).*?<a[^>]*>(.*?)</a>(.*?)</table>""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+        )
         private val ITEM_TABLE_PATTERN = Regex(
             """<table class="itemtable".*?</table>""",
             setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),

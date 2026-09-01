@@ -78,7 +78,11 @@ object BeachCombManager {
         return true
     }
 
-    fun parseBeachMap(html: String, preferences: Preferences): Boolean {
+    fun parseBeachMap(
+        html: String,
+        preferences: Preferences,
+        unknownSquareLogger: ((String) -> Unit)? = null,
+    ): Boolean {
         val minutes = minutesPattern.find(html)?.groupValues?.get(1)
             ?.replace(",", "")?.toIntOrNull()
         if (minutes == null) {
@@ -99,6 +103,12 @@ object BeachCombManager {
                 title.equals("a sand castle", ignoreCase = true) -> 'C'
                 image.equals("whale", ignoreCase = true) -> 'W'
                 else -> '?'
+            }
+            if (square == '?') {
+                unknownSquareLogger?.invoke(
+                    "Unknown beach square at ${preferences.getInt("_beachMinutes", minutes)}:" +
+                        "$row,${match.groupValues[2]}: text = '$title' image = '$image'.",
+                )
             }
             if (square == 't') twinkles = true
             rows.getOrPut(row) { StringBuilder() }.append(square)

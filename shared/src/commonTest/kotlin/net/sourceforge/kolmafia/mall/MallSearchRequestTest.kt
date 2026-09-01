@@ -73,4 +73,25 @@ class MallSearchRequestTest {
         val listings = MallSearchRequest(HttpClient(engine)).search("fuzzy dice", limit = 5)
         assertEquals(799, listings[0].itemId)
     }
+
+    @Test
+    fun search_parsesItemDetailTableWithLimitedRow() = runTest {
+        val html = """
+            Search Results:
+            <table class="itemtable"><tr><td class="item" id="item_799">
+            <a href="javascript:descitem(123);">fuzzy dice</a>
+            <tr class="graybelow limited"><td class="stock">0</td>
+            0&nbsp;/&nbsp;day
+            whichstore=111&searchitem=799&searchprice=500"><b>Shop</b></tr>
+            <tr class="graybelow"><td class="stock">3</td>
+            whichstore=222&searchitem=799&searchprice=450"><b>Other Shop</b></tr>
+            </table>
+        """.trimIndent()
+        val rows = MallSearchRequest(HttpClient(MockEngine { respond("x", HttpStatusCode.OK) }))
+            .parseMallHtml(html, limit = 10)
+        assertEquals(2, rows.size)
+        assertEquals(false, rows[0].canPurchase)
+        assertEquals(true, rows[1].canPurchase)
+        assertEquals(222, rows[1].shopId)
+    }
 }
