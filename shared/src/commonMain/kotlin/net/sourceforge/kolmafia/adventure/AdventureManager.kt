@@ -158,6 +158,7 @@ import net.sourceforge.kolmafia.session.OceanManager
 import net.sourceforge.kolmafia.session.WereProfessorResearchSync
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.session.MonsterManuelManager
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 import net.sourceforge.kolmafia.session.EncounterManager
 import net.sourceforge.kolmafia.session.ResultProcessor
@@ -225,6 +226,7 @@ open class AdventureManager(
     private var lastTurnResponseText: String = ""
     private var lastTurnUrl: String = ""
     private var itemGoalMetThisTurn = false
+    private var factoidGoalMetThisTurn = false
     private var _inMultiFight = false
     private var _fightFollowsChoice = false
     private var _inChoiceResolution = false
@@ -488,6 +490,7 @@ open class AdventureManager(
                 repeat(turns) {
                     if (!isActive) return@launch
                     itemGoalMetThisTurn = false
+                    factoidGoalMetThisTurn = false
 
                     // Zone pre-flight: if all monsters in the zone are banished, stop immediately
                     val bm = banishManager
@@ -529,6 +532,11 @@ open class AdventureManager(
                     if (itemGoalMetThisTurn) {
                         emitTurnConsumed(location, result)
                         eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("item goal met")))
+                        return@launch
+                    }
+                    if (factoidGoalMetThisTurn) {
+                        emitTurnConsumed(location, result)
+                        eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("factoid count goal met")))
                         return@launch
                     }
 
@@ -949,6 +957,12 @@ open class AdventureManager(
         )
         FightMonsterHealthSync.apply(fightHtml)
         net.sourceforge.kolmafia.request.MonsterManuelRequest.parseResponse("fight.php", fightHtml)
+        if (result.won && fightHtml.contains("monstermanuel.gif", ignoreCase = true)) {
+            if (goalManager.noteFactoidLearned()) {
+                factoidGoalMetThisTurn = true
+            }
+            gameDatabase?.monster(result.monster)?.id?.let { MonsterManuelManager.reset(it) }
+        }
         FightFinalRoundSync.apply(
             html = fightHtml,
             preferences = preferences,
@@ -1697,6 +1711,13 @@ open class AdventureManager(
                 })
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
+            if (goalManager.hasChoiceAdventureGoal()) {
+                goalManager.noteChoiceAdventureCompleted()
+                if (!goalManager.hasChoiceAdventureGoal()) {
+                    eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("choice adventure goal met")))
+                    return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
+                }
+            }
             if (goalManager.hasChoiceGoal(currentChoiceId)) {
                 goalManager.clearChoiceGoal()
                 eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.GoalMet("choice goal met: $currentChoiceId")))

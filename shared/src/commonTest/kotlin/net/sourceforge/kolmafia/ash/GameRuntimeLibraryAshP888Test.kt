@@ -11,7 +11,7 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 class GameRuntimeLibraryAshP888Test {
     @Test
     fun revisionAndChoiceRulesCorpusSweep() {
-        assertEquals("phase4010", GameRuntimeLibrary.REVISION)
+        assertEquals("phase4190", GameRuntimeLibrary.REVISION)
         val prefs = Preferences(MapSettings())
         assertTrue(QuestChoiceRules.apply(835, "", QuestDatabase(prefs), decision = 1, preferences = prefs))
         assertTrue(QuestChoiceRules.apply(1089, "You acquire", QuestDatabase(prefs), decision = 2, preferences = prefs))

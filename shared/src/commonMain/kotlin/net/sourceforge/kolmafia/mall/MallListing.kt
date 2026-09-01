@@ -1,5 +1,11 @@
 package net.sourceforge.kolmafia.mall
 
+enum class MallListingSource {
+    MALL,
+    NPC,
+    COINMASTER,
+}
+
 data class MallListing(
     val shopId: Int,
     val shopName: String,
@@ -9,4 +15,5 @@ data class MallListing(
     val limit: Int = quantity,
     val canPurchase: Boolean = true,
     val timestampSeconds: Long = currentEpochSeconds(),
+    val source: MallListingSource = MallListingSource.MALL,
 )

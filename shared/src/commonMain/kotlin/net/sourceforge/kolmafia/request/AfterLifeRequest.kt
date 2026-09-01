@@ -73,6 +73,7 @@ object AfterLifeRequest {
             "buydeli", "buyarmory" -> buyMessage(url, action, karma)
             "delireturn", "armoryreturn" -> returnMessage(url, action, karma)
             "ascend" -> if (url.contains("confirmascend=1")) ascendMessage(url) else null
+            "reincarnate" -> "Reincarnating"
             else -> null
         }
         if (message != null) {

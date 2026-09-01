@@ -554,7 +554,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase4010"
+        const val REVISION = "phase4190"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -981,7 +981,9 @@ class GameRuntimeLibrary(
             }
         },
         Regex("^tcrs(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
-            cliTcrs(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+            kotlinx.coroutines.runBlocking {
+                cliTcrs(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+            }
         },
         Regex("^spade(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             kotlinx.coroutines.runBlocking {
@@ -1025,18 +1027,35 @@ class GameRuntimeLibrary(
             }
         },
 
-        // "servant type" — Ed entombed servant switch
+        // "servant [type]" — Ed entombed servant switch or current status
+        Regex("^servant$", RegexOption.IGNORE_CASE) to { _, rt ->
+            edServantManager?.printCurrentServant { message -> rt.print(message) }
+                ?: rt.print("Only Ed the Undying has entombed servants!")
+        },
         Regex("^servant\\s+(.*)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val type = m.groupValues[1].trim()
-            kotlinx.coroutines.runBlocking {
-                edServantManager?.useServant(type) { message -> rt.print(message) }
+            if (type.isEmpty()) {
+                edServantManager?.printCurrentServant { message -> rt.print(message) }
+                    ?: rt.print("Only Ed the Undying has entombed servants!")
+            } else {
+                kotlinx.coroutines.runBlocking {
+                    edServantManager?.useServant(type) { message -> rt.print(message) }
+                }
+                edServantManager?.printCurrentServant { message -> rt.print(message) }
             }
         },
 
-        // "servants" — list summoned Ed servants
+        // "servants" — full Ed servant catalog table (+ current servant when Ed)
         Regex("^servants$", RegexOption.IGNORE_CASE) to { _, rt ->
-            edServantManager?.printStatus { message -> rt.print(message) }
-                ?: rt.print("Only Ed the Undying has entombed servants!")
+            val manager = edServantManager
+            if (manager == null) {
+                rt.print("Only Ed the Undying has entombed servants!")
+            } else {
+                manager.printServantsCatalog { message -> rt.print(message) }
+                if (manager.isEd()) {
+                    manager.printCurrentServant { message -> rt.print(message) }
+                }
+            }
         },
 
         // "retrieve N item" / acquire / find — compound retrieve (qty optional, comma lists)
@@ -5176,6 +5195,7 @@ class GameRuntimeLibrary(
         kotlinx.coroutines.runBlocking {
             request.fetch(playerId)
                 .onSuccess { records ->
+                    request.lastCompareSummary().forEach { rt.print(it) }
                     records.forEach { rt.print(AscensionHistoryRequest.formatRecord(it)) }
                 }
                 .onFailure {

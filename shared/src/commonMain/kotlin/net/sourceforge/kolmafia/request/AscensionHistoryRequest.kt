@@ -54,8 +54,9 @@ open class AscensionHistoryRequest(
     }
 
     fun parse(html: String): List<AscensionRecord> {
+        val (name, id) = parsePlayerHeader(html)
         val records = parseRows(html)
-        manager.remember(records)
+        manager.remember(records, name, id)
         return records
     }
 
@@ -67,6 +68,8 @@ open class AscensionHistoryRequest(
     fun records(): List<AscensionRecord> = manager.records()
 
     fun statusLines(): List<String> = manager.statusLines()
+
+    fun lastCompareSummary(): List<String> = manager.lastCompare().summaryLines()
 
     companion object {
         const val PAGE = "ascensionhistory.php"
@@ -89,6 +92,16 @@ open class AscensionHistoryRequest(
             url.contains(PAGE, ignoreCase = true)
 
         fun parse(html: String): List<AscensionRecord> = parseRows(html)
+
+        fun parsePlayerHeader(html: String): Pair<String?, String?> {
+            val match = NAME_PATTERN.find(html) ?: return null to null
+            return match.groupValues[2].trim() to match.groupValues[1].trim()
+        }
+
+        private val NAME_PATTERN = Regex(
+            """who=(\d+)["'] class=nounder><font color=white>(.*?)</font>""",
+            RegexOption.IGNORE_CASE,
+        )
 
         fun formatRecord(record: AscensionRecord): String {
             val number = record.number?.let { "#$it" } ?: "#"

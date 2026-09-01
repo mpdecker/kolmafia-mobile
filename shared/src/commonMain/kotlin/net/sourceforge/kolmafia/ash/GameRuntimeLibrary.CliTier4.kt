@@ -58,7 +58,7 @@ internal suspend fun GameRuntimeLibrary.cliClan(
     }
 }
 
-internal fun GameRuntimeLibrary.cliTcrs(
+internal suspend fun GameRuntimeLibrary.cliTcrs(
     parameters: String,
     print: (String) -> Unit,
 ) {
@@ -72,6 +72,7 @@ internal fun GameRuntimeLibrary.cliTcrs(
         null, "status" -> manager.status().forEach(print)
         "load" -> print(manager.load())
         "save" -> print(manager.save())
+        "fetch" -> manager.fetch().forEach(print)
         "apply" -> print(manager.apply())
         "reset" -> print(manager.reset())
         "derive" -> print(manager.derive(tokens.getOrNull(1)?.toIntOrNull()))
@@ -81,10 +82,10 @@ internal fun GameRuntimeLibrary.cliTcrs(
             else print(manager.check(itemId))
         }
         "help" -> {
-            print("Usage: tcrs [status|load|save|derive [item id]|check <item id>|apply|reset]")
-            print("TCRS class/sign dump generation and remote fetch are not available in headless mode.")
+            print("Usage: tcrs [status|load|save|fetch|derive [item id]|check <item id>|apply|reset]")
+            print("Use `tcrs fetch` to download class/sign dumps from the KoLmafia repository.")
         }
-        else -> print("Usage: tcrs [status|load|save|derive [item id]|check <item id>|apply|reset]")
+        else -> print("Usage: tcrs [status|load|save|fetch|derive [item id]|check <item id>|apply|reset]")
     }
 }
 

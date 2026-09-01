@@ -1078,6 +1078,7 @@ val sharedModule = module {
         TcrsCliManager(
             character = get(),
             preferences = get(),
+            httpClient = get(),
         )
     }
     single {

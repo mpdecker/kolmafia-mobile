@@ -29,6 +29,22 @@ class AscensionHistoryRequestTest {
     }
 
     @Test
+    fun remember_tracksCompareSummaryBetweenFetches() {
+        val manager = AscensionHistoryManager()
+        manager.remember(listOf(AscensionRecord(182, "Seal Clubber", "Avatar of Boris", 469, 2)))
+        manager.remember(listOf(
+            AscensionRecord(183, "Pastamancer", "Zombie Slayer", 400, 1),
+            AscensionRecord(182, "Seal Clubber", "Avatar of Boris", 500, 2),
+        ))
+
+        val compare = manager.lastCompare()
+        assertEquals(1, compare.newAscensions.size)
+        assertEquals(183, compare.newAscensions.single().number)
+        assertEquals(mapOf(182 to 31), compare.turnDeltas)
+        assertTrue(manager.statusLines().any { it.contains("New ascension 183") })
+    }
+
+    @Test
     fun fetch_getsAscensionHistoryBackSelf() = runTest {
         val captured = mutableListOf<CapturedRequest>()
         val request = historyRequest(client(captured, CURRENT_HTML))

@@ -82,23 +82,23 @@ class EdServantManager(
             print("Only Ed the Undying has entombed servants!")
             return
         }
-        val active = activeServantType()
-        val summoned = getSummonedTypes()
-        if (summoned.isEmpty()) {
-            print("No entombed servants summoned.")
+        for (line in EdServantHtmlFormatter.buildSummonedStatusLines(this)) {
+            print(line)
+        }
+    }
+
+    /** Desktop EdServantCommand.printServants — full catalog HTML table. */
+    fun printServantsCatalog(print: (String) -> Unit) {
+        print(EdServantHtmlFormatter.buildServantsTable(this))
+    }
+
+    /** Desktop EdServantCommand.printCurrentServant. */
+    fun printCurrentServant(print: (String) -> Unit) {
+        if (!isEd()) {
+            print("Only Ed the Undying has entombed servants!")
             return
         }
-        for (type in summoned) {
-            val record = findEdServant(type)
-            if (record != null) {
-                print("${record.name}, the ${record.type} (level ${record.level}, ${record.experience} xp)")
-            } else {
-                print(type)
-            }
-        }
-        if (active.isNotBlank()) {
-            print("Active servant: $active")
-        }
+        print(EdServantHtmlFormatter.buildCurrentServantLine(this))
     }
 
     suspend fun useServant(type: String, print: (String) -> Unit): Boolean {

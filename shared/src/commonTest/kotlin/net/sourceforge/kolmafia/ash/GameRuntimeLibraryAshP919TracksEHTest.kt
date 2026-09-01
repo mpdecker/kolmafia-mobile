@@ -326,16 +326,17 @@ class GameRuntimeLibraryAshP919TracksEHTest {
     }
 
     // ──────────────────────────────────────────────────────────────
-    // Track E — xpath stub
+    // Track E — xpath
     // ──────────────────────────────────────────────────────────────
 
     @Test
-    fun phase920_xpathStub_returnsEmptyAggregate() {
+    fun phase920_xpath_matchesBodyText() {
         val lib = GameRuntimeLibrary()
         val result = outputLib(lib, """
             string[int] arr = xpath("<html><body>Hi</body></html>", "//body");
             print(count(arr));
+            print(arr[0]);
         """.trimIndent())
-        assertEquals("0", result)
+        assertEquals("1\n<body>Hi</body>", result)
     }
 }

@@ -331,6 +331,16 @@ object ModifierDatabase {
         return ModifierParser.parse(entry.modifiers).strings[modifier]?.firstOrNull().orEmpty()
     }
 
+    /** Desktop [TCRSDatabase.carriedOverModifiers] — preserve static item tags on derive. */
+    fun carriedOverModifiersForItem(itemId: Int): String {
+        val name = ItemDatabase.getById(itemId)?.name ?: return ""
+        val modifiers = getItem(name)?.modifiers.orEmpty()
+        if (modifiers.isBlank()) return ""
+        return modifierTokens(modifiers).filter { token ->
+            modifierTag(token) in CARRIED_OVER_TAGS
+        }.joinToString(", ")
+    }
+
     fun getItem(name: String): ModifierEntry?     = get("Item",    name)
     fun getEffect(name: String): ModifierEntry?   = get("Effect",  name)
     fun getSkill(name: String): ModifierEntry?    = get("Skill",   name)

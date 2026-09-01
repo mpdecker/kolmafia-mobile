@@ -70,6 +70,8 @@ import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.modifiers.ModifierParser
 import kotlin.math.abs
 import net.sourceforge.kolmafia.session.EventHistory
+import net.sourceforge.kolmafia.session.GoalConditionParser
+import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.session.NumberologyManager
 import net.sourceforge.kolmafia.session.GreyYouManager
 import net.sourceforge.kolmafia.session.PirateInsults
@@ -2227,27 +2229,34 @@ internal fun GameRuntimeLibrary.runFoldersCli(parameters: String, rt: AshRuntime
 
 internal fun GameRuntimeLibrary.runConditionCli(parameters: String, rt: AshRuntimeContext) {
     val raw = parameters.trim()
-    if (raw.isEmpty()) return
+    if (raw.isEmpty()) {
+        goalManager?.allGoalsAsStrings()?.forEach { rt.print(it) }
+        return
+    }
     val lower = raw.lowercase()
     when {
-        lower == "clear" -> goalManager?.clearGoals()
-        lower == "substats" -> goalManager?.setSubstatsGoal(true)
-        lower.startsWith("meat ") -> {
-            val n = raw.substringAfter(' ').trim().toIntOrNull() ?: return
-            goalManager?.setMeatGoal(n)
+        lower == "clear" -> {
+            goalManager?.clearGoals()
+            rt.print("Conditions list cleared.")
         }
-        lower.startsWith("level ") -> {
-            val n = raw.substringAfter(' ').trim().toIntOrNull() ?: return
-            goalManager?.setLevelGoal(n)
-        }
-        lower.startsWith("choice ") -> {
-            val n = raw.substringAfter(' ').trim().toIntOrNull() ?: return
-            goalManager?.setChoiceGoal(n)
-        }
-        else -> {
-            val rest = raw.removePrefix("item ").removePrefix("Item ").trim()
-            if (rest.isNotEmpty()) goalManager?.addItemGoalByName(rest)
-        }
+        lower == "list" -> goalManager?.allGoalsAsStrings()?.forEach { rt.print(it) }
+        lower.startsWith("add ") -> applyConditions(raw.substring(4).trim(), GoalManager.ConditionMode.ADD, rt)
+        lower.startsWith("remove ") -> applyConditions(raw.substring(7).trim(), GoalManager.ConditionMode.REMOVE, rt)
+        lower.startsWith("set ") -> applyConditions(raw.substring(4).trim(), GoalManager.ConditionMode.SET, rt)
+        else -> applyConditions(raw, GoalManager.ConditionMode.ADD, rt)
+    }
+}
+
+private fun GameRuntimeLibrary.applyConditions(
+    conditionList: String,
+    mode: GoalManager.ConditionMode,
+    rt: AshRuntimeContext,
+) {
+    val manager = goalManager ?: return
+    for (part in GoalConditionParser.splitConditions(conditionList)) {
+        val parsed = GoalConditionParser.parse(part) ?: continue
+        manager.applyCondition(parsed, mode)
+        rt.print("Condition ${mode.name.lowercase()}: $part")
     }
 }
 
