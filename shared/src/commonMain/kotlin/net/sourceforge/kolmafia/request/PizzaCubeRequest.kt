@@ -23,6 +23,16 @@ open class PizzaCubeRequest(
     private val handledSignatures = mutableSetOf<Pair<String, String>>()
 
     open suspend fun makePizza(ingredients: List<Int>): Result<String> {
+        handledSignatures.clear()
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(
+                IllegalStateException(
+                    RequestAbortGate.lastAbortMessage.ifEmpty {
+                        "You are currently in a fight or choice."
+                    },
+                ),
+            )
+        }
         val validated = validateIngredients(ingredients, inventoryManager)
             ?: return Result.failure(
                 IllegalArgumentException("Pizza Cube requires four owned ingredient item IDs."),
@@ -44,12 +54,6 @@ open class PizzaCubeRequest(
             if (!parseResponse(url, html)) {
                 return Result.failure(IllegalStateException("Pizza Cube response was not successful."))
             }
-            ResultProcessor.processResults(
-                adventureResults = false,
-                html = html,
-                inventory = inventoryManager,
-                preferences = preferences,
-            )
             sessionLogger?.appendRawLine(sessionLogLine(validated))
             Result.success(html)
         } catch (e: CancellationException) {
@@ -63,8 +67,15 @@ open class PizzaCubeRequest(
         val signature = url to html
         if (signature in handledSignatures) return true
         val handled = parseResponse(url, html, inventoryManager, preferences)
-        if (handled) handledSignatures += signature
-        return handled
+        if (!handled) return false
+        ResultProcessor.processResults(
+            adventureResults = false,
+            html = html,
+            inventory = inventoryManager,
+            preferences = preferences,
+        )
+        handledSignatures += signature
+        return true
     }
 
     companion object {

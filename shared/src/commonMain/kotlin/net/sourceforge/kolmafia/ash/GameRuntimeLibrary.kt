@@ -4321,12 +4321,26 @@ class GameRuntimeLibrary(
                     checkDynamicModifiers()
                 }
             } else if (PizzaCubeRequest.isPizzaUrl(normalizedUrl)) {
-                PizzaCubeRequest.parseResponse(
-                    normalizedUrl,
-                    html,
-                    inventoryManager,
-                    preferences,
-                )
+                val cube = pizzaCubeRequest
+                if (cube != null) {
+                    cube.parseResponse(normalizedUrl, html)
+                } else {
+                    val parsed = PizzaCubeRequest.parseResponse(
+                        normalizedUrl,
+                        html,
+                        inventoryManager,
+                        preferences,
+                    )
+                    if (parsed) {
+                        ResultProcessor.processResults(
+                            adventureResults = false,
+                            html = html,
+                            inventory = inventoryManager,
+                            preferences = preferences,
+                        )
+                    }
+                    parsed
+                }
             } else {
                 false
             }

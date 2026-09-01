@@ -19,6 +19,7 @@ import net.sourceforge.kolmafia.request.ClanLogRequest
 import net.sourceforge.kolmafia.request.ClanWarRequest
 import net.sourceforge.kolmafia.request.ManageStoreSync
 import net.sourceforge.kolmafia.request.PirateSpecialSync
+import net.sourceforge.kolmafia.request.PizzaCubeRequest
 import net.sourceforge.kolmafia.request.PlaceSync
 import net.sourceforge.kolmafia.request.SendMailSync
 
@@ -127,7 +128,10 @@ object ResponseTextParser {
             "campground", "cafe", "choice", "guild", "island", "shop" -> {
                 // These pages frequently contain acquire/loss and auto-create text. Specialized
                 // visit hooks run before this router; this pass only handles generic result text.
-                ResultProcessor.processResults(false, html, inventory, character, preferences)
+                // Pizza Cube first-handle (typed request or residual dispatcher) owns pizza gains.
+                if (page != "campground" || !PizzaCubeRequest.isPizzaUrl(u)) {
+                    ResultProcessor.processResults(false, html, inventory, character, preferences)
+                }
             }
             "basement" -> BasementSync.checkBasement(html, preferences)
             "arena" -> CakeArenaSync.parseResponse(u, html, preferences, character, inventory)

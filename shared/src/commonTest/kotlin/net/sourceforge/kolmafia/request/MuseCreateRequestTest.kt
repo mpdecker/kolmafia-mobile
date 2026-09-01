@@ -292,6 +292,29 @@ class MuseCreateRequestTest {
     }
 
     @Test
+    fun create_palmFrondFan_quantityTwoAccountsEachCraft() = runTest {
+        registerItem(PALM_FROND_ID, "palm frond")
+        registerItem(PALM_FROND_FAN_ID, "palm-frond fan")
+        val paths = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            paths += request.url.encodedPath
+            respond("You acquire an item: <b>palm-frond fan</b>", HttpStatusCode.OK)
+        })
+        val preferences = Preferences(MapSettings())
+        val inventory = inventory(client, PALM_FROND_ID to 6, PALM_FROND_FAN_ID to 0)
+        val request = museRequest(client, inventory, preferences)
+
+        val result = request.create(palmFrondFanConcoction(), 2, state = null, preferences = preferences)
+
+        assertTrue(result.isSuccess, result.exceptionOrNull()?.message)
+        assertEquals(2, result.getOrThrow())
+        assertEquals(listOf("/multiuse.php", "/multiuse.php"), paths)
+        assertEquals(2, inventory.getCount(PALM_FROND_ID))
+        assertEquals(2, inventory.getCount(PALM_FROND_FAN_ID))
+        assertEquals(2, preferences.getString(SessionLogger.SESSION_LOG_KEY, "").split("Use 2 palm frond").size - 1)
+    }
+
+    @Test
     fun create_palmFrondSuccessAccounting_isOncePerSignature() = runTest {
         registerItem(PALM_FROND_ID, "palm frond")
         registerItem(PALM_FROND_FAN_ID, "palm-frond fan")

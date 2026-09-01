@@ -53,6 +53,7 @@ class MuseCreateRequest(
 
         var created = 0
         repeat(quantity) {
+            handledSignatures.clear()
             if (!createItemIngredients.makeIngredients(concoction, 1, state)) {
                 return Result.success(created)
             }

@@ -158,6 +158,85 @@ class PizzaCubeRequestTest {
     }
 
     @Test
+    fun makePizza_twoIdenticalCallsEachConsumeAndGain() = runTest {
+        registerPizzaItems()
+        val requests = mutableListOf<Triple<HttpMethod, String, String>>()
+        val client = recordingClient(requests)
+        val preferences = pizzaPrefs()
+        val inventory = inventory(client, ING_A to 2, ING_B to 2, ING_C to 2, ING_D to 2)
+        val request = PizzaCubeRequest(client, inventory, preferences, sessionLogger(preferences))
+        val ingredients = listOf(ING_A, ING_B, ING_C, ING_D)
+
+        val first = request.makePizza(ingredients)
+        val second = request.makePizza(ingredients)
+
+        assertTrue(first.isSuccess, first.exceptionOrNull()?.message)
+        assertTrue(second.isSuccess, second.exceptionOrNull()?.message)
+        assertEquals(2, requests.size)
+        assertEquals(0, inventory.getCount(ING_A))
+        assertEquals(0, inventory.getCount(ING_B))
+        assertEquals(0, inventory.getCount(ING_C))
+        assertEquals(0, inventory.getCount(ING_D))
+        assertEquals(2, inventory.getCount(DIABOLIC_PIZZA_ID))
+        assertEquals(2, preferences.getString(SessionLogger.SESSION_LOG_KEY, "").split("pizza ").size - 1)
+    }
+
+    @Test
+    fun makePizza_abortsWithoutHttpWhenInFightOrChoice() = runTest {
+        registerPizzaItems()
+        RequestAbortGate.resetForTest()
+        try {
+            RequestAbortGate.inFightProvider = { true }
+            var calls = 0
+            val client = HttpClient(MockEngine {
+                calls++
+                respond(SUCCESS_HTML, HttpStatusCode.OK)
+            })
+            val preferences = pizzaPrefs()
+            val inventory = inventory(client, ING_A to 1, ING_B to 1, ING_C to 1, ING_D to 1)
+            val request = PizzaCubeRequest(client, inventory, preferences, null)
+
+            val result = request.makePizza(listOf(ING_A, ING_B, ING_C, ING_D))
+
+            assertTrue(result.isFailure)
+            assertEquals(0, calls)
+            assertEquals(1, inventory.getCount(ING_A))
+            assertEquals(0, inventory.getCount(DIABOLIC_PIZZA_ID))
+            assertEquals("", preferences.getString("lastDiabolicPizza", ""))
+        } finally {
+            RequestAbortGate.resetForTest()
+        }
+    }
+
+    @Test
+    fun makePizza_thenVisitHook_doesNotDoubleGain() = runTest {
+        registerPizzaItems()
+        val requests = mutableListOf<Triple<HttpMethod, String, String>>()
+        val client = recordingClient(requests)
+        val preferences = pizzaPrefs()
+        val inventory = inventory(client, ING_A to 1, ING_B to 1, ING_C to 1, ING_D to 1)
+        val request = PizzaCubeRequest(client, inventory, preferences, sessionLogger(preferences))
+        val library = GameRuntimeLibrary(
+            preferences = preferences,
+            inventoryManager = inventory,
+            pizzaCubeRequest = request,
+        )
+        val ingredients = listOf(ING_A, ING_B, ING_C, ING_D)
+
+        val result = request.makePizza(ingredients)
+        assertTrue(result.isSuccess, result.exceptionOrNull()?.message)
+        library.processVisitResponseHooks(
+            result.getOrThrow(),
+            "campground.php?action=pizza&pizza=$ING_A,$ING_B,$ING_C,$ING_D",
+        )
+
+        assertEquals(1, requests.size)
+        assertEquals(0, inventory.getCount(ING_A), "ingredients=${inventory.getCount(ING_A)}")
+        assertEquals(1, inventory.getCount(DIABOLIC_PIZZA_ID), "pizza=${inventory.getCount(DIABOLIC_PIZZA_ID)}")
+        assertEquals("$ING_A,$ING_B,$ING_C,$ING_D", preferences.getString("lastDiabolicPizza", ""))
+    }
+
+    @Test
     fun visitHook_routesCampgroundPizzaIdempotently() {
         registerPizzaItems()
         val settings = CountingSettings()
@@ -183,6 +262,7 @@ class PizzaCubeRequestTest {
         assertEquals(0, inventory.getCount(ING_B))
         assertEquals(0, inventory.getCount(ING_C))
         assertEquals(0, inventory.getCount(ING_D))
+        assertEquals(1, inventory.getCount(DIABOLIC_PIZZA_ID), "visit hook should processResults once")
         assertEquals(1, settings.pizzaWrites)
         assertEquals("$ING_A,$ING_B,$ING_C,$ING_D", preferences.getString("lastDiabolicPizza", ""))
     }
