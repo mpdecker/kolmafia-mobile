@@ -274,6 +274,8 @@ import net.sourceforge.kolmafia.request.SushiConsumptionSync
 import net.sourceforge.kolmafia.request.BarrelChoiceMapper
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.request.HashingViseRequest
+import net.sourceforge.kolmafia.request.PottedTeaTreeRequest
+import net.sourceforge.kolmafia.request.ForeseeRequest
 import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
@@ -423,6 +425,8 @@ class GameRuntimeLibrary(
     internal val sendGiftRequest: SendGiftRequest? = null,
     internal val choiceRequest: ChoiceRequest? = null,
     internal val hashingViseRequest: HashingViseRequest? = null,
+    internal val pottedTeaTreeRequest: PottedTeaTreeRequest? = null,
+    internal val foreseeRequest: ForeseeRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
     internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
@@ -897,6 +901,9 @@ class GameRuntimeLibrary(
         },
         Regex("^teatree(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliTeatree(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^foresee(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliForesee(m.groupValues.getOrNull(1).orEmpty(), rt::print)
         },
         Regex("^mummery(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliMummery(m.groupValues.getOrNull(1).orEmpty(), rt::print)
@@ -4289,6 +4296,7 @@ class GameRuntimeLibrary(
                     decision = extractChoiceDecision(normalizedUrl),
                     preferences = preferences,
                     choiceUrl = normalizedUrl,
+                    html = html,
                 )
             } else {
                 false

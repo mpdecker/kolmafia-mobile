@@ -491,6 +491,7 @@ object QuestChoiceRules {
                     decision = decision,
                     preferences = preferences,
                     choiceUrl = choiceUrl,
+                    html = responseText,
                 ) || advanced
             }
             SpoopyChoiceSync.CHOICE_ID -> {

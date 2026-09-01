@@ -168,6 +168,8 @@ import net.sourceforge.kolmafia.request.TrendyRequest
 import net.sourceforge.kolmafia.request.ThriftyRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.request.HashingViseRequest
+import net.sourceforge.kolmafia.request.PottedTeaTreeRequest
+import net.sourceforge.kolmafia.request.ForeseeRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
@@ -260,6 +262,26 @@ val sharedModule = module {
             client = get(),
             choiceRequest = get(),
             inventoryManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        PottedTeaTreeRequest(
+            client = get(),
+            campgroundRequest = get(),
+            choiceRequest = get(),
+            inventoryManager = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        ForeseeRequest(
+            client = get(),
+            choiceRequest = get(),
+            inventoryManager = get(),
+            equipmentManager = get(),
             preferences = get(),
             sessionLogger = get(),
         )
@@ -975,6 +997,8 @@ val sharedModule = module {
             sendGiftRequest     = get(),
             choiceRequest       = get(),
             hashingViseRequest  = get(),
+            pottedTeaTreeRequest = get(),
+            foreseeRequest      = get(),
             edServantManager    = get(),
             vykeaCompanionManager = get(),
             pastaThrallManager    = get(),

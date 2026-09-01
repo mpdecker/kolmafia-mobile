@@ -37,6 +37,16 @@ object PerilChoiceSync {
         preferences: Preferences?,
     ): Boolean {
         if (choiceId != CHOICE_ID || preferences == null) return false
+        if (applyDecision(html, preferences)) return true
+        // Visit-style remaining parse also runs on post responses.
+        return applyVisit(choiceId, html, preferences)
+    }
+
+    fun applyDecision(
+        html: String,
+        preferences: Preferences?,
+    ): Boolean {
+        if (preferences == null) return false
         if (html.contains("You've already seen too much peril.")) {
             preferences.setInt("_perilsForeseen", MAX_PERILS)
             return true
@@ -46,7 +56,6 @@ object PerilChoiceSync {
             preferences.setInt("_perilsForeseen", next)
             return true
         }
-        // Visit-style remaining parse also runs on post responses.
-        return applyVisit(choiceId, html, preferences)
+        return false
     }
 }

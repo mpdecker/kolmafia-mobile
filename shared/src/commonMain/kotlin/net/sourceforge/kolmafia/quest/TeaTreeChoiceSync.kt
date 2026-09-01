@@ -15,8 +15,12 @@ object TeaTreeChoiceSync {
         decision: Int,
         preferences: Preferences?,
         choiceUrl: String = "",
+        html: String = "",
     ): Boolean {
         if (preferences == null) return false
+        if (html.isNotEmpty() && !html.contains("You acquire an item", ignoreCase = true)) {
+            return false
+        }
         return when (choiceId) {
             TREE_TEA -> {
                 if (decision != 1) return false
