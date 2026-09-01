@@ -174,6 +174,8 @@ import net.sourceforge.kolmafia.request.KgbRequest
 import net.sourceforge.kolmafia.request.PizzaCubeRequest
 import net.sourceforge.kolmafia.request.FleaMarketRequest
 import net.sourceforge.kolmafia.request.FleaMarketSellRequest
+import net.sourceforge.kolmafia.request.AscensionHistoryRequest
+import net.sourceforge.kolmafia.session.AscensionHistoryManager
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
@@ -320,6 +322,15 @@ val sharedModule = module {
             inventoryManager = get(),
             character = get(),
             sessionLogger = get(),
+            preferences = get(),
+        )
+    }
+    single { AscensionHistoryManager() }
+    single {
+        AscensionHistoryRequest(
+            client = get(),
+            manager = get(),
+            character = get(),
             preferences = get(),
         )
     }
@@ -1052,6 +1063,7 @@ val sharedModule = module {
             pizzaCubeRequest    = get(),
             fleaMarketRequest   = get(),
             fleaMarketSellRequest = get(),
+            ascensionHistoryRequest = get(),
             edServantManager    = get(),
             vykeaCompanionManager = get(),
             pastaThrallManager    = get(),

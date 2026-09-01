@@ -280,6 +280,7 @@ import net.sourceforge.kolmafia.request.KgbRequest
 import net.sourceforge.kolmafia.request.PizzaCubeRequest
 import net.sourceforge.kolmafia.request.FleaMarketRequest
 import net.sourceforge.kolmafia.request.FleaMarketSellRequest
+import net.sourceforge.kolmafia.request.AscensionHistoryRequest
 import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
@@ -435,6 +436,7 @@ class GameRuntimeLibrary(
     internal val pizzaCubeRequest: PizzaCubeRequest? = null,
     internal val fleaMarketRequest: FleaMarketRequest? = null,
     internal val fleaMarketSellRequest: FleaMarketSellRequest? = null,
+    internal val ascensionHistoryRequest: AscensionHistoryRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
     internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
@@ -947,6 +949,9 @@ class GameRuntimeLibrary(
         },
         Regex("^dvorak(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliDvorak(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^ascensionhistory(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliAscensionHistory(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
         Regex("^sven(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliSven(m.groupValues.getOrNull(1).orEmpty(), rt::print)
@@ -4384,6 +4389,8 @@ class GameRuntimeLibrary(
                         sessionLogger,
                     )
                 }
+            } else if (AscensionHistoryRequest.isHistoryUrl(normalizedUrl)) {
+                ascensionHistoryRequest?.parseResponse(html) == true
             } else {
                 false
             }
@@ -5098,6 +5105,30 @@ class GameRuntimeLibrary(
                 .onSuccess { rt.print("kgb $trimmed") }
                 .onFailure { rt.print(it.message ?: "KGB request failed") }
         }
+    }
+
+    internal fun cliAscensionHistory(rest: String, rt: AshRuntimeContext) {
+        val request = ascensionHistoryRequest ?: run {
+            rt.print("Ascension history HTTP unavailable.")
+            return
+        }
+        val playerId = resolveAscensionHistoryPlayerId(rest)
+        kotlinx.coroutines.runBlocking {
+            request.fetch(playerId)
+                .onSuccess { records ->
+                    records.forEach { rt.print(AscensionHistoryRequest.formatRecord(it)) }
+                }
+                .onFailure {
+                    request.statusLines().forEach { rt.print(it) }
+                }
+        }
+    }
+
+    private fun resolveAscensionHistoryPlayerId(raw: String): Int? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+        trimmed.toIntOrNull()?.let { return it }
+        return ProfileRequest.fromPlayerName(trimmed).playerId.toIntOrNull()
     }
 
     internal fun cliFlea(rest: String, rt: AshRuntimeContext) {
