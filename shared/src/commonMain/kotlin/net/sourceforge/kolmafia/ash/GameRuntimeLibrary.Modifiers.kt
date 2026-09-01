@@ -29,9 +29,7 @@ internal fun GameRuntimeLibrary.registerModifierQueries(scope: AshScope) {
     regFn(scope, "numeric_modifier", AshType.FLOAT,
         listOf("it" to AshType.ITEM, "modifier" to AshType.STRING)) { _, args ->
         val itemRef = args[0].toString()
-        val entry = gameDatabase?.itemModifier(itemRef)
-            ?: itemRef.toIntOrNull()?.let { gameDatabase?.itemModifier(it) }
-        AshValue.of(numericFromEntry(entry, args[1].toString()))
+        AshValue.of(numericFromEntry(resolveItemModifierEntry(itemRef), args[1].toString()))
     }
 
     // ── numeric_modifier(effect, string) → float ──────────────────────────────
@@ -62,8 +60,7 @@ internal fun GameRuntimeLibrary.registerModifierQueries(scope: AshScope) {
     // ── boolean_modifier(item, string) → boolean ──────────────────────────────
     regFn(scope, "boolean_modifier", AshType.BOOLEAN,
         listOf("it" to AshType.ITEM, "modifier" to AshType.STRING)) { _, args ->
-        val entry = gameDatabase?.itemModifier(args[0].toString())
-        AshValue.of(booleanFromEntry(entry, args[1].toString()))
+        AshValue.of(booleanFromEntry(resolveItemModifierEntry(args[0].toString()), args[1].toString()))
     }
 
     // ── boolean_modifier(effect, string) → boolean ────────────────────────────
@@ -94,8 +91,7 @@ internal fun GameRuntimeLibrary.registerModifierQueries(scope: AshScope) {
     // ── string_modifier(item, string) → string ────────────────────────────────
     regFn(scope, "string_modifier", AshType.STRING,
         listOf("it" to AshType.ITEM, "modifier" to AshType.STRING)) { _, args ->
-        val entry = gameDatabase?.itemModifier(args[0].toString())
-        AshValue.of(stringFromEntry(entry, args[1].toString()))
+        AshValue.of(stringFromEntry(resolveItemModifierEntry(args[0].toString()), args[1].toString()))
     }
 
     // ── string_modifier(effect, string) → string ──────────────────────────────
@@ -123,6 +119,11 @@ internal fun GameRuntimeLibrary.registerModifierQueries(scope: AshScope) {
         AshValue.of(stringFromEntry(entry, args[1].toString()))
     }
 }
+
+internal fun GameRuntimeLibrary.resolveItemModifierEntry(itemRef: String): ModifierEntry? =
+    gameDatabase?.itemModifier(itemRef)
+        ?: itemRef.toIntOrNull()?.let { gameDatabase?.itemModifier(it) }
+        ?: ModifierDatabase.getItem(itemRef)
 
 internal fun numericFromEntry(entry: ModifierEntry?, tag: String): Double {
     val dm = DoubleModifier.byTag(tag) ?: return 0.0

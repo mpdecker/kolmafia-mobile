@@ -11,6 +11,7 @@ import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.SkillGrantingEquipmentSync
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.RequestAbortGate
 import net.sourceforge.kolmafia.request.UneffectRemovableMaps
@@ -45,14 +46,23 @@ class SkillCastRequest(
             return Result.failure(Exception("Daily limit reached"))
         }
         return try {
-            UseSkillOptimize.optimizeEquipment(
+            val preparedCodpiece = UseSkillOptimize.prepareCodpieceForNoncombatSkill(
                 skillId = skillId,
-                preferences = preferences,
                 character = character,
                 inventory = inventoryManager,
                 equipmentManager = equipmentManager,
                 equipmentRequest = equipmentRequest,
             )
+            if (preparedCodpiece != SkillGrantingEquipmentSync.ETERNITY_CODPIECE_ID) {
+                UseSkillOptimize.optimizeEquipment(
+                    skillId = skillId,
+                    preferences = preferences,
+                    character = character,
+                    inventory = inventoryManager,
+                    equipmentManager = equipmentManager,
+                    equipmentRequest = equipmentRequest,
+                )
+            }
             UseSkillSync.noteCast(skillId, quantity)
             val response = client.submitForm(
                 url = "$KOL_BASE_URL/skills.php",

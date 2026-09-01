@@ -554,7 +554,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase4310"
+        const val REVISION = "phase4370"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }

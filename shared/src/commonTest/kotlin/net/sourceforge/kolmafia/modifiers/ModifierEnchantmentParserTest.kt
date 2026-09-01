@@ -15,7 +15,7 @@ class ModifierEnchantmentParserTest {
     @Test
     fun parseModifier_allAttributes() {
         assertEquals(
-            "Muscle: +5, Mysticality: +5, Moxie: +5",
+            "All Attributes: +5",
             ModifierEnchantmentParser.parseModifier("All Attributes +5"),
         )
     }

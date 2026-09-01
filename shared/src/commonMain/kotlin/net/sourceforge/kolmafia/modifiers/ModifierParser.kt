@@ -47,6 +47,9 @@ object ModifierParser {
             if (dmod != null) {
                 val v = parseNumericValue(valStr, ctx)
                 doubles[dmod] = (doubles[dmod] ?: 0.0) + v
+                for (sub in dmod.subsumed) {
+                    doubles[sub] = (doubles[sub] ?: 0.0) + v
+                }
                 continue
             }
 

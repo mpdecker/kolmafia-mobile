@@ -13,7 +13,7 @@ class GameRuntimeLibraryPhase3470Test {
         val prefs = Preferences(MapSettings())
         prefs.setString("spadingScript", "capture.ash")
         val lib = GameRuntimeLibrary(preferences = prefs)
-        assertEquals("phase4310", GameRuntimeLibrary.REVISION)
+        assertEquals("phase4370", GameRuntimeLibrary.REVISION)
         assertEquals("false", outputLib(lib, "print(mail_has_new_messages());"))
         assertTrue(outputLib(lib, "print(dvorak_status());").contains("Dvorak"))
         assertEquals("true", outputLib(lib, "print(spading_enabled());"))

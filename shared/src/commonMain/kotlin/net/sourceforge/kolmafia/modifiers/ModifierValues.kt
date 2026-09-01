@@ -6,8 +6,22 @@ data class ModifierValues(
     val strings: Map<StringModifier, List<String>> = emptyMap(),
     val bitmaps: Map<BitmapModifier, Int> = emptyMap()
 ) {
-    // Numeric modifier value (0.0 if not present)
-    fun get(mod: DoubleModifier): Double = doubles[mod] ?: 0.0
+    // Numeric modifier value (0.0 if not present). Combined tags with a stored
+    // zero derive the min of subsumed members, or 0.0 when members straddle zero.
+    fun get(mod: DoubleModifier): Double {
+        val value = doubles[mod] ?: 0.0
+        if (mod.subsumed.isNotEmpty() && value == 0.0) {
+            var min = Double.MAX_VALUE
+            var max = -Double.MAX_VALUE
+            for (sub in mod.subsumed) {
+                val subValue = get(sub)
+                min = minOf(min, subValue)
+                max = maxOf(max, subValue)
+            }
+            return if (min < 0.0 && max > 0.0) 0.0 else min
+        }
+        return value
+    }
     fun getInt(mod: DoubleModifier): Int = get(mod).toInt()
 
     // Boolean flag (false if not present)

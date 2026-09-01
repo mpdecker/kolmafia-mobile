@@ -60,6 +60,8 @@ data class MonsterDefinition(
     /** True when monsters.txt has an MLMult: attribute. */
     val hasMlMult: Boolean = false,
     val article: String = "",
+    /** Desktop [MonsterDatabase.BlueVsRedTeam]; default UNKNOWN when BvR: is absent. */
+    val blueVsRedTeam: BlueVsRedTeam = BlueVsRedTeam.UNKNOWN,
     val isCopyable: Boolean = true,
     val isWishable: Boolean = true,
     val poison: Int = Int.MAX_VALUE,
