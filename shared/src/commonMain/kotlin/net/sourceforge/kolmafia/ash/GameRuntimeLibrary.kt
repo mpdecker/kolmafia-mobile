@@ -276,6 +276,7 @@ import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.request.HashingViseRequest
 import net.sourceforge.kolmafia.request.PottedTeaTreeRequest
 import net.sourceforge.kolmafia.request.ForeseeRequest
+import net.sourceforge.kolmafia.request.KgbRequest
 import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
@@ -427,6 +428,7 @@ class GameRuntimeLibrary(
     internal val hashingViseRequest: HashingViseRequest? = null,
     internal val pottedTeaTreeRequest: PottedTeaTreeRequest? = null,
     internal val foreseeRequest: ForeseeRequest? = null,
+    internal val kgbRequest: KgbRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
     internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
@@ -2006,6 +2008,9 @@ class GameRuntimeLibrary(
                 ModeableRequest.normalizeUmbrellaParameter(m.groupValues.getOrNull(1).orEmpty()),
                 rt,
             )
+        },
+        Regex("^kgb(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliKgb(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
         Regex("^parka(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             val mode = ModeableRequest.normalizeParkaParameter(m.groupValues.getOrNull(1).orEmpty())
@@ -4309,7 +4314,13 @@ class GameRuntimeLibrary(
                     inventoryManager?.consumeItemLocally(itemId, qty)
                 },
             )
-            else -> false
+            else -> if (KgbRequest.isKgbUrl(normalizedUrl)) {
+                KgbRequest.parseResponse(normalizedUrl, html, preferences) {
+                    checkDynamicModifiers()
+                }
+            } else {
+                false
+            }
         }
         if (handled) {
             handledResidualResponseSignatures += signature
@@ -4973,6 +4984,43 @@ class GameRuntimeLibrary(
             request.setMode(modeable, mode)
                 .onSuccess { rt.print("${modeable.command} $mode") }
                 .onFailure { rt.print("Mode change failed: ${it.message}") }
+        }
+    }
+
+    internal fun cliKgb(rest: String, rt: AshRuntimeContext) {
+        val request = kgbRequest
+        if (request == null) {
+            rt.print("KGB request unavailable")
+            return
+        }
+        val trimmed = rest.trim()
+        if (trimmed.isEmpty()) {
+            val clicks = preferences?.getInt("_kgbClicksUsed", 0) ?: 0
+            val dispenser = preferences?.getInt("_kgbDispenserUses", 0) ?: 0
+            rt.print("KGB clicks used: $clicks")
+            rt.print("KGB dispenser uses: $dispenser")
+            return
+        }
+        kotlinx.coroutines.runBlocking {
+            val result = when {
+                trimmed.startsWith("button", ignoreCase = true) -> {
+                    val action = trimmed.substringAfter(' ').trim().ifBlank { "kgb_button1" }
+                    request.button(action)
+                }
+                trimmed.startsWith("dispenser", ignoreCase = true) -> {
+                    val itemId = trimmed.substringAfter(' ').trim().toIntOrNull()
+                    if (itemId == null) {
+                        Result.failure(IllegalArgumentException("KGB dispenser requires an item id."))
+                    } else {
+                        request.dispenser(itemId)
+                    }
+                }
+                trimmed.equals("visit", ignoreCase = true) -> request.visit()
+                else -> request.button(trimmed)
+            }
+            result
+                .onSuccess { rt.print("kgb $trimmed") }
+                .onFailure { rt.print(it.message ?: "KGB request failed") }
         }
     }
 

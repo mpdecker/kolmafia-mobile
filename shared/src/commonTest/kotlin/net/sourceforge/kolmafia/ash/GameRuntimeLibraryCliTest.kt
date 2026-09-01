@@ -1694,7 +1694,12 @@ class GameRuntimeLibraryCliTest {
     @Test
     fun cliExecute_umbrella_setsMode() {
         val prefs = Preferences(MapSettings())
-        val engine = MockEngine { respond("ok", HttpStatusCode.OK) }
+        val engine = MockEngine {
+            respond(
+                "You dangle by the handle and the umbrella assumes a bucket style.",
+                HttpStatusCode.OK,
+            )
+        }
         val lib = GameRuntimeLibrary(
             modeableRequest = ModeableRequest(
                 client = HttpClient(engine),

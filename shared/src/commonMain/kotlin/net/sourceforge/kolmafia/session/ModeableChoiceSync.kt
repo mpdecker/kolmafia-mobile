@@ -18,16 +18,15 @@ object ModeableChoiceSync {
         }
     }
 
+    fun applyUmbrellaMode(html: String, mode: String, preferences: Preferences?): Boolean {
+        val phrase = UMBRELLA_SUCCESS_PHRASES[mode.lowercase()] ?: return false
+        if (!html.contains(phrase, ignoreCase = true)) return false
+        writeModePref(preferences, Modeable.UMBRELLA, mode)
+        return true
+    }
+
     private fun parseUmbrella(url: String, responseText: String, preferences: Preferences) {
-        val modes = listOf(
-            1 to Triple("broken", "howling mass of chaos", "broken"),
-            2 to Triple("forward-facing", "the stuff in front of you", "forward-facing"),
-            3 to Triple("bucket style", "dangle by the handle", "bucket style"),
-            4 to Triple("pitchfork style", "pops inside out", "pitchfork style"),
-            5 to Triple("constantly twirling", "evenly distributes the curse", "constantly twirling"),
-            6 to Triple("cocoon", "step inside it", "cocoon"),
-        )
-        for ((option, triple) in modes) {
+        for ((option, triple) in UMBRELLA_MODES) {
             if (url.contains("option=$option") && responseText.contains(triple.second, ignoreCase = true)) {
                 preferences.setString("umbrellaState", triple.third)
                 return
@@ -110,6 +109,19 @@ object ModeableChoiceSync {
                 return
             }
         }
+    }
+
+    private val UMBRELLA_MODES = listOf(
+        1 to Triple("broken", "howling mass of chaos", "broken"),
+        2 to Triple("forward-facing", "the stuff in front of you", "forward-facing"),
+        3 to Triple("bucket style", "dangle by the handle", "bucket style"),
+        4 to Triple("pitchfork style", "pops inside out", "pitchfork style"),
+        5 to Triple("constantly twirling", "evenly distributes the curse", "constantly twirling"),
+        6 to Triple("cocoon", "step inside it", "cocoon"),
+    )
+
+    private val UMBRELLA_SUCCESS_PHRASES = UMBRELLA_MODES.associate { (_, triple) ->
+        triple.first to triple.second
     }
 
     fun writeModePref(preferences: Preferences?, modeable: Modeable, mode: String) {
