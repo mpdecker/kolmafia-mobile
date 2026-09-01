@@ -53,6 +53,7 @@ class GameRuntimeLibraryGoalsTest {
         gm.setFactoidGoal("You win")
         val lib = GameRuntimeLibrary(goalManager = gm)
         assertEquals("true", outputLib(lib, "print(to_string(goal_exists(\"factoid\")));"))
+        gm.setAutostopGoal(1)
         assertEquals("true", outputLib(lib, "print(to_string(goal_exists(\"autostop\")));"))
     }
 }

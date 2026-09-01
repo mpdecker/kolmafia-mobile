@@ -17,13 +17,12 @@ object MallSearchOverlay {
         mallRows: List<MallListing>,
         limit: Int = Int.MAX_VALUE,
     ): List<MallListing> {
-        val itemIds = linkedSetOf<Int>()
-        mallRows.forEach { if (it.itemId > 0) itemIds += it.itemId }
-        itemIds += resolveSearchItemIds(searchString)
-        if (itemIds.isEmpty()) return mallRows.take(limit)
+        val itemNames = resolveSearchItemNames(searchString)
+        if (itemNames.isEmpty()) return mallRows.take(limit)
 
         val overlay = buildList {
-            for (itemId in itemIds) {
+            for (name in itemNames) {
+                val itemId = ItemDatabase.getByName(name)?.id ?: continue
                 addAll(npcListings(itemId))
                 coinmasterListing(itemId)?.let(::add)
             }
@@ -32,12 +31,31 @@ object MallSearchOverlay {
         return dedupe(overlay + mallOnly).take(limit)
     }
 
-    internal fun resolveSearchItemIds(searchString: String): Set<Int> {
-        val trimmed = searchString.trim().trim('"')
-        if (trimmed.isEmpty()) return emptySet()
-        val exact = ItemDatabase.getByName(trimmed)?.id ?: return emptySet()
-        return if (exact > 0) setOf(exact) else emptySet()
+    /** Desktop finalizeList — fuzzy item names from search string. */
+    fun finalizeList(searchString: String, rows: List<MallListing>): List<MallListing> {
+        val names = resolveSearchItemNames(searchString)
+        if (names.isEmpty()) return rows
+        val overlay = buildList {
+            for (name in names) {
+                val itemId = ItemDatabase.getByName(name)?.id ?: continue
+                addAll(npcListings(itemId))
+                coinmasterListing(itemId)?.let(::add)
+            }
+        }
+        return dedupe(overlay + rows)
     }
+
+    internal fun resolveSearchItemNames(searchString: String): List<String> {
+        val trimmed = searchString.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val matches = ItemDatabase.getMatchingNames(trimmed)
+        if (matches.isNotEmpty()) return matches
+        val exact = ItemDatabase.getByName(trimmed.trim('"'))?.name
+        return if (exact != null) listOf(exact) else emptyList()
+    }
+
+    internal fun resolveSearchItemIds(searchString: String): Set<Int> =
+        resolveSearchItemNames(searchString).mapNotNull { ItemDatabase.getByName(it)?.id }.toSet()
 
     internal fun npcListings(itemId: Int): List<MallListing> {
         val entry = NpcStoreDatabase.itemEntry(itemId) ?: return emptyList()

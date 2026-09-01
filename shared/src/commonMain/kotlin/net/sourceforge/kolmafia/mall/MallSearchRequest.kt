@@ -12,10 +12,19 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
 class MallSearchRequest(private val client: HttpClient) {
 
     suspend fun search(itemName: String, limit: Int): List<MallListing> {
+        val results = searchInternal(itemName.trim(), limit)
+        if (results.isNotEmpty()) return results
+        val fuzzy = ItemDatabase.getMatchingNames(itemName.trim()).firstOrNull()
+            ?: return results
+        if (fuzzy.equals(itemName.trim(), ignoreCase = true)) return results
+        return searchInternal(fuzzy, limit)
+    }
+
+    private suspend fun searchInternal(itemName: String, limit: Int): List<MallListing> {
         val results = mutableListOf<MallListing>()
         var start: Int? = null
         do {
-            val html = submitSearch(itemName.trim(), limit, start) ?: return results
+            val html = submitSearch(itemName, limit, start) ?: return MallSearchOverlay.finalizeList(itemName, results)
             results += parseMallHtml(html, if (limit <= 0) Int.MAX_VALUE else limit - results.size)
             val page = ITERATION_PATTERN.find(html)
             val end = page?.groupValues?.get(2)?.toIntOrNull()
@@ -23,7 +32,7 @@ class MallSearchRequest(private val client: HttpClient) {
             start = if (end != null && total != null && end < total) end else null
         } while (start != null && (limit <= 0 || results.size < limit))
         val trimmed = if (limit <= 0) results else results.take(limit)
-        return MallSearchOverlay.merge(itemName, trimmed, if (limit <= 0) Int.MAX_VALUE else limit)
+        return MallSearchOverlay.finalizeList(itemName, trimmed)
     }
 
     suspend fun searchStore(storeId: Int): List<MallListing> {
@@ -90,10 +99,11 @@ class MallSearchRequest(private val client: HttpClient) {
     }
 
     internal fun parseMallHtml(html: String, limit: Int): List<MallListing> {
-        val desktopRows = parseDesktopMallHtml(html, limit)
+        val cleaned = MallSearchHtmlPreprocessor.preprocess(html)
+        val desktopRows = parseDesktopMallHtml(cleaned, limit)
         if (desktopRows.isNotEmpty()) return desktopRows
 
-        val itemDetailRows = parseItemDetailMallHtml(html, limit)
+        val itemDetailRows = parseItemDetailMallHtml(cleaned, limit)
         if (itemDetailRows.isNotEmpty()) return itemDetailRows
 
         val storePattern = Regex("""mallstore\.php\?whichstore=(\d+)""")
@@ -101,10 +111,10 @@ class MallSearchRequest(private val client: HttpClient) {
         val pricePattern = Regex("""<b>(\d+)</b>\s*Meat""")
         val qtyPattern = Regex("""Quantity:\s*(\d+)""")
 
-        val storeIds = storePattern.findAll(html).map { it.groupValues[1].toInt() }.toList()
-        val itemIds = itemPattern.findAll(html).map { it.groupValues[1].toInt() }.toList()
-        val prices = pricePattern.findAll(html).map { it.groupValues[1].toLong() }.toList()
-        val quantities = qtyPattern.findAll(html).map { it.groupValues[1].toInt() }.toList()
+        val storeIds = storePattern.findAll(cleaned).map { it.groupValues[1].toInt() }.toList()
+        val itemIds = itemPattern.findAll(cleaned).map { it.groupValues[1].toInt() }.toList()
+        val prices = pricePattern.findAll(cleaned).map { it.groupValues[1].toLong() }.toList()
+        val quantities = qtyPattern.findAll(cleaned).map { it.groupValues[1].toInt() }.toList()
 
         return (0 until minOf(storeIds.size, limit)).mapNotNull { i ->
             val shopId = storeIds.getOrNull(i) ?: return@mapNotNull null

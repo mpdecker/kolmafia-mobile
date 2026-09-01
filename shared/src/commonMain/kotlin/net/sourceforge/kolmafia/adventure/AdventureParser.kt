@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.adventure
 
 import net.sourceforge.kolmafia.banish.Banisher
+import net.sourceforge.kolmafia.combat.FightBanishSync
 
 object AdventureParser {
     private val ITEM_GAINED = Regex("""You acquire an item:\s*<b>(.*?)</b>""")
@@ -138,8 +139,9 @@ object AdventureParser {
         val stats = parseStats(html)
         val banished = BANISH_PATTERN.containsMatchIn(html)
         val banisher = if (banished) {
-            BANISHER_PATTERNS.firstOrNull { (text, _) -> html.contains(text) }?.second
+            val matched = BANISHER_PATTERNS.firstOrNull { (text, _) -> html.contains(text) }?.second
                 ?: Banisher.UNKNOWN
+            FightBanishSync.resolveBanisher(html, matched)
         } else Banisher.UNKNOWN
         return AdventureResult.Combat(monster, won, items, meat, stats,
             banished = banished, banisher = banisher)

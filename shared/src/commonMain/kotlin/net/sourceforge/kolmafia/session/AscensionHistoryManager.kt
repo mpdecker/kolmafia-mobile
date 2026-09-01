@@ -19,6 +19,9 @@ class AscensionHistoryManager {
 
     fun lastCompare(): AscensionHistoryCompare = lastCompare
 
+    fun snapshot(filter: AscensionSnapshotCache.Filter = AscensionSnapshotCache.Filter.ALL): AscensionSnapshotCache.Snapshot =
+        AscensionSnapshotCache.build(cached, playerName, playerId, filter)
+
     fun remember(records: List<AscensionRecord>, name: String? = null, id: String? = null) {
         if (snapshot.isNotEmpty()) {
             lastCompare = AscensionHistoryCompareLogic.compare(snapshot, records)

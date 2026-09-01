@@ -1,16 +1,16 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-09-01 after Phases 4071–4130 at `phase4130`)*
+*Generated: 2026-06-03 (updated 2026-09-01 after Phases 4251–4310 at `phase4310`)*
 
 ## Scale Comparison
 
 
 | Metric                   | Desktop (Java)              | Mobile (Kotlin)              | Coverage                |
 | ------------------------ | --------------------------- | ---------------------------- | ----------------------- |
-| Source files             | 1,172 classes               | 1,520 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
+| Source files             | 1,172 classes               | 1,535 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
 | Lines of code            | 327,838                     | 171,295 (commonMain)         | **~52%**                |
 | Test files               | 411                         | 1,278                        | Mobile wins on isolation |
-| Tests                    | ~1,800+                     | 8,366 (`@Test`)              | Mobile wins on volume   |
+| Tests                    | ~1,800+                     | 8,409 (`@Test`)              | Mobile wins on volume   |
 | ASH overload signatures  | ~890                        | 1,032 `regFn` sites          | **≥100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~450–500 live                | **~55–60%** (behavioral) |
 | `*Manager` files         | 94                          | 97                           | **over-parity** by name |
@@ -541,7 +541,7 @@ mobile wins on core automation paths and test isolation.
 
 ## Top Priorities
 
-*Updated 2026-09-01 at `phase4190`. Non-goals reopen mega delivered headless TCRS GitHub fetch, live minimal `xpath()`, and mall-search relay decoration; full RelayServer, JavaScript/Rhino, and desktop-scale TCRS derive sweeps remain explicit non-goals.*
+*Updated 2026-09-01 at `phase4310`. Behavioral residual deepen mega II delivered `goal_count` ASH + goal_exists autostop split, FightBanishSync fallback pattern expansion, AscensionSnapshotCache extended summary + `ascensionhistory summary`, mall own-store relay highlight + fuzzy search retry; prior 4191–4250 closure (GoalManager pseudo/substat/outfit, Chatterboxing banish, mall fuzzy/relay, ascension filter, xpath, `is_dark_mode`) also live; RelayServer/JavaScript/full TCRS derive remain explicit non-goals.*
 
 Manager **name coverage is nearly complete**. Remaining user impact is mostly explicit non-goals and partial headless substitutes.
 
@@ -556,7 +556,7 @@ Manager **name coverage is nearly complete**. Remaining user impact is mostly ex
 
 ### Closed (do not re-queue)
 
-~~Ed servant HTML table~~ **live** *(4011–4025)*; ~~GoalManager condition variants~~ **live** *(4011–4070)*; ~~Mall item-detail parse~~ **live** *(4011–4070)*; ~~Ascension history player header~~ **live** *(4011–4070)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~Mall NPC/coinmaster overlay~~ **live** *(4086–4100)*; ~~Ascension snapshot compare~~ **live** *(4101–4115)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator** *(4171–4180)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live (1071–1130)**; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4130~~ **live**.
+~~Ed servant HTML table~~ **live** *(4011–4025)*; ~~GoalManager condition variants~~ **live** *(4011–4070 + 4191–4205 pseudo/substat/outfit)*; ~~Mall item-detail parse~~ **live** *(4011–4070)*; ~~Ascension history player header~~ **live** *(4011–4070)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~Mall NPC/coinmaster overlay~~ **live** *(4086–4100 + 4221–4235 fuzzy/finalize/relay hook)*; ~~Ascension snapshot compare~~ **live** *(4101–4115 + 4236–4250 filter/point deltas)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170 + 4236–4250 child-path/entity corpus)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator + relayActive hook** *(4171–4180 + 4221–4235)*; ~~Chatterboxing choice 191 banish~~ **live** *(4206–4220)*; ~~BANISHER non-fight gap (choice 191)~~ **closed**; ~~is_dark_mode always false~~ **pref-backed** *(4236–4250)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live (1071–1130)**; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4130~~ **live**.
 
 *Next mega:* none queued — continue only if new desktop gaps are identified or Relay/JS/full TCRS derive are explicitly reopened.
 
@@ -565,6 +565,10 @@ Manager **name coverage is nearly complete**. Remaining user impact is mostly ex
 ## Phase History (2026)
 
 ```
+Phases 4251–4310 → Behavioral residual deepen mega II Tracks A–D (`goal_count` ASH + goal_exists autostop split; FightBanishSync fallback pattern expansion; AscensionSnapshotCache extended summary + `ascensionhistory summary`; MallSearchRelayHook own-store highlight + MallSearchRequest fuzzy retry; runtime revision `phase4310`; 8,409 tests; RelayServer/JavaScript/full TCRS derive sweep remain non-goals)
+
+Phases 4191–4250 → Low-priority residual closure mega Tracks A–D (GoalConditionParser pseudo/substat/health/outfit + SubstatCalculator; ChatterboxingChoiceSync choice 191 + FightBanishSync fallback; ItemDatabase.getMatchingNames + MallSearchOverlay finalizeList + MallSearchHtmlPreprocessor + MallSearchRelayHook relayActive wiring; AscensionSnapshotCache filter/compare + xpath child-path/entity corpus + is_dark_mode pref; runtime revision `phase4250`; 8,407 tests; RelayServer/JavaScript/full TCRS derive sweep remain non-goals)
+
 Phases 4131–4190 → Non-goals reopen mega Tracks A–D (TCRSRemoteFetch GitHub pull + `tcrs fetch` CLI + TCRSDeriver/DescriptionParser; live minimal SimpleXPath/HtmlTreeParser for common KoL xpath patterns; headless MallSearchDecorator mall-search buy-button/forbidden-store HTML; runtime revision `phase4190`; 8,382 tests; RelayServer/JavaScript/full TCRS derive sweep remain non-goals)
 Phases 4071–4130 → Low-priority deepen-partials mega Tracks A–D (Manuel factoid count goal decrement on fight win + adventure-loop stop; MallSearchOverlay NPC/coinmaster rows in mall search + MallListingSource; AscensionHistoryCompare snapshot delta + ascensionhistory CLI compare lines; runtime revision `phase4130`; 8,366 tests
 Phases 4011–4070 → Ed servant + GoalManager + Mall + Ascension deepen mega Tracks A–D (EdServantHtmlFormatter full catalog HTML table + servants/servant CLI parity; GoalConditionParser + count-based item/choice/factoid/floundry/autostop goals + condition add/remove/set/list CLI; MallSearchRequest item-detail descitem parse + limited-row canPurchase fallback; AscensionHistoryManager player header cache + AfterLife reincarnate session-log; runtime revision `phase4070`; 8,360 tests

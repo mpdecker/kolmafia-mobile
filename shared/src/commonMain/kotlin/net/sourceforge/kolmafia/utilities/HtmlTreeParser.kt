@@ -100,13 +100,22 @@ internal object HtmlTreeParser {
 
     private fun appendText(parent: HtmlNode, raw: String) {
         if (raw.isEmpty()) return
-        val decoded = raw.replace("&nbsp;", " ")
+        val decoded = decodeEntities(raw)
         if (parent.children.lastOrNull()?.isTextNode == true) {
             parent.children.last().text += decoded
         } else {
             parent.children += HtmlNode(tag = null, text = decoded)
         }
     }
+
+    internal fun decodeEntities(raw: String): String = raw
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
 
     private fun findTagEnd(html: String, start: Int): Int {
         var quote: Char? = null

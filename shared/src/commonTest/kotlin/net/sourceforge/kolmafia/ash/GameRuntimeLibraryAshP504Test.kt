@@ -11,7 +11,7 @@ class GameRuntimeLibraryAshP504Test {
 
     @Test
     fun revision_phase504() {
-        assertEquals("phase4190", GameRuntimeLibrary.REVISION)
+        assertEquals("phase4310", GameRuntimeLibrary.REVISION)
     }
 
     private fun libWithScript(name: String, source: String): GameRuntimeLibrary {

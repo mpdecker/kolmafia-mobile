@@ -1208,6 +1208,15 @@ object QuestChoiceRules {
                     banishManager = banishManager,
                 ) || advanced
             }
+            ChatterboxingChoiceSync.CHOICE_ID -> {
+                advanced = ChatterboxingChoiceSync.apply(
+                    choiceId = choiceId,
+                    decision = decision,
+                    responseText = responseText,
+                    banishManager = banishManager,
+                    currentTurn = currentRun,
+                ) || advanced
+            }
             DaycareChoiceSync.CHOICE_ID -> {
                 advanced = DaycareChoiceSync.apply(
                     choiceId = choiceId,
