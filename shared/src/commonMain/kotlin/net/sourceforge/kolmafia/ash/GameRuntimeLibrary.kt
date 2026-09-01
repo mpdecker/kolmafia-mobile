@@ -278,6 +278,8 @@ import net.sourceforge.kolmafia.request.PottedTeaTreeRequest
 import net.sourceforge.kolmafia.request.ForeseeRequest
 import net.sourceforge.kolmafia.request.KgbRequest
 import net.sourceforge.kolmafia.request.PizzaCubeRequest
+import net.sourceforge.kolmafia.request.FleaMarketRequest
+import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
@@ -431,6 +433,8 @@ class GameRuntimeLibrary(
     internal val foreseeRequest: ForeseeRequest? = null,
     internal val kgbRequest: KgbRequest? = null,
     internal val pizzaCubeRequest: PizzaCubeRequest? = null,
+    internal val fleaMarketRequest: FleaMarketRequest? = null,
+    internal val fleaMarketSellRequest: FleaMarketSellRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
     internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
@@ -2013,6 +2017,9 @@ class GameRuntimeLibrary(
         },
         Regex("^kgb(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliKgb(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^flea(?:market)?(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliFlea(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
         Regex("^parka(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             val mode = ModeableRequest.normalizeParkaParameter(m.groupValues.getOrNull(1).orEmpty())
@@ -4341,6 +4348,42 @@ class GameRuntimeLibrary(
                     }
                     parsed
                 }
+            } else if (FleaMarketRequest.isBuyUrl(normalizedUrl)) {
+                val flea = fleaMarketRequest
+                if (flea != null) {
+                    flea.parseResponse(normalizedUrl, html)
+                } else {
+                    val parsed = FleaMarketRequest.parseResponse(
+                        normalizedUrl,
+                        html,
+                        inventoryManager,
+                        character,
+                        sessionLogger,
+                    )
+                    if (parsed) {
+                        ResultProcessor.processResults(
+                            adventureResults = false,
+                            html = html,
+                            inventory = inventoryManager,
+                            character = character,
+                            preferences = preferences,
+                        )
+                    }
+                    parsed
+                }
+            } else if (FleaMarketSellRequest.isSellUrl(normalizedUrl)) {
+                val fleaSell = fleaMarketSellRequest
+                if (fleaSell != null) {
+                    fleaSell.parseResponse(normalizedUrl, html)
+                } else {
+                    FleaMarketSellRequest.parseResponse(
+                        normalizedUrl,
+                        html,
+                        inventoryManager,
+                        character,
+                        sessionLogger,
+                    )
+                }
             } else {
                 false
             }
@@ -5054,6 +5097,69 @@ class GameRuntimeLibrary(
             result
                 .onSuccess { rt.print("kgb $trimmed") }
                 .onFailure { rt.print(it.message ?: "KGB request failed") }
+        }
+    }
+
+    internal fun cliFlea(rest: String, rt: AshRuntimeContext) {
+        val trimmed = rest.trim()
+        val tokens = trimmed.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (tokens.isEmpty()) {
+            rt.print("Usage: flea buy [qty] <itemId> | flea sell [qty] <itemId> <price>")
+            return
+        }
+        val verb = tokens[0]
+        kotlinx.coroutines.runBlocking {
+            val result = when {
+                verb.equals("buy", ignoreCase = true) -> {
+                    val buy = fleaMarketRequest
+                    if (buy == null) {
+                        Result.failure(IllegalStateException("Flea Market buy unavailable"))
+                    } else {
+                        val qty: Int
+                        val itemId: Int
+                        when (tokens.size) {
+                            2 -> {
+                                qty = 1
+                                itemId = tokens[1].toIntOrNull() ?: -1
+                            }
+                            else -> {
+                                qty = tokens.getOrNull(1)?.toIntOrNull() ?: -1
+                                itemId = tokens.getOrNull(2)?.toIntOrNull() ?: -1
+                            }
+                        }
+                        buy.buy(itemId, qty)
+                    }
+                }
+                verb.equals("sell", ignoreCase = true) -> {
+                    val sell = fleaMarketSellRequest
+                    if (sell == null) {
+                        Result.failure(IllegalStateException("Flea Market sell unavailable"))
+                    } else {
+                        val qty: Int
+                        val itemId: Int
+                        val price: Int
+                        when (tokens.size) {
+                            3 -> {
+                                qty = 1
+                                itemId = tokens[1].toIntOrNull() ?: -1
+                                price = tokens[2].toIntOrNull() ?: -1
+                            }
+                            else -> {
+                                qty = tokens.getOrNull(1)?.toIntOrNull() ?: -1
+                                itemId = tokens.getOrNull(2)?.toIntOrNull() ?: -1
+                                price = tokens.getOrNull(3)?.toIntOrNull() ?: -1
+                            }
+                        }
+                        sell.sell(itemId, qty, price)
+                    }
+                }
+                else -> Result.failure(
+                    IllegalArgumentException("Usage: flea buy [qty] <itemId> | flea sell [qty] <itemId> <price>"),
+                )
+            }
+            result
+                .onSuccess { rt.print("flea $trimmed") }
+                .onFailure { rt.print(it.message ?: "Flea Market request failed") }
         }
     }
 

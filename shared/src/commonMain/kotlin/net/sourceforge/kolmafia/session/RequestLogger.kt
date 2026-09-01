@@ -21,6 +21,8 @@ import net.sourceforge.kolmafia.request.BountyHunterHunterRequest
 import net.sourceforge.kolmafia.request.NemesisRequest
 import net.sourceforge.kolmafia.request.TavernRequest
 import net.sourceforge.kolmafia.request.GourdRequest
+import net.sourceforge.kolmafia.request.FleaMarketRequest
+import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.session.DvorakManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.quest.SorceressLairSync
@@ -738,6 +740,15 @@ object RequestLogger {
             }
             url.startsWith("clan_rumpus.php") || url.startsWith("clan_viplounge.php") -> {
                 updateSessionLog("clan lounge", sessionLogger)
+                return true
+            }
+
+            url.startsWith("town_fleamarket.php") &&
+                FleaMarketRequest.registerRequest(url, sessionLogger) -> {
+                return true
+            }
+            url.startsWith("town_sellflea.php") &&
+                FleaMarketSellRequest.registerRequest(url, sessionLogger) -> {
                 return true
             }
 

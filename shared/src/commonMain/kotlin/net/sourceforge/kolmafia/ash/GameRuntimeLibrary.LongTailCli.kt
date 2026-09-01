@@ -2799,7 +2799,7 @@ internal val IMPLEMENTED_CLI_COMMANDS = listOf(
     "council", "counters", "create", "createqueue", "crimbotrain", "csend", "demons", "devilcandyegg", "display", "donate",
     "drink", "drinkqueue", "drinksilent", "dusty", "dvorak", "eat", "eatqueue", "eatsilent", "echo", "editmood",
     "edpiece", "effects", "else", "elseif", "encounters", "enthrone", "equip", "events", "exit", "expensive",
-    "fallguy", "fax", "faxbot", "fecho", "field", "find", "flicker", "florist", "fold", "folders",
+    "fallguy", "fax", "faxbot", "fecho", "field", "find", "flea", "flicker", "florist", "fold", "folders",
     "fprint", "garden", "get", "ghostqueue", "gift", "gong", "gooskills", "gourd", "grandpa", "greyyou",
     "hagnk", "heist", "help", "hermit", "hoboqueue", "holiday", "horsery", "hottub", "if", "ingredients",
     "inv", "inventory", "jillcandle", "journey", "junk", "kmail", "latte", "leaves", "ledcandle", "leprecondo",

@@ -172,6 +172,8 @@ import net.sourceforge.kolmafia.request.PottedTeaTreeRequest
 import net.sourceforge.kolmafia.request.ForeseeRequest
 import net.sourceforge.kolmafia.request.KgbRequest
 import net.sourceforge.kolmafia.request.PizzaCubeRequest
+import net.sourceforge.kolmafia.request.FleaMarketRequest
+import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
@@ -301,6 +303,24 @@ val sharedModule = module {
             inventoryManager = get(),
             preferences = get(),
             sessionLogger = get(),
+        )
+    }
+    single {
+        FleaMarketRequest(
+            client = get(),
+            inventoryManager = get(),
+            character = get(),
+            sessionLogger = get(),
+            preferences = get(),
+        )
+    }
+    single {
+        FleaMarketSellRequest(
+            client = get(),
+            inventoryManager = get(),
+            character = get(),
+            sessionLogger = get(),
+            preferences = get(),
         )
     }
     single {
@@ -1030,6 +1050,8 @@ val sharedModule = module {
             foreseeRequest      = get(),
             kgbRequest          = get(),
             pizzaCubeRequest    = get(),
+            fleaMarketRequest   = get(),
+            fleaMarketSellRequest = get(),
             edServantManager    = get(),
             vykeaCompanionManager = get(),
             pastaThrallManager    = get(),
