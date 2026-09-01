@@ -171,6 +171,7 @@ import net.sourceforge.kolmafia.request.HashingViseRequest
 import net.sourceforge.kolmafia.request.PottedTeaTreeRequest
 import net.sourceforge.kolmafia.request.ForeseeRequest
 import net.sourceforge.kolmafia.request.KgbRequest
+import net.sourceforge.kolmafia.request.PizzaCubeRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
 import net.sourceforge.kolmafia.request.DisplayCaseRequest
 import net.sourceforge.kolmafia.shop.CoinmasterManager
@@ -290,6 +291,14 @@ val sharedModule = module {
     single {
         KgbRequest(
             client = get(),
+            preferences = get(),
+            sessionLogger = get(),
+        )
+    }
+    single {
+        PizzaCubeRequest(
+            client = get(),
+            inventoryManager = get(),
             preferences = get(),
             sessionLogger = get(),
         )
@@ -529,9 +538,19 @@ val sharedModule = module {
                 },
             ),
             museCreateRequest = MuseCreateRequest(
-                useItemRequest = get(),
+                useItemRequest = UseItemRequest(
+                    client = get(),
+                    preferences = get(),
+                    sessionLogger = get(),
+                    eventBus = get(),
+                    questDatabase = get(),
+                    character = get(),
+                ),
                 createItemIngredients = get(),
                 gameDatabase = get(),
+                inventoryManager = get(),
+                preferences = get(),
+                sessionLogger = get(),
             ),
             phineasCreateRequest = PhineasCreateRequest(
                 client = get(),
@@ -1010,6 +1029,7 @@ val sharedModule = module {
             pottedTeaTreeRequest = get(),
             foreseeRequest      = get(),
             kgbRequest          = get(),
+            pizzaCubeRequest    = get(),
             edServantManager    = get(),
             vykeaCompanionManager = get(),
             pastaThrallManager    = get(),

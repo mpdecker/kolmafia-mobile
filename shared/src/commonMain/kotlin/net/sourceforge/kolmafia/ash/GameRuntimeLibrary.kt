@@ -277,6 +277,7 @@ import net.sourceforge.kolmafia.request.HashingViseRequest
 import net.sourceforge.kolmafia.request.PottedTeaTreeRequest
 import net.sourceforge.kolmafia.request.ForeseeRequest
 import net.sourceforge.kolmafia.request.KgbRequest
+import net.sourceforge.kolmafia.request.PizzaCubeRequest
 import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
@@ -429,6 +430,7 @@ class GameRuntimeLibrary(
     internal val pottedTeaTreeRequest: PottedTeaTreeRequest? = null,
     internal val foreseeRequest: ForeseeRequest? = null,
     internal val kgbRequest: KgbRequest? = null,
+    internal val pizzaCubeRequest: PizzaCubeRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
     internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
@@ -4318,6 +4320,13 @@ class GameRuntimeLibrary(
                 KgbRequest.parseResponse(normalizedUrl, html, preferences) {
                     checkDynamicModifiers()
                 }
+            } else if (PizzaCubeRequest.isPizzaUrl(normalizedUrl)) {
+                PizzaCubeRequest.parseResponse(
+                    normalizedUrl,
+                    html,
+                    inventoryManager,
+                    preferences,
+                )
             } else {
                 false
             }
