@@ -5112,7 +5112,12 @@ class GameRuntimeLibrary(
             rt.print("Ascension history HTTP unavailable.")
             return
         }
+        val trimmed = rest.trim()
         val playerId = resolveAscensionHistoryPlayerId(rest)
+        if (trimmed.isNotEmpty() && playerId == null) {
+            rt.print("Unknown player: $trimmed.")
+            return
+        }
         kotlinx.coroutines.runBlocking {
             request.fetch(playerId)
                 .onSuccess { records ->
@@ -5127,8 +5132,8 @@ class GameRuntimeLibrary(
     private fun resolveAscensionHistoryPlayerId(raw: String): Int? {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return null
-        trimmed.toIntOrNull()?.let { return it }
-        return ProfileRequest.fromPlayerName(trimmed).playerId.toIntOrNull()
+        trimmed.toIntOrNull()?.takeIf { it > 0 }?.let { return it }
+        return ProfileRequest.fromPlayerName(trimmed).playerId.toIntOrNull()?.takeIf { it > 0 }
     }
 
     internal fun cliFlea(rest: String, rt: AshRuntimeContext) {

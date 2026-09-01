@@ -206,6 +206,22 @@ class AscensionHistoryRequestTest {
     }
 
     @Test
+    fun cli_unknownPlayerNameDoesNotFetchSelfHistory() {
+        val captured = mutableListOf<CapturedRequest>()
+        val library = GameRuntimeLibrary(
+            ascensionHistoryRequest = AscensionHistoryRequest(
+                client = client(captured, CURRENT_HTML),
+                manager = AscensionHistoryManager(),
+            ),
+        )
+
+        val out = outputLib(library, """cli_execute("ascensionhistory NobodyKnown");""")
+        assertTrue(out.contains("Unknown player"), out)
+        assertTrue(out.contains("NobodyKnown"), out)
+        assertTrue(captured.isEmpty(), "unknown player must not fetch self history: $captured")
+    }
+
+    @Test
     fun visitHook_cachesHistoryWithoutMutatingCharacter() {
         val preferences = Preferences(MapSettings())
         preferences.setInt("borisPoints", 11)
