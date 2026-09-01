@@ -26,6 +26,7 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.EquipmentManager
+import net.sourceforge.kolmafia.session.SessionLogger
 
 class UmbrellaKgbRequestTest {
 
@@ -310,6 +311,100 @@ class UmbrellaKgbRequestTest {
 
         assertTrue(out.contains("5"), out)
         assertEquals(0, calls)
+    }
+
+    @Test
+    fun cliKgb_bareButtonPrintsUsageWithoutHttp() {
+        var calls = 0
+        val client = HttpClient(MockEngine {
+            calls++
+            respond(KGB_BUTTON_HTML, HttpStatusCode.OK)
+        })
+        val lib = GameRuntimeLibrary(
+            preferences = Preferences(MapSettings()),
+            kgbRequest = KgbRequest(client, Preferences(MapSettings()), null),
+        )
+
+        val out = outputLib(lib, """cli_execute("kgb button");""")
+
+        assertTrue(out.contains("Usage"), out)
+        assertEquals(0, calls)
+    }
+
+    @Test
+    fun cliKgb_button1_postsKgbButton1() {
+        val requests = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            requests += "${request.url.encodedPath}?${request.url.encodedQuery}"
+            respond(KGB_BUTTON_HTML, HttpStatusCode.OK)
+        })
+        val lib = GameRuntimeLibrary(
+            preferences = Preferences(MapSettings()),
+            kgbRequest = KgbRequest(client, Preferences(MapSettings()), null),
+        )
+
+        outputLib(lib, """cli_execute("kgb button1");""")
+
+        assertEquals(1, requests.size, requests.toString())
+        assertTrue(requests[0].contains("action=kgb_button1"), requests[0])
+    }
+
+    @Test
+    fun cliKgb_buttonSpace1_postsKgbButton1() {
+        val requests = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            requests += "${request.url.encodedPath}?${request.url.encodedQuery}"
+            respond(KGB_BUTTON_HTML, HttpStatusCode.OK)
+        })
+        val lib = GameRuntimeLibrary(
+            preferences = Preferences(MapSettings()),
+            kgbRequest = KgbRequest(client, Preferences(MapSettings()), null),
+        )
+
+        outputLib(lib, """cli_execute("kgb button 1");""")
+
+        assertEquals(1, requests.size, requests.toString())
+        assertTrue(requests[0].contains("action=kgb_button1"), requests[0])
+    }
+
+    @Test
+    fun kgb_malformedButtonHtmlDoesNotSucceedOrSessionLog() = runTest {
+        val client = HttpClient(MockEngine {
+            respond("<html>still the briefcase, no symphony</html>", HttpStatusCode.OK)
+        })
+        val preferences = Preferences(MapSettings())
+        val logPrefs = Preferences(MapSettings())
+        val request = KgbRequest(client, preferences, SessionLogger(logPrefs, GameEventBus()))
+
+        val result = request.button("kgb_button1")
+
+        assertTrue(result.isFailure)
+        assertFalse(
+            KgbRequest.parseResponse(
+                "place.php?whichplace=kgb&action=kgb_button1",
+                "<html>still the briefcase, no symphony</html>",
+                preferences,
+            ),
+        )
+        assertEquals(0, preferences.getInt("_kgbClicksUsed", 0))
+        assertFalse(
+            logPrefs.getString(SessionLogger.SESSION_LOG_KEY, "").contains("kgb"),
+            logPrefs.getString(SessionLogger.SESSION_LOG_KEY, ""),
+        )
+    }
+
+    @Test
+    fun kgb_failedDispenserWithClickChromeDoesNotCountClicks() = runTest {
+        val html = "<html>The dispenser whirrs uselessly.<br>Click click<br></html>"
+        val client = HttpClient(MockEngine { respond(html, HttpStatusCode.OK) })
+        val preferences = Preferences(MapSettings())
+        val request = KgbRequest(client, preferences, null)
+
+        val result = request.dispenser(DISPENSER_ITEM_ID)
+
+        assertTrue(result.isFailure)
+        assertEquals(0, preferences.getInt("_kgbClicksUsed", 0))
+        assertEquals(0, preferences.getInt("_kgbDispenserUses", 0))
     }
 
     private fun inventory(client: HttpClient, umbrellaCount: Int): InventoryManager =

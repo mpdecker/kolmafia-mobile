@@ -64,10 +64,13 @@ open class KgbRequest(
                 if (itemId != null) append("&whichitem=").append(itemId)
             }
             val handled = parseResponse(url, html)
-            if (requireDispenserSuccess && !handled) {
-                return Result.failure(IllegalStateException("KGB dispenser response was not successful."))
+            val requireHandled = requireDispenserSuccess ||
+                (!action.isNullOrBlank() && action.startsWith("kgb_button", ignoreCase = true))
+            if (requireHandled && !handled) {
+                val kind = if (action.equals(ACTION_DISPENSER, ignoreCase = true)) "dispenser" else "button"
+                return Result.failure(IllegalStateException("KGB $kind response was not successful."))
             }
-            if (!action.isNullOrBlank()) {
+            if (handled && !action.isNullOrBlank()) {
                 sessionLogger?.appendRawLine("kgb $action")
             }
             Result.success(html)
@@ -86,7 +89,7 @@ open class KgbRequest(
         private val ACTION_FIELD = Regex("""(?:^|[?&])action=([^&]+)""", RegexOption.IGNORE_CASE)
         private val PLACE_FIELD = Regex("""(?:^|[?&])whichplace=([^&]+)""", RegexOption.IGNORE_CASE)
         private val ENCHANT_PATTERN = Regex("""<s>(.*?)</s><br><br><b>(.*?)</b>""", RegexOption.IGNORE_CASE)
-        private val BUTTON_ACTION = Regex("""^(?:kgb_button)?(\d+)$""", RegexOption.IGNORE_CASE)
+        private val BUTTON_ACTION = Regex("""^(?:(?:kgb_)?button)?(\d+)$""", RegexOption.IGNORE_CASE)
 
         fun isKgbUrl(url: String): Boolean =
             url.contains("place.php", ignoreCase = true) &&
@@ -102,13 +105,12 @@ open class KgbRequest(
             val action = ACTION_FIELD.find(url)?.groupValues?.getOrNull(1)?.lowercase().orEmpty()
             if (action.isEmpty()) return false
 
-            countClicks(html, preferences)
-
             return when {
                 action.startsWith("kgb_button") -> {
+                    val clicks = countClicks(html, preferences)
                     val changed = updateEnchantments(html)
                     if (changed) refreshModifiers?.invoke()
-                    true
+                    clicks > 0 || changed
                 }
                 action == ACTION_DISPENSER -> parseDispenser(html, preferences)
                 action == "kgb_drawer1" -> {
@@ -148,12 +150,12 @@ open class KgbRequest(
             }
         }
 
-        private fun countClicks(html: String, preferences: Preferences?) {
+        private fun countClicks(html: String, preferences: Preferences?): Int {
             val startIndex = html.indexOf("<br>Click", ignoreCase = true)
-            if (startIndex < 0) return
+            if (startIndex < 0) return 0
             val textStart = startIndex + 4
             val endIndex = html.indexOf("<br>", textStart, ignoreCase = true)
-            if (endIndex < 0) return
+            if (endIndex < 0) return 0
             val text = html.substring(textStart, endIndex).lowercase()
             var count = 0
             var index = text.indexOf("click")
@@ -161,9 +163,10 @@ open class KgbRequest(
                 count++
                 index = text.indexOf("click", index + 5)
             }
-            if (count <= 0) return
+            if (count <= 0) return 0
             val used = (preferences?.getInt("_kgbClicksUsed", 0) ?: 0) + count
             preferences?.setInt("_kgbClicksUsed", used)
+            return count
         }
 
         private fun updateEnchantments(html: String): Boolean {

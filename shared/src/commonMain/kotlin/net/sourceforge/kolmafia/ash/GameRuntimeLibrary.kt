@@ -5001,22 +5001,32 @@ class GameRuntimeLibrary(
             rt.print("KGB dispenser uses: $dispenser")
             return
         }
+        val tokens = trimmed.split(Regex("\\s+"))
+        val verb = tokens[0]
+        when {
+            verb.equals("button", ignoreCase = true) && tokens.size < 2 -> {
+                rt.print("Usage: kgb button <action>")
+                return
+            }
+            verb.equals("dispenser", ignoreCase = true) && tokens.size < 2 -> {
+                rt.print("Usage: kgb dispenser <itemId>")
+                return
+            }
+        }
         kotlinx.coroutines.runBlocking {
             val result = when {
-                trimmed.startsWith("button", ignoreCase = true) -> {
-                    val action = trimmed.substringAfter(' ').trim().ifBlank { "kgb_button1" }
-                    request.button(action)
-                }
-                trimmed.startsWith("dispenser", ignoreCase = true) -> {
-                    val itemId = trimmed.substringAfter(' ').trim().toIntOrNull()
+                verb.equals("button", ignoreCase = true) ->
+                    request.button(tokens.drop(1).joinToString(" "))
+                verb.equals("dispenser", ignoreCase = true) -> {
+                    val itemId = tokens.getOrNull(1)?.toIntOrNull()
                     if (itemId == null) {
                         Result.failure(IllegalArgumentException("KGB dispenser requires an item id."))
                     } else {
                         request.dispenser(itemId)
                     }
                 }
-                trimmed.equals("visit", ignoreCase = true) -> request.visit()
-                else -> request.button(trimmed)
+                verb.equals("visit", ignoreCase = true) -> request.visit()
+                else -> request.button(verb)
             }
             result
                 .onSuccess { rt.print("kgb $trimmed") }
