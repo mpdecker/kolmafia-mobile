@@ -177,13 +177,14 @@ class GoalManager {
         if (maxTurns <= 0) return false
 
         val snapshot = captureSnapshot()
+        val initialCount = itemCount()
         clearGoals()
         addItemGoal(itemId)
 
         val job: Job = adventureManager.runAdventures(location, maxTurns, scope)
         joinAll(job)
 
-        val obtained = itemCount() > 0
+        val obtained = itemCount() > initialCount
         restoreSnapshot(snapshot)
         return obtained
     }

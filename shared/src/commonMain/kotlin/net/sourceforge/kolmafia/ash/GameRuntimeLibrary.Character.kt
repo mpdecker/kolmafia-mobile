@@ -6,6 +6,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.quest.DispensarySync
+import net.sourceforge.kolmafia.session.GuildUnlockManager
 
 internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
 
@@ -124,8 +125,7 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     }
 
     regFn(scope, "guild_available", AshType.BOOLEAN, emptyList()) { _, _ ->
-        val cls = character?.state?.value?.characterClassEnum
-        AshValue.of(cls?.isStandardClass == true)
+        AshValue.of(character?.state?.value?.let(GuildUnlockManager::canUnlockGuild) == true)
     }
 
     regFn(scope, "knoll_available", AshType.BOOLEAN, emptyList()) { _, _ ->
@@ -175,10 +175,8 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     }
 
     regFn(scope, "guild_store_available", AshType.BOOLEAN, emptyList()) { _, _ ->
-        val cls = character?.state?.value?.characterClassEnum
-        if (cls?.isStandardClass != true) return@regFn AshValue.of(false)
-        val asc = character?.state?.value?.ascensionNumber ?: 0
-        AshValue.of(preferences?.getInt("lastGuildStoreOpen", -1) == asc)
+        val state = character?.state?.value ?: return@regFn AshValue.of(false)
+        AshValue.of(GuildUnlockManager.guildStoreAvailable(state, preferences))
     }
 
     regFn(scope, "hippy_store_available", AshType.BOOLEAN, emptyList()) { _, _ ->

@@ -19,7 +19,10 @@ internal fun GameRuntimeLibrary.registerWebHtml(scope: AshScope) {
         return runBlocking {
             try {
                 val body = client.get(fullUrl).body<String>()
-                if (body.isNotBlank()) processVisitQuestHooks(body, url = fullUrl)
+                if (body.isNotBlank()) {
+                    processVisitResponseHooks(body, url = fullUrl)
+                    processVisitQuestHooks(body, url = fullUrl)
+                }
                 body
             } catch (_: Exception) {
                 ""

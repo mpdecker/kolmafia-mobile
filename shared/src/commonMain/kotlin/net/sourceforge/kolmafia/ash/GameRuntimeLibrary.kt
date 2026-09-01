@@ -94,6 +94,8 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.quest.QuestManager
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.AlliedRadioRequest
+import net.sourceforge.kolmafia.request.BeachCombRequest
+import net.sourceforge.kolmafia.request.SkateParkRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.BatFellowRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
@@ -295,6 +297,7 @@ import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.BastilleBattalionSync
 import net.sourceforge.kolmafia.session.BarrelShrineSync
 import net.sourceforge.kolmafia.session.GuildVisitSync
+import net.sourceforge.kolmafia.session.GuildUnlockManager
 import net.sourceforge.kolmafia.session.BastilleSyncContext
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DreadScrollManager
@@ -330,6 +333,12 @@ import net.sourceforge.kolmafia.session.WumpusManager
 import net.sourceforge.kolmafia.session.PeeVPeeSync
 import net.sourceforge.kolmafia.session.DemonNamesManager
 import net.sourceforge.kolmafia.session.AlliedRadioManager
+import net.sourceforge.kolmafia.session.DadCliState
+import net.sourceforge.kolmafia.session.SlimeStackManager
+import net.sourceforge.kolmafia.session.ClanCliManager
+import net.sourceforge.kolmafia.session.TcrsCliManager
+import net.sourceforge.kolmafia.request.SpadeRequest
+import net.sourceforge.kolmafia.request.PandamoniumRequest
 import net.sourceforge.kolmafia.session.CargoCultManager
 import net.sourceforge.kolmafia.session.CargoPocketSync
 import net.sourceforge.kolmafia.session.SkillLearnFromResponse
@@ -437,6 +446,8 @@ class GameRuntimeLibrary(
     internal val fleaMarketRequest: FleaMarketRequest? = null,
     internal val fleaMarketSellRequest: FleaMarketSellRequest? = null,
     internal val ascensionHistoryRequest: AscensionHistoryRequest? = null,
+    internal val beachCombRequest: BeachCombRequest? = null,
+    internal val skateParkRequest: SkateParkRequest? = null,
     internal val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     internal val vykeaCompanionManager: net.sourceforge.kolmafia.vykea.VykeaCompanionManager? = null,
     internal val pastaThrallManager: net.sourceforge.kolmafia.thrall.PastaThrallManager? = null,
@@ -468,12 +479,17 @@ class GameRuntimeLibrary(
     internal val boomBoxRequest: BoomBoxRequest? = null,
     internal val mindControlRequest: MindControlRequest? = null,
     internal val absorbRequest: AbsorbRequest? = null,
+    internal val guildUnlockManager: GuildUnlockManager? = null,
     internal val numberologyRequest: net.sourceforge.kolmafia.request.NumberologyRequest? = null,
     internal val grandpaRequest: net.sourceforge.kolmafia.request.GrandpaRequest? = null,
     internal val shrineRequest: net.sourceforge.kolmafia.request.ShrineRequest? = null,
     internal val npcBuyRequest: net.sourceforge.kolmafia.npc.NpcBuyRequest? = null,
     internal val raffleRequest: net.sourceforge.kolmafia.request.RaffleRequest? = null,
     internal val sessionManager: net.sourceforge.kolmafia.session.SessionManager? = null,
+    internal val clanCliManager: ClanCliManager? = null,
+    internal val tcrsCliManager: TcrsCliManager? = null,
+    internal val spadeRequest: SpadeRequest? = null,
+    internal val pandamoniumRequest: PandamoniumRequest? = null,
 ) : RuntimeLibrary() {
 
     private val handledResidualResponseSignatures = mutableSetOf<Pair<String, String>>()
@@ -538,7 +554,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase3830"
+        const val REVISION = "phase4010"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -950,8 +966,27 @@ class GameRuntimeLibrary(
         Regex("^dvorak(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliDvorak(m.groupValues.getOrNull(1).orEmpty(), rt::print)
         },
+        Regex("^dad$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliDad(rt::print)
+        },
         Regex("^ascensionhistory(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliAscensionHistory(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^(?:slime-stack|slime-stacks|slimestack)$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliSlimeStack(rt::print)
+        },
+        Regex("^clan(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking {
+                cliClan(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+            }
+        },
+        Regex("^tcrs(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            cliTcrs(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+        },
+        Regex("^spade(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            kotlinx.coroutines.runBlocking {
+                cliSpade(m.groupValues.getOrNull(1).orEmpty(), rt::print)
+            }
         },
         Regex("^sven(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliSven(m.groupValues.getOrNull(1).orEmpty(), rt::print)
@@ -1490,6 +1525,9 @@ class GameRuntimeLibrary(
 
         Regex("^beach(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             cliBeach(m.groupValues.getOrNull(1)?.trim().orEmpty(), rt::print)
+        },
+        Regex("^complete\\s+quest\\s+guild$", RegexOption.IGNORE_CASE) to { _, rt ->
+            cliCompleteGuild(rt::print)
         },
 
         // Phases 1053–1062 Oddball CLI Track E
@@ -2630,7 +2668,7 @@ class GameRuntimeLibrary(
         Regex("^shop(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runShopCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
-        Regex("^stickers(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+        Regex("^(?:sticker|stickers)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runStickersCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
         Regex("^folders(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
@@ -2990,7 +3028,25 @@ class GameRuntimeLibrary(
                 html,
                 preferences,
                 url,
+                sessionLogger,
             )
+        }
+        if (url?.contains("choice.php", ignoreCase = true) == true &&
+            url.contains("whichchoice=1388", ignoreCase = true)
+        ) {
+            val decision = Regex("""(?:option|decision)=(\d+)""", RegexOption.IGNORE_CASE)
+                .find(url)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+            BeachCombChoiceSync.apply(
+                choiceId = BeachCombChoiceSync.CHOICE_ID,
+                decision = decision,
+                html = html,
+                preferences = preferences,
+                choiceUrl = url,
+                sessionLogger = sessionLogger,
+            )
+        }
+        if (url?.contains("sea_skatepark.php", ignoreCase = true) == true) {
+            SkateParkRequest.parseResponseFromUrl(url, html, preferences)
         }
         if (url?.contains("familiar.php", ignoreCase = true) == true &&
             url.contains("ajax=1", ignoreCase = true) != true
@@ -4436,7 +4492,6 @@ class GameRuntimeLibrary(
         Regex("""whichskill=(\d+)""").find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
 
     internal fun processVisitQuestHooks(html: String, url: String? = null) {
-        processVisitResponseHooks(html, url)
         if (url?.contains("choice.php", ignoreCase = true) == true) {
             val choice = Regex("""whichchoice=(\d+)""", RegexOption.IGNORE_CASE)
                 .find(url)?.groupValues?.get(1).orEmpty()

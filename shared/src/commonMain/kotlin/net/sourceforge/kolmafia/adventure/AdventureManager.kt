@@ -235,6 +235,20 @@ open class AdventureManager(
     val fightFollowsChoice: Boolean get() = _fightFollowsChoice
     val inChoiceResolution: Boolean get() = _inChoiceResolution
 
+    sealed interface ItemStopResult {
+        val message: String
+
+        data class Acquired(val itemId: Int, val count: Int) : ItemStopResult {
+            override val message: String = "item $itemId acquired"
+        }
+
+        data class AlreadyPresent(val itemId: Int, val count: Int) : ItemStopResult {
+            override val message: String = "item $itemId already present"
+        }
+
+        data class Stopped(override val message: String, val count: Int) : ItemStopResult
+    }
+
     /** Desktop ChoiceManager.canWalkAway — allow-list from ChoiceControl.canWalkFromChoice. */
     fun canWalkAwayFromChoice(): Boolean {
         if (!_inChoiceResolution) return true
@@ -621,6 +635,39 @@ open class AdventureManager(
                 _isRunning.value = false
             }
         }.also { currentJob = it }
+
+    /**
+     * Run a temporary item side trip and stop on a positive inventory delta.
+     *
+     * The goal snapshot is restored even when the adventure loop fails or is
+     * cancelled, so callers can safely use this for quest orchestration.
+     */
+    suspend fun runUntilItem(
+        location: AdventureLocation,
+        itemId: Int,
+        initialCount: Int,
+        maxTurns: Int,
+        scope: CoroutineScope,
+    ): ItemStopResult {
+        if (itemId <= 0) return ItemStopResult.Stopped("no target item", initialCount)
+        if (initialCount > 0) return ItemStopResult.AlreadyPresent(itemId, initialCount)
+        if (maxTurns <= 0) return ItemStopResult.Stopped("no adventures left", initialCount)
+
+        val snapshot = goalManager.captureSnapshot()
+        try {
+            goalManager.clearGoals()
+            goalManager.addItemGoal(itemId)
+            runAdventures(location, maxTurns, scope).join()
+        } finally {
+            goalManager.restoreSnapshot(snapshot)
+        }
+        val count = inventory?.getCount(itemId) ?: 0
+        return if (count > initialCount) {
+            ItemStopResult.Acquired(itemId, count)
+        } else {
+            ItemStopResult.Stopped("item was not acquired", count)
+        }
+    }
 
     fun stop() { currentJob?.cancel() }
 
@@ -1629,6 +1676,25 @@ open class AdventureManager(
                     currentFamiliarId = { familiarManager?.state?.value?.activeFamiliar?.id },
                     clearActiveFamiliar = { familiarManager?.clearActiveFamiliarLocally() },
                 )
+            }
+            val choiceResults = ResultProcessor.parseResults(html)
+            if (choiceResults.items.isNotEmpty() ||
+                choiceResults.meat != 0 ||
+                choiceResults.effectsGained.isNotEmpty() ||
+                choiceResults.effectsLost.isNotEmpty()
+            ) {
+                ResultProcessor.processResults(
+                    adventureResults = true,
+                    html = html,
+                    inventory = inventory,
+                    character = character,
+                    preferences = preferences,
+                    effectManager = effects,
+                    questDatabase = questDatabase,
+                )
+                emitItemEvents(choiceResults.items.flatMap { (name, count) ->
+                    List(count.coerceAtMost(20)) { name }
+                })
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
             if (goalManager.hasChoiceGoal(currentChoiceId)) {

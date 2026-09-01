@@ -18,9 +18,12 @@ import net.sourceforge.kolmafia.request.ScrapheapRequest
 import net.sourceforge.kolmafia.request.UneffectRequest
 import net.sourceforge.kolmafia.request.CakeArenaRequest
 import net.sourceforge.kolmafia.request.BountyHunterHunterRequest
+import net.sourceforge.kolmafia.request.BeachCombRequest
+import net.sourceforge.kolmafia.request.SkateParkRequest
 import net.sourceforge.kolmafia.request.NemesisRequest
 import net.sourceforge.kolmafia.request.TavernRequest
 import net.sourceforge.kolmafia.request.GourdRequest
+import net.sourceforge.kolmafia.request.GuildRequest
 import net.sourceforge.kolmafia.request.FleaMarketRequest
 import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.session.DvorakManager
@@ -120,6 +123,15 @@ object RequestLogger {
             return true
         }
 
+        if (GuildRequest.registerRequest(urlString, logger = sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (SkateParkRequest.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
         // Adventure snarfblat / location
         if (registerAdventure(urlString, sessionLogger, preferences)) {
             wasLastRequestSimple = false
@@ -127,6 +139,13 @@ object RequestLogger {
         }
 
         if (urlString.startsWith("shop.php") && registerShop(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (urlString.startsWith("choice.php") &&
+            BeachCombRequest.registerRequest(urlString, preferences, sessionLogger)
+        ) {
             wasLastRequestSimple = false
             return true
         }
@@ -432,6 +451,7 @@ object RequestLogger {
         }
         "rabbithole" -> "Visiting Rabbit Hole"
         "arcade" -> "Visiting Game Grid Arcade"
+        "kgb" -> if (action.isNotEmpty()) "kgb $action" else "Visiting KGB"
         else -> null
     }
 
@@ -544,7 +564,9 @@ object RequestLogger {
         1489, 1490, 1491 -> "Mayam Calendar"
         1510, 1511 -> "Autumnaton"
         1523 -> "WereProfessor research"
+        1466 -> "Umbrella"
         1551 -> "Hashing Vise"
+        1558 -> "Foresee"
         // Wax / meteoroid / newspaper / wool creation choices
         1002 -> "Burning Newspaper"
         1018, 1019 -> "Metal Meteoroid"
@@ -650,6 +672,7 @@ object RequestLogger {
             "portal", "portalvisit" -> updateSessionLog("el vibrato portal", sessionLogger)
             "bookshelf", "bookshelf_adv" -> updateSessionLog("bookshelf", sessionLogger)
             "dripfaucet" -> updateSessionLog("drip faucet", sessionLogger)
+            "pizza", "makepizza" -> updateSessionLog("pizza", sessionLogger)
             else -> updateSessionLog("campground $action", sessionLogger)
         }
         return true
@@ -779,6 +802,11 @@ object RequestLogger {
             url.startsWith("cook.php") || url.startsWith("cocktail.php") ||
                 url.startsWith("smith.php") -> {
                 updateSessionLog("craft station", sessionLogger)
+                return true
+            }
+
+            url.startsWith("ascensionhistory.php") -> {
+                updateSessionLog("ascension history", sessionLogger)
                 return true
             }
 

@@ -1,7 +1,8 @@
 package net.sourceforge.kolmafia.quest
 
 import net.sourceforge.kolmafia.preferences.Preferences
-import net.sourceforge.kolmafia.session.BeachCombManager
+import net.sourceforge.kolmafia.session.BeachManager
+import net.sourceforge.kolmafia.session.SessionLogger
 
 /** Desktop [ChoiceControl] / [BeachManager] synchronization for choice 1388. */
 object BeachCombChoiceSync {
@@ -13,29 +14,46 @@ object BeachCombChoiceSync {
         html: String,
         preferences: Preferences?,
         choiceUrl: String = "",
+        sessionLogger: SessionLogger? = null,
     ): Boolean {
         if (choiceId != CHOICE_ID || preferences == null) return false
         var changed = false
         when (decision) {
             0 -> {
-                changed = BeachCombManager.parseCombUsage(html, preferences) || changed
-                changed = BeachCombManager.parseBeachMap(html, preferences) || changed
+                changed = BeachManager.parseCombUsage(html, preferences) || changed
+                changed = BeachManager.parseBeachMap(
+                    html,
+                    preferences,
+                    sessionLogger?.let { logger -> { line -> logger.appendRawLine(line) } },
+                ) || changed
             }
-            1, 2 -> changed = BeachCombManager.parseBeachMap(html, preferences) || changed
+            1, 2 -> changed = BeachManager.parseBeachMap(
+                html,
+                preferences,
+                sessionLogger?.let { logger -> { line -> logger.appendRawLine(line) } },
+            ) || changed
             3 -> {
-                changed = BeachCombManager.parseBeachHeadCombing(html, preferences) || changed
-                changed = BeachCombManager.parseCombUsage(html, preferences) || changed
+                changed = BeachManager.parseBeachHeadCombing(html, preferences) || changed
+                changed = BeachManager.parseCombUsage(html, preferences) || changed
             }
             4 -> {
-                changed = BeachCombManager.markCombedSquare(choiceUrl, html, preferences) || changed
-                changed = BeachCombManager.parseCombUsage(html, preferences) || changed
-                changed = BeachCombManager.parseBeachMap(html, preferences) || changed
+                changed = BeachManager.markCombedSquare(choiceUrl, html, preferences) || changed
+                changed = BeachManager.parseCombUsage(html, preferences) || changed
+                changed = BeachManager.parseBeachMap(
+                    html,
+                    preferences,
+                    sessionLogger?.let { logger -> { line -> logger.appendRawLine(line) } },
+                ) || changed
+                if (html.contains("you find a bottle", ignoreCase = true)) {
+                    sessionLogger?.appendRawLine("You found a message in a bottle!")
+                    changed = true
+                }
             }
             5 -> {
                 preferences.setBoolean("_beachCombing", false)
                 changed = true
             }
-            6 -> changed = BeachCombManager.parseCombUsage(html, preferences) || changed
+            6 -> changed = BeachManager.parseCombUsage(html, preferences) || changed
         }
         return changed
     }

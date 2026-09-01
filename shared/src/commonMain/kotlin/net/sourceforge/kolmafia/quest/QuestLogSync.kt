@@ -313,6 +313,13 @@ object QuestLogSync {
                 context.consumeItem(QuestItemRules.EXORCISED_SANDWICH_ID, 1)
             }
         }
+
+        if (html.contains("stole my own pants", ignoreCase = true)) {
+            val current = questDatabase.getProgress(Quest.MOXIE)
+            if (QuestDatabase.stepOrdinal(QuestDatabase.FINISHED) > QuestDatabase.stepOrdinal(current)) {
+                questDatabase.setProgress(Quest.MOXIE, QuestDatabase.FINISHED)
+            }
+        }
     }
 
     internal fun applyFactoryTurnIn(questDatabase: QuestDatabase, context: QuestSyncContext) {

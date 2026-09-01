@@ -38,6 +38,10 @@ object TCRSDatabase {
 
     fun getEntry(itemId: Int): TcrsEntry? = tcrsMap[itemId]
 
+    fun isLoaded(): Boolean = currentClassSign.isNotEmpty() && tcrsMap.isNotEmpty()
+
+    fun entryCount(): Int = tcrsMap.size
+
     fun applyModifiers(characterLevel: Int): Int {
         EffectDatabase.stripConsumableActions()
         var applied = 0

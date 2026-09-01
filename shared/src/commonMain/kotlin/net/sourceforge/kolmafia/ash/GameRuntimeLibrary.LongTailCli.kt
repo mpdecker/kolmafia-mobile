@@ -2791,18 +2791,19 @@ internal fun GameRuntimeLibrary.runPoolSkillCli(rt: AshRuntimeContext) {
 
 internal val IMPLEMENTED_CLI_COMMANDS = listOf(
     "aa", "abort", "absorb", "absorptions", "accordions", "acquire", "actionbar", "adv", "adventure", "alias", "alliedradio",
-    "ash", "ashq", "ashref", "ashwiki", "attack", "autoattack", "automall", "autosell", "autumnaton", "backupcamera",
+    "ash", "ashq", "ashref", "ashwiki", "ascensionhistory", "attack", "autoattack", "automall", "autosell", "autumnaton", "backupcamera",
     "badmoon", "bake", "bang", "banishes", "baron", "basement", "beach", "bjornify", "boombox", "bootskin",
     "bootspur", "bounty", "breakfast", "budget", "buff", "buffbot", "bugbears", "burn", "buy", "cache",
     "call", "campground", "cardsleeve", "cargo", "cast", "ccs", "cheapest", "cheat", "checkpoint", "chew",
     "chewqueue", "chibi", "chips", "choice", "choice-goal", "cleanup", "closet", "cmc", "coinmaster", "condition", "condref",
-    "council", "counters", "create", "createqueue", "crimbotrain", "csend", "demons", "devilcandyegg", "display", "donate",
+    "clan", "complete",
+    "council", "counters", "create", "createqueue", "crimbotrain", "csend", "dad", "demons", "devilcandyegg", "display", "donate",
     "drink", "drinkqueue", "drinksilent", "dusty", "dvorak", "eat", "eatqueue", "eatsilent", "echo", "editmood",
     "edpiece", "effects", "else", "elseif", "encounters", "enthrone", "equip", "events", "exit", "expensive",
-    "fallguy", "fax", "faxbot", "fecho", "field", "find", "flea", "flicker", "florist", "fold", "folders",
+    "fallguy", "fax", "faxbot", "fecho", "field", "find", "flea", "fleamarket", "flicker", "florist", "fold", "folders", "foresee",
     "fprint", "garden", "get", "ghostqueue", "gift", "gong", "gooskills", "gourd", "grandpa", "greyyou",
     "hagnk", "heist", "help", "hermit", "hoboqueue", "holiday", "horsery", "hottub", "if", "ingredients",
-    "inv", "inventory", "jillcandle", "journey", "junk", "kmail", "latte", "leaves", "ledcandle", "leprecondo",
+    "inv", "inventory", "jillcandle", "journey", "junk", "kgb", "kmail", "latte", "leaves", "ledcandle", "leprecondo",
     "location", "locations", "logecho", "logout", "logprint", "lookup", "macro", "mail", "make", "mallbuy",
     "mallsell", "maximize", "mayam", "mcd", "min", "mind-control", "mix", "modifiers", "modifies", "modref",
     "monsters", "mood", "moon", "moons", "mummery", "nemesis", "note", "numberology", "ocean", "olfact",
@@ -2810,10 +2811,10 @@ internal val IMPLEMENTED_CLI_COMMANDS = listOf(
     "pull", "pulverize", "putty", "pvp", "quark", "quit", "raffle", "recipe", "recover", "refresh",
     "relog", "relogin", "remedy", "reminisce", "remove", "repeat", "reprice", "rest", "restore", "retrieve",
     "retrocape", "roboequeue", "saber", "safe", "searchmall", "sell", "send", "servant", "servants", "session",
-    "set", "shrug", "skeeball", "skill", "skills", "slimelingqueue", "smash", "smith", "snapper", "snowsuit",
-    "soak", "speculate", "spookyraven", "squeeze", "stash", "status", "stickers", "storage", "summary", "summon",
+    "set", "shrug", "skeeball", "skill", "skills", "slime-stack", "slime-stacks", "slimestack", "slimelingqueue", "smash", "smith", "snapper", "snowsuit",
+    "soak", "spade", "speculate", "spookyraven", "squeeze", "stash", "stash-log", "status", "sticker", "stickers", "storage", "summary", "summon",
     "sven", "taleofdread", "tavern", "teatree", "terminal", "thralls", "throw", "timein", "timeout", "timespinner",
-    "tinker", "train", "trigger", "try", "umbrella", "unalias", "undercut", "uneffect", "unequip", "untinker",
+    "tcrs", "tinker", "train", "trigger", "try", "umbrella", "unalias", "undercut", "uneffect", "unequip", "untinker",
     "use", "usequeue", "validate", "verify", "version", "vise", "volcano", "wait", "waitq", "which",
     "while", "wiki", "witchess", "zap",
 )
@@ -2828,6 +2829,19 @@ internal fun GameRuntimeLibrary.runHelpCli(parameters: String, rt: AshRuntimeCon
         if (leftover.isNotEmpty() && !name.contains(leftover, ignoreCase = true)) continue
         rt.print(name)
     }
+    if (leftover.isEmpty() || leftover.equals("help", ignoreCase = true) || isNonGoalHelpTopic(leftover)) {
+        rt.print("GUI/Relay, JavaScript, full TCRS dumps, and desktop scripting are not available in KoLmafia Mobile.")
+    }
+}
+
+private fun isNonGoalHelpTopic(leftover: String): Boolean {
+    val needle = leftover.lowercase()
+    return needle.contains("relay") ||
+        needle.contains("javascript") ||
+        needle == "js" ||
+        needle.contains("tcrs") ||
+        needle.contains("script") ||
+        needle.contains("gui")
 }
 
 internal fun GameRuntimeLibrary.runModRefCli(parameters: String, rt: AshRuntimeContext) {

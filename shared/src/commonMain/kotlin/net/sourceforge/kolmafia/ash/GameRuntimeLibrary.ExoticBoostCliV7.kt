@@ -25,8 +25,16 @@ internal fun GameRuntimeLibrary.cliBeach(parameters: String, print: (String) -> 
     val counts: (Int) -> Int = { id ->
         inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
     }
+    val request = beachCombRequest ?: BeachCombRequest(
+        client = client,
+        choiceRequest = choice,
+        character = character,
+        equipmentManager = equipmentManager,
+        equipmentRequest = equipmentRequest,
+        sessionLogger = sessionLogger,
+    )
     runBlocking {
-        BeachCombRequest(client, choice)
+        request
             .execute(parsed, preferences, counts)
             .onSuccess {
                 if (parsed.command == BeachCombRequest.Command.PRINT) print(it)
@@ -49,7 +57,14 @@ internal fun GameRuntimeLibrary.cliSkate(parameters: String, print: (String) -> 
         return
     }
     runBlocking {
-        SkateParkRequest(client)
+        skateParkRequest ?: SkateParkRequest(
+            client = client,
+            character = character,
+            inventory = inventoryManager,
+            equipmentManager = equipmentManager,
+            equipmentRequest = equipmentRequest,
+            sessionLogger = sessionLogger,
+        )
             .takeBuff(place, preferences)
             .onFailure { print(it.message ?: "Skate Park buff failed.") }
     }
