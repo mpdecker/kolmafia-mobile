@@ -51,6 +51,7 @@ import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.ZapRequest
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.session.GoalPseudoConditions
 import net.sourceforge.kolmafia.session.WandDiscovery
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillData
@@ -4856,6 +4857,51 @@ class AshCompatibilityCorpusTest {
         val prefs = Preferences(MapSettings()).apply { setString("maximizerList", "+muscle") }
         val lib = GameRuntimeLibrary(preferences = prefs, character = KoLCharacter())
         assertEquals("0.0", outputLib(lib, """print(current_maximizer_score());""").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenGoalExistsAlias_live() {
+        val goals = GoalManager().also {
+            it.setFloundryGoal(2)
+            it.setPseudoGoal(GoalPseudoConditions.Kind.ARENA_FLYER_ML, 5)
+        }
+        val lib = GameRuntimeLibrary(goalManager = goals)
+        assertEquals("true", outputLib(lib, """print(to_string(goal_exists("floundry fish")));""").trim())
+        assertEquals("true", outputLib(lib, """print(to_string(goal_exists("Arena flyer ML")));""").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenIsGoal_live() {
+        ItemDatabase.registerForTest(
+            ItemData(
+                id = 42,
+                name = "corpus goal widget",
+                descId = "d42",
+                image = "widget.gif",
+                primaryUse = ItemPrimaryUse.NONE,
+                secondaryUses = emptySet(),
+                access = setOf('t'),
+                autosellPrice = 1,
+                plural = null,
+            ),
+        )
+        val goals = GoalManager().also { it.addItemGoal(42, 1) }
+        val lib = GameRuntimeLibrary(goalManager = goals)
+        assertEquals("true", outputLib(lib, """print(to_string(is_goal(to_item(42))));""").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenBanishedBy_live() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val preferences = net.sourceforge.kolmafia.preferences.Preferences(prefs)
+        val banish = net.sourceforge.kolmafia.banish.BanishManager(preferences)
+        banish.banishMonster("spooky vampire", net.sourceforge.kolmafia.banish.Banisher.BANISHING_SHOUT, 1)
+        banish.banishMonster("spooky vampire", net.sourceforge.kolmafia.banish.Banisher.ORDER_A_KNEECAPPING, 1)
+        val lib = GameRuntimeLibrary(preferences = preferences, banishManager = banish)
+        assertEquals(
+            "2",
+            outputLib(lib, """print(count(banished_by("spooky vampire")));""").trim(),
+        )
     }
 
     private fun registerCorpusWeapon(id: Int, name: String) {

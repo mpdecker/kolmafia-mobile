@@ -23,10 +23,10 @@ class GameRuntimeLibraryAshP1004TrackTTest {
     }
 
     @Test
-    fun phase1004_gametimeToInt_positive() {
+    fun phase1004_gametimeToInt_withinKoLDay() {
         val lib = GameRuntimeLibrary(preferences = prefs())
         val result = outputLib(lib, "print(gametime_to_int());").toLong()
-        assertTrue(result > 0, "gametime_to_int should return positive millis")
+        assertTrue(result in 0..86_400_000, "gametime_to_int should be millis since KoL midnight")
     }
 
     @Test
@@ -72,7 +72,7 @@ class GameRuntimeLibraryAshP1004TrackTTest {
 
     @Test
     fun phase1010_revision() {
-        assertEquals("phase4450", GameRuntimeLibrary.REVISION)
+        assertEquals("phase4460", GameRuntimeLibrary.REVISION)
     }
 
     @Test

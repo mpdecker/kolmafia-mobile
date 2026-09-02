@@ -43,8 +43,9 @@ internal fun GameRuntimeLibrary.registerAshP27Batch(scope: AshScope) {
     }
 
     val phylumModifierParams = listOf("phylum" to AshType.PHYLUM, "modifier" to AshType.STRING)
-    regFn(scope, "numeric_modifier", AshType.FLOAT, phylumModifierParams) { _, _ ->
-        AshValue.of(0.0)
+    regFn(scope, "numeric_modifier", AshType.FLOAT, phylumModifierParams) { _, args ->
+        val entry = net.sourceforge.kolmafia.data.ModifierDatabase.get("Phylum", args[0].toString())
+        AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "boolean_modifier", AshType.BOOLEAN, phylumModifierParams) { _, _ ->
         AshValue.FALSE

@@ -181,8 +181,13 @@ internal fun GameRuntimeLibrary.registerAshP981TrackPBatch(scope: AshScope) {
     // ── Phase 984: is_goal ─────────────────────────────────────────
     regFn(scope, "is_goal", AshType.BOOLEAN,
         listOf("it" to AshType.ITEM)) { _, args ->
+        val manager = goalManager
+        if (manager == null) return@regFn AshValue.FALSE
+        val itemId = resolveAshItemId(args[0])
+        if (itemId != null && manager.hasItemGoal(itemId)) {
+            return@regFn AshValue.TRUE
+        }
         val name = args[0].toString()
-        val goals = preferences?.getString("adventureGoals", "")?.takeIf { it.isNotBlank() }
-        AshValue.of(goals != null && goals.contains(name, ignoreCase = true))
+        AshValue.of(manager.hasItemGoalByName(name))
     }
 }

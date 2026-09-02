@@ -1,17 +1,17 @@
 ﻿# KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-09-01 parity audit at `phase4450`)*
+*Generated: 2026-06-03 (updated 2026-09-01 parity audit at `phase4460`)*
 
 ## Scale Comparison
 
 
 | Metric                   | Desktop (Java)              | Mobile (Kotlin)              | Coverage                |
 | ------------------------ | --------------------------- | ---------------------------- | ----------------------- |
-| Source files             | 1,179 classes               | 1,536 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
+| Source files             | 1,179 classes               | 1,540 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
 | Lines of code            | 330,945                     | 158,210 (commonMain)         | **~48%**                |
 | Test files               | 411                         | 1,305                        | Mobile wins on isolation |
-| Tests                    | ~1,800+                     | 8,493 (`@Test`)              | Mobile wins on volume   |
-| ASH overload signatures  | ~890                        | 1,034 `regFn` sites          | **≥100%** (registration) |
+| Tests                    | ~1,800+                     | 8,512 (`@Test`)              | Mobile wins on volume   |
+| ASH overload signatures  | ~890                        | 1,035 `regFn` sites          | **≥100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~450–500 live                | **~55–60%** (behavioral) |
 | `*Manager` files         | 95                          | 97                           | **over-parity** by name |
 | `*Request` files         | 321                         | 165                          | **~51%** — named residual holes closed (3951–4010) |
@@ -550,13 +550,13 @@ mobile wins on core automation paths and test isolation.
 
 ## Top Priorities
 
-*Updated 2026-09-01 at `phase4450`. Phases 4441–4450 closed ASH behavioral deepen V (`current_maximizer_score()` no-arg, `goal_count("item"|"items")`) and HTTP Request residual (`SeaMerkinRequest`, `VolcanoIslandRequest`, `TrophyHutRequest`).*
+*Updated 2026-09-01 at `phase4460`. Phases 4451–4460 closed ASH behavioral deepen VI (`is_goal`, `goal_exists` aliases, date/time ASH, `receive_fax`, `numeric_modifier` STAT/SERVANT/PHYLUM/familiar 4-arg, `to_item(id)`/`resolveAshItemId` id parity).*
 
 Manager **name coverage is complete**. The honest remaining gaps are **ASH behavioral implementations**, **HTTP Request breadth** (~49% class count), and scattered **quest deepen** items — not another manager sweep.
 
 ### Active queue (ordered by script / automation impact)
 
-1. **ASH behavioral depth** — 1,034 `regFn` registrations vs ~450–500 live implementations; `AshCompatibilityCorpusTest` is the regression floor. **Highest remaining script failure surface.**
+1. **ASH behavioral depth** — 1,035 `regFn` registrations vs ~460–510 live implementations; `AshCompatibilityCorpusTest` is the regression floor. **Highest remaining script failure surface.**
 2. **HTTP Request class residual** — 168/321 `*Request` classes (~52%); `SeaMerkinRequest`/`VolcanoIslandRequest`/`TrophyHutRequest` typed hubs live; remaining gaps are Sync/CLI stand-ins and consolidated coinmaster routing.
 3. **Quest per-quest state machines** — hub + `*Sync` live; per-quest in-code step writers and special-case detection (Telegram, Party Fair, Doctor Bag, PirateRealm) thinner than desktop.
 4. **Dynamic ChoiceAdventures spoilers** — static catalog live (3771–3830); Violet Fog/Louvre/etc. runtime spoilers remain on existing managers.
@@ -578,15 +578,19 @@ Manager **name coverage is complete**. The honest remaining gaps are **ASH behav
 
 ### Closed (do not re-queue)
 
-~~Ed servant HTML table~~ **live** *(4011–4070)*; ~~GoalManager condition variants~~ **live** *(4011–4070 + 4191–4250)*; ~~Mall item-detail / NPC overlay~~ **live** *(4011–4130 + 4221–4235)*; ~~Ascension history header / snapshot~~ **live** *(4011–4130 + 4251–4310)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170 + 4236–4250)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator + relayActive hook** *(4171–4180 + 4221–4235)*; ~~Chatterboxing choice 191 banish~~ **live** *(4206–4220)*; ~~is_dark_mode always false~~ **pref-backed** *(4236–4250)*; ~~Desktop r29219 combined modifiers~~ **live** *(4311–4370)*; ~~Behavioral Deepen III~~ **live** *(4371–4430)*; ~~Banish fight-HTML alternates~~ **live** *(4431–4440)*; ~~ASH behavioral deepen IV~~ **live** *(4431–4440)*; ~~ASH behavioral deepen V~~ **live** *(4441–4450)*; ~~Volcano island / trophy hut / sea merkin typed requests~~ **live** *(4441–4450)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live** *(1071–1130 + 4431–4440)*; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4430~~ **live**.
+~~Ed servant HTML table~~ **live** *(4011–4070)*; ~~GoalManager condition variants~~ **live** *(4011–4070 + 4191–4250)*; ~~Mall item-detail / NPC overlay~~ **live** *(4011–4130 + 4221–4235)*; ~~Ascension history header / snapshot~~ **live** *(4011–4130 + 4251–4310)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170 + 4236–4250)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator + relayActive hook** *(4171–4180 + 4221–4235)*; ~~Chatterboxing choice 191 banish~~ **live** *(4206–4220)*; ~~is_dark_mode always false~~ **pref-backed** *(4236–4250)*; ~~Desktop r29219 combined modifiers~~ **live** *(4311–4370)*; ~~Behavioral Deepen III~~ **live** *(4371–4430)*; ~~Banish fight-HTML alternates~~ **live** *(4431–4440)*; ~~ASH behavioral deepen IV~~ **live** *(4431–4440)*; ~~ASH behavioral deepen V~~ **live** *(4441–4450)*; ~~Volcano island / trophy hut / sea merkin typed requests~~ **live** *(4441–4450)*; ~~ASH behavioral deepen VI~~ **live** *(4451–4460)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live** *(1071–1130 + 4431–4440)*; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4430~~ **live**.
 
-*Next pass:* **ASH behavioral deepen VI** (corpus-driven stub replacement) or **quest per-quest state machine** deepen — pick based on script failure reports. RelayServer/JavaScript/full TCRS derive remain non-goals.
+*Next pass:* **ASH behavioral deepen VII** (corpus-driven stub replacement) or **quest per-quest state machine** deepen — pick based on script failure reports. RelayServer/JavaScript/full TCRS derive remain non-goals.
 
 ---
 
 ## Phase History (2026)
 
 ```
+Audit 2026-09-01 → Full recount at phase4460: 1,540 commonMain files / 158,410 LOC / 1,310 test files / 8,512 @Test / 1,035 ASH regFn / 97 managers / 168 requests / 147 ChoiceSync / ~459 cliDispatch regex. Desktop baseline: 1,179 Java files / 330,945 LOC / 321 requests / 95 managers. Closed ASH behavioral deepen VI (goal is_goal/goal_exists aliases, date/time ASH, receive_fax, numeric_modifier STAT/SERVANT/PHYLUM/familiar 4-arg); reprioritized Top Priorities. Non-goals unchanged: Relay, JS, TCRS derive sweep, monster modifier rows, ManaBurn unused-skill sweep.
+
+Phases 4451–4460 → Behavioral Deepen VI mega Tracks A–B (`is_goal` live via `GoalManager` + `resolveAshItemId`/`to_item(id)` id parity; `goal_exists` desktop alias parity via `GoalManager.matchesConditionType` + outfit/item split flag; `goal_count` floundry/leprecondo aliases + text factoid; `gametime_to_int`/`format_date_time`/date helpers via platform `expect`/`actual`; `receive_fax` via `FaxBotManager.receiveFaxOnly`; `numeric_modifier` STAT/SERVANT/PHYLUM via `ModifierDatabase` + familiar 4-arg overload; `banished_by` corpus; runtime revision `phase4460`; 8,512 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)
+
 Audit 2026-09-01 → Full recount at phase4450: 1,539 commonMain files / 158,310 LOC / 1,309 test files / 8,510 @Test / 1,034 ASH regFn / 97 managers / 168 requests / 147 ChoiceSync / ~459 cliDispatch regex. Desktop baseline: 1,179 Java files / 330,945 LOC / 321 requests / 95 managers. Closed ASH behavioral deepen V + HTTP request residual (SeaMerkin/VolcanoIsland/TrophyHut typed hubs); reprioritized Top Priorities. Non-goals unchanged: Relay, JS, TCRS derive sweep, monster modifier rows, ManaBurn unused-skill sweep.
 
 Phases 4441–4450 → Behavioral Deepen V + HTTP Request residual mega Tracks A–B (`current_maximizer_score()` no-arg via `maximizerList`/`lastMaximizeGoal`; `goal_count("item"|"items")` inventory-aware remaining sums; `SeaMerkinRequest`/`VolcanoIslandRequest`/`TrophyHutRequest` typed parse/register + visit hooks + `volcano slime` CLI; runtime revision `phase4450`; 8,510 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)

@@ -36,4 +36,13 @@ class GameRuntimeLibraryAshP981TrackPTest {
         val lib = GameRuntimeLibrary(preferences = prefs())
         assertEquals("false", outputLib(lib, """print(is_goal(to_item("none")));"""))
     }
+
+    @Test
+    fun phase984_isGoal_liveGoalManager() {
+        val goals = net.sourceforge.kolmafia.session.GoalManager().also {
+            it.addItemGoalByName("smirking sneak", 1)
+        }
+        val lib = GameRuntimeLibrary(goalManager = goals)
+        assertEquals("true", outputLib(lib, """print(is_goal(to_item("smirking sneak")));"""))
+    }
 }

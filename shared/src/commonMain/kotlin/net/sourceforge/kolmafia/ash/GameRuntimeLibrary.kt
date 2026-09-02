@@ -556,7 +556,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase4450"
+        const val REVISION = "phase4460"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -6353,6 +6353,7 @@ class GameRuntimeLibrary(
         registerAshP997TrackSBatch(scope)
         registerAshP1004TrackTBatch(scope)
         registerPhase3710(scope)
+        registerPhase4460(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
@@ -6746,8 +6747,10 @@ class GameRuntimeLibrary(
         }
         register(scope, "to_item", AshType.ITEM, listOf("id" to AshType.INT)) { _, args ->
             val id = args[0].toLong().toInt()
-            val name = inventoryManager?.state?.value?.items?.values
-                ?.find { it.itemId == id }?.name ?: id.toString()
+            val name = net.sourceforge.kolmafia.data.ItemDatabase.getById(id)?.name
+                ?: inventoryManager?.state?.value?.items?.values
+                    ?.find { it.itemId == id }?.name
+                ?: id.toString()
             AshValue.item(name)
         }
         register(scope, "have_item", AshType.BOOLEAN, listOf("it" to AshType.ITEM)) { _, args ->
