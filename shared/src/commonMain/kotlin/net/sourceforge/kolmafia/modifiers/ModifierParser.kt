@@ -8,7 +8,22 @@ object ModifierParser {
      */
     fun parse(modifierString: String, context: ExpressionContext): ModifierValues {
         if (modifierString.isBlank() || modifierString == "none") return ModifierValues.EMPTY
-        return doParse(modifierString, context)
+        return doParse(modifierString, context, bitmapMask = { _, _ -> 1 })
+    }
+
+    /**
+     * Parse with desktop-style unique bitmap masks per entity lookup
+     * ([ModifierDatabase.getBitmapMask]).
+     */
+    fun parse(
+        modifierString: String,
+        context: ExpressionContext,
+        bitmapLookup: String,
+    ): ModifierValues {
+        if (modifierString.isBlank() || modifierString == "none") return ModifierValues.EMPTY
+        return doParse(modifierString, context) { mod, bitcount ->
+            net.sourceforge.kolmafia.data.ModifierDatabase.getBitmapMask(mod, bitmapLookup, bitcount)
+        }
     }
 
     /**
@@ -20,7 +35,11 @@ object ModifierParser {
 
     // ── Implementation ────────────────────────────────────────────────────────
 
-    private fun doParse(s: String, ctx: ExpressionContext): ModifierValues {
+    private fun doParse(
+        s: String,
+        ctx: ExpressionContext,
+        bitmapMask: (BitmapModifier, Int) -> Int,
+    ): ModifierValues {
         val doubles  = mutableMapOf<DoubleModifier, Double>()
         val booleans = mutableMapOf<BooleanModifier, Boolean>()
         val strings  = mutableMapOf<StringModifier, MutableList<String>>()
@@ -33,7 +52,7 @@ object ModifierParser {
             val colonIdx = findColonOutsideQuotes(t)
             if (colonIdx < 0) {
                 BitmapModifier.byTag(t)?.let { mod ->
-                    bitmaps[mod] = (bitmaps[mod] ?: 0) or 1
+                    bitmaps[mod] = (bitmaps[mod] ?: 0) or bitmapMask(mod, 1)
                     continue
                 }
                 BooleanModifier.byTag(t)?.let { booleans[it] = true }

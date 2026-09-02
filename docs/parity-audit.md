@@ -1,6 +1,6 @@
 # KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-09-01 after Phases 4311–4370 at `phase4370`)*
+*Generated: 2026-06-03 (updated 2026-09-01 after Phases 4371–4430 at `phase4430`)*
 
 ## Scale Comparison
 
@@ -10,12 +10,12 @@
 | Source files             | 1,172 classes               | 1,535 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
 | Lines of code            | 327,838                     | 171,295 (commonMain)         | **~52%**                |
 | Test files               | 411                         | 1,278                        | Mobile wins on isolation |
-| Tests                    | ~1,800+                     | 8,463 (`@Test`)              | Mobile wins on volume   |
+| Tests                    | ~1,800+                     | 8,483 (`@Test`)              | Mobile wins on volume   |
 | ASH overload signatures  | ~890                        | 1,034 `regFn` sites          | **≥100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~450–500 live                | **~55–60%** (behavioral) |
 | `*Manager` files         | 94                          | 97                           | **over-parity** by name |
 | `*Request` files         | 319                         | 165                          | **~52%** — named residual holes closed (3951–4010) |
-| Banisher enum entries    | 70 (69 named + UNKNOWN)     | 70 (69 named + UNKNOWN)      | **100%**                |
+| Banisher enum entries    | 70 (69 named + UNKNOWN)     | 71 (70 named + UNKNOWN)      | **≥100%** (named parity) |
 | BreakfastManager actions | 22 (20 universal + 2 niche) | 22                           | **100%**                |
 | Build target             | JVM 21                      | Android + iOS                | —                       |
 
@@ -284,13 +284,13 @@ Desktop `session/BreakfastManager.java` automates **22 distinct actions** (calle
 | `useSpinningWheel`          | ✅ *(Phase 13)*  | `campground.php?action=spinningwheel`                                   |
 | `visitBigIsland`            | ✅ *(Phase 13)*  |                                                                         |
 | `visitVolcanoIsland`        | ✅ *(Phase 13)*  |                                                                         |
-| `checkJackass`              | ❌               | Requires `ArcadeRequest.checkJackassPlumber()` — Arcade-specific; niche |
+| `checkJackass`              | ✅ *(4371–4425)* | `ArcadeRequest.jackassPlumberUrl` + limit-mode Town gate                |
 | `makePocketWishes`          | ✅ *(Phase 13)*  | Genie bottle + replica bottle; choice handling                          |
 | `haveBoxingDaydream`        | ✅ *(Phase 13)*  |                                                                         |
 | `useToys`                   | ✅ *(Phase 13)*  | 34 toys; per-toy sentinel (`_toyUsed_$toyId`)                           |
 | `collectAnticheese`         | ✅ *(Phase 13)*  | 5-day cooldown guard (`lastAnticheeseDay + 5`)                          |
 | `visitServerRoom`           | ✅ *(Phase 13)*  |                                                                         |
-| `collectSeaJelly`           | ❌               | Requires Space Jellyfish familiar + Sea quest started; niche            |
+| `collectSeaJelly`           | ✅ *(4371–4425)* | Space Jellyfish + Sea quest + thesea_left2 place + choice 1219 pref       |
 | `harvestBatteries`          | ✅ *(Phase 13)*  |                                                                         |
 | `useBookOfEverySkill`       | ✅ *(Phase 13)*  |                                                                         |
 | `useReplicaBooks`           | ✅ *(Phase 13)*  | Snowcone tome, Resolution libram, Smith's tome                          |
@@ -298,7 +298,7 @@ Desktop `session/BreakfastManager.java` automates **22 distinct actions** (calle
 | *(Guild manual)*            | ✅ *(PR #11/12)* | `readGuildManual` + `useGuildManual`                                    |
 
 
-The two missing actions (`checkJackass`, `collectSeaJelly`) require niche game state (Jackass Plumber arcade token, Space Jellyfish familiar + Sea quest) that very few players encounter in typical automation.
+All 22 desktop breakfast actions are live.
 
 ### Goal Manager + Adventure Loop Stop (Phase 6 — Merged 2026-06-06)
 
@@ -322,11 +322,11 @@ partial-update methods.
 
 ### Banish Tracking (PR #8 + PR #10 + PR #13)
 
-**Status: ENUM PARITY ACHIEVED (70/70 entries). 37 detection patterns. Zone pre-flight wired.**
+**Status: ENUM PARITY ACHIEVED (71/71 entries incl. `ORDER_A_KNEECAPPING`). Expanded fight-HTML patterns. Zone pre-flight wired.**
 
 `banish/` package (3 files):
 
-- `Banisher.kt` — **70 entries** (69 named + UNKNOWN); exact canonical name parity with desktop; `ResetType` enum (ROLLOVER/TURNS/TURN_ROLLOVER/AVATAR/NEVER)
+- `Banisher.kt` — **71 entries** (70 named + UNKNOWN); includes `ORDER_A_KNEECAPPING` *(4371–4390)*; `ResetType` enum (ROLLOVER/TURNS/TURN_ROLLOVER/AVATAR/NEVER)
 - `BanishState.kt` — `BanishedMonster` data with `isExpired()` logic
 - `BanishManager.kt` — StateFlow-backed; all CRUD + persistence + `clearExpiredAndRollover()`
 
@@ -488,7 +488,7 @@ maximizer modifier snippets — use failures to rank remaining behavioral backlo
 
 Mobile has a 10-file `modifiers/` package covering the full passive prediction algorithm.
 
-**Remaining gaps:** Conditional outfit half-set bonuses still use full-set logic only when all pieces equipped (slot-aware multiset now applied). `mod()`/`fam()`/`mainhand()`/`res()` in modifier expressions now live *(Phase 29)*; item-ID modifier lookup added.
+**Remaining gaps:** ~~Conditional outfit half-set bonuses~~ **live** *(4371–4390 `OutfitBitmapBonuses` + per-item bitmap masks + `ModifierValues.bitmapCount`)*. `mod()`/`fam()`/`mainhand()`/`res()` in modifier expressions now live *(Phase 29)*; item-ID modifier lookup added.
 
 ---
 
@@ -510,7 +510,7 @@ mobile wins on core automation paths and test isolation.
 | Relay / browser proxy | 20 Java + 15 relay assets | None (intentional) | **100%** (non-goal) |
 | JavaScript runtime | Rhino bridge (15 files) | None (ASH-only) | **100%** (non-goal) |
 | Swing GUI | 153 files | Compose (~12 tabs) | Replaced, not 1:1 |
-| Banisher enum | 70 entries | 70 entries | **0%** |
+| Banisher enum | 70 entries | 71 entries | **0%** (named parity) |
 | Breakfast actions | 22 actions | 22 actions | **0%** |
 | Data files loaded | 51 core + TCRS | 50 core wired / 53 bundled (incl. junk/memento/singleton) | Core wired; TCRS GitHub fetch live; full derive sweep non-goal |
 
@@ -526,13 +526,13 @@ mobile wins on core automation paths and test isolation.
 | UI                        | Swing (aging)                                   | Compose Multiplatform                                                        | Mobile is modern                                 |
 | Concurrency               | Manual threading                                | Coroutines                                                                   | Mobile is cleaner                                |
 | Data                      | 51 `.txt` files + TCRS variants               | 53 bundled; 50 core loaded at runtime                                    | Core wired; TCRS GitHub fetch live; full derive sweep non-goal |
-| Testing                   | 411 test classes, many integration            | 1,278 unit test files, 8,352 tests                                       | Mobile wins on volume and isolation        |
+| Testing                   | 411 test classes, many integration            | 1,278 unit test files, 8,483 tests                                       | Mobile wins on volume and isolation        |
 | Scripting                 | Full ASH + CLI (890 functions) + JS           | ASH 1,032 `regFn` (~450–500 live); ~273 help verbs; no JS             | Registration over-parity; behavior leftovers remain; JS non-goal |
 | Events                    | Ad-hoc listeners                              | GameEventBus pub/sub + `EventHistory`                                    | Mobile is cleaner                          |
 | Choice automation         | ~1,000 handler cases + ChoiceAdventures catalog | 146 ChoiceSync files; 6 solvers; **static spoiler catalog live (3771–3830)** | State sync + catalog live; dynamic spoilers remain |
 | Recovery/mood             | 9 classes, full persistence + mood library    | 6 files, named library + inheritance + malignant clearing + AT song eviction | Near parity — multi-skill libram ManaBurn wired |
 | ManaBurn                  | Full — any buff, summons, per-skill priority  | Near parity — active-effect scan + balanced multi-cast + getEffectDuration v3 + EffectGainGate + multi-skill libram CLI + last-chance CLI | **Explicit non-goal:** unused-skill sweep (desktop TODO) |
-| Banish tracking           | 70 banishers, queue model, phylum, full routing | **70 banishers**, queueSize FIFO, phylum, zone pre-flight, daycount-gated | Enum + queue/phylum live; ~20 fight-HTML patterns remain |
+| Banish tracking           | 70 banishers, queue model, phylum, full routing | **71 banishers**, queueSize FIFO, phylum, zone pre-flight, expanded fight-HTML patterns *(4371–4390)* | Enum + queue/phylum live; ~19 fight-HTML patterns remain |
 | Breakfast / daily actions | ~22 actions, outfit checkpointing             | **22/22 actions + outfit checkpoint (Phase 18 + 29)**                    | **Parity**                                 |
 | Mall / economy ASH        | Full buy/retrieve/outfit                      | **buy/retrieve_item/mall_price + outfit ASH/CLI (Phase 16–18 + 2931–2990)** | Core economy + mall residual live          |
 
@@ -541,7 +541,7 @@ mobile wins on core automation paths and test isolation.
 
 ## Top Priorities
 
-*Updated 2026-09-01 at `phase4370`. Desktop r29219 combined-modifiers mega delivered `DoubleModifier` combined tags (`Maximum HP / MP`, `All Attributes`, `All Attributes Percent`), desktop `modifiers.txt`/`statuseffects.txt` sync, `numeric_modifier` item fallback via `ModifierDatabase`, `last_maximizer_succeeded` ASH, `$monster[blue_vs_red_team]`, Eternity Codpiece-first noncombat skill equip, and TCRS notes/bitmap bit reuse; RelayServer/JavaScript/full TCRS derive remain explicit non-goals.*
+*Updated 2026-09-01 at `phase4430`. Behavioral Deepen III (4371–4430) delivered FightBanish residual (`ORDER_A_KNEECAPPING` + fight HTML patterns), `OutfitBitmapBonuses` half-set scaling + bitmap masks, Breakfast `checkJackass`/`collectSeaJelly` desktop flows, and `AshCompatibilityCorpusTest` banish/maximizer/outfit-bitmap snippets. Prior combined-modifiers mega (4311–4370) delivered `DoubleModifier` combined tags, `last_maximizer_succeeded` ASH, `$monster[blue_vs_red_team]`, Eternity Codpiece-first equip, and TCRS notes/bitmap reuse. RelayServer/JavaScript/full TCRS derive remain explicit non-goals.*
 
 Manager **name coverage is nearly complete**. Remaining user impact is mostly explicit non-goals and partial headless substitutes.
 
@@ -556,15 +556,17 @@ Manager **name coverage is nearly complete**. Remaining user impact is mostly ex
 
 ### Closed (do not re-queue)
 
-~~Ed servant HTML table~~ **live** *(4011–4025)*; ~~GoalManager condition variants~~ **live** *(4011–4070 + 4191–4205 pseudo/substat/outfit)*; ~~Mall item-detail parse~~ **live** *(4011–4070)*; ~~Ascension history player header~~ **live** *(4011–4070)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~Mall NPC/coinmaster overlay~~ **live** *(4086–4100 + 4221–4235 fuzzy/finalize/relay hook)*; ~~Ascension snapshot compare~~ **live** *(4101–4115 + 4236–4250 filter/point deltas)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170 + 4236–4250 child-path/entity corpus)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator + relayActive hook** *(4171–4180 + 4221–4235)*; ~~Chatterboxing choice 191 banish~~ **live** *(4206–4220)*; ~~BANISHER non-fight gap (choice 191)~~ **closed**; ~~is_dark_mode always false~~ **pref-backed** *(4236–4250)*; ~~Desktop r29219 combined modifiers~~ **live** *(4311–4370)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live (1071–1130)**; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4130~~ **live**.
+~~Ed servant HTML table~~ **live** *(4011–4025)*; ~~GoalManager condition variants~~ **live** *(4011–4070 + 4191–4205 pseudo/substat/outfit)*; ~~Mall item-detail parse~~ **live** *(4011–4070)*; ~~Ascension history player header~~ **live** *(4011–4070)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~Mall NPC/coinmaster overlay~~ **live** *(4086–4100 + 4221–4235 fuzzy/finalize/relay hook)*; ~~Ascension snapshot compare~~ **live** *(4101–4115 + 4236–4250 filter/point deltas)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170 + 4236–4250 child-path/entity corpus)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator + relayActive hook** *(4171–4180 + 4221–4235)*; ~~Chatterboxing choice 191 banish~~ **live** *(4206–4220)*; ~~BANISHER non-fight gap (choice 191)~~ **closed**; ~~is_dark_mode always false~~ **pref-backed** *(4236–4250)*; ~~Desktop r29219 combined modifiers~~ **live** *(4311–4370)*; ~~Behavioral Deepen III~~ **live** *(4371–4430)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live (1071–1130)**; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4130~~ **live**.
 
-*Next mega:* none queued — continue only if new desktop gaps are identified or Relay/JS/full TCRS derive are explicitly reopened.
+*Next pass:* No new mega queued. Remaining behavioral surface is low-frequency banish fight-HTML patterns (~19) and explicit non-goals below.
 
 ---
 
 ## Phase History (2026)
 
 ```
+Phases 4371–4430 → Behavioral Deepen III mega Tracks A–D (`ORDER_A_KNEECAPPING` + `AdventureParser`/`FightBanishSync` fight-HTML patterns; `OutfitBitmapBonuses` Brimstone/Cloathing/McHugeLarge half-set scaling + per-item bitmap masks + `ModifierValues.bitmapCount`; Breakfast `checkJackass` limit-mode Town gate + `collectSeaJelly` thesea_left2/choice 1219/`_seaJellyHarvested`; `AshCompatibilityCorpusTest` banish/maximizer/outfit-bitmap corpus; runtime revision `phase4430`; 8,483 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)
+
 Phases 4311–4370 → Desktop r29219 combined-modifiers mega Tracks A–H (`DoubleModifier` combined tags + subsumed eval; desktop `modifiers.txt`/`statuseffects.txt` sync; `numeric_modifier` item `ModifierDatabase` fallback; `last_maximizer_succeeded` ASH; `$monster[blue_vs_red_team]` + desktop `monsters.txt`; Eternity Codpiece-first `UseSkillOptimize`/`SkillCastRequest`; TCRS `buildConsumableNotes` + bitmap bit reuse; runtime revision `phase4370`; 8,463 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)
 
 Phases 4251–4310 → Behavioral residual deepen mega II Tracks A–D (`goal_count` ASH + goal_exists autostop split; FightBanishSync fallback pattern expansion; AscensionSnapshotCache extended summary + `ascensionhistory summary`; MallSearchRelayHook own-store highlight + MallSearchRequest fuzzy retry; runtime revision `phase4310`; 8,409 tests; RelayServer/JavaScript/full TCRS derive sweep remain non-goals)

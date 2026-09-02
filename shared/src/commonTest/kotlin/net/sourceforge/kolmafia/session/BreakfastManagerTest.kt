@@ -15,6 +15,12 @@ import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
 import net.sourceforge.kolmafia.request.HermitRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.adventure.choice.ItemPool as ChoiceItemPool
+import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.familiar.FamiliarData
+import net.sourceforge.kolmafia.familiar.FamiliarManager
+import net.sourceforge.kolmafia.quest.Quest
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -702,5 +708,123 @@ class BreakfastManagerTest {
         assertFalse(p.getBoolean(Preferences.SERVER_ROOM_VISITED, false))
         assertFalse(p.getBoolean("_toyUsed_3092", false))
         assertFalse(p.getBoolean("_toyUsed_9123", false))
+    }
+
+    @Test fun checkJackass_visitsArcadePlumberWhenEnabled() = runBlocking {
+        val urls = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            urls.add(request.url.toString())
+            respond("ok")
+        })
+        val p = prefs {
+            putBoolean(Preferences.CHECK_JACKASS_SOFTCORE, true)
+            putInt("lastArcadeAscension", 0)
+        }
+        BreakfastManager(
+            campgroundRequest = object : CampgroundRequest(client) {
+                override suspend fun harvestGarden() = Result.success(Unit)
+                override suspend fun useSpinningWheel() = Result.success("ok")
+            },
+            clanRumpusRequest = object : ClanRumpusRequest(client) {
+                override suspend fun visit() = Result.success(Unit)
+            },
+            clanLoungeRequest = object : ClanLoungeRequest(client) {
+                override suspend fun useKlaw() = Result.success("ok")
+            },
+            preferences = p,
+            useItemRequest = UseItemRequest(client),
+            hermitRequest = HermitRequest(client),
+            httpClient = client,
+        ).runBreakfast(
+            CharacterState(ascensionNumber = 0),
+            inventoryWithItems(ChoiceItemPool.GG_TOKEN),
+        )
+        assertTrue(urls.any { it.contains("arcade_plumber") })
+    }
+
+    @Test fun checkJackass_skipsWhenTownLimited() = runBlocking {
+        val urls = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            urls.add(request.url.toString())
+            respond("ok")
+        })
+        val p = prefs { putBoolean(Preferences.CHECK_JACKASS_SOFTCORE, true) }
+        BreakfastManager(
+            campgroundRequest = object : CampgroundRequest(client) {
+                override suspend fun harvestGarden() = Result.success(Unit)
+                override suspend fun useSpinningWheel() = Result.success("ok")
+            },
+            clanRumpusRequest = object : ClanRumpusRequest(client) {
+                override suspend fun visit() = Result.success(Unit)
+            },
+            clanLoungeRequest = object : ClanLoungeRequest(client) {
+                override suspend fun useKlaw() = Result.success("ok")
+            },
+            preferences = p,
+            useItemRequest = UseItemRequest(client),
+            hermitRequest = HermitRequest(client),
+            httpClient = client,
+        ).runBreakfast(
+            CharacterState(limitMode = "ed"),
+            inventoryWithItems(ChoiceItemPool.GG_TOKEN),
+        )
+        assertFalse(urls.any { it.contains("arcade_plumber") })
+    }
+
+    @Test fun collectSeaJelly_visitsSeaPlaceAndSetsChoicePref() = runBlocking {
+        val urls = mutableListOf<String>()
+        val familiarCalls = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            urls.add(request.url.toString())
+            respond("ok")
+        })
+        val p = prefs {
+            putBoolean(Preferences.COLLECT_SEA_JELLY_SOFTCORE, true)
+            putString(Quest.SEA_OLD_GUY.prefKey, QuestDatabase.STARTED)
+        }
+        val familiar = object : FamiliarManager(client, GameEventBus()) {
+            override suspend fun setFamiliar(name: String): Result<Unit> {
+                familiarCalls.add(name)
+                return Result.success(Unit)
+            }
+        }
+        familiar.testSetState(
+            net.sourceforge.kolmafia.familiar.FamiliarState(
+                ownedFamiliars = listOf(
+                    FamiliarData(
+                        id = BreakfastItemIds.SPACE_JELLYFISH_ID,
+                        name = "Space Jellyfish",
+                        race = "Space Jellyfish",
+                        weight = 1,
+                        experience = 0,
+                        kills = 0,
+                    ),
+                ),
+            ),
+        )
+        BreakfastManager(
+            campgroundRequest = object : CampgroundRequest(client) {
+                override suspend fun harvestGarden() = Result.success(Unit)
+                override suspend fun useSpinningWheel() = Result.success("ok")
+            },
+            clanRumpusRequest = object : ClanRumpusRequest(client) {
+                override suspend fun visit() = Result.success(Unit)
+            },
+            clanLoungeRequest = object : ClanLoungeRequest(client) {
+                override suspend fun useKlaw() = Result.success("ok")
+            },
+            preferences = p,
+            useItemRequest = UseItemRequest(client),
+            hermitRequest = HermitRequest(client),
+            httpClient = client,
+            familiarManager = familiar,
+            questDatabase = QuestDatabase(p),
+        ).runBreakfast(
+            CharacterState(familiarName = "Baby Sand Seal"),
+            InventoryState(),
+        )
+        assertEquals(1, p.getInt("choiceAdventure1219", 0))
+        assertTrue(urls.any { it.contains("thesea_left2") })
+        assertEquals(listOf("Space Jellyfish", "Baby Sand Seal"), familiarCalls)
     }
 }

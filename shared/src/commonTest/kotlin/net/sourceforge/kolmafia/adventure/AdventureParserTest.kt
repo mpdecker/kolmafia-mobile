@@ -351,4 +351,46 @@ class AdventureParserTest {
         assertTrue(result.banished)
         assertEquals(Banisher.TENNIS_BALL, result.banisher)
     }
+
+    @Test fun parseFightResult_orderAKneecapping_detected() {
+        val html = "You call in a favor from your mob and your foe flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.ORDER_A_KNEECAPPING, result.banisher)
+    }
+
+    @Test fun parseFightResult_patrioticScreech_earShattering_detected() {
+        val html = "Your familiar releases an ear shattering screech and the monster flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.PATRIOTIC_SCREECH, result.banisher)
+    }
+
+    @Test fun parseFightResult_heartstoneRay_detected() {
+        val html = "A ray blasts out of the stone and your foe flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.HEARTSTONE_BANISH, result.banisher)
+    }
+
+    @Test fun parseFightResult_standaloneCheese_turnsTail_detected() {
+        val html = "The monster turns tail and runs as you jiggle your staff."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.STAFF_OF_THE_STANDALONE_CHEESE, result.banisher)
+    }
+
+    @Test fun parseFightResult_scrapbook_boredom_detected() {
+        val html = "You keep showing photos of your familiars until they pass out from pure boredom."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES, result.banisher)
+    }
+
+    @Test fun parseFightResult_blartWideNozzle_detected() {
+        val html = "You turn the nozzle all the way and blast it out of sight as your foe flees in terror."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.BLART_SPRAY_WIDE, result.banisher)
+    }
 }

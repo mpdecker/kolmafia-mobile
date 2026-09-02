@@ -34,6 +34,18 @@ data class ModifierValues(
     // Bitmap modifier value (0 if not present)
     fun get(mod: BitmapModifier): Int = bitmaps[mod] ?: 0
 
+    /** Desktop [Modifiers.getBitmap] — popcount of assigned bitmap bits. */
+    fun bitmapCount(mod: BitmapModifier): Int {
+        var n = get(mod)
+        if (n == 0) return 0
+        n = (n ushr 1 and 0x55555555) + (n and 0x55555555)
+        n = (n ushr 2 and 0x33333333) + (n and 0x33333333)
+        n = (n ushr 4 and 0x0F0F0F0F) + (n and 0x0F0F0F0F)
+        n = (n ushr 8 and 0x00FF00FF) + (n and 0x00FF00FF)
+        n = (n ushr 16 and 0x0000FFFF) + (n and 0x0000FFFF)
+        return if (mod == BitmapModifier.CLOWNINESS) 25 * n else n
+    }
+
     val isEmpty: Boolean
         get() = doubles.isEmpty() && booleans.isEmpty() && strings.isEmpty() && bitmaps.isEmpty()
 

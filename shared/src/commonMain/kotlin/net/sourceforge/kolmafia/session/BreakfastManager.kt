@@ -273,7 +273,7 @@ open class BreakfastManager(
         preferences.setBoolean(Preferences.MR_STORE_CREDITS_COLLECTED, false)
         preferences.setBoolean(Preferences.SERVER_ROOM_VISITED, false)
         preferences.setBoolean(Preferences.JACKASS_PLUMBER_USED, false)
-        preferences.setBoolean(Preferences.SEA_JELLY_COLLECTED, false)
+        preferences.setBoolean(Preferences.SEA_JELLY_HARVESTED, false)
         // Clear per-toy sentinels
         for (toyId in BreakfastItemIds.TOYS.keys) {
             preferences.setBoolean("_toyUsed_$toyId", false)
@@ -747,6 +747,7 @@ open class BreakfastManager(
         inventoryState: InventoryState,
         charState: CharacterState,
     ) {
+        if (LimitModeGates.limitZone("Town", charState.limitMode)) return
         val prefKey = if (suffix == "Softcore") Preferences.CHECK_JACKASS_SOFTCORE
                       else Preferences.CHECK_JACKASS_HARDCORE
         if (!preferences.getBoolean(prefKey, true)) return
@@ -765,11 +766,12 @@ open class BreakfastManager(
     }
 
     private suspend fun collectSeaJelly(suffix: String, charState: CharacterState) {
+        if (LimitModeGates.limitZone("The Sea", charState.limitMode)) return
+        if (LimitModeGates.limitFamiliars(charState.limitMode)) return
         val prefKey = if (suffix == "Softcore") Preferences.COLLECT_SEA_JELLY_SOFTCORE
                       else Preferences.COLLECT_SEA_JELLY_HARDCORE
         if (!preferences.getBoolean(prefKey, true)) return
-        if (preferences.getBoolean(Preferences.SEA_JELLY_COLLECTED, false)) return
-        if (charState.adventuresLeft <= 0) return
+        if (preferences.getBoolean(Preferences.SEA_JELLY_HARVESTED, false)) return
         val db = questDatabase ?: return
         val seaStarted = db.progressFor(Quest.SEA_OLD_GUY.prefKey) != QuestDatabase.UNSTARTED
         if (!seaStarted) return
@@ -777,13 +779,12 @@ open class BreakfastManager(
         val hasJellyfish = familiar.state.value.ownedFamiliars
             .any { it.id == BreakfastItemIds.SPACE_JELLYFISH_ID }
         if (!hasJellyfish) return
-        familiar.setFamiliar("Space Jellyfish")
-        httpGet("adventure.php?snarfblat=143").onSuccess { html ->
-            if (html.contains("sea jelly", ignoreCase = true) ||
-                html.contains("You acquire an item: sea jelly", ignoreCase = true)
-            ) {
-                preferences.setBoolean(Preferences.SEA_JELLY_COLLECTED, true)
-            }
+        val previousFamiliar = charState.familiarName
+        if (familiar.setFamiliar("Space Jellyfish").isFailure) return
+        preferences.setInt("choiceAdventure1219", 1)
+        httpGet("place.php?whichplace=thesea&action=thesea_left2")
+        if (previousFamiliar.isNotBlank()) {
+            familiar.setFamiliar(previousFamiliar)
         }
     }
 }

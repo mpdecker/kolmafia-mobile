@@ -38,7 +38,7 @@ enum class BanishType {
 }
 
 /**
- * The 69 known banishers. Unknown banishers map to [UNKNOWN] which is treated
+ * The 70 known banishers. Unknown banishers map to [UNKNOWN] which is treated
  * as ROLLOVER so it's safely cleared on next login.
  *
  * Sourced from desktop `BanishManager.Banisher` enum (Phases 1071–1090).
@@ -88,6 +88,7 @@ enum class Banisher(
     MARK_YOUR_TERRITORY("Mark Your Territory", -1, ResetType.ROLLOVER, false),
     MONKEY_SLAP("Monkey Slap", -1, ResetType.ROLLOVER, false),
     NANORHINO("nanorhino", -1, ResetType.ROLLOVER, false),
+    ORDER_A_KNEECAPPING("Order a Kneecapping", -1, ResetType.ROLLOVER, false),
     PANTSGIVING("pantsgiving", 30, ResetType.TURN_ROLLOVER, false),
     PATRIOTIC_SCREECH("Patriotic Screech", 100, ResetType.TURNS, false, banishType = BanishType.PHYLUM),
     PEEL_OUT("peel out", -1, ResetType.AVATAR, true),

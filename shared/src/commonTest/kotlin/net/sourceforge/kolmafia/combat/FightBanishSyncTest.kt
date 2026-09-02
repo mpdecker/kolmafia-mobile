@@ -16,10 +16,19 @@ class FightBanishSyncTest {
     }
 
     @Test
-    fun resolvesBlartFallback() {
-        val html = "You spray B. L. A. R. T. everywhere and your foe flees."
+    fun resolvesKneecappingFallback() {
+        val html = "You call in a favor from your mob and they flee in terror."
         assertEquals(
-            Banisher.BLART_SPRAY_WIDE,
+            Banisher.ORDER_A_KNEECAPPING,
+            FightBanishSync.resolveBanisher(html, Banisher.UNKNOWN),
+        )
+    }
+
+    @Test
+    fun resolvesScrapbookBoredomFallback() {
+        val html = "They pass out from pure boredom and flee in terror."
+        assertEquals(
+            Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
             FightBanishSync.resolveBanisher(html, Banisher.UNKNOWN),
         )
     }

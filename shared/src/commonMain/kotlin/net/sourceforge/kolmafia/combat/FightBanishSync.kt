@@ -27,6 +27,12 @@ object FightBanishSync {
         Regex("""throw the bell away""", RegexOption.IGNORE_CASE) to Banisher.HAROLDS_BELL,
         Regex("""peppermint bomb""", RegexOption.IGNORE_CASE) to Banisher.PEPPERMINT_BOMB,
         Regex("""tie up the gingerbread""", RegexOption.IGNORE_CASE) to Banisher.LICORICE_ROPE,
+        Regex("""call in a favor from your mob""", RegexOption.IGNORE_CASE) to Banisher.ORDER_A_KNEECAPPING,
+        Regex("""ear shattering screech""", RegexOption.IGNORE_CASE) to Banisher.PATRIOTIC_SCREECH,
+        Regex("""ray blasts out of the stone""", RegexOption.IGNORE_CASE) to Banisher.HEARTSTONE_BANISH,
+        Regex("""turns tail and runs""", RegexOption.IGNORE_CASE) to Banisher.STAFF_OF_THE_STANDALONE_CHEESE,
+        Regex("""pass out from pure boredom""", RegexOption.IGNORE_CASE) to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        Regex("""nozzle all the way and blast it out of sight""", RegexOption.IGNORE_CASE) to Banisher.BLART_SPRAY_WIDE,
     )
 
     fun resolveBanisher(html: String, current: Banisher): Banisher {

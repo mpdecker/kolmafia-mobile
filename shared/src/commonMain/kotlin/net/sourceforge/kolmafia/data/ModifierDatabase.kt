@@ -386,6 +386,18 @@ object ModifierDatabase {
     }
 
     fun getItem(name: String): ModifierEntry?     = get("Item",    name)
+
+    fun parseModifiers(
+        entityType: String,
+        name: String,
+        modifierString: String,
+        context: net.sourceforge.kolmafia.modifiers.ExpressionContext,
+    ): net.sourceforge.kolmafia.modifiers.ModifierValues =
+        net.sourceforge.kolmafia.modifiers.ModifierParser.parse(
+            modifierString,
+            context,
+            "$entityType:$name",
+        )
     fun getEffect(name: String): ModifierEntry?   = get("Effect",  name)
     fun getSkill(name: String): ModifierEntry?    = get("Skill",   name)
     fun getSign(name: String): ModifierEntry?     = get("Sign",    name)

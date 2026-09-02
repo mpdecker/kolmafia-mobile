@@ -168,7 +168,7 @@ class BanisherExpansionTest {
     @Test fun iceHouse_isNever() =
         assertEquals(ResetType.NEVER, Banisher.ICE_HOUSE.resetType)
 
-    // Total count: 20 original + 49 new = 69 named + UNKNOWN = 70 entries
-    @Test fun totalBanisherCount_is70() =
-        assertEquals(70, Banisher.entries.size)
+    // Total count: 20 original + 50 new = 70 named + UNKNOWN = 71 entries
+    @Test fun totalBanisherCount_is71() =
+        assertEquals(71, Banisher.entries.size)
 }
