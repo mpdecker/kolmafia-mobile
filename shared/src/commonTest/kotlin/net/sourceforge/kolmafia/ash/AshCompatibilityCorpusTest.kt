@@ -49,6 +49,8 @@ import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.CharacterRequest
+import net.sourceforge.kolmafia.request.UseItemConsumptionSync
+import net.sourceforge.kolmafia.skill.UseSkillSync
 import net.sourceforge.kolmafia.request.ZapRequest
 import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.session.GoalPseudoConditions
@@ -4902,6 +4904,41 @@ class AshCompatibilityCorpusTest {
             "2",
             outputLib(lib, """print(count(banished_by("spooky vampire")));""").trim(),
         )
+    }
+
+    @Test
+    fun corpus_behavioralDeepenCanWalkAndLeetify_live() {
+        val lib = GameRuntimeLibrary()
+        assertEquals("true", outputLib(lib, """print(to_string(can_walk_from_choice()));""").trim())
+        assertEquals("1337", outputLib(lib, """print(leetify("leet"));""").trim())
+        assertEquals("Gift Card", outputLib(lib, """print(every_card_name("gift"));""").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenRadAndHelpers_live() {
+        val character = KoLCharacter()
+        character.updateFromApiResponse(CharacterApiResponse(radsickness = "3"))
+        UseItemConsumptionSync.setLastUpdateForTest("helper msg")
+        val lib = GameRuntimeLibrary(character = character)
+        assertEquals("3", outputLib(lib, """print(current_rad_sickness());""").trim())
+        assertEquals("helper msg", outputLib(lib, """print(last_item_message());""").trim())
+        outputLib(lib, "clear_food_helper(); clear_booze_helper();")
+    }
+
+    @Test
+    fun corpus_behavioralDeepenViii_live() {
+        UseSkillSync.lastUpdate = "cast fail"
+        val prefs = Preferences(MapSettings())
+        prefs.setString("_currentDartboard", "7503:head")
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("cast fail", outputLib(lib, """print(last_skill_message());""").trim())
+        assertEquals("4", outputLib(lib, """print(path_name_to_id("Bees Hate You"));""").trim())
+        assertEquals("1", outputLib(lib, """print(count(dart_parts_to_skills()));""").trim())
+        assertEquals(
+            "0",
+            outputLib(lib, """print(count(get_no_pulls()));""").trim(),
+        )
+        UseSkillSync.lastUpdate = ""
     }
 
     private fun registerCorpusWeapon(id: Int, name: String) {

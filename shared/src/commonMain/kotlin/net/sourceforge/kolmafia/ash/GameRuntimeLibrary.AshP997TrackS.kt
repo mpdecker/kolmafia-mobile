@@ -91,13 +91,19 @@ internal fun GameRuntimeLibrary.registerAshP997TrackSBatch(scope: AshScope) {
     }
 
     val stringToBoolean = AggregateType(AshType.STRING, AshType.BOOLEAN)
-    regFn(scope, "dart_parts_to_skills", stringToBoolean, emptyList()) { _, _ ->
-        val result = AggregateValue(stringToBoolean)
-        val parts = preferences?.getString("dartPerks", "")?.takeIf { it.isNotBlank() }
-        if (parts != null) {
-            for (part in parts.split("|").filter { it.isNotBlank() }) {
-                result[AshValue.of(part)] = AshValue.TRUE
-            }
+    // Phase 4487: correct dart_parts_to_skills — inverse of dart_skills_to_parts
+    // (string→skill from `_currentDartboard`). Legacy dartPerks boolean map removed.
+    val stringToSkill = AggregateType(AshType.STRING, AshType.SKILL)
+    regFn(scope, "dart_parts_to_skills", stringToSkill, emptyList()) { _, _ ->
+        val result = AggregateValue(stringToSkill)
+        val board = preferences?.getString("_currentDartboard", "").orEmpty()
+        for (dart in board.split(',').map { it.trim() }.filter { it.isNotEmpty() }) {
+            val colon = dart.indexOf(':')
+            if (colon <= 0) continue
+            val skillId = dart.substring(0, colon).toIntOrNull() ?: continue
+            val part = dart.substring(colon + 1)
+            val skillName = gameDatabase?.skill(skillId)?.name ?: skillId.toString()
+            result[AshValue.of(part)] = AshValue.skill(skillName)
         }
         result
     }

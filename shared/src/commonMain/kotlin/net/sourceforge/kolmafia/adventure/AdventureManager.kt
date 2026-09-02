@@ -59,7 +59,7 @@ import net.sourceforge.kolmafia.quest.WhiteCitadelSync
 import net.sourceforge.kolmafia.quest.HiddenCityCombatSync
 import net.sourceforge.kolmafia.quest.ShenSync
 import net.sourceforge.kolmafia.quest.HiddenCityChoiceSync
-import net.sourceforge.kolmafia.quest.PartyFairChoiceSync
+import net.sourceforge.kolmafia.quest.VisitChoiceQuestHooks
 import net.sourceforge.kolmafia.quest.LightsOutChoiceSync
 import net.sourceforge.kolmafia.quest.SnojoChoiceSync
 import net.sourceforge.kolmafia.quest.SpoopyChoiceSync
@@ -1098,11 +1098,15 @@ open class AdventureManager(
                 ascensionNumber = character.state.value.ascensionNumber,
                 consumeItem = { itemId, qty -> inventory?.consumeItemLocally(itemId, qty) },
                 currentRun = character.state.value.currentRun,
+                character = character,
             )
             if (combatResult.resyncQuestLogPage1) {
                 questLogRequest?.syncPage(1)
                 val woots = preferences.getString("_questPartyFairProgress", "0")
                 sessionLogger?.appendRawLine("The Party is at $woots/100 woots.")
+            }
+            combatResult.sessionLogLines.forEach { line ->
+                sessionLogger?.appendRawLine(line)
             }
             ThingWithNoNameSync.apply(
                 monster = result.monster,
@@ -1420,7 +1424,12 @@ open class AdventureManager(
             }
             ShenSync.applyVisitChoice(currentChoiceId, currentResponseText, preferences)
             HiddenCityChoiceSync.applyVisitChoice(currentChoiceId, currentResponseText, preferences)
-            PartyFairChoiceSync.applyVisit(currentChoiceId, currentResponseText, preferences)
+            VisitChoiceQuestHooks.applyVisit(
+                currentChoiceId,
+                currentResponseText,
+                preferences,
+                questDatabase,
+            )
             LightsOutChoiceSync.applyVisit(
                 currentChoiceId,
                 preferences,

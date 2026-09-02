@@ -238,6 +238,18 @@ object QuestChoiceRules {
                 optionLabel,
                 questDatabase,
                 preferences,
+                removeItem = { itemId ->
+                    val equipment = character?.state?.value?.equipment.orEmpty()
+                    val discarded = EquipmentDiscard.discardIfEquipped(
+                        itemId = itemId,
+                        equipment = equipment,
+                        clearSlot = { slot -> character?.updateEquipment(slot, "") },
+                        consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
+                    )
+                    if (!discarded) {
+                        inventoryManager?.consumeItemLocally(itemId, 1)
+                    }
+                },
             ) || advanced
         }
         when (choiceId) {
@@ -1481,6 +1493,7 @@ object QuestChoiceRules {
                         preferences = preferences,
                         questDatabase = questDatabase,
                         itemCount = itemCount,
+                        resyncQuestLogPage1 = resyncQuestLogPage1,
                     )
                 } else {
                     QuestSpecialSync.abandonDoctorBag(questDatabase, preferences)

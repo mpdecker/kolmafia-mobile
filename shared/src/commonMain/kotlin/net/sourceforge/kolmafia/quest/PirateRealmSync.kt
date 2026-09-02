@@ -8,6 +8,45 @@ import net.sourceforge.kolmafia.preferences.Preferences
 object PirateRealmSync {
 
     const val PIRATEREALM_ISLAND_ADVENTURE = 531
+    const val CURSED_COMPASS_ID = 10191
+
+    /**
+     * Desktop [ChoiceControl] visit visits for Groggy's Tavern / Seaside Curios / Dishonest Ed
+     * (choices 1347–1349) — unlock prefs from available options without posting a decision.
+     */
+    fun applyVisit(
+        choiceId: Int,
+        html: String,
+        preferences: Preferences?,
+    ): Boolean {
+        if (preferences == null) return false
+        val choices = net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities.parseChoices(html)
+        if (choices.isEmpty()) return false
+        return when (choiceId) {
+            1347 -> {
+                for ((index, crewmate) in choices) {
+                    preferences.setString(
+                        "_pirateRealmCrewmate$index",
+                        crewmate.replace(Regex("""^the """, RegexOption.IGNORE_CASE), ""),
+                    )
+                }
+                preferences.setBoolean("pirateRealmUnlockedThirdCrewmate", choices.size >= 3)
+                true
+            }
+            1348 -> {
+                preferences.setBoolean("pirateRealmUnlockedAnemometer", 4 in choices)
+                preferences.setBoolean("pirateRealmUnlockedFlag", 5 in choices)
+                preferences.setBoolean("pirateRealmUnlockedSpyglass", 6 in choices)
+                true
+            }
+            1349 -> {
+                preferences.setBoolean("pirateRealmUnlockedClipper", 4 in choices)
+                preferences.setBoolean("pirateRealmUnlockedManOWar", 5 in choices)
+                true
+            }
+            else -> false
+        }
+    }
 
     fun getPirateRealmIslandNumber(questDatabase: QuestDatabase): Int {
         if (!questDatabase.isAtLeast(Quest.PIRATEREALM, "step7")) return 0
@@ -40,6 +79,7 @@ object PirateRealmSync {
         optionLabel: String?,
         questDatabase: QuestDatabase,
         preferences: Preferences?,
+        removeItem: ((Int) -> Unit)? = null,
     ): Boolean {
         if (preferences == null) return false
         var advanced = false
@@ -80,6 +120,8 @@ object PirateRealmSync {
                 }
                 if (decision == 5 && responseText.contains("You gain 500 gold", ignoreCase = true)) {
                     preferences.setBoolean("_pirateRealmSoldCompass", true)
+                    // Desktop: discard equipped cursed compass, else remove from inventory.
+                    removeItem?.invoke(CURSED_COMPASS_ID)
                 }
             }
             1362 -> {

@@ -281,6 +281,20 @@ class DeckOfEveryCardRequest(
             }
         }
 
+        /**
+         * Desktop [DeckOfEveryCardRequest.getMatchingNames] subset used by ASH `every_card_name`.
+         * Returns the unique canonical card name when [query] unambiguously matches, else `""`.
+         */
+        fun everyCardName(query: String): String {
+            val key = canonicalize(query)
+            if (key.isEmpty()) return ""
+            val matches = ALL_CARD_NAMES.filter { name ->
+                val canon = canonicalize(name)
+                canon.contains(key) || key.contains(canon)
+            }
+            return matches.singleOrNull().orEmpty()
+        }
+
         private fun matchAlias(parameter: String, aliases: Map<String, EveryCard>): EveryCard? {
             val key = canonicalize(parameter)
             aliases[key]?.let { return it }

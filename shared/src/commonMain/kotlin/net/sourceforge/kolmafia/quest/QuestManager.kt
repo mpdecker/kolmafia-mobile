@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.quest
 
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -18,6 +19,7 @@ object QuestManager {
         val preferences: Preferences? = null,
         val questDatabase: QuestDatabase? = null,
         val characterState: CharacterState? = null,
+        val character: KoLCharacter? = null,
         val inventoryManager: InventoryManager? = null,
         val gameDatabase: GameDatabase? = null,
         val sessionLogger: SessionLogger? = null,
@@ -398,8 +400,12 @@ object QuestManager {
             combatItemId = ctx.combatItemId,
             consumeItem = ctx::consumeItem,
             currentRun = state?.currentRun ?: 0,
+            character = ctx.character,
         )
         if (result.resyncQuestLogPage1) ctx.requestQuestLogPageOne?.invoke()
+        result.sessionLogLines.forEach { line ->
+            ctx.sessionLogger?.appendRawLine(line)
+        }
         ThingWithNoNameSync.apply(
             monsterName,
             ctx.won,

@@ -18,6 +18,12 @@ class PHPMTRandom(seed: Long) {
         return min + clamped.toInt()
     }
 
+    /** Desktop [PHPMTRandom.pickOne] — uniform pick from a non-empty list. */
+    fun <T> pickOne(list: List<T>): T {
+        require(list.isNotEmpty()) { "pickOne requires a non-empty list" }
+        return list[nextInt(list.size)]
+    }
+
     fun nextDouble(): Double = nextBits() / (Int.MAX_VALUE + 1.0)
 
     private fun nextBits(): Int {

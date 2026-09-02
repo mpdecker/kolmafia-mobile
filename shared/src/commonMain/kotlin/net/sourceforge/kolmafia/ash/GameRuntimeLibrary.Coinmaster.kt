@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.shop.CoinmasterData
 import net.sourceforge.kolmafia.shop.CoinmasterManager
@@ -80,12 +81,46 @@ internal fun GameRuntimeLibrary.registerCoinmasterFunctions(scope: AshScope) {
         AshValue.of((coinmasterManager?.sellPrice(master, itemId) ?: 0).toLong())
     }
 
-    // sell_cost — desktop alias for sell_price
-    regFn(scope, "sell_cost", AshType.INT,
+    // Phase 4489: sell_cost returns item→int cost map (desktop ITEM_TO_INT), item + skill overloads.
+    val sellCostType = AggregateType(AshType.ITEM, AshType.INT)
+    fun sellCostMap(master: CoinmasterData, thingId: Int, asSkill: Boolean): AggregateValue {
+        val result = AggregateValue(sellCostType)
+        val row = if (asSkill) {
+            master.buyItems.firstOrNull { it.isSkillPurchase && it.item.itemId == thingId }
+        } else {
+            master.buyRowFor(thingId) ?: master.sellRowFor(thingId)
+        }
+        if (row != null && row.costs.isNotEmpty()) {
+            for (cost in row.costs) {
+                if (cost.isMeat) continue
+                val name = ItemDatabase.getById(cost.itemId)?.name ?: "Item #${cost.itemId}"
+                result[AshValue.item(name)] = AshValue.of(cost.count.toLong())
+            }
+            return result
+        }
+        // Legacy single-token sell price for items.
+        if (!asSkill) {
+            val price = coinmasterManager?.sellPrice(master, thingId) ?: 0
+            if (price > 0) {
+                val tokenName = master.token ?: return result
+                result[AshValue.item(tokenName)] = AshValue.of(price.toLong())
+            }
+        }
+        return result
+    }
+    regFn(scope, "sell_cost", sellCostType,
         listOf("master" to AshType.COINMASTER, "it" to AshType.ITEM)) { _, args ->
-        val master = resolveMaster(args[0]) ?: return@regFn AshValue.ZERO
-        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.ZERO
-        AshValue.of((coinmasterManager?.sellPrice(master, itemId) ?: 0).toLong())
+        val master = resolveMaster(args[0]) ?: return@regFn AggregateValue(sellCostType)
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AggregateValue(sellCostType)
+        sellCostMap(master, itemId, asSkill = false)
+    }
+    regFn(scope, "sell_cost", sellCostType,
+        listOf("master" to AshType.COINMASTER, "skill" to AshType.SKILL)) { _, args ->
+        val master = resolveMaster(args[0]) ?: return@regFn AggregateValue(sellCostType)
+        val skillId = gameDatabase?.skill(args[1].toString())?.id
+            ?: args[1].toString().toIntOrNull()
+            ?: return@regFn AggregateValue(sellCostType)
+        sellCostMap(master, skillId, asSkill = true)
     }
 }
 

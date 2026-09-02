@@ -209,7 +209,7 @@ import net.sourceforge.kolmafia.request.ProfileRequest
 import net.sourceforge.kolmafia.request.PortalRequest
 import net.sourceforge.kolmafia.request.ElvmachineRequest
 import net.sourceforge.kolmafia.quest.HiddenCityChoiceSync
-import net.sourceforge.kolmafia.quest.PartyFairChoiceSync
+import net.sourceforge.kolmafia.quest.VisitChoiceQuestHooks
 import net.sourceforge.kolmafia.quest.LightsOutChoiceSync
 import net.sourceforge.kolmafia.quest.SnojoChoiceSync
 import net.sourceforge.kolmafia.quest.SpoopyChoiceSync
@@ -249,7 +249,6 @@ import net.sourceforge.kolmafia.quest.CartographyChoiceSync
 import net.sourceforge.kolmafia.quest.SausageGrinderChoiceSync
 import net.sourceforge.kolmafia.quest.BoomBoxChoiceSync
 import net.sourceforge.kolmafia.quest.RedSnapperChoiceSync
-import net.sourceforge.kolmafia.quest.DoctorBagChoiceSync
 import net.sourceforge.kolmafia.quest.VoteBallotChoiceSync
 import net.sourceforge.kolmafia.quest.LatteChoiceSync
 import net.sourceforge.kolmafia.quest.MotorbikeChoiceSync
@@ -556,7 +555,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase4460"
+        const val REVISION = "phase4490"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -3747,7 +3746,7 @@ class GameRuntimeLibrary(
             if (choiceId != null && preferences != null) {
                 ShenSync.applyVisitChoice(choiceId, html, preferences)
                 HiddenCityChoiceSync.applyVisitChoice(choiceId, html, preferences)
-                PartyFairChoiceSync.applyVisit(choiceId, html, preferences)
+                VisitChoiceQuestHooks.applyVisit(choiceId, html, preferences, questDatabase)
                 LightsOutChoiceSync.applyVisit(
                     choiceId,
                     preferences,
@@ -3848,7 +3847,6 @@ class GameRuntimeLibrary(
                     preferences = preferences,
                     currentTurn = character?.state?.value?.currentRun ?: 0,
                 )
-                DoctorBagChoiceSync.applyVisit(choiceId, html, preferences)
                 VoteBallotChoiceSync.applyVisit(choiceId, html, preferences)
                 LatteChoiceSync.applyVisit(choiceId, html, preferences)
                 MotorbikeChoiceSync.applyVisit(choiceId, html, preferences)
@@ -6354,6 +6352,8 @@ class GameRuntimeLibrary(
         registerAshP1004TrackTBatch(scope)
         registerPhase3710(scope)
         registerPhase4460(scope)
+        registerPhase4470(scope)
+        registerPhase4490(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->

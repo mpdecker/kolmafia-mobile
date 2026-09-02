@@ -29,6 +29,11 @@ object UseItemConsumptionSync {
     var lastUpdate: String = ""
         private set
 
+    /** Test / ASH harness hook — desktop UseItemRequest.lastUpdate write-back. */
+    fun setLastUpdateForTest(message: String) {
+        lastUpdate = message
+    }
+
     /** Optional DI for gear-mutation arms (bootskin/folder/sticker/discard). */
     var equipmentManagerProvider: (() -> EquipmentManager?)? = null
     /** Optional active-effect state hook for antidotes, tiny houses, cocoa, and similar removers. */

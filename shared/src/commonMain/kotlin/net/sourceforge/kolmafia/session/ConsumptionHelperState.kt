@@ -131,15 +131,20 @@ object ConsumptionHelperState {
         }
     }
 
-    private fun clearFoodHelper() {
+    /** Desktop EatItemRequest.clearFoodHelper — ASH `clear_food_helper`. */
+    fun clearFoodHelper() {
         foodHelperItemId = null
         foodHelperCount = 0
     }
 
-    private fun clearDrinkHelper() {
+    /** Desktop DrinkItemRequest.clearBoozeHelper — ASH `clear_booze_helper`. */
+    fun clearDrinkHelper() {
         drinkHelperItemId = null
         drinkHelperCount = 0
     }
+
+    /** Alias for ASH `clear_booze_helper`. */
+    fun clearBoozeHelper() = clearDrinkHelper()
 
     internal fun resetForTest() {
         clearFoodHelper()

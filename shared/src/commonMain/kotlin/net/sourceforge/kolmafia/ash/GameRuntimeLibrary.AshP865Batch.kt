@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.MonsterDatabase
 import net.sourceforge.kolmafia.session.GreyYouManager
 
 /** AshP865 — minimal live Grey You absorption query surface. */
@@ -18,5 +19,15 @@ internal fun GameRuntimeLibrary.registerAshP865Batch(scope: AshScope) {
     }
     regFn(scope, "absorbed_monsters", AshType.BOOLEAN, listOf("monster_id" to AshType.MONSTER)) { _, args ->
         AshValue.of(GreyYouManager.haveAbsorbed(args[0].toLong().toInt()))
+    }
+    // Phase 4470: desktop no-arg absorbed_monsters → boolean[monster] map
+    val absorbedMapType = AggregateType(AshType.MONSTER, AshType.BOOLEAN)
+    regFn(scope, "absorbed_monsters", absorbedMapType, emptyList()) { _, _ ->
+        val result = AggregateValue(absorbedMapType)
+        for (id in GreyYouManager.absorbedMonsters) {
+            val name = MonsterDatabase.getById(id)?.name ?: id.toString()
+            result[AshValue(AshType.MONSTER, name)] = AshValue.TRUE
+        }
+        result
     }
 }
