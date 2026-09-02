@@ -86,7 +86,17 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
 
     // ── Phase 1007: current_maximizer_score ─────────────────────────
     regFn(scope, "current_maximizer_score", AshType.FLOAT, emptyList()) { _, _ ->
-        AshValue.of(0.0)
+        val goal = preferences?.getString("maximizerList", "")?.takeIf { it.isNotBlank() }
+            ?: maximizerManager?.lastMaximizeGoal?.takeIf { it.isNotBlank() }
+            ?: ""
+        AshValue.of(
+            if (goal.isBlank()) {
+                0.0
+            } else {
+                net.sourceforge.kolmafia.maximizer.Evaluator(goal)
+                    .getScore(buildCurrentModifiers())
+            },
+        )
     }
     regFn(scope, "current_maximizer_score", AshType.FLOAT,
         listOf("evaluationString" to AshType.STRING)) { _, args ->

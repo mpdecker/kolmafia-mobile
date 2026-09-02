@@ -50,6 +50,14 @@ class GameRuntimeLibraryAshP1004TrackTTest {
     }
 
     @Test
+    fun phase1007_currentMaximizerScoreUsesMaximizerListPref() {
+        val p = prefs { putString("maximizerList", "+muscle") }
+        val lib = GameRuntimeLibrary(preferences = p, character = KoLCharacter())
+        val score = outputLib(lib, "print(current_maximizer_score());").trim().toDouble()
+        assertEquals(0.0, score)
+    }
+
+    @Test
     fun phase1008_tavern_defaultZero() {
         val lib = GameRuntimeLibrary(preferences = prefs())
         assertEquals("0", outputLib(lib, "print(tavern());"))
@@ -64,7 +72,7 @@ class GameRuntimeLibraryAshP1004TrackTTest {
 
     @Test
     fun phase1010_revision() {
-        assertEquals("phase4430", GameRuntimeLibrary.REVISION)
+        assertEquals("phase4450", GameRuntimeLibrary.REVISION)
     }
 
     @Test

@@ -32,4 +32,23 @@ class FightBanishSyncTest {
             FightBanishSync.resolveBanisher(html, Banisher.UNKNOWN),
         )
     }
+
+    @Test
+    fun resolvesCrystalSkullShardFallback() {
+        val html = "The skull explodes into a million worthless shards of glass."
+        assertEquals(Banisher.CRYSTAL_SKULL, FightBanishSync.resolveBanisher(html, Banisher.UNKNOWN))
+    }
+
+    @Test
+    fun resolvesHumanMuskVialFallback() {
+        val html = "You open the vial and your foe is gone somewhere else."
+        assertEquals(Banisher.HUMAN_MUSK, FightBanishSync.resolveBanisher(html, Banisher.UNKNOWN))
+    }
+
+    @Test
+    fun suppressesBanishingShoutWhenFoeRefuses() {
+        val html = "You give a tremendous shout, but this foe refuses to leave."
+        assertEquals(Banisher.UNKNOWN, FightBanishSync.resolveBanisher(html, Banisher.BANISHING_SHOUT))
+        assertEquals(false, FightBanishSync.shouldRecordBanish(html, Banisher.BANISHING_SHOUT, true))
+    }
 }

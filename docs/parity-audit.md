@@ -1,26 +1,29 @@
-# KoLmafia Mobile vs Desktop — Parity Audit
+﻿# KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-09-01 after Phases 4371–4430 at `phase4430`)*
+*Generated: 2026-06-03 (updated 2026-09-01 parity audit at `phase4450`)*
 
 ## Scale Comparison
 
 
 | Metric                   | Desktop (Java)              | Mobile (Kotlin)              | Coverage                |
 | ------------------------ | --------------------------- | ---------------------------- | ----------------------- |
-| Source files             | 1,172 classes               | 1,535 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
-| Lines of code            | 327,838                     | 171,295 (commonMain)         | **~52%**                |
-| Test files               | 411                         | 1,278                        | Mobile wins on isolation |
-| Tests                    | ~1,800+                     | 8,483 (`@Test`)              | Mobile wins on volume   |
+| Source files             | 1,179 classes               | 1,536 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
+| Lines of code            | 330,945                     | 158,210 (commonMain)         | **~48%**                |
+| Test files               | 411                         | 1,305                        | Mobile wins on isolation |
+| Tests                    | ~1,800+                     | 8,493 (`@Test`)              | Mobile wins on volume   |
 | ASH overload signatures  | ~890                        | 1,034 `regFn` sites          | **≥100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~450–500 live                | **~55–60%** (behavioral) |
-| `*Manager` files         | 94                          | 97                           | **over-parity** by name |
-| `*Request` files         | 319                         | 165                          | **~52%** — named residual holes closed (3951–4010) |
+| `*Manager` files         | 95                          | 97                           | **over-parity** by name |
+| `*Request` files         | 321                         | 165                          | **~51%** — named residual holes closed (3951–4010) |
+| `*ChoiceSync` files      | —                           | 147                          | State sync distributed across quest package |
+| CLI `cliDispatch` regex| ~399 unique verbs           | ~459 `Regex(...)` entries    | Help/alias closure live; unnamed leftovers remain |
 | Banisher enum entries    | 70 (69 named + UNKNOWN)     | 71 (70 named + UNKNOWN)      | **≥100%** (named parity) |
+| `BANISHER_PATTERNS`      | ~100 fight-HTML strings     | 109 + `FightBanishSync` extras + refuse guard | **~95%** fight-HTML alternate closure *(4431–4440)* |
 | BreakfastManager actions | 22 (20 universal + 2 niche) | 22                           | **100%**                |
 | Build target             | JVM 21                      | Android + iOS                | —                       |
 
 
-The mobile app is a focused reimplementation, not a line-for-line port. **LOC (~52%) is the honest size comparison** — file counts overstate because one desktop class is often many mobile `*Sync` / `AshP*` files. Remaining user impact is Low-priority deepen-partials and explicit non-goals — not another missing-manager or named-request sweep.
+The mobile app is a focused reimplementation, not a line-for-line port. **LOC (~48%) is the honest size comparison** — file counts overstate because one desktop class is often many mobile `*Sync` / `AshP*` files. Manager and named-request coverage are essentially complete; remaining user impact is **ASH behavioral depth** and scattered **deepen-partials** — not another missing-manager or named-request sweep.
 
 **ASH dual metric:** `AshFunctionInventoryTest` enforces ≥890 *registered* overloads (signature parity
 with desktop `RuntimeLibrary.java`; mobile now has **1,032** `regFn` call sites). Remaining gap is
@@ -148,7 +151,7 @@ with desktop `RuntimeLibrary.java`; mobile now has **1,032** `regFn` call sites)
 
 ### Not Implemented in Mobile
 
-*Recounted 2026-08-30 at phase3710; Phases 3771–3830 closed the ChoiceAdventures spoiler catalog. Struck-through rows are closed; remaining rows are the live queue.*
+*Recounted 2026-09-01 at `phase4450`. Struck-through rows are closed; remaining rows are the live queue (returned from prior deferrals).*
 
 
 | Feature | Desktop | Priority |
@@ -160,19 +163,25 @@ with desktop `RuntimeLibrary.java`; mobile now has **1,032** `regFn` call sites)
 | ~~**ChoiceAdventures catalog**~~ | ChoiceAdventures.java ~9.7k / 454 configurable + 66 spoilers | **Live (3771–3830).** Static spoiler/decision/item-goal tables + `choice-goal` CLI. Dynamic spoilers stay on existing managers. |
 | ~~**GuildUnlockManager + Beach residual**~~ | Guild-open orchestration, Beach Comb/Desert Beach/Skate Park residuals | **Live (3831–3890).** Typed guild request/manager, inventory-delta stop API, canonical Beach state boundary, Skate Park request lifecycle, accounting and logging. |
 | ~~**CLI Tier-4 leftovers**~~ | ~399 unique desktop verbs; ~45-55 unmatched after aliases | **Live (3891–3950).** Dad, slime-stack, clan, TCRS local operators, explicit spade submission, Sven/Pandamonium solve, and alias/help closure. GUI/Relay, JavaScript, full TCRS dumps, and desktop scripting remain non-goals. |
-| ~~**HTTP Request class gap**~~ | HashingVise, TeaTree, Umbrella, KGB, Foresee, PalmFrond, Pizza, FleaMarket, AscensionHistory | **Live (3951–4010).** Typed residual HTTP requests, CLI/help/DI closure, and visit-hook idempotence. Remaining `*Request` gap is unnamed Sync/CLI stand-ins, not the named holes. |
-| **Ed servant HTML table** | servants.php parse | **Low.** Prefs + combat sync live (Phase 68); full HTML table still deferred. |
-| **GoalManager special stops** | GOAL_CHOICE variants | **Low.** Factoid/autostop live; some choice-goal variants remain. |
-| **Mall HTML parser edge cases** | Regex mall search | **Low.** |
+| ~~**HTTP Request named holes**~~ | HashingVise, TeaTree, Umbrella, KGB, Foresee, PalmFrond, Pizza, FleaMarket, AscensionHistory | **Live (3951–4010).** Typed residual HTTP requests, CLI/help/DI closure, and visit-hook idempotence. |
+| ~~**Ed servant HTML table**~~ | servants.php parse | **Live (4011–4070).** `EdServantHtmlFormatter` catalog table + `servants`/`servant` CLI. |
+| ~~**GoalManager condition variants**~~ | GOAL_CHOICE / factoid / autostop | **Live (4011–4070 + 4191–4250).** Count/pseudo/substat/health/outfit conditions + `goal_count` ASH. |
+| ~~**Mall item-detail / NPC overlay**~~ | Regex mall search | **Live (4011–4130 + 4221–4235).** Item-detail descitem, NPC/coinmaster overlay, fuzzy retry, relay hook. |
+| ~~**Ascension history header / snapshot**~~ | AscensionHistoryRequest | **Live (4011–4130 + 4251–4310).** Player header cache, snapshot filter/compare, `ascensionhistory summary`. |
+| ~~**is_dark_mode()**~~ | Environment pref | **Live (4236–4250).** Pref-backed via `GameRuntimeLibrary.Character.kt`. |
+| **ASH behavioral depth** | RuntimeLibrary.java live bodies | **Medium.** 1,034 `regFn` registrations vs ~450–500 live implementations; largest remaining script failure surface. |
+| **HTTP Request class residual** | 321 `*Request.java` | **Low–Medium.** 165 `*Request.kt` (~51%); remaining gaps are Sync/CLI stand-ins and consolidated coinmaster routing. |
+| ~~**Banish fight-HTML alternates**~~ | FightRequest banish strings | **Live (4431–4440).** 109 `BANISHER_PATTERNS` + `FightBanishSync` fallbacks/refuse guard; choice-only paths may still record UNKNOWN. |
+| **Quest per-quest state machines** | QuestManager in-code writers | **Low.** Hub + `*Sync` live; special-case detection thinner than desktop. |
+| **Dynamic ChoiceAdventures spoilers** | Violet Fog, Louvre, etc. | **Low.** Static catalog live; runtime spoilers remain on existing managers. |
 | **Ascension mechanics depth** | AscensionManager.java | **Low.** Path enum complete; reset/completion/unlock tracking thinner. |
 | **MANUAL concoction edges** | concoction/ 32 classes | **Low.** Core craft routers live through Phase 327+. |
-| **Clan dungeons** | Scattered session managers | **Low.** |
-| **BANISHER_PATTERNS gaps** | ~20 non-fight banishers | **Low.** Enum/queue/phylum live (1071–1130); choice/item-only may record UNKNOWN. |
-| is_dark_mode() | Environment | **Low.** Always alse. |
-| **Relay server** | webui/ 20+ decorators | **Non-goal.** Skipped; 
-elay on/off is stub echo. |
+| **Clan dungeons** | Scattered session managers | **Low.** Lounge/rumpus/stash largely live; dungeon depth not. |
+| **Mall HTML parser edge cases** | Rare regex misses | **Low.** Overlay + fuzzy retry live; edge cases remain. |
+| **Holiday combo-day polish** | Bill 1 / Drunksgiving | **Low.** |
 | **JavaScript runtime** | Rhino bridge | **Non-goal.** ASH-only. |
 | **TCRS class/sign dumps** | ~160 files under data/TCRS/ | **Partial:** `tcrs fetch` from GitHub + prefs load **live**; full local derive sweep remains **non-goal**. |
+| **Monster modifier entity rows** | modifiers.txt `Monster` type | **Deferred.** 0 rows on desktop *and* mobile; stub is correct. |
 | **ManaBurn unused-skill sweep** | Desktop still TODO | **Non-goal.** |
 | ~~cli_execute remaining dispatch~~ | KoLmafiaCLI | **Superseded** — ~308 of ~399 unique verbs matched. |
 | ~~create/craft response parsing~~ | concoction | **Mostly closed.** |
@@ -318,7 +327,7 @@ partial-update methods.
 
 **Added in Phase 14:** `AscensionPath.STANDARD("Standard")` enum entry; `CharacterState.isUnderStandard` computed property; `under_standard()` now reads live value.
 
-**Remaining gaps:** Per-quest flags, telescope monster data, ~~campground garden type~~ **done** *(Phase 153 + 433: `my_garden_type` + `GardenCropSync` yield)*, ~~mushroom plot ownership~~ **done** *(Phase 158 + 3351–3410: `MushroomPlotSync` squares + `MushroomManager` plant/pick/harvest)*, ~~closet meat~~ **done** *(Phase 154: `my_closet_meat` live via `ClosetMeatSync`)*, ~~storage meat refresh~~ **done** *(Phase 154: `my_storage_meat` refreshes on `storage.php?which=5` via `StorageMeatSync`)*, ~~storage/closet item counts~~ **done** *(Phase 426–428: login `CollectionCacheSync` seed + mutation refresh for `closet_amount`/`storage_amount`/`stash_amount`/`display_amount`)*, ~~Ed servant runtime (levels/XP)~~ **partial** *(Phase 68: prefs + combat sync; full HTML servants table deferred)*, ~~pasta thrall data~~ **done** *(Phase 69: `$thrall[field]` bracket reads; Phase 71: charpane sync + live `my_thrall`)*, ~~VYKEA charpane sync~~ **done** *(Phase 70: charpane parse + live `my_vykea_companion`)*, ascension modifiers.
+**Remaining gaps:** Per-quest flags, telescope monster data, ~~campground garden type~~ **done** *(Phase 153 + 433: `my_garden_type` + `GardenCropSync` yield)*, ~~mushroom plot ownership~~ **done** *(Phase 158 + 3351–3410: `MushroomPlotSync` squares + `MushroomManager` plant/pick/harvest)*, ~~closet meat~~ **done** *(Phase 154: `my_closet_meat` live via `ClosetMeatSync`)*, ~~storage meat refresh~~ **done** *(Phase 154: `my_storage_meat` refreshes on `storage.php?which=5` via `StorageMeatSync`)*, ~~storage/closet item counts~~ **done** *(Phase 426–428: login `CollectionCacheSync` seed + mutation refresh for `closet_amount`/`storage_amount`/`stash_amount`/`display_amount`)*, ~~Ed servant runtime (levels/XP)~~ **live** *(4011–4070: `EdServantHtmlFormatter` + servants CLI; Phase 68 prefs + combat sync)*, ~~pasta thrall data~~ **done** *(Phase 69: `$thrall[field]` bracket reads; Phase 71: charpane sync + live `my_thrall`)*, ~~VYKEA charpane sync~~ **done** *(Phase 70: charpane parse + live `my_vykea_companion`)*, ascension modifiers.
 
 ### Banish Tracking (PR #8 + PR #10 + PR #13)
 
@@ -330,11 +339,11 @@ partial-update methods.
 - `BanishState.kt` — `BanishedMonster` data with `isExpired()` logic
 - `BanishManager.kt` — StateFlow-backed; all CRUD + persistence + `clearExpiredAndRollover()`
 
-**BANISHER_PATTERNS in `AdventureParser.kt`: 37 patterns** (covers the most common fight-sourced banishers). Approximately 20 of the 69 named banishers have no pattern because they're triggered via non-fight paths (choice adventures, NPC requests, specific item use) — these safely record as `UNKNOWN` and clear on rollover.
+**BANISHER_PATTERNS in `AdventureParser.kt`: 109 patterns** (+ `FightBanishSync` regex fallbacks + `BANISHING_SHOUT` refuse guard). Covers fight-sourced banishers including desktop alternate HTML strings *(4431–4440)*. Choice-only banish paths (NPC requests, specific item use outside fight HTML) may still record as `UNKNOWN`.
 
 **Remaining gaps:**
 
-1. **~20 banishers lack fight-HTML patterns** — lower-frequency items/skills. Enum entries exist; will record as UNKNOWN. Zone pre-flight routing still works (routing uses BanishManager state, not pattern detection).
+1. **Choice-only banish attribution** — some banishers fire outside fight HTML; enum entries exist; may record as UNKNOWN until choice routing records the banisher explicitly.
 2. ~~**No phylum banishing**~~ **done** *(Phases 1071–1130 — `BanishType.PHYLUM` + `isBanishedPhylum`)*.
 3. ~~**No queue model**~~ **done** *(Phases 1071–1130 — per-banisher `queueSize` FIFO eviction)*.
 
@@ -497,12 +506,12 @@ Mobile has a 10-file `modifiers/` package covering the full passive prediction a
 Breadth gaps dominate full parity. Desktop wins on one-off commands, requests, and session managers;
 mobile wins on core automation paths and test isolation.
 
-| Subsystem | Desktop | Mobile (`phase4130`) | Gap |
+| Subsystem | Desktop | Mobile (`phase4450`) | Gap |
 | --------- | ------- | ----------------- | --- |
-| CLI commands | ~399 unique `register()` verbs / ~260 `*Command.java` | ~431 `cliDispatch` regex entries; ~273 help verbs listed | **help/alias closure live**; unnamed leftovers remain after aliases |
-| HTTP requests | 319 `*Request.java` (coinmaster included) | 165 `*Request.kt` + generic `CoinmasterRequest` | **~48% class gap** (named residual holes closed; remaining are Sync/CLI stand-ins) |
-| Session managers | 82 `session/*Manager.java` (94 `*Manager.java` total) | 97 `*Manager.kt` | **over-parity by name** — remaining work is deepen-partials |
-| Choice automation | ~1,000 cases + `ChoiceAdventures.java` ~9.7k / 454 configurable | 146 `*ChoiceSync.kt` + `QuestChoiceRules` + 6 solvers + static spoiler catalog | **State sync + catalog live**; dynamic spoilers remain on managers |
+| CLI commands | ~399 unique `register()` verbs / ~260 `*Command.java` | ~459 `cliDispatch` regex entries; ~273 help verbs listed | **help/alias closure live**; unnamed leftovers remain after aliases |
+| HTTP requests | 321 `*Request.java` (coinmaster included) | 165 `*Request.kt` + generic `CoinmasterRequest` | **~49% class gap** (named residual holes closed; remaining are Sync/CLI stand-ins) |
+| Session managers | 82 `session/*Manager.java` (95 `*Manager.java` total) | 97 `*Manager.kt` | **over-parity by name** — remaining work is deepen-partials |
+| Choice automation | ~1,000 cases + `ChoiceAdventures.java` ~9.7k / 454 configurable | 147 `*ChoiceSync.kt` + `QuestChoiceRules` + 6 solvers + static spoiler catalog | **State sync + catalog live**; dynamic spoilers remain on managers |
 | Maximizer | ~5,877 lines (12 classes) | `Evaluator` + ranked buckets + constraint flags + global loadout gates + automatic bucket pins + equipment DB scan + synergy post-compare + outfit post-compare + tryOutfits speculation + tryAll per-familiar loop + tryFamiliarItems + per-familiar FAMILIAR buckets + tryContainers + tryHats Crown/Bjorn branching + carriedFamiliars auto-discovery + `Modeable`/`MaximizerModeSelection` mode-aware scoring + modeable backup slots + card sleeve best-card selection + fold dedup + garbage shirt/champagne auto-pin + `+current`/`-current` enumeration + `checkEquipment` outfit/equip gates + `PriceLevel.ALL` emit mall re-check + `bonus`/`letter`/`number`/`plumber`/`cold plumber` goal terms + `-equip` exclusion + `MaximizerEmitSlot` boost/retrieve emission + `RetrieveItemSimulator` + `MaximizerBoostExecutor` + `MaximizerBoostCostSuffix` organ/resource cost suffixes + `MaximizerNonEquipmentBoosts` horsery/boombox/MCD/effect/noobcore absorb post-equipment pass + `MaximizerNoobcoreAbsorbBoosts` + `NoobcoreAbsorbs` + `AbsorbRequest` + `MaximizerBoostSourceRules` cast/cargo/alliedradio/barrelprayer/clan/friars/pillkeeper/VIP-facility/telescope/fortune/mom/concert/summon/mayosoak/witchess/monorail/toggle/crossstreams/monkeypaw/genie/gong/styx/play/skeleton/gap/spacegate/daycare/vault3/grim/aprilband/terminal enhance/campaway cloud/loathingidol/mayam/asdonmartin drive/beach head/skate/hatter/synthesize effect-source rules + `MayamAvailability`/`CampAwayAvailability`/`BeachHeadAvailability`/`SkateParkAvailability`/`RabbitHoleAvailability`/`CandyDatabase` + `CampgroundItemSync.asdonMartinFuel` + `SkillCastCosts`/`SkillRequiredItemForEffect` + `MaximizerBoostVerboseSuffix` duration/uses brackets + `MaximizerMcdAvailability` + `HorseryRequest`/`BoomBoxRequest`/`MindControlRequest`/`AbsorbRequest` CLI + `MaximizerSubSlotItems`/`MaximizerSubSlotPreservation` folder/sticker/bootskin sub-slots + CONTAINER search slot + `MaximizerSpecWriteBack` Generated `_spec` write-back + `ModifierValuesFormatter` + `ModifierDatabase.overrideGenerated` + ASH `numeric_modifier("Generated:_spec", …)` Type:name lookup + `NonEquipmentBaseline` PLAN_OVERLAY vs LIVE_EQUIPPED + `scorePostEquipmentLive`/`modifierValuesForPostEquipmentLive` + `CharacterStatusRefresh`/`CharpaneStatusSync`/`CharpaneEffectsSync` charpane fallback (Noobcore/Pokefam/Disguises/spelunky/batman/transfunctioner) + `MaximizerPostEquipRefresh` + `MaximizerPreSearchRefresh` + `MaximizerProgress` throttled combination-count progress + `progressDisplay`/`#events` notify + speculate progress line in `MaximizerSearchStatus` + `MaximizerContinuation` cooperative abort + `MaximizerSearchStatus` combination-limit/score-cap/interrupted output + `MaximizerMutexViolations` speculation/effect-gain gating + `MaximizerBoost.priority` sort + `MaximizerCheckedItem` validate + MVP + `MaximizerSpeculation` DFS | **~99.99%** |
 | Quest parsing | ~4,200 lines (QuestManager + QuestDatabase + QuestLog) | Quest*Rules + distributed `*Sync` + `QuestManager` hub + `QuestLogSync` | **Parity** |
 | ASH overloads | 890 registrations | 1,032 `regFn` sites | **over-parity** (signatures) |
@@ -526,13 +535,13 @@ mobile wins on core automation paths and test isolation.
 | UI                        | Swing (aging)                                   | Compose Multiplatform                                                        | Mobile is modern                                 |
 | Concurrency               | Manual threading                                | Coroutines                                                                   | Mobile is cleaner                                |
 | Data                      | 51 `.txt` files + TCRS variants               | 53 bundled; 50 core loaded at runtime                                    | Core wired; TCRS GitHub fetch live; full derive sweep non-goal |
-| Testing                   | 411 test classes, many integration            | 1,278 unit test files, 8,483 tests                                       | Mobile wins on volume and isolation        |
+| Testing                   | 411 test classes, many integration            | 1,306 unit test files, 8,493 tests                                       | Mobile wins on volume and isolation        |
 | Scripting                 | Full ASH + CLI (890 functions) + JS           | ASH 1,032 `regFn` (~450–500 live); ~273 help verbs; no JS             | Registration over-parity; behavior leftovers remain; JS non-goal |
 | Events                    | Ad-hoc listeners                              | GameEventBus pub/sub + `EventHistory`                                    | Mobile is cleaner                          |
 | Choice automation         | ~1,000 handler cases + ChoiceAdventures catalog | 146 ChoiceSync files; 6 solvers; **static spoiler catalog live (3771–3830)** | State sync + catalog live; dynamic spoilers remain |
 | Recovery/mood             | 9 classes, full persistence + mood library    | 6 files, named library + inheritance + malignant clearing + AT song eviction | Near parity — multi-skill libram ManaBurn wired |
 | ManaBurn                  | Full — any buff, summons, per-skill priority  | Near parity — active-effect scan + balanced multi-cast + getEffectDuration v3 + EffectGainGate + multi-skill libram CLI + last-chance CLI | **Explicit non-goal:** unused-skill sweep (desktop TODO) |
-| Banish tracking           | 70 banishers, queue model, phylum, full routing | **71 banishers**, queueSize FIFO, phylum, zone pre-flight, expanded fight-HTML patterns *(4371–4390)* | Enum + queue/phylum live; ~19 fight-HTML patterns remain |
+| Banish tracking           | 70 banishers, queue model, phylum, full routing | **71 banishers**, 109 fight-HTML patterns + `FightBanishSync` fallbacks/refuse guard, queueSize FIFO, phylum ASH, zone pre-flight *(4431–4440)* | Enum + queue/phylum + fight-HTML alternates live; choice-only banish paths may still record UNKNOWN |
 | Breakfast / daily actions | ~22 actions, outfit checkpointing             | **22/22 actions + outfit checkpoint (Phase 18 + 29)**                    | **Parity**                                 |
 | Mall / economy ASH        | Full buy/retrieve/outfit                      | **buy/retrieve_item/mall_price + outfit ASH/CLI (Phase 16–18 + 2931–2990)** | Core economy + mall residual live          |
 
@@ -541,30 +550,51 @@ mobile wins on core automation paths and test isolation.
 
 ## Top Priorities
 
-*Updated 2026-09-01 at `phase4430`. Behavioral Deepen III (4371–4430) delivered FightBanish residual (`ORDER_A_KNEECAPPING` + fight HTML patterns), `OutfitBitmapBonuses` half-set scaling + bitmap masks, Breakfast `checkJackass`/`collectSeaJelly` desktop flows, and `AshCompatibilityCorpusTest` banish/maximizer/outfit-bitmap snippets. Prior combined-modifiers mega (4311–4370) delivered `DoubleModifier` combined tags, `last_maximizer_succeeded` ASH, `$monster[blue_vs_red_team]`, Eternity Codpiece-first equip, and TCRS notes/bitmap reuse. RelayServer/JavaScript/full TCRS derive remain explicit non-goals.*
+*Updated 2026-09-01 at `phase4450`. Phases 4441–4450 closed ASH behavioral deepen V (`current_maximizer_score()` no-arg, `goal_count("item"|"items")`) and HTTP Request residual (`SeaMerkinRequest`, `VolcanoIslandRequest`, `TrophyHutRequest`).*
 
-Manager **name coverage is nearly complete**. Remaining user impact is mostly explicit non-goals and partial headless substitutes.
+Manager **name coverage is complete**. The honest remaining gaps are **ASH behavioral implementations**, **HTTP Request breadth** (~49% class count), and scattered **quest deepen** items — not another manager sweep.
 
-### Remaining queue (script / automation impact)
+### Active queue (ordered by script / automation impact)
 
-1. **Relay server / browser proxy** — remain explicit **non-goal** (headless `relay on/off/status` pref + `MallSearchDecorator` mall-search HTML only).
-2. **JavaScript runtime** — remain explicit **non-goal** (ASH-only).
-3. **TCRS full derive sweep** — remain explicit **non-goal** (desktop parallel desc visits); **`tcrs fetch`** from GitHub + prefs load is **live**.
-4. **PvP** — **Resolved** *(Phase 766)*.
-5. **Monster modifier entity rows** — remain deferred (0 `Monster` rows in desktop *and* mobile `modifiers.txt`; stub is correct).
-6. **ManaBurn unused-skill sweep** — remain explicit **non-goal** (desktop TODO).
+1. **ASH behavioral depth** — 1,034 `regFn` registrations vs ~450–500 live implementations; `AshCompatibilityCorpusTest` is the regression floor. **Highest remaining script failure surface.**
+2. **HTTP Request class residual** — 168/321 `*Request` classes (~52%); `SeaMerkinRequest`/`VolcanoIslandRequest`/`TrophyHutRequest` typed hubs live; remaining gaps are Sync/CLI stand-ins and consolidated coinmaster routing.
+3. **Quest per-quest state machines** — hub + `*Sync` live; per-quest in-code step writers and special-case detection (Telegram, Party Fair, Doctor Bag, PirateRealm) thinner than desktop.
+4. **Dynamic ChoiceAdventures spoilers** — static catalog live (3771–3830); Violet Fog/Louvre/etc. runtime spoilers remain on existing managers.
+5. **Ascension mechanics depth** — path enum complete; reset/completion/unlock tracking thinner than `AscensionManager.java`.
+6. **Clan dungeons** — lounge/rumpus/stash largely live; scattered desktop dungeon managers not ported.
+7. **MANUAL concoction edges** — core craft routers live through Phase 327+; edge-case `concoction/` handlers remain.
+8. **Mall HTML parser edge cases** — NPC/coinmaster overlay + fuzzy retry live; rare regex misses remain.
+9. **Holiday combo-day polish** — Bill 1 / Drunksgiving edge cases.
+10. **Banish choice-only paths** — fight-HTML alternates closed; item/skill banishes routed only through choice handlers may still miss banisher attribution.
+
+### Explicit non-goals (do not queue)
+
+1. **Relay server / browser proxy** — headless `relay on/off/status` pref + `MallSearchDecorator` mall-search HTML only.
+2. **JavaScript runtime** — ASH-only.
+3. **TCRS full derive sweep** — `tcrs fetch` from GitHub + prefs load is **live**; desktop parallel desc visits remain non-goal.
+4. **Monster modifier entity rows** — deferred (0 `Monster` rows in desktop *and* mobile `modifiers.txt`; stub is correct).
+5. **ManaBurn unused-skill sweep** — desktop TODO; explicit non-goal.
+6. **PvP** — **Resolved** *(Phase 766)*.
 
 ### Closed (do not re-queue)
 
-~~Ed servant HTML table~~ **live** *(4011–4025)*; ~~GoalManager condition variants~~ **live** *(4011–4070 + 4191–4205 pseudo/substat/outfit)*; ~~Mall item-detail parse~~ **live** *(4011–4070)*; ~~Ascension history player header~~ **live** *(4011–4070)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~Mall NPC/coinmaster overlay~~ **live** *(4086–4100 + 4221–4235 fuzzy/finalize/relay hook)*; ~~Ascension snapshot compare~~ **live** *(4101–4115 + 4236–4250 filter/point deltas)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170 + 4236–4250 child-path/entity corpus)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator + relayActive hook** *(4171–4180 + 4221–4235)*; ~~Chatterboxing choice 191 banish~~ **live** *(4206–4220)*; ~~BANISHER non-fight gap (choice 191)~~ **closed**; ~~is_dark_mode always false~~ **pref-backed** *(4236–4250)*; ~~Desktop r29219 combined modifiers~~ **live** *(4311–4370)*; ~~Behavioral Deepen III~~ **live** *(4371–4430)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live (1071–1130)**; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4130~~ **live**.
+~~Ed servant HTML table~~ **live** *(4011–4070)*; ~~GoalManager condition variants~~ **live** *(4011–4070 + 4191–4250)*; ~~Mall item-detail / NPC overlay~~ **live** *(4011–4130 + 4221–4235)*; ~~Ascension history header / snapshot~~ **live** *(4011–4130 + 4251–4310)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170 + 4236–4250)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator + relayActive hook** *(4171–4180 + 4221–4235)*; ~~Chatterboxing choice 191 banish~~ **live** *(4206–4220)*; ~~is_dark_mode always false~~ **pref-backed** *(4236–4250)*; ~~Desktop r29219 combined modifiers~~ **live** *(4311–4370)*; ~~Behavioral Deepen III~~ **live** *(4371–4430)*; ~~Banish fight-HTML alternates~~ **live** *(4431–4440)*; ~~ASH behavioral deepen IV~~ **live** *(4431–4440)*; ~~ASH behavioral deepen V~~ **live** *(4441–4450)*; ~~Volcano island / trophy hut / sea merkin typed requests~~ **live** *(4441–4450)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live** *(1071–1130 + 4431–4440)*; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4430~~ **live**.
 
-*Next pass:* No new mega queued. Remaining behavioral surface is low-frequency banish fight-HTML patterns (~19) and explicit non-goals below.
+*Next pass:* **ASH behavioral deepen VI** (corpus-driven stub replacement) or **quest per-quest state machine** deepen — pick based on script failure reports. RelayServer/JavaScript/full TCRS derive remain non-goals.
 
 ---
 
 ## Phase History (2026)
 
 ```
+Audit 2026-09-01 → Full recount at phase4450: 1,539 commonMain files / 158,310 LOC / 1,309 test files / 8,510 @Test / 1,034 ASH regFn / 97 managers / 168 requests / 147 ChoiceSync / ~459 cliDispatch regex. Desktop baseline: 1,179 Java files / 330,945 LOC / 321 requests / 95 managers. Closed ASH behavioral deepen V + HTTP request residual (SeaMerkin/VolcanoIsland/TrophyHut typed hubs); reprioritized Top Priorities. Non-goals unchanged: Relay, JS, TCRS derive sweep, monster modifier rows, ManaBurn unused-skill sweep.
+
+Phases 4441–4450 → Behavioral Deepen V + HTTP Request residual mega Tracks A–B (`current_maximizer_score()` no-arg via `maximizerList`/`lastMaximizeGoal`; `goal_count("item"|"items")` inventory-aware remaining sums; `SeaMerkinRequest`/`VolcanoIslandRequest`/`TrophyHutRequest` typed parse/register + visit hooks + `volcano slime` CLI; runtime revision `phase4450`; 8,510 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)
+
+Audit 2026-09-01 → Full recount at phase4440: 1,536 commonMain files / 158,210 LOC / 1,306 test files / 8,493 @Test / 1,034 ASH regFn / 97 managers / 165 requests / 147 ChoiceSync / ~459 cliDispatch regex. Desktop baseline: 1,179 Java files / 330,945 LOC / 321 requests / 95 managers. Closed banish fight-HTML alternate patterns + ASH behavioral deepen IV; reprioritized Top Priorities (banish alternates → closed; HTTP/quest deepen remain). Non-goals unchanged: Relay, JS, TCRS derive sweep, monster modifier rows, ManaBurn unused-skill sweep.
+
+Phases 4431–4440 → Behavioral Deepen IV + Banish pattern closure mega Tracks A–B (`AdventureParser`/`FightBanishSync` alternate fight-HTML strings + `BANISHING_SHOUT` refuse guard + expanded `BANISH_PATTERN`; `is_banished(phylum)` ASH + `goal_count("meat"|"level")`; `AshCompatibilityCorpusTest` banish-phylum/goal-count corpus; runtime revision `phase4440`; 8,493 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)
+
 Phases 4371–4430 → Behavioral Deepen III mega Tracks A–D (`ORDER_A_KNEECAPPING` + `AdventureParser`/`FightBanishSync` fight-HTML patterns; `OutfitBitmapBonuses` Brimstone/Cloathing/McHugeLarge half-set scaling + per-item bitmap masks + `ModifierValues.bitmapCount`; Breakfast `checkJackass` limit-mode Town gate + `collectSeaJelly` thesea_left2/choice 1219/`_seaJellyHarvested`; `AshCompatibilityCorpusTest` banish/maximizer/outfit-bitmap corpus; runtime revision `phase4430`; 8,483 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)
 
 Phases 4311–4370 → Desktop r29219 combined-modifiers mega Tracks A–H (`DoubleModifier` combined tags + subsumed eval; desktop `modifiers.txt`/`statuseffects.txt` sync; `numeric_modifier` item `ModifierDatabase` fallback; `last_maximizer_succeeded` ASH; `$monster[blue_vs_red_team]` + desktop `monsters.txt`; Eternity Codpiece-first `UseSkillOptimize`/`SkillCastRequest`; TCRS `buildConsumableNotes` + bitmap bit reuse; runtime revision `phase4370`; 8,463 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)

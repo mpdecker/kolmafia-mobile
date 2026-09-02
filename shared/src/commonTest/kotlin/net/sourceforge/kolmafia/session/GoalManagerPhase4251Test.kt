@@ -34,4 +34,36 @@ class GoalManagerPhase4251Test {
         manager.setResourceGoal(GoalManager.ResourceKind.HEALTH, 80)
         assertEquals(40, manager.goalCount("health", state = state))
     }
+
+    @Test
+    fun goalCountReturnsRemainingMeat() {
+        val manager = GoalManager()
+        manager.setMeatGoal(10_000)
+        val state = CharacterState(meat = 7_500)
+        assertEquals(2_500, manager.goalCount("meat", state = state))
+        assertEquals(0, manager.goalCount("meat", state = state.copy(meat = 12_000)))
+    }
+
+    @Test
+    fun goalCountReturnsRemainingLevel() {
+        val manager = GoalManager()
+        manager.setLevelGoal(15)
+        val state = CharacterState(level = 12)
+        assertEquals(3, manager.goalCount("level", state = state))
+        assertEquals(0, manager.goalCount("level", state = state.copy(level = 20)))
+    }
+
+    @Test
+    fun goalCountReturnsRemainingItemGoals() {
+        val manager = GoalManager()
+        manager.addItemGoal(100, 5)
+        manager.addItemGoal(200, 3)
+        assertEquals(8, manager.goalCount("item"))
+        assertEquals(6, manager.goalCount("items", inventoryCount = { id ->
+            when (id) {
+                100 -> 2
+                else -> 0
+            }
+        }))
+    }
 }

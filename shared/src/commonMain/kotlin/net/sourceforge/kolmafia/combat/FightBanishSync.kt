@@ -33,11 +33,34 @@ object FightBanishSync {
         Regex("""turns tail and runs""", RegexOption.IGNORE_CASE) to Banisher.STAFF_OF_THE_STANDALONE_CHEESE,
         Regex("""pass out from pure boredom""", RegexOption.IGNORE_CASE) to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
         Regex("""nozzle all the way and blast it out of sight""", RegexOption.IGNORE_CASE) to Banisher.BLART_SPRAY_WIDE,
+        Regex("""worthless shards of glass""", RegexOption.IGNORE_CASE) to Banisher.CRYSTAL_SKULL,
+        Regex("""EEEEEEEEEEEEEEEEEEEEEEEEK!""", RegexOption.IGNORE_CASE) to Banisher.CLASSY_MONKEY,
+        Regex("""You launch your cosmic bowling ball""", RegexOption.IGNORE_CASE) to Banisher.BOWL_A_CURVEBALL,
+        Regex("""You scream like a lunatic""", RegexOption.IGNORE_CASE) to Banisher.BOWL_A_CURVEBALL,
+        Regex("""open the vial""", RegexOption.IGNORE_CASE) to Banisher.HUMAN_MUSK,
+        Regex("""asleep on a nearby recliner""", RegexOption.IGNORE_CASE) to Banisher.TRYPTOPHAN_DART,
+        Regex("""like a pea and split""", RegexOption.IGNORE_CASE) to Banisher.SPLIT_PEA_SOUP,
+        Regex("""at least until they can wash their hands""", RegexOption.IGNORE_CASE) to Banisher.PEPPERMINT_BOMB,
+        Regex("""then toss it roguishly""", RegexOption.IGNORE_CASE) to Banisher.CRIMBUCCANEER_RIGGING_LASSO,
     )
 
     fun resolveBanisher(html: String, current: Banisher): Banisher {
-        if (current != Banisher.UNKNOWN) return current
-        return EXTRA_PATTERNS.firstOrNull { (pattern, _) -> pattern.containsMatchIn(html) }?.second
-            ?: Banisher.UNKNOWN
+        val resolved = when {
+            current != Banisher.UNKNOWN -> current
+            else -> EXTRA_PATTERNS.firstOrNull { (pattern, _) -> pattern.containsMatchIn(html) }?.second
+                ?: Banisher.UNKNOWN
+        }
+        return if (shouldSuppressBanisher(html, resolved)) Banisher.UNKNOWN else resolved
     }
+
+    /** Desktop Banishing Shout failure when the foe refuses to leave. */
+    fun shouldRecordBanish(html: String, banisher: Banisher, patternHit: Boolean): Boolean {
+        if (shouldSuppressBanisher(html, banisher)) return false
+        if (banisher != Banisher.UNKNOWN) return true
+        return patternHit
+    }
+
+    private fun shouldSuppressBanisher(html: String, banisher: Banisher): Boolean =
+        banisher == Banisher.BANISHING_SHOUT &&
+            html.contains("but this foe refuses", ignoreCase = true)
 }

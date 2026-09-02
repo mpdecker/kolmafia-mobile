@@ -50,6 +50,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.recovery.RecoveryManager
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.ZapRequest
+import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.session.WandDiscovery
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillData
@@ -4792,6 +4793,69 @@ class AshCompatibilityCorpusTest {
         } finally {
             ModifierDatabase.resetForTest()
         }
+    }
+
+    @Test
+    fun corpus_behavioralDeepenBanishPhylum_live() = runBlocking {
+        val p = prefs()
+        val banishes = net.sourceforge.kolmafia.banish.BanishManager(p).also {
+            it.banishMonster(
+                "spooky vampire",
+                net.sourceforge.kolmafia.banish.Banisher.PATRIOTIC_SCREECH,
+                10,
+                phylumOverride = "undead",
+            )
+        }
+        val lib = GameRuntimeLibrary(preferences = p, banishManager = banishes)
+        assertEquals(
+            "true",
+            outputLib(lib, """print(to_string(is_banished(to_phylum("undead"))));""").trim(),
+        )
+        assertEquals(
+            "false",
+            outputLib(lib, """print(to_string(is_banished(to_phylum("beast"))));""").trim(),
+        )
+    }
+
+    @Test
+    fun corpus_behavioralDeepenGoalCount_live() {
+        val goals = GoalManager().also {
+            it.setMeatGoal(10_000)
+            it.setLevelGoal(15)
+        }
+        val char = KoLCharacter()
+        char.updateMeat(7_500)
+        char.setLevel(12)
+        val lib = GameRuntimeLibrary(character = char, goalManager = goals)
+        assertEquals("2500", outputLib(lib, """print(to_string(goal_count("meat")));""").trim())
+        assertEquals("3", outputLib(lib, """print(to_string(goal_count("level")));""").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenGoalCountItem_live() {
+        val goals = GoalManager().also { it.addItemGoal(501, 4) }
+        val inv = emptyInventoryManager().also {
+            it.applyParsedInventory(
+                mapOf(
+                    501 to net.sourceforge.kolmafia.inventory.InventoryItem(
+                        501,
+                        "corpus widget",
+                        1,
+                        net.sourceforge.kolmafia.inventory.ItemType.OTHER,
+                    ),
+                ),
+            )
+        }
+        val lib = GameRuntimeLibrary(goalManager = goals, inventoryManager = inv)
+        assertEquals("3", outputLib(lib, """print(to_string(goal_count("item")));""").trim())
+        assertEquals("3", outputLib(lib, """print(to_string(goal_count("items")));""").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenCurrentMaximizerScoreNoArg_live() {
+        val prefs = Preferences(MapSettings()).apply { setString("maximizerList", "+muscle") }
+        val lib = GameRuntimeLibrary(preferences = prefs, character = KoLCharacter())
+        assertEquals("0.0", outputLib(lib, """print(current_maximizer_score());""").trim())
     }
 
     private fun registerCorpusWeapon(id: Int, name: String) {

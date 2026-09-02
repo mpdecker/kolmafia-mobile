@@ -244,12 +244,20 @@ class GoalManager {
         type: String,
         preferences: Preferences? = null,
         state: CharacterState? = null,
+        inventoryCount: ((Int) -> Int)? = null,
     ): Int = when (type.lowercase().trim()) {
         "choice", "choiceadv", "choices" -> choiceAdventureCount
         "factoid", "factoids", "manuel" -> factoidGoalCount
         "floundry" -> floundryGoalCount
         "leprecondo" -> leprecondoGoalCount
         "autostop" -> autostopGoalCount
+        "meat" -> if (meatGoal != null && state != null) {
+            (meatGoal!! - state.meat).coerceAtLeast(0)
+        } else 0
+        "level" -> if (levelGoal != null && state != null) {
+            (levelGoal!! - state.level).coerceAtLeast(0)
+        } else 0
+        "item", "items" -> remainingItemGoalCount(inventoryCount)
         "substats" -> substatsCounts.sum()
         "health", "hp" -> if (resourceKind == ResourceKind.HEALTH && state != null) {
             (resourceTarget - state.currentHp).coerceAtLeast(0)
@@ -264,6 +272,21 @@ class GoalManager {
             else (pseudoTarget - GoalPseudoConditions.currentCount(kind, prefs)).coerceAtLeast(0)
         }
         else -> 0
+    }
+
+    /** Sum of remaining item goals after subtracting accessible inventory counts. */
+    fun remainingItemGoalCount(inventoryCount: ((Int) -> Int)? = null): Int {
+        var total = 0
+        _itemGoalIds.forEach { (itemId, needed) ->
+            val have = inventoryCount?.invoke(itemId) ?: 0
+            total += (needed - have).coerceAtLeast(0)
+        }
+        _itemGoalNames.forEach { (name, needed) ->
+            val itemId = net.sourceforge.kolmafia.data.ItemDatabase.getByName(name)?.id ?: return@forEach
+            val have = inventoryCount?.invoke(itemId) ?: 0
+            total += (needed - have).coerceAtLeast(0)
+        }
+        return total
     }
 
     fun applyCondition(

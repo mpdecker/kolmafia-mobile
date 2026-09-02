@@ -5,6 +5,7 @@ import io.ktor.client.request.get
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.VolcanoIslandRequest
 import net.sourceforge.kolmafia.request.VolcanoMazeRequest
 import net.sourceforge.kolmafia.session.VolcanoMazeManager
 
@@ -159,9 +160,7 @@ internal fun GameRuntimeLibrary.cliVolcano(params: String, print: (String) -> Un
                 return
             }
             runBlocking {
-                try {
-                    client.get("$KOL_BASE_URL/volcanoisland.php?action=npc&subaction=getslime")
-                } catch (_: Exception) {
+                VolcanoIslandRequest.getSlime(client).onFailure {
                     // best-effort slime pickup
                 }
             }

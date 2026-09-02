@@ -49,7 +49,8 @@ internal fun GameRuntimeLibrary.registerGoalQueries(scope: AshScope) {
     regFn(scope, "goal_count", AshType.INT, listOf("type" to AshType.STRING)) { _, args ->
         val type = args[0].toString()
         val state = character?.state?.value
-        AshValue.of(goalManager?.goalCount(type, preferences, state) ?: 0)
+        val inventoryCount: (Int) -> Int = { id -> inventoryManager?.getCount(id) ?: 0 }
+        AshValue.of(goalManager?.goalCount(type, preferences, state, inventoryCount) ?: 0)
     }
 
     // get_goals() → string[int]
