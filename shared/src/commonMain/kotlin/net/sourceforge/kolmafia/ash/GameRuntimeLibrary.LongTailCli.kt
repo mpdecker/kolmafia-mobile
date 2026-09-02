@@ -2253,9 +2253,18 @@ private fun GameRuntimeLibrary.applyConditions(
     rt: AshRuntimeContext,
 ) {
     val manager = goalManager ?: return
+    val state = character?.state?.value
+    val context = GoalManager.ConditionContext(
+        characterState = state,
+        preferences = preferences,
+        lastAdventure = preferences?.getString("lastAdventure", "") ?: "",
+        isEquipped = { piece ->
+            state?.equipment?.values?.any { it.equals(piece, ignoreCase = true) } == true
+        },
+    )
     for (part in GoalConditionParser.splitConditions(conditionList)) {
         val parsed = GoalConditionParser.parse(part) ?: continue
-        manager.applyCondition(parsed, mode)
+        manager.applyCondition(parsed, mode, context)
         rt.print("Condition ${mode.name.lowercase()}: $part")
     }
 }

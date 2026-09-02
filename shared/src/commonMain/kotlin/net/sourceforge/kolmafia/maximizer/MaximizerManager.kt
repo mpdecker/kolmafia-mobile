@@ -122,10 +122,17 @@ open class MaximizerManager(
     /** Optional live progress sink (desktop KoLmafia.updateDisplay during speculate). */
     var progressDisplay: ((String) -> Unit)? = null
 
+    @Volatile
+    var lastSucceeded: Boolean = false
+        private set
+
+    fun lastMaximizeSucceeded(): Boolean = lastSucceeded
+
     open suspend fun maximize(
         goalText: String,
         filters: Set<MaximizerFilterType> = MaximizerFilters.fromPreferences(preferences),
     ): MaximizeResult {
+        lastSucceeded = false
         val plan = buildMaximizePlan(goalText, filters)
             ?: return MaximizeResult(false, goalText.trim(), 0.0, 0.0)
         writeSpecFromPlan(plan)
@@ -253,7 +260,7 @@ open class MaximizerManager(
         if (liveRescoreRan) {
             writeSpecFromLiveState()
         }
-        return MaximizeResult(
+        val result = MaximizeResult(
             success = true,
             goal = plan.goal,
             scoreBefore = plan.scoreBefore,
@@ -266,6 +273,8 @@ open class MaximizerManager(
             modeSwitched = modeSwitched,
             boosts = boostsWithStatus(resultBoosts, plan.searchStatus),
         )
+        lastSucceeded = result.success
+        return result
     }
 
     /** Speculate-only loadout search — no equip side effects. */
@@ -273,8 +282,12 @@ open class MaximizerManager(
         goalText: String,
         filters: Set<MaximizerFilterType> = MaximizerFilters.fromPreferences(preferences),
     ): List<String> {
+        lastSucceeded = false
         val plan = buildMaximizePlan(goalText, filters)
             ?: return listOf("Invalid goal: ${goalText.trim()}")
+        if (MaximizerFilterType.EQUIP in plan.filters) {
+            lastSucceeded = !plan.spec.evaluator.failed
+        }
         writeSpecFromPlan(plan)
         val boosts = buildBoosts(plan, MaximizerEquipScope.SPECULATE)
         if (!hasUsefulMaximizeResult(plan, boosts)) {

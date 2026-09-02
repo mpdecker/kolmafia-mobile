@@ -6,8 +6,22 @@ data class ModifierValues(
     val strings: Map<StringModifier, List<String>> = emptyMap(),
     val bitmaps: Map<BitmapModifier, Int> = emptyMap()
 ) {
-    // Numeric modifier value (0.0 if not present)
-    fun get(mod: DoubleModifier): Double = doubles[mod] ?: 0.0
+    // Numeric modifier value (0.0 if not present). Combined tags with a stored
+    // zero derive the min of subsumed members, or 0.0 when members straddle zero.
+    fun get(mod: DoubleModifier): Double {
+        val value = doubles[mod] ?: 0.0
+        if (mod.subsumed.isNotEmpty() && value == 0.0) {
+            var min = Double.MAX_VALUE
+            var max = -Double.MAX_VALUE
+            for (sub in mod.subsumed) {
+                val subValue = get(sub)
+                min = minOf(min, subValue)
+                max = maxOf(max, subValue)
+            }
+            return if (min < 0.0 && max > 0.0) 0.0 else min
+        }
+        return value
+    }
     fun getInt(mod: DoubleModifier): Int = get(mod).toInt()
 
     // Boolean flag (false if not present)
@@ -19,6 +33,18 @@ data class ModifierValues(
 
     // Bitmap modifier value (0 if not present)
     fun get(mod: BitmapModifier): Int = bitmaps[mod] ?: 0
+
+    /** Desktop [Modifiers.getBitmap] — popcount of assigned bitmap bits. */
+    fun bitmapCount(mod: BitmapModifier): Int {
+        var n = get(mod)
+        if (n == 0) return 0
+        n = (n ushr 1 and 0x55555555) + (n and 0x55555555)
+        n = (n ushr 2 and 0x33333333) + (n and 0x33333333)
+        n = (n ushr 4 and 0x0F0F0F0F) + (n and 0x0F0F0F0F)
+        n = (n ushr 8 and 0x00FF00FF) + (n and 0x00FF00FF)
+        n = (n ushr 16 and 0x0000FFFF) + (n and 0x0000FFFF)
+        return if (mod == BitmapModifier.CLOWNINESS) 25 * n else n
+    }
 
     val isEmpty: Boolean
         get() = doubles.isEmpty() && booleans.isEmpty() && strings.isEmpty() && bitmaps.isEmpty()

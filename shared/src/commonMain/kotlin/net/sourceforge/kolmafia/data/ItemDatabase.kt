@@ -33,6 +33,28 @@ object ItemDatabase {
         val lower = name.lowercase()
         return byName[lower] ?: byPlural[lower]
     }
+
+    /** Desktop ItemDatabase.getMatchingNames — quoted exact or substring match. */
+    fun getMatchingNames(searchString: String): List<String> {
+        if (!loaded && byName.isEmpty()) return emptyList()
+        var query = searchString.trim()
+        if (query.isEmpty()) return emptyList()
+
+        val exact = query.startsWith('"')
+        if (exact) {
+            val end = if (query.endsWith('"') && query.length > 1) query.length - 1 else query.length
+            query = query.substring(1, end).trim()
+            val match = getByName(query)?.name ?: getByPluralOrName(query)?.name
+            return if (match != null) listOf(match) else emptyList()
+        }
+
+        val canonical = query.lowercase()
+        getByName(canonical)?.name?.let { return listOf(it) }
+
+        val names = byName.values.map { it.name }.distinct().sorted()
+        return names.filter { it.lowercase().contains(canonical) }
+    }
+
     fun all(): Collection<ItemData> = byId.values
 
     /** Desktop ItemDatabase.maxItemId — highest bundled item id, or 0 if empty. */

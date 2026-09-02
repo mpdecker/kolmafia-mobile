@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.data
 
 import net.sourceforge.kolmafia.character.CharacterClass
+import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.modifiers.ModifierParser
 import net.sourceforge.kolmafia.modifiers.StringModifier
 import net.sourceforge.kolmafia.preferences.Preferences
 
@@ -130,18 +132,41 @@ object TCRSDatabase {
             mus = "0",
             myst = "0",
             mox = "0",
-            notes = buildConsumableNotes(itemName, entry),
+            notes = buildConsumableNotes(itemName),
         )
     }
 
-    private fun buildConsumableNotes(itemName: String, entry: TcrsEntry): String {
-        val parts = mutableListOf("Unspaded")
+    /** Desktop Attribute leftover tokens preserved across TCRS consumable override. */
+    private val CONSUMABLE_NOTE_ATTRIBUTES = listOf(
+        "MARTINI", "LASAGNA", "SAUCY", "PIZZA", "BEANS",
+        "WINE", "SALAD", "BEER", "CANNED", "BEVERAGE", "TACO",
+    )
+
+    /**
+     * Desktop PR #3675: leftover attributes/effect only. Do not prefix Unspaded;
+     * empty notes when there is nothing else to say.
+     */
+    private fun buildConsumableNotes(itemName: String): String {
+        val parts = leftoverAttributeNotes(itemName).toMutableList()
         val effectName = ModifierDatabase.getStringModifier(itemName, StringModifier.EFFECT)
         if (effectName.isNotBlank()) {
+            val duration = effectDuration(itemName)
             val effectModifiers = ModifierDatabase.getEffect(effectName)?.modifiers.orEmpty()
-            parts += "$effectName ($effectModifiers)"
+            parts += "$duration $effectName ($effectModifiers)"
         }
         return parts.joinToString(", ")
+    }
+
+    private fun leftoverAttributeNotes(itemName: String): List<String> {
+        val notes = ConsumableDatabase.getNotesByName(itemName)
+        if (notes.isBlank()) return emptyList()
+        return CONSUMABLE_NOTE_ATTRIBUTES.filter { notes.contains(it) }
+    }
+
+    private fun effectDuration(itemName: String): Int {
+        val modifiers = ModifierDatabase.getItem(itemName)?.modifiers.orEmpty()
+        if (modifiers.isBlank()) return 0
+        return ModifierParser.parse(modifiers).getInt(DoubleModifier.EFFECT_DURATION)
     }
 
     fun filename(className: String, signName: String, suffix: String = ""): String {

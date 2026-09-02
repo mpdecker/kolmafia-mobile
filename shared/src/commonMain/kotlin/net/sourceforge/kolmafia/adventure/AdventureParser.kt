@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.adventure
 
 import net.sourceforge.kolmafia.banish.Banisher
+import net.sourceforge.kolmafia.combat.FightBanishSync
 
 object AdventureParser {
     private val ITEM_GAINED = Regex("""You acquire an item:\s*<b>(.*?)</b>""")
@@ -12,7 +13,7 @@ object AdventureParser {
     private val MONSTER_NAME = Regex("""<span id='monname'>(.*?)</span>""")
     private val ENCOUNTER_NAME = Regex("""<b>([^<]{3,60})</b>""")
     private val BANISH_PATTERN = Regex(
-        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field)|won't be seeing|nowhere to be seen|don't expect to see|ensuing confusion|as the vortex disappears|peel(?:s)? out|You infect your foe|spooked by its balefulness|knock your opponent into tomorrow|Ultra Hammer|Patriotic Screech|human musk|deathchucks|B\. L\. A\. R\. T|Heartstone|curse of vacation)""",
+        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field)|won't be seeing|nowhere to be seen|don't expect to see|ensuing confusion|as the vortex disappears|peel(?:s)? out|You infect your foe|spooked by its balefulness|knock your opponent into tomorrow|Ultra Hammer|Patriotic Screech|human musk|deathchucks|B\. L\. A\. R\. T|Heartstone|curse of vacation|turns tail and runs|pass out from pure boredom|just give up and leave|just leave awkwardly|just turning and running away)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -73,6 +74,7 @@ object AdventureParser {
         "deliver an epic punch"                               to Banisher.PUNCH_OUT_YOUR_FOE,
         "your opponent turns and runs"                        to Banisher.HOWL_OF_THE_ALPHA,
         "You roar with sudden power"                          to Banisher.NANORHINO,
+        "You call in a favor from your mob"                   to Banisher.ORDER_A_KNEECAPPING,
         "knocked out of the park"                             to Banisher.BATTER_UP,
         "You punt your foe into next week"                    to Banisher.PUNT_AOSOL,
         "You hold up the monkey paw and it slaps"             to Banisher.MONKEY_SLAP,
@@ -92,7 +94,9 @@ object AdventureParser {
         "peel out"                                            to Banisher.PEEL_OUT,
         "curse of vacation"                                   to Banisher.CURSE_OF_VACATION,
         "Patriotic Screech"                                   to Banisher.PATRIOTIC_SCREECH,
+        "releases an ear shattering screech"                  to Banisher.PATRIOTIC_SCREECH,
         "Heartstone"                                          to Banisher.HEARTSTONE_BANISH,
+        "A ray blasts out of the stone"                       to Banisher.HEARTSTONE_BANISH,
         "B. L. A. R. T."                                      to Banisher.BLART_SPRAY_WIDE,
         "You infect your foe"                                 to Banisher.GLITCHED_MALWARE,
         "deathchucks"                                         to Banisher.DEATHCHUCKS,
@@ -102,9 +106,19 @@ object AdventureParser {
         "ice hotel bell"                                      to Banisher.ICE_HOTEL_BELL,
         "spooky music box"                                    to Banisher.SPOOKY_MUSIC_BOX_MECHANISM,
         "standalone cheese"                                   to Banisher.STAFF_OF_THE_STANDALONE_CHEESE,
+        "turns tail and runs"                                 to Banisher.STAFF_OF_THE_STANDALONE_CHEESE,
         "tryptophan dart"                                     to Banisher.TRYPTOPHAN_DART,
         "Crimbuccaneer rigging lasso"                         to Banisher.CRIMBUCCANEER_RIGGING_LASSO,
         "boring familiar pictures"                            to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "showing photos of your familiars"                      to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "waving your scrapbook"                               to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "prior appointment they have to get to"               to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "they just leave awkwardly"                           to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "they just give up and leave"                         to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "just turning and running away"                         to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "they make some vague excuses and leave"              to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "they pass out from pure boredom"                     to Banisher.SHOW_YOUR_BORING_FAMILIAR_PICTURES,
+        "nozzle all the way and blast it out of sight"        to Banisher.BLART_SPRAY_WIDE,
         "fragrant&quot; herbs"                                to Banisher.BUNDLE_OF_FRAGRANT_HERBS,
         "fragrant\" herbs"                                    to Banisher.BUNDLE_OF_FRAGRANT_HERBS,
         "Right Zoot Kick"                                      to Banisher.RIGHT_ZOOT_KICK,
@@ -138,8 +152,9 @@ object AdventureParser {
         val stats = parseStats(html)
         val banished = BANISH_PATTERN.containsMatchIn(html)
         val banisher = if (banished) {
-            BANISHER_PATTERNS.firstOrNull { (text, _) -> html.contains(text) }?.second
+            val matched = BANISHER_PATTERNS.firstOrNull { (text, _) -> html.contains(text) }?.second
                 ?: Banisher.UNKNOWN
+            FightBanishSync.resolveBanisher(html, matched)
         } else Banisher.UNKNOWN
         return AdventureResult.Combat(monster, won, items, meat, stats,
             banished = banished, banisher = banisher)

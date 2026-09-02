@@ -17,6 +17,9 @@ object ModifierDatabase {
     private val _synergyMaskByName = mutableMapOf<String, Int>()
     private val _inventorySkillProviderNames = mutableSetOf<String>()
     private val _replaceableMutexByEffectId = mutableMapOf<Int, Set<Int>>()
+    private val bitmapMasks = mutableMapOf<BitmapModifier, Int>()
+    private val bitmapMasksBySource = mutableMapOf<BitmapModifier, MutableMap<String, Int>>()
+    private val tooManyBitmapSources = mutableSetOf<BitmapModifier>()
     private var loaded = false
 
     /** Desktop [ModifierDatabase.CARRIED_OVER] tag names preserved on override. */
@@ -230,6 +233,7 @@ object ModifierDatabase {
 
     /** Restore runtime overrides from bundled modifiers.txt snapshot (desktop resetModifiers Item slice). */
     fun resetOverrides() {
+        resetBitmapMasks()
         for ((type, entries) in _bundledByTypeAndName) {
             val live = _byTypeAndName.getOrPut(type) { mutableMapOf() }
             for ((name, entry) in entries) {
@@ -238,6 +242,45 @@ object ModifierDatabase {
         }
         rebuildMutexBits()
         rebuildReplaceableMutexEffects()
+    }
+
+    /**
+     * Desktop [ModifierDatabase.getBitmapMask] — assign unique bits per
+     * ([BitmapModifier], lookup) and reuse them on reparse so Clowniness/Raveosity
+     * cannot exhaust the 32-bit mask during TCRS override.
+     */
+    internal fun getBitmapMask(mod: BitmapModifier, lookup: String, bitcount: Int): Int {
+        ensureBitmapMasks()
+        val assigned = bitmapMasksBySource.getOrPut(mod) { mutableMapOf() }
+        assigned[lookup]?.let { return it }
+        val bits = bitcount.coerceAtLeast(1)
+        var mask = bitmapMasks[mod] ?: 1
+        bitmapMasks[mod] = mask shl bits
+        for (i in 0 until bits - 1) {
+            mask = mask or (mask shl 1)
+        }
+        if ((bitmapMasks[mod] ?: 0) == 0) {
+            tooManyBitmapSources += mod
+        }
+        assigned[lookup] = mask
+        return mask
+    }
+
+    internal fun hasTooManyBitmapSources(mod: BitmapModifier): Boolean =
+        mod in tooManyBitmapSources
+
+    private fun ensureBitmapMasks() {
+        if (bitmapMasks.isNotEmpty()) return
+        resetBitmapMasks()
+    }
+
+    private fun resetBitmapMasks() {
+        bitmapMasksBySource.clear()
+        tooManyBitmapSources.clear()
+        bitmapMasks.clear()
+        for (mod in BitmapModifier.entries) {
+            bitmapMasks[mod] = 1
+        }
     }
 
     fun updateItem(itemId: Int, modifierString: String): Boolean {
@@ -279,6 +322,7 @@ object ModifierDatabase {
         _synergyMaskByName.clear()
         _inventorySkillProviderNames.clear()
         _replaceableMutexByEffectId.clear()
+        resetBitmapMasks()
         loaded = false
     }
 
@@ -342,6 +386,18 @@ object ModifierDatabase {
     }
 
     fun getItem(name: String): ModifierEntry?     = get("Item",    name)
+
+    fun parseModifiers(
+        entityType: String,
+        name: String,
+        modifierString: String,
+        context: net.sourceforge.kolmafia.modifiers.ExpressionContext,
+    ): net.sourceforge.kolmafia.modifiers.ModifierValues =
+        net.sourceforge.kolmafia.modifiers.ModifierParser.parse(
+            modifierString,
+            context,
+            "$entityType:$name",
+        )
     fun getEffect(name: String): ModifierEntry?   = get("Effect",  name)
     fun getSkill(name: String): ModifierEntry?    = get("Skill",   name)
     fun getSign(name: String): ModifierEntry?     = get("Sign",    name)

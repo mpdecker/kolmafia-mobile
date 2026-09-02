@@ -4,6 +4,19 @@ import net.sourceforge.kolmafia.shared.generated.resources.Res
 import net.sourceforge.kolmafia.utilities.leetify
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
+/** Desktop [MonsterDatabase.BlueVsRedTeam] from the BvR: token. */
+enum class BlueVsRedTeam(val teamName: String) {
+    BLUE("blue"),
+    RED("red"),
+    ENEMY("enemy"),
+    UNKNOWN("unknown");
+
+    companion object {
+        fun from(name: String): BlueVsRedTeam =
+            entries.firstOrNull { it.teamName.equals(name, ignoreCase = true) } ?: UNKNOWN
+    }
+}
+
 // Parses monsters.txt from the bundled compose resources.
 // Format (tab-separated): name  id  image  parameters  [drop1  drop2  ...]
 // Parameters is a space-separated list of Key: value pairs and flags.
@@ -103,6 +116,7 @@ object MonsterDatabase {
         val minSprinklesExpression: String? = null,
         val maxSprinkles: Int = 0,
         val maxSprinklesExpression: String? = null,
+        val blueVsRedTeam: BlueVsRedTeam = BlueVsRedTeam.UNKNOWN,
     )
 
     private fun parseParams(params: String): ParsedParams {
@@ -167,6 +181,7 @@ object MonsterDatabase {
         var minSprinklesExpression: String? = null
         var maxSprinkles = 0
         var maxSprinklesExpression: String? = null
+        var blueVsRedTeam = BlueVsRedTeam.UNKNOWN
 
         var i = 0
         while (i < tokens.size) {
@@ -346,6 +361,13 @@ object MonsterDatabase {
                             i += r.skip
                         }
                         "Article:" -> { article = peek; i++ }
+                        "BvR:" -> {
+                            val team = BlueVsRedTeam.from(peek)
+                            if (team != BlueVsRedTeam.UNKNOWN) {
+                                blueVsRedTeam = team
+                            }
+                            i++
+                        }
                         "Group:" -> {
                             group = peek.toIntOrNull() ?: 1
                             i++
@@ -483,6 +505,7 @@ object MonsterDatabase {
             minSprinklesExpression = minSprinklesExpression,
             maxSprinkles = maxSprinkles,
             maxSprinklesExpression = maxSprinklesExpression,
+            blueVsRedTeam = blueVsRedTeam,
         )
     }
 
@@ -641,6 +664,7 @@ object MonsterDatabase {
                 minSprinklesExpression = p.minSprinklesExpression,
                 maxSprinkles = p.maxSprinkles,
                 maxSprinklesExpression = p.maxSprinklesExpression,
+                blueVsRedTeam = p.blueVsRedTeam,
                 beeCount = computeBeeCount(name, id),
                 attributes = paramStr,
                 randomModifiers = emptyList(),

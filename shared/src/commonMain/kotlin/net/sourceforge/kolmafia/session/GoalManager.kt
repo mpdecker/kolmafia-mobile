@@ -5,6 +5,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.joinAll
 import net.sourceforge.kolmafia.adventure.AdventureLocation
 import net.sourceforge.kolmafia.adventure.AdventureManager
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * Tracks acquisition goals for the current automation session.
@@ -24,6 +26,19 @@ class GoalManager {
     private var substatsGoal: Boolean = false
     private val substatsCounts = IntArray(3)
     private var leprecondoGoalCount: Int = 0
+    private var pseudoKind: GoalPseudoConditions.Kind? = null
+    private var pseudoTarget: Int = 0
+    private var resourceKind: ResourceKind? = null
+    private var resourceTarget: Int = 0
+
+    enum class ResourceKind { HEALTH, MANA }
+
+    data class ConditionContext(
+        val characterState: CharacterState? = null,
+        val preferences: Preferences? = null,
+        val lastAdventure: String = "",
+        val isEquipped: (String) -> Boolean = { false },
+    )
 
     // ── Factoid goal (response text match) ────────────────────────────────────
 
@@ -137,7 +152,47 @@ class GoalManager {
         substatsGoal = false
         substatsCounts.fill(0)
     }
-    fun hasSubstatsGoal(): Boolean = substatsGoal
+    fun hasSubstatsGoal(): Boolean = substatsGoal || substatsCounts.any { it > 0 }
+
+    fun setPseudoGoal(kind: GoalPseudoConditions.Kind, target: Int) {
+        pseudoKind = kind
+        pseudoTarget = target.coerceAtLeast(0)
+    }
+
+    fun clearPseudoGoal() {
+        pseudoKind = null
+        pseudoTarget = 0
+    }
+
+    fun hasPseudoGoal(): Boolean = pseudoKind != null && pseudoTarget > 0
+
+    fun hasPseudoGoalMet(preferences: Preferences?): Boolean {
+        val kind = pseudoKind ?: return false
+        val prefs = preferences ?: return false
+        return GoalPseudoConditions.isMet(kind, pseudoTarget, prefs)
+    }
+
+    fun setResourceGoal(kind: ResourceKind, target: Int) {
+        resourceKind = kind
+        resourceTarget = target.coerceAtLeast(0)
+    }
+
+    fun clearResourceGoal() {
+        resourceKind = null
+        resourceTarget = 0
+    }
+
+    fun hasResourceGoal(): Boolean = resourceKind != null && resourceTarget > 0
+
+    fun hasResourceGoalMet(state: CharacterState): Boolean = when (resourceKind) {
+        ResourceKind.HEALTH -> state.currentHp >= resourceTarget
+        ResourceKind.MANA -> state.currentMp >= resourceTarget
+        null -> false
+    }
+
+    fun hasHealthGoal(): Boolean = resourceKind == ResourceKind.HEALTH && resourceTarget > 0
+
+    fun hasManaGoal(): Boolean = resourceKind == ResourceKind.MANA && resourceTarget > 0
     fun setSubstatsCounts(muscle: Int, mysticality: Int, moxie: Int) {
         substatsCounts[0] = muscle.coerceAtLeast(0)
         substatsCounts[1] = mysticality.coerceAtLeast(0)
@@ -180,9 +235,42 @@ class GoalManager {
         if (leprecondoGoalCount > 0) add("leprecondo:$leprecondoGoalCount")
         if (floundryGoalCount > 0) add("floundry:$floundryGoalCount")
         if (autostopGoalCount > 0) add("autostop:$autostopGoalCount")
+        pseudoKind?.let { add("pseudo:$it:$pseudoTarget") }
+        resourceKind?.let { add("$it:$resourceTarget") }
     }
 
-    fun applyCondition(parsed: GoalConditionParser.ParsedCondition, mode: ConditionMode) {
+    /** Desktop GoalManager.getGoalCount — remaining count for count-based condition types. */
+    fun goalCount(
+        type: String,
+        preferences: Preferences? = null,
+        state: CharacterState? = null,
+    ): Int = when (type.lowercase().trim()) {
+        "choice", "choiceadv", "choices" -> choiceAdventureCount
+        "factoid", "factoids", "manuel" -> factoidGoalCount
+        "floundry" -> floundryGoalCount
+        "leprecondo" -> leprecondoGoalCount
+        "autostop" -> autostopGoalCount
+        "substats" -> substatsCounts.sum()
+        "health", "hp" -> if (resourceKind == ResourceKind.HEALTH && state != null) {
+            (resourceTarget - state.currentHp).coerceAtLeast(0)
+        } else 0
+        "mana", "mp" -> if (resourceKind == ResourceKind.MANA && state != null) {
+            (resourceTarget - state.currentMp).coerceAtLeast(0)
+        } else 0
+        "pseudo", "pirate insult", "pirate insults", "arena flyer ml", "chasm bridge" -> {
+            val kind = pseudoKind
+            val prefs = preferences
+            if (kind == null || prefs == null) pseudoTarget
+            else (pseudoTarget - GoalPseudoConditions.currentCount(kind, prefs)).coerceAtLeast(0)
+        }
+        else -> 0
+    }
+
+    fun applyCondition(
+        parsed: GoalConditionParser.ParsedCondition,
+        mode: ConditionMode,
+        context: ConditionContext = ConditionContext(),
+    ) {
         when (parsed.kind) {
             GoalConditionParser.ParsedCondition.Kind.MEAT -> when (mode) {
                 ConditionMode.SET -> setMeatGoal(parsed.count)
@@ -193,6 +281,84 @@ class GoalManager {
                 ConditionMode.SET -> setLevelGoal(parsed.count)
                 ConditionMode.ADD -> setLevelGoal(parsed.count)
                 ConditionMode.REMOVE -> clearLevelGoal()
+            }
+            GoalConditionParser.ParsedCondition.Kind.LEVEL_SUBSTATS -> {
+                val state = context.characterState
+                if (state != null) {
+                    val counts = SubstatCalculator.substatPointsForLevel(parsed.count, state)
+                    when (mode) {
+                        ConditionMode.SET, ConditionMode.ADD -> setSubstatsCounts(counts[0], counts[1], counts[2])
+                        ConditionMode.REMOVE -> clearSubstatsGoal()
+                    }
+                } else when (mode) {
+                    ConditionMode.SET, ConditionMode.ADD -> setLevelGoal(parsed.count)
+                    ConditionMode.REMOVE -> clearLevelGoal()
+                }
+            }
+            GoalConditionParser.ParsedCondition.Kind.SUBSTAT_POINTS -> {
+                val state = context.characterState ?: return
+                val index = parsed.statIndex ?: return
+                val remaining = SubstatCalculator.remainingSubstatPoints(parsed.count, state, index)
+                val counts = substatsCounts.copyOf()
+                when (mode) {
+                    ConditionMode.SET -> counts.fill(0)
+                    ConditionMode.REMOVE -> {
+                        counts[index] = 0
+                        setSubstatsCounts(counts[0], counts[1], counts[2])
+                        return
+                    }
+                    ConditionMode.ADD -> Unit
+                }
+                counts[index] = when (mode) {
+                    ConditionMode.ADD -> counts[index] + remaining
+                    else -> remaining
+                }
+                setSubstatsCounts(counts[0], counts[1], counts[2])
+            }
+            GoalConditionParser.ParsedCondition.Kind.HEALTH,
+            GoalConditionParser.ParsedCondition.Kind.MANA,
+            -> {
+                val state = context.characterState ?: return
+                val max = if (parsed.kind == GoalConditionParser.ParsedCondition.Kind.HEALTH) {
+                    state.maxHp
+                } else {
+                    state.maxMp
+                }
+                val current = if (parsed.kind == GoalConditionParser.ParsedCondition.Kind.HEALTH) {
+                    state.currentHp
+                } else {
+                    state.currentMp
+                }
+                val points = if (parsed.percent) {
+                    (parsed.count.toDouble() * max / 100.0).toInt()
+                } else {
+                    parsed.count
+                }
+                val kind = if (parsed.kind == GoalConditionParser.ParsedCondition.Kind.HEALTH) {
+                    ResourceKind.HEALTH
+                } else {
+                    ResourceKind.MANA
+                }
+                when (mode) {
+                    ConditionMode.SET, ConditionMode.ADD -> setResourceGoal(kind, points.coerceAtLeast(current))
+                    ConditionMode.REMOVE -> clearResourceGoal()
+                }
+            }
+            GoalConditionParser.ParsedCondition.Kind.PIRATE_INSULT,
+            GoalConditionParser.ParsedCondition.Kind.ARENA_FLYER_ML,
+            GoalConditionParser.ParsedCondition.Kind.CHASM_BRIDGE,
+            -> {
+                val kind = parsed.pseudoKind ?: return
+                when (mode) {
+                    ConditionMode.SET, ConditionMode.ADD -> setPseudoGoal(kind, parsed.count)
+                    ConditionMode.REMOVE -> clearPseudoGoal()
+                }
+            }
+            GoalConditionParser.ParsedCondition.Kind.OUTFIT -> {
+                val location = parsed.outfitLocation?.takeIf { it.isNotBlank() }
+                    ?: context.lastAdventure
+                if (location.isBlank()) return
+                GoalOutfitConditions.addOutfitConditions(location, this, mode, context.isEquipped)
             }
             GoalConditionParser.ParsedCondition.Kind.CHOICE_ADVENTURES -> when (mode) {
                 ConditionMode.SET -> setChoiceAdventureGoal(parsed.count)
@@ -275,6 +441,10 @@ class GoalManager {
         substatsGoal = false
         substatsCounts.fill(0)
         leprecondoGoalCount = 0
+        pseudoKind = null
+        pseudoTarget = 0
+        resourceKind = null
+        resourceTarget = 0
         meatGoal = null
         levelGoal = null
         factoidGoal = null
@@ -301,6 +471,10 @@ class GoalManager {
         val substatsGoal: Boolean,
         val substatsCounts: IntArray,
         val leprecondoGoalCount: Int,
+        val pseudoKind: GoalPseudoConditions.Kind?,
+        val pseudoTarget: Int,
+        val resourceKind: ResourceKind?,
+        val resourceTarget: Int,
     )
 
     fun captureSnapshot(): GoalSnapshot = GoalSnapshot(
@@ -317,6 +491,10 @@ class GoalManager {
         substatsGoal = substatsGoal,
         substatsCounts = substatsCounts.copyOf(),
         leprecondoGoalCount = leprecondoGoalCount,
+        pseudoKind = pseudoKind,
+        pseudoTarget = pseudoTarget,
+        resourceKind = resourceKind,
+        resourceTarget = resourceTarget,
     )
 
     fun restoreSnapshot(snapshot: GoalSnapshot) {
@@ -335,6 +513,10 @@ class GoalManager {
             setSubstatsCounts(snapshot.substatsCounts[0], snapshot.substatsCounts[1], snapshot.substatsCounts[2])
         }
         leprecondoGoalCount = snapshot.leprecondoGoalCount
+        pseudoKind = snapshot.pseudoKind
+        pseudoTarget = snapshot.pseudoTarget
+        resourceKind = snapshot.resourceKind
+        resourceTarget = snapshot.resourceTarget
     }
 
     /**

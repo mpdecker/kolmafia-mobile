@@ -33,6 +33,7 @@ import kotlin.math.min
  *   5b. Ascension class (via ClassModifiers)
  *   6. Current familiar(via ModifierDatabase "Familiar")
  *   7. Complete outfits(via ModifierDatabase "Outfit")
+ *   7b. Brimstone / Cloathing / McHugeLarge half-set bitmap bonuses
  *
  * All values are advisory — authoritative buffed stats come from the KoL API.
  * Use this for pre-equip estimates and item advisor display.
@@ -260,7 +261,7 @@ class CurrentModifiers(
             } else {
                 ModifierDatabase.getItem(itemName)?.modifiers
             } ?: continue
-            total = total + ModifierParser.parse(raw, ctxWithAccumulated())
+            total = total + ModifierDatabase.parseModifiers("Item", itemName, raw, ctxWithAccumulated())
         }
 
         // 1b. Eternity codpiece gems (when codpiece is accessible)
@@ -308,6 +309,9 @@ class CurrentModifiers(
         if (state.equippedItem(EquipmentSlot.CONTAINER)?.equals(BUDDY_BJORN, ignoreCase = true) == true) {
             addThroneModifiers(state.bjornedFamiliarName, total, ctxWithAccumulated())?.let { total = it }
         }
+
+        // 1h. Brimstone / Cloathing / McHugeLarge outfit bitmap bonuses (desktop KoLCharacter)
+        total = OutfitBitmapBonuses.apply(total, state.inNoobcore)
 
         // 2. Active effects
         for (effect in activeEffects) {

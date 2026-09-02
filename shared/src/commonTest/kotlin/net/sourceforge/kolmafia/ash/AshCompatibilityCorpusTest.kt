@@ -4744,6 +4744,56 @@ class AshCompatibilityCorpusTest {
         ItemDatabase.resetForTest()
     }
 
+    @Test
+    fun corpus_behavioralDeepenBanishKneecapping_live() = runBlocking {
+        val db = GameDatabase()
+        db.load()
+        val p = prefs()
+        val banishes = net.sourceforge.kolmafia.banish.BanishManager(p).also {
+            it.banishMonster(
+                "huge mosquito",
+                net.sourceforge.kolmafia.banish.Banisher.ORDER_A_KNEECAPPING,
+                10,
+            )
+        }
+        val lib = GameRuntimeLibrary(preferences = p, banishManager = banishes, gameDatabase = db)
+        assertEquals("true", outputLib(lib, """print(to_string(is_banished("huge mosquito")));""").trim())
+        assertEquals(
+            "Order a Kneecapping",
+            outputLib(
+                lib,
+                """
+                    string[monster] b = banishers_used();
+                    monster m = to_monster("huge mosquito");
+                    print(b[m]);
+                """.trimIndent(),
+            ).trim(),
+        )
+    }
+
+    @Test
+    fun corpus_behavioralDeepenLastMaximizerSucceeded_live() {
+        val lib = GameRuntimeLibrary.forTesting()
+        assertEquals("false", outputLib(lib, "print(to_string(last_maximizer_succeeded()));").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenOutfitBitmap_live() {
+        ModifierDatabase.resetForTest()
+        try {
+            ModifierDatabase.injectForTest("Item", "Brimstone Beret", "Muscle: +1, Brimstone")
+            val char = KoLCharacter()
+            char.updateEquipment(EquipmentSlot.HAT, "Brimstone Beret")
+            val lib = GameRuntimeLibrary(character = char)
+            assertEquals(
+                "2.0",
+                outputLib(lib, """print(to_string(numeric_modifier("Monster Level")));""").trim(),
+            )
+        } finally {
+            ModifierDatabase.resetForTest()
+        }
+    }
+
     private fun registerCorpusWeapon(id: Int, name: String) {
         ItemDatabase.registerForTest(
             ItemData(

@@ -6,8 +6,9 @@ import net.sourceforge.kolmafia.request.AscensionRecord
 data class AscensionHistoryCompare(
     val newAscensions: List<AscensionRecord> = emptyList(),
     val turnDeltas: Map<Int, Int> = emptyMap(),
+    val pointDeltas: Map<Int, Int> = emptyMap(),
 ) {
-    val hasChanges: Boolean get() = newAscensions.isNotEmpty() || turnDeltas.isNotEmpty()
+    val hasChanges: Boolean get() = newAscensions.isNotEmpty() || turnDeltas.isNotEmpty() || pointDeltas.isNotEmpty()
 
     fun summaryLines(): List<String> = buildList {
         newAscensions.forEach { record ->
@@ -15,6 +16,9 @@ data class AscensionHistoryCompare(
         }
         turnDeltas.forEach { (number, delta) ->
             add("Ascension #$number in progress: +$delta turns since last fetch")
+        }
+        pointDeltas.forEach { (number, delta) ->
+            add("Ascension #$number points: +$delta since last fetch")
         }
     }
 }
@@ -43,6 +47,15 @@ object AscensionHistoryCompareLogic {
             }
         }
 
-        return AscensionHistoryCompare(newAscensions, turnDeltas)
+        val pointDeltas = buildMap {
+            for ((number, oldRecord) in previousByNumber) {
+                val newRecord = currentByNumber[number] ?: continue
+                val oldPoints = oldRecord.points ?: continue
+                val newPoints = newRecord.points ?: continue
+                if (newPoints > oldPoints) put(number, newPoints - oldPoints)
+            }
+        }
+
+        return AscensionHistoryCompare(newAscensions, turnDeltas, pointDeltas)
     }
 }

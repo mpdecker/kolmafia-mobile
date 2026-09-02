@@ -36,6 +36,7 @@ internal object MonsterEntityFields {
             "id" -> AshValue.of((monster?.id ?: 0).toLong())
             "name" -> AshValue.of(monster?.name ?: "")
             "article" -> AshValue.of(monster?.article ?: "")
+            "blue_vs_red_team" -> AshValue.of(monster?.blueVsRedTeam?.teamName ?: "")
             "image" -> AshValue.of(monster?.image ?: "")
             "base_hp" -> AshValue.of(
                 CombatAdjustment.monsterHp(monster, ml, expressionContext).toLong(),

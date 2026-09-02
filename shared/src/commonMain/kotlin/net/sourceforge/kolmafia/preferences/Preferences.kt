@@ -217,7 +217,7 @@ class Preferences(private val settings: Settings) {
         const val MR_STORE_CREDITS_COLLECTED = "_2002MrStoreCreditsCollected" // boolean
         const val SERVER_ROOM_VISITED        = "_serverRoomVisited"         // boolean
         const val JACKASS_PLUMBER_USED       = "_jackassPlumberGame"        // boolean; daily limit sentinel
-        const val SEA_JELLY_COLLECTED        = "_seaJellyCollected"         // boolean
+        const val SEA_JELLY_HARVESTED         = "_seaJellyHarvested"         // boolean (desktop)
         // Per-toy sentinels are dynamic: "_toyUsed_$toyId" — no compile-time constant needed
     }
 }

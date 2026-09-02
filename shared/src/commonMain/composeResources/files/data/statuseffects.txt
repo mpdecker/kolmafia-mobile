@@ -242,7 +242,7 @@
 240	Vitamin-Maxed	goofballs.gif	30b35877440e5cc89f36a65b15274a04	good	none	chew 1 bottle of ultravitamins|cargo effect Vitamin-Maxed
 241	Got Your Boots On	boot.gif	4021090627813d8ea662ca050395f338	good	none	chew 1 tube of hair oil
 242	The Q Is Talking To You	q.gif	4d1451739cd618bf2dcdff61af68ae65	good	none	chew 1 antique bottle of cough syrup
-243	Bad Luck	bmirror.gif	d7d35d7b14c7322fef4ddd80a0847473	neutral	none	use 1 antique hand mirror
+243	Bad Luck	bmirror.gif	d7d35d7b14c7322fef4ddd80a0847473	neutral	none
 244	Deadly Flashing Blade	blacksword.gif	05bc11c2da34e7f6fe1511ec6850fe2e	good	none	use 1 adder bladder
 245	Locks Like the Raven	blackbird2.gif	6d4452e978741bda60e82e316fdd7ba5	good	none	use 1 Black No. 2
 246	Smugness	happy.gif	e6f64babb5a6850783db4f82fe7e239b	good	none	# adv in Sleazy Back Alley
@@ -2924,7 +2924,7 @@
 2921	Aspirinated Lips	kiwi_lipstick.gif	9e5dfff0ab057887d958c0fb5609c2c1	neutral	none	use 1 mini kiwi-flavored aspirin-injecting lipstick
 2922	Everything Looks Purple	eyes.gif	3c340b41732b40571bf8ca24eb535380	neutral	noremove
 2923	Infected with Chronerism	chroner.gif	85122dd028354f65bf76800b064eb920	good	none	eat 1 bacteria bisque
-2924	Twitching Senses	nopic.gif	10424fbb137ba7a24a8a7798f2908bb6	neutral	none	eat 1 ciliophora chowder
+2924	Twitching Senses	watch.gif	10424fbb137ba7a24a8a7798f2908bb6	neutral	none	eat 1 ciliophora chowder
 2925	Chloroplasted	sun.gif	f1c704c574989c850076ccc1b43ce420	good	none	eat 1 cream of chloroplasts
 2926	Burning Mouth	embercheese.gif	077bfdc23982be1c734fa7a8f47791a4	good	none	eat 1 wheel of camembert
 2927	Lettuce Rejoice	emberlettuce.gif	74fff3d37b73461779ee2a24ef4cf34b	good	none
@@ -2999,7 +2999,7 @@
 2996	Current Axis Codes	axiscode.gif	415836d626cb8e5c6a9ce26908df5e9c	neutral	nohookah	use 1 Axis HQ Code
 2997	Looking Cool	ice.gif	2c2021fad6001c6da810328dd53f033c	neutral	nohookah
 2998	It's Like a Tickertape Parade	confetti.gif	15517c9531a69396e8c7e07e6dc9181d	neutral	nohookah
-2999	Wildsun Boon	wild_sun.gif	6f0fbda9b7530056f9deba25393c6eb7	neutral	nohookah	alliedradio effect boon
+2999	Wildsun Boon	sun.gif	6f0fbda9b7530056f9deba25393c6eb7	neutral	nohookah	alliedradio effect boon
 3000	Materiel Intel	dinseybrain.gif	61d884a9f0584996cabd095045b0d39e	neutral	nohookah	alliedradio effect intel
 3001	Demon in Combat	skeldoll.gif	62733d7f016123c31e2393696cd2c0f0	neutral	nohookah
 3002	Ellipsoidtined	circle.gif	74c598b6434144e0ef61711a547ce203	neutral	nohookah	alliedradio effect ellipsoidtine
@@ -3102,3 +3102,35 @@
 3099	Legendary Penne Fedora	pennehat.gif	b13615e198a0a1fe883cf2c0982738bd	neutral	none	cast 1 Bind Penne Dreadful ^ Legendary Penne Fedora
 3100	Legendary Pasta Eyeball	eyeball.gif	c74e515c4bc83f9037d005b37e4b490d	neutral	none	cast 1 Bind Lasagmbie ^ Legendary Pasta Eyeball
 3101	Legendary Spice Haze	disease.gif	fa78b3de0f428f72636083709d2d01ae	neutral	none	cast 1 Bind Spice Ghost ^ Legendary Spice Haze
+3102
+3103
+3104
+3105
+3106
+3107
+3108	Runneth Over	runnethover.gif	ba42c8a9a68f634e565a9f6b77493fff	neutral	none
+3109	Runneth On Empty	runnethempty.gif	119e01484cc298986ace7ad2fe77ef1e	neutral	none
+3110	Runneth Wild	runnethwild.gif	402bf078e9cd20d81b3c246a8a9293d2	neutral	none
+3111	Runneth With The Pack	runnethpack.gif	1ff8291a7c6eb7fb434f7651466e7054	neutral	none
+3112	Runneth a Tight Ship	runnethtight.gif	420b8a95b57b643e2c005b3c946c8fca	neutral	none
+3113	Runneth a Fever	runnethhot.gif	27463adc735b70ead26a18e7909cc919	neutral	none
+3114	Runneth Cold	runnethcold.gif	8f5e044de767af3014fdaa8658daef4b	neutral	none
+3115	Runneth On Fumes	runnethstench.gif	35b96e0c5637de5b95b6f8a05e186415	neutral	none
+3116	Runneth For Thy Life	runnethspooky.gif	a4c0d14bbc0c8af84aa96e4ace820c11	neutral	none
+3117	Runneth Into Thine Ex	runnethsleaze.gif	c6e701695a81c397abedc9c881f4f3f4	neutral	none
+3118	Essentially Bananafied	potion29.gif	82e86749d782ef9375a9799a163c6302	neutral	none	use 1 essential banana decoction
+3119	Quintessentially Bananafied	potion30.gif	ee62f1f950f98f2aecd9e00715b55aff	neutral	none	use 1 banana quintessence
+3120	Watermelon On The Brain	potion25.gif	5ff6e5e99f564a06465844720d8d9f3e	neutral	none	use 1 concentrated watermelon juice
+3121	Watermelon Seeds of Eternity	potion26.gif	faa21098b311fec1872c0c9bc097282f	neutral	none	use 1 Aqua Citrulanatae
+3122	Quincy	potion27.gif	e425ba397f9e3d5aab13649454bf2dc1	neutral	none	use 1 quince quaff
+3123	Quinced, Quickened	potion28.gif	8ebc563fcadf034ead3db7cd4bfd9c42	neutral	none	use 1 Quickquince
+3124	Future Soybeans	soybeans.gif	10f5b0faac25d4f4adb80eb11819b0b8	neutral	none	eat 1 soybean futures
+3125	Bubbled House	housebubble.gif	9cca1ad4d94be137db38b75722de62b7	neutral	none	use 1 housing bubble
+3126	Bananapalooza	origbanana.gif	015b0698db6c9fc324c4b2e4a38e4cd4	neutral	none	eat either 1 classic banana pie, 1 classic banana|drink either 1 Monkey Congress, 1 Aesop Daiquiri
+3127	Still Watermelons Run Deep	origwatermelon.gif	fe350d77a126ba68b799dbc8b7207012	neutral	none	eat either 1 antique watermelon pie, 1 antique watermelon|drink either 1 Melonade Spritz, 1 Melonegroni
+3128	Exotically Fruity	quince.gif	33adbae4116cc790cca00a5b1b31d65c	neutral	none	eat either 1 quince pie, 1 quince|drink either 1 Quincea&ntilde;era Cooler, 1 Quiskey Sour
+3129	Sugar-Stabbed	pixiesword.gif	f8351d29e844c978cdec90c468fe9007	neutral	none	use 1 Pixie-Swordz
+3130	Invisible Hand	blank.gif	5fc64c649c9913a04a198006a18da514	neutral	none	use 1 invisible hand
+3131	Overdraft Protected	protscroll.gif	c887af6cb7b0f96df8c5d7023a1a25e6	neutral	none	use 1 circle of overdraft protection scroll
+3132	Freshly Minted	mintleaf2.gif	56eb22b41bfb6d4c971d2ecc2f8596df	neutral	none	use 1 mint
+3133	Saving Some Bondo	bondo.gif	40b3f7dc010d298d22a4ed55ffeece6f	neutral	none	use 1 savings bondo

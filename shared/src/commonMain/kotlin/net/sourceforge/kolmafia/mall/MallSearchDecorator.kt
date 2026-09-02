@@ -18,10 +18,10 @@ object MallSearchDecorator {
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
 
-    fun decorateMallSearch(html: String, passwordHash: String = ""): String {
+    fun decorateMallSearch(html: String, passwordHash: String = "", ownStoreIds: Set<Int> = emptySet()): String {
         var buffer = html
         buffer = decorateAddBuyButtons(buffer, passwordHash)
-        buffer = decorateHighlightStores(buffer)
+        buffer = decorateHighlightStores(buffer, ownStoreIds)
         return buffer
     }
 
@@ -61,20 +61,27 @@ object MallSearchDecorator {
         return buffer.toString()
     }
 
-    private fun decorateHighlightStores(html: String): String {
+    private fun decorateHighlightStores(html: String, ownStoreIds: Set<Int>): String {
         val forbidden = MallPurchaseRequest.getForbiddenStores()
-        if (forbidden.isEmpty()) return html
+        if (forbidden.isEmpty() && ownStoreIds.isEmpty()) return html
         val buffer = StringBuilder(html)
         for (match in STOREDETAIL_PATTERN.findAll(html)) {
             val store = match.value
             val details = LISTDETAIL_PATTERN.find(store) ?: continue
             val storeId = details.groupValues[1].toIntOrNull() ?: continue
-            if (storeId !in forbidden) continue
-            val replacement = store.replace(
-                """<tr class="graybelow">""",
-                """<tr class="graybelow forbidden">""",
-                ignoreCase = true,
-            )
+            val replacement = when {
+                storeId in forbidden -> store.replace(
+                    """<tr class="graybelow">""",
+                    """<tr class="graybelow forbidden">""",
+                    ignoreCase = true,
+                )
+                storeId in ownStoreIds -> store.replace(
+                    """<tr class="graybelow">""",
+                    """<tr class="graybelow ownstore" title="Your store">""",
+                    ignoreCase = true,
+                )
+                else -> store
+            }
             if (replacement != store) {
                 buffer.replace(match.range.first, match.range.last + 1, replacement)
             }

@@ -1,6 +1,10 @@
 package net.sourceforge.kolmafia.modifiers
 
-enum class DoubleModifier(val tag: String, val multiple: Boolean = false) {
+enum class DoubleModifier(
+    val tag: String,
+    val multiple: Boolean = false,
+    val subsumed: Array<DoubleModifier> = emptyArray(),
+) {
 
     // ── Familiar ─────────────────────────────────────────────────────────────
     FAMILIAR_WEIGHT("Familiar Weight"),
@@ -207,7 +211,13 @@ enum class DoubleModifier(val tag: String, val multiple: Boolean = false) {
     WARBEAR_ARMOR_PENETRATION("WarBear Armor Penetration"),
     ELF_WARFARE_EFFECTIVENESS("Elf Warfare Effectiveness"),
     PIRATE_WARFARE_EFFECTIVENESS("Pirate Warfare Effectiveness"),
-    LANTERN("Lantern");
+    LANTERN("Lantern"),
+
+    // ── Combined (subsumed members) ───────────────────────────────────────────
+    HAT_PANTS_DROP("Hat / Pants Drop", subsumed = arrayOf(HATDROP, PANTSDROP)),
+    MAXIMUM_HP_MP("Maximum HP / MP", subsumed = arrayOf(HP, MP)),
+    ALL_ATTRIBUTES("All Attributes", subsumed = arrayOf(MUS, MYS, MOX)),
+    ALL_ATTRIBUTES_PCT("All Attributes Percent", subsumed = arrayOf(MUS_PCT, MYS_PCT, MOX_PCT));
 
     companion object {
         private val byTagLower: Map<String, DoubleModifier> =

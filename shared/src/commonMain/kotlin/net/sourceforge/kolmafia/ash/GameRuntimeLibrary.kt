@@ -554,7 +554,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase4190"
+        const val REVISION = "phase4430"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -2893,6 +2893,16 @@ class GameRuntimeLibrary(
             ?.toIntOrNull()
         processVisitResponseHooksForPath(normalizedUrl, html, choiceId)
 
+        if (normalizedUrl.contains("mall.php", ignoreCase = true) &&
+            net.sourceforge.kolmafia.mall.MallSearchRelayHook.isMallSearchHtml(html)
+        ) {
+            net.sourceforge.kolmafia.mall.MallSearchRelayHook.maybeDecorate(
+                html,
+                preferences,
+                playerId = character?.state?.value?.playerId ?: 0,
+            )
+        }
+
         net.sourceforge.kolmafia.request.MonsterManuelRequest.parseResponse(url, html)
         if (url?.contains("town_right.php", ignoreCase = true) == true) {
             GourdRequest.parseResponse(url, html, preferences, inventoryManager)
@@ -5187,8 +5197,19 @@ class GameRuntimeLibrary(
             return
         }
         val trimmed = rest.trim()
-        val playerId = resolveAscensionHistoryPlayerId(rest)
-        if (trimmed.isNotEmpty() && playerId == null) {
+        val filter = when {
+            trimmed.equals("summary", ignoreCase = true) ->
+                net.sourceforge.kolmafia.session.AscensionSnapshotCache.Filter.ALL
+            trimmed.equals("normal", ignoreCase = true) ->
+                net.sourceforge.kolmafia.session.AscensionSnapshotCache.Filter.NORMAL
+            trimmed.equals("hardcore", ignoreCase = true) ->
+                net.sourceforge.kolmafia.session.AscensionSnapshotCache.Filter.HARDCORE
+            trimmed.equals("casual", ignoreCase = true) ->
+                net.sourceforge.kolmafia.session.AscensionSnapshotCache.Filter.CASUAL
+            else -> null
+        }
+        val playerId = if (filter != null) null else resolveAscensionHistoryPlayerId(rest)
+        if (trimmed.isNotEmpty() && filter == null && playerId == null) {
             rt.print("Unknown player: $trimmed.")
             return
         }
@@ -5196,7 +5217,24 @@ class GameRuntimeLibrary(
             request.fetch(playerId)
                 .onSuccess { records ->
                     request.lastCompareSummary().forEach { rt.print(it) }
-                    records.forEach { rt.print(AscensionHistoryRequest.formatRecord(it)) }
+                    if (filter != null) {
+                        val mode = if (trimmed.equals("summary", ignoreCase = true)) {
+                            net.sourceforge.kolmafia.session.AscensionSnapshotCache.Filter.ALL
+                        } else {
+                            filter
+                        }
+                        val snapshot = net.sourceforge.kolmafia.session.AscensionSnapshotCache.build(
+                            records, null, null, mode,
+                        )
+                        val lines = if (trimmed.equals("summary", ignoreCase = true)) {
+                            net.sourceforge.kolmafia.session.AscensionSnapshotCache.extendedSummaryLines(snapshot)
+                        } else {
+                            net.sourceforge.kolmafia.session.AscensionSnapshotCache.summaryLines(snapshot)
+                        }
+                        lines.forEach { rt.print(it) }
+                    } else {
+                        records.forEach { rt.print(AscensionHistoryRequest.formatRecord(it)) }
+                    }
                 }
                 .onFailure {
                     request.statusLines().forEach { rt.print(it) }

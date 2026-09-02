@@ -52,7 +52,7 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     }
 
     regFn(scope, "is_dark_mode", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(false)
+        AshValue.of(preferences?.getBoolean("darkTheme", false) == true)
     }
 
     regFn(scope, "my_thrall", AshType.THRALL, emptyList()) { _, _ ->

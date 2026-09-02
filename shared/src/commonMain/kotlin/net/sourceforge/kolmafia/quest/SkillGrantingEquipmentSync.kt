@@ -34,6 +34,17 @@ object SkillGrantingEquipmentSync {
         return granted
     }
 
+    /** True when [skillId] is a noncombat skill granted by a gem socketed in The Eternity Codpiece. */
+    fun grantsSkillViaSocketedGem(
+        skillId: Int,
+        context: DynamicItemModifierSync.CheckContext,
+        gameDatabase: GameDatabase,
+    ): Boolean {
+        val def = SkillDefinitionDatabase.getById(skillId) ?: return false
+        if (!def.isNonCombat) return false
+        return def.name in codpieceGemSkills(context, gameDatabase, filterItemId = null)
+    }
+
     private fun codpieceGemSkills(
         context: DynamicItemModifierSync.CheckContext,
         gameDatabase: GameDatabase,

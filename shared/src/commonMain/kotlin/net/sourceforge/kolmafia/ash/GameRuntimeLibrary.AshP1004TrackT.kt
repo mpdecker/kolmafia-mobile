@@ -93,6 +93,9 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
         AshValue.of(net.sourceforge.kolmafia.maximizer.Evaluator(args[0].toString())
             .getScore(buildCurrentModifiers()))
     }
+    regFn(scope, "last_maximizer_succeeded", AshType.BOOLEAN, emptyList()) { _, _ ->
+        AshValue.of(maximizerManager?.lastMaximizeSucceeded() ?: false)
+    }
 
     // ── Phase 1008: council / tavern ────────────────────────────────
     regFn(scope, "council", AshType.VOID, emptyList()) { rt, _ ->
