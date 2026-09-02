@@ -22,7 +22,7 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
     }
 
     regFn(scope, "gametime_to_int", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of(currentTimeMillis())
+        AshValue.of(kolTimeInKoLDayMillis().toLong())
     }
 
     // ── Phase 1005: moon_light / moon_phase ─────────────────────────
@@ -54,39 +54,47 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
         listOf("format" to AshType.STRING, "dateTimeMillis" to AshType.INT,
             "timeZone" to AshType.STRING)) { _, args ->
         val millis = args[1].toLong()
-        AshValue.of(millis.toString())
+        val tz = args[2].toString().takeIf { it.isNotBlank() }
+        AshValue.of(formatAshDateTime(args[0].toString(), millis, tz))
     }
 
     regFn(scope, "format_date_time", AshType.STRING,
-        listOf("format" to AshType.STRING)) { _, _ ->
-        AshValue.of(currentTimeMillis().toString())
+        listOf("format" to AshType.STRING)) { _, args ->
+        AshValue.of(formatAshDateTime(args[0].toString(), currentTimeMillis(), null))
     }
 
     regFn(scope, "date_to_timestamp", AshType.INT,
         listOf("inFormat" to AshType.STRING, "dateString" to AshType.STRING)) { _, args ->
-        val str = args[1].toString()
-        AshValue.of(str.toLongOrNull() ?: 0L)
+        AshValue.of(parseAshDateTimestamp(args[0].toString(), args[1].toString()))
     }
 
     regFn(scope, "timestamp_to_date", AshType.STRING,
         listOf("timestamp" to AshType.INT, "outFormat" to AshType.STRING)) { _, args ->
         val ts = args[0].toLong()
-        AshValue.of(ts.toString())
+        AshValue.of(formatAshTimestamp(ts, args[1].toString()))
     }
 
     regFn(scope, "today_to_string", AshType.STRING, emptyList()) { _, _ ->
-        val now = currentTimeMillis()
-        AshValue.of(now.toString())
+        AshValue.of(formatAshDateTime("yyyyMMdd", currentTimeMillis(), null))
     }
 
     regFn(scope, "time_to_string", AshType.STRING, emptyList()) { _, _ ->
-        val now = currentTimeMillis()
-        AshValue.of(now.toString())
+        AshValue.of(formatAshDateTime("HH:mm:ss", currentTimeMillis(), null))
     }
 
     // ── Phase 1007: current_maximizer_score ─────────────────────────
     regFn(scope, "current_maximizer_score", AshType.FLOAT, emptyList()) { _, _ ->
-        AshValue.of(0.0)
+        val goal = preferences?.getString("maximizerList", "")?.takeIf { it.isNotBlank() }
+            ?: maximizerManager?.lastMaximizeGoal?.takeIf { it.isNotBlank() }
+            ?: ""
+        AshValue.of(
+            if (goal.isBlank()) {
+                0.0
+            } else {
+                net.sourceforge.kolmafia.maximizer.Evaluator(goal)
+                    .getScore(buildCurrentModifiers())
+            },
+        )
     }
     regFn(scope, "current_maximizer_score", AshType.FLOAT,
         listOf("evaluationString" to AshType.STRING)) { _, args ->
@@ -124,8 +132,13 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
 
     // ── Phase 1009: receive_fax / refresh_stash ─────────────────────
     regFn(scope, "receive_fax", AshType.BOOLEAN, emptyList()) { rt, _ ->
+        val manager = faxBotManager
+        if (manager != null) {
+            val ok = runBlocking { manager.receiveFaxOnly().isSuccess }
+            return@regFn AshValue.of(ok)
+        }
         dispatchCli("fax receive", rt)
-        AshValue.TRUE
+        AshValue.FALSE
     }
 
     regFn(scope, "refresh_stash", AshType.BOOLEAN, emptyList()) { _, _ ->

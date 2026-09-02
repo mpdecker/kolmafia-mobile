@@ -35,3 +35,32 @@ actual fun kolRolloverDayDifference(): Long {
     }
     return days
 }
+
+actual fun kolTimeInKoLDayMillis(): Int {
+    val epochSeconds = NSDate.date().timeIntervalSince1970
+    val rolloverSeconds = epochSeconds - (3.5 * 3600)
+    val midnightSeconds = rolloverSeconds - (rolloverSeconds.toLong() % 86400)
+    return ((rolloverSeconds - midnightSeconds) * 1000.0).toInt().coerceAtLeast(0)
+}
+
+actual fun formatAshDateTime(format: String, millis: Long, timeZone: String?): String {
+    val fmt = NSDateFormatter()
+    fmt.dateFormat = format
+  if (!timeZone.isNullOrBlank()) {
+        fmt.timeZone = platform.Foundation.NSTimeZone.timeZoneWithName(timeZone)
+    }
+    return fmt.stringFromDate(platform.Foundation.NSDate.dateWithTimeIntervalSince1970(millis / 1000.0))
+}
+
+actual fun parseAshDateTimestamp(inFormat: String, dateString: String): Long {
+    val fmt = NSDateFormatter()
+    fmt.dateFormat = inFormat
+    val date = fmt.dateFromString(dateString) ?: return 0L
+    return (date.timeIntervalSince1970 * 1000.0).toLong()
+}
+
+actual fun formatAshTimestamp(millis: Long, outFormat: String): String {
+    val fmt = NSDateFormatter()
+    fmt.dateFormat = outFormat
+    return fmt.stringFromDate(platform.Foundation.NSDate.dateWithTimeIntervalSince1970(millis / 1000.0))
+}

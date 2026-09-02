@@ -393,4 +393,25 @@ class AdventureParserTest {
         assertTrue(result.banished)
         assertEquals(Banisher.BLART_SPRAY_WIDE, result.banisher)
     }
+
+    @Test fun parseFightResult_humanMuskOpenVial_detected() {
+        val html = "You open the vial and release the musk. Your opponent is gone somewhere else."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.HUMAN_MUSK, result.banisher)
+    }
+
+    @Test fun parseFightResult_banishingShoutRefused_notBanished() {
+        val html = "You give a tremendous shout, but this foe refuses to leave."
+        val result = AdventureParser.parseFightResult(html)
+        assertFalse(result.banished)
+        assertEquals(Banisher.UNKNOWN, result.banisher)
+    }
+
+    @Test fun parseFightResult_crystalSkullShardAlt_detected() {
+        val html = "The skull explodes into a million worthless shards of glass. Your foe is gone somewhere else."
+        val result = AdventureParser.parseFightResult(html)
+        assertTrue(result.banished)
+        assertEquals(Banisher.CRYSTAL_SKULL, result.banisher)
+    }
 }

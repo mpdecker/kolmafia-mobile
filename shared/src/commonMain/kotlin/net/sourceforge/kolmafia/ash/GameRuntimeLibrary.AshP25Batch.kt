@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.modifiers.StatNames
 
 /**
@@ -7,8 +8,10 @@ import net.sourceforge.kolmafia.modifiers.StatNames
  */
 internal fun GameRuntimeLibrary.registerAshP25Batch(scope: AshScope) {
     val statModifierParams = listOf("stat" to AshType.STAT, "modifier" to AshType.STRING)
-    regFn(scope, "numeric_modifier", AshType.FLOAT, statModifierParams) { _, _ ->
-        AshValue.of(0.0)
+    regFn(scope, "numeric_modifier", AshType.FLOAT, statModifierParams) { _, args ->
+        val statName = StatNames.resolve(args[0].toString()).orEmpty()
+        val entry = ModifierDatabase.get("Stat", statName)
+        AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "boolean_modifier", AshType.BOOLEAN, statModifierParams) { _, _ ->
         AshValue.FALSE

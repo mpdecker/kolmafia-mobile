@@ -28,6 +28,8 @@ import net.sourceforge.kolmafia.request.FleaMarketRequest
 import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.session.DvorakManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
+import net.sourceforge.kolmafia.request.TrophyHutRequest
+import net.sourceforge.kolmafia.request.VolcanoIslandRequest
 import net.sourceforge.kolmafia.quest.SorceressLairSync
 import net.sourceforge.kolmafia.shop.SwaggerShopSync
 
@@ -294,7 +296,7 @@ object RequestLogger {
             return true
         }
 
-        if (registerLongTail(urlString, sessionLogger)) {
+        if (registerLongTail(urlString, sessionLogger, preferences)) {
             wasLastRequestSimple = false
             return true
         }
@@ -712,7 +714,11 @@ object RequestLogger {
 
     // ── Track D: long-tail ───────────────────────────────────────────────────
 
-    private fun registerLongTail(url: String, sessionLogger: SessionLogger?): Boolean {
+    private fun registerLongTail(
+        url: String,
+        sessionLogger: SessionLogger?,
+        preferences: Preferences?,
+    ): Boolean {
         when {
             url.startsWith("closet.php") ||
                 (url.startsWith("inventory.php") &&
@@ -830,7 +836,17 @@ object RequestLogger {
             }
 
             url.startsWith("volcanoisland.php") -> {
-                updateSessionLog("volcano island", sessionLogger)
+                val adventureCount = preferences?.getInt("turnsPlayed", 0) ?: 0
+                if (!VolcanoIslandRequest.registerRequest(url, sessionLogger, adventureCount = adventureCount)) {
+                    updateSessionLog("volcano island", sessionLogger)
+                }
+                return true
+            }
+
+            url.startsWith("trophy.php") -> {
+                if (!TrophyHutRequest.registerRequest(url, sessionLogger)) {
+                    updateSessionLog("trophy hut", sessionLogger)
+                }
                 return true
             }
 

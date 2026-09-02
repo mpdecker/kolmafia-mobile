@@ -60,12 +60,17 @@ object GoalOutfitConditions {
         when (mode) {
             GoalManager.ConditionMode.REMOVE -> {
                 for (piece in outfit.equipment) manager.removeGoal(piece)
+                manager.outfitGoalActive = false
             }
             GoalManager.ConditionMode.SET -> {
                 manager.clearGoals()
                 addMissingPieces(outfit.equipment, manager, isEquipped)
+                manager.outfitGoalActive = true
             }
-            GoalManager.ConditionMode.ADD -> addMissingPieces(outfit.equipment, manager, isEquipped)
+            GoalManager.ConditionMode.ADD -> {
+                addMissingPieces(outfit.equipment, manager, isEquipped)
+                manager.outfitGoalActive = true
+            }
         }
         return true
     }

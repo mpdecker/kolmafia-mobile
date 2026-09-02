@@ -302,7 +302,9 @@ import net.sourceforge.kolmafia.session.BastilleSyncContext
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DreadScrollManager
 import net.sourceforge.kolmafia.session.MerkinQuestSync
-import net.sourceforge.kolmafia.session.SeaMerkinSync
+import net.sourceforge.kolmafia.request.SeaMerkinRequest
+import net.sourceforge.kolmafia.request.TrophyHutRequest
+import net.sourceforge.kolmafia.request.VolcanoIslandRequest
 import net.sourceforge.kolmafia.session.VoteMonsterManager
 import net.sourceforge.kolmafia.session.FightStructuralSync
 import net.sourceforge.kolmafia.session.FightIotmResidualSync
@@ -554,7 +556,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase4430"
+        const val REVISION = "phase4460"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -3356,7 +3358,7 @@ class GameRuntimeLibrary(
             MerkinQuestSync.applyFromUrl(url, preferences, sessionLogger)
         }
         if (url != null && url.contains("sea_merkin.php", ignoreCase = true)) {
-            SeaMerkinSync.parseTemple(
+            SeaMerkinRequest.parseResponse(
                 url,
                 html,
                 character?.state?.value?.inSeaPath == true,
@@ -3365,7 +3367,19 @@ class GameRuntimeLibrary(
             )
         }
         if (url != null && url.contains("adventure.php", ignoreCase = true)) {
-            SeaMerkinSync.parseColosseum(url, html, preferences, sessionLogger)
+            SeaMerkinRequest.parseColosseum(url, html, preferences, sessionLogger)
+        }
+        if (url != null && url.contains("volcanoisland.php", ignoreCase = true)) {
+            VolcanoIslandRequest.parseResponse(
+                url,
+                html,
+                character?.state?.value,
+                preferences,
+                equipmentManager,
+            )
+        }
+        if (url != null && url.contains("trophy.php", ignoreCase = true)) {
+            TrophyHutRequest.parseResponse(url, html, character, sessionLogger)
         }
         if (url != null &&
             url.contains("inv_use.php", ignoreCase = true) &&
@@ -6339,6 +6353,7 @@ class GameRuntimeLibrary(
         registerAshP997TrackSBatch(scope)
         registerAshP1004TrackTBatch(scope)
         registerPhase3710(scope)
+        registerPhase4460(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
@@ -6732,8 +6747,10 @@ class GameRuntimeLibrary(
         }
         register(scope, "to_item", AshType.ITEM, listOf("id" to AshType.INT)) { _, args ->
             val id = args[0].toLong().toInt()
-            val name = inventoryManager?.state?.value?.items?.values
-                ?.find { it.itemId == id }?.name ?: id.toString()
+            val name = net.sourceforge.kolmafia.data.ItemDatabase.getById(id)?.name
+                ?: inventoryManager?.state?.value?.items?.values
+                    ?.find { it.itemId == id }?.name
+                ?: id.toString()
             AshValue.item(name)
         }
         register(scope, "have_item", AshType.BOOLEAN, listOf("it" to AshType.ITEM)) { _, args ->
@@ -6899,6 +6916,11 @@ class GameRuntimeLibrary(
             val name = args[0].toString()
             val currentTurn = character?.state?.value?.currentRun ?: 0
             AshValue.of(banishManager?.isBanished(name, currentTurn) ?: false)
+        }
+        register(scope, "is_banished", AshType.BOOLEAN, listOf("phylum" to AshType.PHYLUM)) { _, args ->
+            val phylum = args[0].toString()
+            val currentTurn = character?.state?.value?.currentRun ?: 0
+            AshValue.of(banishManager?.isBanishedPhylum(phylum, currentTurn) ?: false)
         }
 
         // banishers_used() → string[monster]

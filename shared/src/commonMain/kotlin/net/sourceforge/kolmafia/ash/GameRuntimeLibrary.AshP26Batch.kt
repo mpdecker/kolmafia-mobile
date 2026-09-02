@@ -9,8 +9,10 @@ import net.sourceforge.kolmafia.modifiers.VykeaCompanionData
  */
 internal fun GameRuntimeLibrary.registerAshP26Batch(scope: AshScope) {
     val servantModifierParams = listOf("servant" to AshType.SERVANT, "modifier" to AshType.STRING)
-    regFn(scope, "numeric_modifier", AshType.FLOAT, servantModifierParams) { _, _ ->
-        AshValue.of(0.0)
+    regFn(scope, "numeric_modifier", AshType.FLOAT, servantModifierParams) { _, args ->
+        val servantName = ServantData.resolve(args[0].toString())?.type ?: args[0].toString()
+        val entry = net.sourceforge.kolmafia.data.ModifierDatabase.get("Servant", servantName)
+        AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "boolean_modifier", AshType.BOOLEAN, servantModifierParams) { _, _ ->
         AshValue.FALSE

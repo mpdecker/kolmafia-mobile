@@ -23,10 +23,10 @@ class GameRuntimeLibraryAshP1004TrackTTest {
     }
 
     @Test
-    fun phase1004_gametimeToInt_positive() {
+    fun phase1004_gametimeToInt_withinKoLDay() {
         val lib = GameRuntimeLibrary(preferences = prefs())
         val result = outputLib(lib, "print(gametime_to_int());").toLong()
-        assertTrue(result > 0, "gametime_to_int should return positive millis")
+        assertTrue(result in 0..86_400_000, "gametime_to_int should be millis since KoL midnight")
     }
 
     @Test
@@ -50,6 +50,14 @@ class GameRuntimeLibraryAshP1004TrackTTest {
     }
 
     @Test
+    fun phase1007_currentMaximizerScoreUsesMaximizerListPref() {
+        val p = prefs { putString("maximizerList", "+muscle") }
+        val lib = GameRuntimeLibrary(preferences = p, character = KoLCharacter())
+        val score = outputLib(lib, "print(current_maximizer_score());").trim().toDouble()
+        assertEquals(0.0, score)
+    }
+
+    @Test
     fun phase1008_tavern_defaultZero() {
         val lib = GameRuntimeLibrary(preferences = prefs())
         assertEquals("0", outputLib(lib, "print(tavern());"))
@@ -64,7 +72,7 @@ class GameRuntimeLibraryAshP1004TrackTTest {
 
     @Test
     fun phase1010_revision() {
-        assertEquals("phase4430", GameRuntimeLibrary.REVISION)
+        assertEquals("phase4460", GameRuntimeLibrary.REVISION)
     }
 
     @Test

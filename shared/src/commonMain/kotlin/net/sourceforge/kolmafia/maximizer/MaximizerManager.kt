@@ -126,6 +126,10 @@ open class MaximizerManager(
     var lastSucceeded: Boolean = false
         private set
 
+    @Volatile
+    var lastMaximizeGoal: String? = null
+        private set
+
     fun lastMaximizeSucceeded(): Boolean = lastSucceeded
 
     open suspend fun maximize(
@@ -133,6 +137,7 @@ open class MaximizerManager(
         filters: Set<MaximizerFilterType> = MaximizerFilters.fromPreferences(preferences),
     ): MaximizeResult {
         lastSucceeded = false
+        lastMaximizeGoal = goalText.trim().takeIf { it.isNotEmpty() }
         val plan = buildMaximizePlan(goalText, filters)
             ?: return MaximizeResult(false, goalText.trim(), 0.0, 0.0)
         writeSpecFromPlan(plan)

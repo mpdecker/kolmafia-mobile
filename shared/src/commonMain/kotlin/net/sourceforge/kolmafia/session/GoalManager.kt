@@ -30,6 +30,8 @@ class GoalManager {
     private var pseudoTarget: Int = 0
     private var resourceKind: ResourceKind? = null
     private var resourceTarget: Int = 0
+    var outfitGoalActive: Boolean = false
+        internal set
 
     enum class ResourceKind { HEALTH, MANA }
 
@@ -44,7 +46,7 @@ class GoalManager {
 
     fun setFactoidGoal(text: String) { factoidGoal = text.trim().takeIf { it.isNotBlank() } }
     fun clearFactoidGoal() { factoidGoal = null }
-    fun hasFactoidGoalSet(): Boolean = factoidGoal != null
+    fun hasFactoidGoalSet(): Boolean = factoidGoal != null || hasFactoidCountGoal()
     fun matchesFactoid(responseText: String): Boolean {
         val goal = factoidGoal ?: return false
         return responseText.contains(goal, ignoreCase = true)
@@ -244,12 +246,24 @@ class GoalManager {
         type: String,
         preferences: Preferences? = null,
         state: CharacterState? = null,
+        inventoryCount: ((Int) -> Int)? = null,
     ): Int = when (type.lowercase().trim()) {
         "choice", "choiceadv", "choices" -> choiceAdventureCount
-        "factoid", "factoids", "manuel" -> factoidGoalCount
-        "floundry" -> floundryGoalCount
-        "leprecondo" -> leprecondoGoalCount
+        "factoid", "factoids", "manuel" -> when {
+            factoidGoalCount > 0 -> factoidGoalCount
+            factoidGoal != null -> 1
+            else -> 0
+        }
+        "floundry", "floundry fish" -> floundryGoalCount
+        "leprecondo", "leprecondo furniture" -> leprecondoGoalCount
         "autostop" -> autostopGoalCount
+        "meat" -> if (meatGoal != null && state != null) {
+            (meatGoal!! - state.meat).coerceAtLeast(0)
+        } else 0
+        "level" -> if (levelGoal != null && state != null) {
+            (levelGoal!! - state.level).coerceAtLeast(0)
+        } else 0
+        "item", "items" -> remainingItemGoalCount(inventoryCount)
         "substats" -> substatsCounts.sum()
         "health", "hp" -> if (resourceKind == ResourceKind.HEALTH && state != null) {
             (resourceTarget - state.currentHp).coerceAtLeast(0)
@@ -264,6 +278,58 @@ class GoalManager {
             else (pseudoTarget - GoalPseudoConditions.currentCount(kind, prefs)).coerceAtLeast(0)
         }
         else -> 0
+    }
+
+    /** Sum of remaining item goals after subtracting accessible inventory counts. */
+    fun remainingItemGoalCount(inventoryCount: ((Int) -> Int)? = null): Int {
+        var total = 0
+        _itemGoalIds.forEach { (itemId, needed) ->
+            val have = inventoryCount?.invoke(itemId) ?: 0
+            total += (needed - have).coerceAtLeast(0)
+        }
+        _itemGoalNames.forEach { (name, needed) ->
+            val itemId = net.sourceforge.kolmafia.data.ItemDatabase.getByName(name)?.id ?: return@forEach
+            val have = inventoryCount?.invoke(itemId) ?: 0
+            total += (needed - have).coerceAtLeast(0)
+        }
+        return total
+    }
+
+    /** Desktop AdventureResult.getConditionType parity for goal_exists(). */
+    fun matchesConditionType(type: String): Boolean {
+        val normalized = type.trim()
+        return when {
+            normalized.equals("item", ignoreCase = true) ->
+                hasItemGoals() && !outfitGoalActive
+            normalized.equals("outfit", ignoreCase = true) -> outfitGoalActive
+            normalized.equals("meat", ignoreCase = true) -> hasMeatGoalSet()
+            normalized.equals("level", ignoreCase = true) -> hasLevelGoalSet()
+            normalized.equals("factoid", ignoreCase = true) ||
+                normalized.equals("factoids", ignoreCase = true) ||
+                normalized.equals("manuel", ignoreCase = true) -> hasFactoidGoalSet()
+            normalized.equals("autostop", ignoreCase = true) -> hasAutostopGoal()
+            normalized.equals("choice", ignoreCase = true) -> hasChoiceGoalSet()
+            normalized.equals("choiceadv", ignoreCase = true) ||
+                normalized.equals("choices", ignoreCase = true) ->
+                hasChoiceAdventureGoal() || hasChoiceGoalSet()
+            normalized.equals("floundry", ignoreCase = true) ||
+                normalized.equals("floundry fish", ignoreCase = true) -> hasFloundryGoal()
+            normalized.equals("leprecondo", ignoreCase = true) ||
+                normalized.equals("leprecondo furniture", ignoreCase = true) -> hasLeprecondoGoal()
+            normalized.equals("substats", ignoreCase = true) -> hasSubstatsGoal()
+            normalized.equals("health", ignoreCase = true) ||
+                normalized.equals("hp", ignoreCase = true) -> hasHealthGoal()
+            normalized.equals("mana", ignoreCase = true) ||
+                normalized.equals("mp", ignoreCase = true) -> hasManaGoal()
+            normalized.equals("pseudo", ignoreCase = true) ||
+                normalized.equals("pirate insult", ignoreCase = true) ||
+                normalized.equals("pirate insults", ignoreCase = true) -> hasPseudoGoal()
+            normalized.equals("arena flyer ml", ignoreCase = true) ->
+                pseudoKind == GoalPseudoConditions.Kind.ARENA_FLYER_ML
+            normalized.equals("chasm bridge progress", ignoreCase = true) ->
+                pseudoKind == GoalPseudoConditions.Kind.CHASM_BRIDGE
+            else -> false
+        }
     }
 
     fun applyCondition(
@@ -448,6 +514,7 @@ class GoalManager {
         meatGoal = null
         levelGoal = null
         factoidGoal = null
+        outfitGoalActive = false
     }
 
     companion object {

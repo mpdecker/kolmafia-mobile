@@ -4,10 +4,14 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 
 internal fun GameRuntimeLibrary.resolveAshItemId(arg: AshValue): Int? {
     if (arg.type != AshType.ITEM) return null
+    val name = arg.toString()
+    name.toIntOrNull()?.let { id ->
+        if (id > 0 && ItemDatabase.getById(id) != null) return id
+    }
     val asInt = arg.toLong().toInt()
     if (asInt > 0 && ItemDatabase.getById(asInt) != null) return asInt
-    return gameDatabase?.item(arg.toString())?.id
-        ?: ItemDatabase.getByName(arg.toString())?.id
+    return gameDatabase?.item(name)?.id
+        ?: ItemDatabase.getByName(name)?.id
 }
 
 internal fun GameRuntimeLibrary.itemAshValue(itemId: Int): AshValue {

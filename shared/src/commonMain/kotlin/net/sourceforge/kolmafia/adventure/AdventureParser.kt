@@ -13,7 +13,7 @@ object AdventureParser {
     private val MONSTER_NAME = Regex("""<span id='monname'>(.*?)</span>""")
     private val ENCOUNTER_NAME = Regex("""<b>([^<]{3,60})</b>""")
     private val BANISH_PATTERN = Regex(
-        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field)|won't be seeing|nowhere to be seen|don't expect to see|ensuing confusion|as the vortex disappears|peel(?:s)? out|You infect your foe|spooked by its balefulness|knock your opponent into tomorrow|Ultra Hammer|Patriotic Screech|human musk|deathchucks|B\. L\. A\. R\. T|Heartstone|curse of vacation|turns tail and runs|pass out from pure boredom|just give up and leave|just leave awkwardly|just turning and running away)""",
+        """(?:flees? in terror|banish(?:ed)? from|gone somewhere else|fle(?:e[sd]?|d) the (?:area|field)|won't be seeing|nowhere to be seen|don't expect to see|ensuing confusion|as the vortex disappears|peel(?:s)? out|You infect your foe|spooked by its balefulness|knock your opponent into tomorrow|Ultra Hammer|Patriotic Screech|human musk|deathchucks|B\. L\. A\. R\. T|Heartstone|curse of vacation|turns tail and runs|pass out from pure boredom|just give up and leave|just leave awkwardly|just turning and running away|worthless shards of glass|EEEEEEEEEEEEEEEEEEEEEEEEK!|You launch your cosmic bowling ball|You scream like a lunatic|open the vial|asleep on a nearby recliner|like a pea and split|at least until they can wash their hands|then toss it roguishly)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -122,6 +122,15 @@ object AdventureParser {
         "fragrant&quot; herbs"                                to Banisher.BUNDLE_OF_FRAGRANT_HERBS,
         "fragrant\" herbs"                                    to Banisher.BUNDLE_OF_FRAGRANT_HERBS,
         "Right Zoot Kick"                                      to Banisher.RIGHT_ZOOT_KICK,
+        "EEEEEEEEEEEEEEEEEEEEEEEEK!"                           to Banisher.CLASSY_MONKEY,
+        "skull explodes into a million worthless shards of glass" to Banisher.CRYSTAL_SKULL,
+        "You launch your cosmic bowling ball"                  to Banisher.BOWL_A_CURVEBALL,
+        "You scream like a lunatic"                            to Banisher.BOWL_A_CURVEBALL,
+        "open the vial"                                        to Banisher.HUMAN_MUSK,
+        "asleep on a nearby recliner"                          to Banisher.TRYPTOPHAN_DART,
+        "like a pea and split"                                 to Banisher.SPLIT_PEA_SOUP,
+        "at least until they can wash their hands"             to Banisher.PEPPERMINT_BOMB,
+        "then toss it roguishly"                               to Banisher.CRIMBUCCANEER_RIGGING_LASSO,
     )
 
     fun parseAdventureResponse(html: String, finalUrl: String): AdventureResult = when {
@@ -150,12 +159,11 @@ object AdventureParser {
         val items = ITEM_GAINED.findAll(html).map { it.groupValues[1].trim() }.toList()
         val meat = parseMeat(html)
         val stats = parseStats(html)
-        val banished = BANISH_PATTERN.containsMatchIn(html)
-        val banisher = if (banished) {
-            val matched = BANISHER_PATTERNS.firstOrNull { (text, _) -> html.contains(text) }?.second
-                ?: Banisher.UNKNOWN
-            FightBanishSync.resolveBanisher(html, matched)
-        } else Banisher.UNKNOWN
+        val patternHit = BANISH_PATTERN.containsMatchIn(html)
+        val matched = BANISHER_PATTERNS.firstOrNull { (text, _) -> html.contains(text, ignoreCase = true) }?.second
+            ?: Banisher.UNKNOWN
+        val banisher = FightBanishSync.resolveBanisher(html, matched)
+        val banished = FightBanishSync.shouldRecordBanish(html, banisher, patternHit)
         return AdventureResult.Combat(monster, won, items, meat, stats,
             banished = banished, banisher = banisher)
     }
