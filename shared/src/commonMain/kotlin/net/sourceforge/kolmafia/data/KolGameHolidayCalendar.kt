@@ -121,6 +121,17 @@ object KolGameHolidayCalendar {
     fun getMoonEffect(calendarDay: Int = dayInKoLYear()): String =
         STAT_EFFECT.getOrNull(phaseStep(calendarDay)) ?: "Could not determine moon phase."
 
+    /**
+     * Desktop [HolidayDatabase.getStatDay] — which primary-stat moon bonus applies on [calendarDay].
+     * Returns `"muscle"` / `"mysticality"` / `"moxie"`, or `""` when none.
+     */
+    fun getStatDay(calendarDay: Int = dayInKoLYear()): String = when (calendarDay % 16) {
+        0, 15 -> "moxie"
+        4, 12 -> "mysticality"
+        8, 9 -> "muscle"
+        else -> ""
+    }
+
     fun getDayCountAsString(dayCount: Int): String = when (dayCount) {
         0 -> "today"
         1 -> "tomorrow"

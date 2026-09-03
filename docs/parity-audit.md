@@ -1,17 +1,17 @@
 ﻿# KoLmafia Mobile vs Desktop — Parity Audit
 
-*Generated: 2026-06-03 (updated 2026-09-01 parity audit at `phase4460`)*
+*Generated: 2026-06-03 (updated 2026-09-02 parity audit at `phase4490`)*
 
 ## Scale Comparison
 
 
 | Metric                   | Desktop (Java)              | Mobile (Kotlin)              | Coverage                |
 | ------------------------ | --------------------------- | ---------------------------- | ----------------------- |
-| Source files             | 1,179 classes               | 1,540 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
+| Source files             | 1,179 classes               | 1,543 commonMain `.kt`       | File count **overstates** (many `*Sync` / `AshP*` splits) |
 | Lines of code            | 330,945                     | 158,210 (commonMain)         | **~48%**                |
 | Test files               | 411                         | 1,305                        | Mobile wins on isolation |
-| Tests                    | ~1,800+                     | 8,512 (`@Test`)              | Mobile wins on volume   |
-| ASH overload signatures  | ~890                        | 1,035 `regFn` sites          | **≥100%** (registration) |
+| Tests                    | ~1,800+                     | 8,548 (`@Test`)              | Mobile wins on volume   |
+| ASH overload signatures  | ~890                        | 1,061 `regFn` sites          | **≥100%** (registration) |
 | ASH live behavior        | ~890 implementations        | ~450–500 live                | **~55–60%** (behavioral) |
 | `*Manager` files         | 95                          | 97                           | **over-parity** by name |
 | `*Request` files         | 321                         | 165                          | **~51%** — named residual holes closed (3951–4010) |
@@ -169,10 +169,10 @@ with desktop `RuntimeLibrary.java`; mobile now has **1,032** `regFn` call sites)
 | ~~**Mall item-detail / NPC overlay**~~ | Regex mall search | **Live (4011–4130 + 4221–4235).** Item-detail descitem, NPC/coinmaster overlay, fuzzy retry, relay hook. |
 | ~~**Ascension history header / snapshot**~~ | AscensionHistoryRequest | **Live (4011–4130 + 4251–4310).** Player header cache, snapshot filter/compare, `ascensionhistory summary`. |
 | ~~**is_dark_mode()**~~ | Environment pref | **Live (4236–4250).** Pref-backed via `GameRuntimeLibrary.Character.kt`. |
-| **ASH behavioral depth** | RuntimeLibrary.java live bodies | **Medium.** 1,034 `regFn` registrations vs ~450–500 live implementations; largest remaining script failure surface. |
+| **ASH behavioral depth** | RuntimeLibrary.java live bodies | **Medium.** 1,061 `regFn` registrations vs ~480–530 live implementations; largest remaining script failure surface. |
 | **HTTP Request class residual** | 321 `*Request.java` | **Low–Medium.** 165 `*Request.kt` (~51%); remaining gaps are Sync/CLI stand-ins and consolidated coinmaster routing. |
 | ~~**Banish fight-HTML alternates**~~ | FightRequest banish strings | **Live (4431–4440).** 109 `BANISHER_PATTERNS` + `FightBanishSync` fallbacks/refuse guard; choice-only paths may still record UNKNOWN. |
-| **Quest per-quest state machines** | QuestManager in-code writers | **Low.** Hub + `*Sync` live; special-case detection thinner than desktop. |
+| **Quest per-quest state machines** | QuestManager in-code writers | **Low.** Hub + `*Sync` live; Phases 4471–4480 deepened Telegram/Party Fair/Doctor Bag/PirateRealm visit+combat writers (`VisitChoiceQuestHooks`). |
 | **Dynamic ChoiceAdventures spoilers** | Violet Fog, Louvre, etc. | **Low.** Static catalog live; runtime spoilers remain on existing managers. |
 | **Ascension mechanics depth** | AscensionManager.java | **Low.** Path enum complete; reset/completion/unlock tracking thinner. |
 | **MANUAL concoction edges** | concoction/ 32 classes | **Low.** Core craft routers live through Phase 327+. |
@@ -550,15 +550,15 @@ mobile wins on core automation paths and test isolation.
 
 ## Top Priorities
 
-*Updated 2026-09-01 at `phase4460`. Phases 4451–4460 closed ASH behavioral deepen VI (`is_goal`, `goal_exists` aliases, date/time ASH, `receive_fax`, `numeric_modifier` STAT/SERVANT/PHYLUM/familiar 4-arg, `to_item(id)`/`resolveAshItemId` id parity).*
+*Updated 2026-09-02 at `phase4490`. Phases 4481–4490 closed ASH behavioral deepen VIII (`last_skill_message`, `eight_bit_points`, `get_no_pulls`, `get_items_hash`, `beret_busking_effects`, `image_to_monster`, fixed `dart_parts_to_skills`/`extract_items`/`sells_skill`/`sell_cost`, `path_name_to_id`/`path_id_to_name`).*
 
 Manager **name coverage is complete**. The honest remaining gaps are **ASH behavioral implementations**, **HTTP Request breadth** (~49% class count), and scattered **quest deepen** items — not another manager sweep.
 
 ### Active queue (ordered by script / automation impact)
 
-1. **ASH behavioral depth** — 1,035 `regFn` registrations vs ~460–510 live implementations; `AshCompatibilityCorpusTest` is the regression floor. **Highest remaining script failure surface.**
+1. **ASH behavioral depth** — 1,061 `regFn` registrations vs ~480–530 live implementations; `AshCompatibilityCorpusTest` is the regression floor. **Highest remaining script failure surface.**
 2. **HTTP Request class residual** — 168/321 `*Request` classes (~52%); `SeaMerkinRequest`/`VolcanoIslandRequest`/`TrophyHutRequest` typed hubs live; remaining gaps are Sync/CLI stand-ins and consolidated coinmaster routing.
-3. **Quest per-quest state machines** — hub + `*Sync` live; per-quest in-code step writers and special-case detection (Telegram, Party Fair, Doctor Bag, PirateRealm) thinner than desktop.
+3. **Quest per-quest state machines** — Telegram/Party Fair/Doctor Bag/PirateRealm visit+combat writers deepened (4471–4480); remaining special-case detection still thinner than desktop.
 4. **Dynamic ChoiceAdventures spoilers** — static catalog live (3771–3830); Violet Fog/Louvre/etc. runtime spoilers remain on existing managers.
 5. **Ascension mechanics depth** — path enum complete; reset/completion/unlock tracking thinner than `AscensionManager.java`.
 6. **Clan dungeons** — lounge/rumpus/stash largely live; scattered desktop dungeon managers not ported.
@@ -578,15 +578,27 @@ Manager **name coverage is complete**. The honest remaining gaps are **ASH behav
 
 ### Closed (do not re-queue)
 
-~~Ed servant HTML table~~ **live** *(4011–4070)*; ~~GoalManager condition variants~~ **live** *(4011–4070 + 4191–4250)*; ~~Mall item-detail / NPC overlay~~ **live** *(4011–4130 + 4221–4235)*; ~~Ascension history header / snapshot~~ **live** *(4011–4130 + 4251–4310)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170 + 4236–4250)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator + relayActive hook** *(4171–4180 + 4221–4235)*; ~~Chatterboxing choice 191 banish~~ **live** *(4206–4220)*; ~~is_dark_mode always false~~ **pref-backed** *(4236–4250)*; ~~Desktop r29219 combined modifiers~~ **live** *(4311–4370)*; ~~Behavioral Deepen III~~ **live** *(4371–4430)*; ~~Banish fight-HTML alternates~~ **live** *(4431–4440)*; ~~ASH behavioral deepen IV~~ **live** *(4431–4440)*; ~~ASH behavioral deepen V~~ **live** *(4441–4450)*; ~~Volcano island / trophy hut / sea merkin typed requests~~ **live** *(4441–4450)*; ~~ASH behavioral deepen VI~~ **live** *(4451–4460)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live** *(1071–1130 + 4431–4440)*; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4430~~ **live**.
+~~Ed servant HTML table~~ **live** *(4011–4070)*; ~~GoalManager condition variants~~ **live** *(4011–4070 + 4191–4250)*; ~~Mall item-detail / NPC overlay~~ **live** *(4011–4130 + 4221–4235)*; ~~Ascension history header / snapshot~~ **live** *(4011–4130 + 4251–4310)*; ~~Manuel factoid count goal~~ **live** *(4071–4085)*; ~~TCRS GitHub fetch + `tcrs fetch`~~ **live** *(4131–4150)*; ~~xpath empty-array stub~~ **live minimal SimpleXPath** *(4151–4170 + 4236–4250)*; ~~Mall search relay decorate~~ **live headless MallSearchDecorator + relayActive hook** *(4171–4180 + 4221–4235)*; ~~Chatterboxing choice 191 banish~~ **live** *(4206–4220)*; ~~is_dark_mode always false~~ **pref-backed** *(4236–4250)*; ~~Desktop r29219 combined modifiers~~ **live** *(4311–4370)*; ~~Behavioral Deepen III~~ **live** *(4371–4430)*; ~~Banish fight-HTML alternates~~ **live** *(4431–4440)*; ~~ASH behavioral deepen IV~~ **live** *(4431–4440)*; ~~ASH behavioral deepen V~~ **live** *(4441–4450)*; ~~Volcano island / trophy hut / sea merkin typed requests~~ **live** *(4441–4450)*; ~~ASH behavioral deepen VI~~ **live** *(4451–4460)*; ~~ASH behavioral deepen VII~~ **live** *(4461–4470)*; ~~Quest state-machine deepen~~ **live** *(4471–4480)*; ~~ASH behavioral deepen VIII~~ **live** *(4481–4490)*; ~~ASH behavioral signature floor~~ **met**; ~~CLI long-tail 1011–1070~~ **live**; ~~Maximizer Evaluator→boosts~~ **live**; ~~Quest/ChoiceControl + QuestManager hub~~ **live**; ~~KoLCharacter collection/campground/ascension~~ **live through 433**; ~~bundled data~~ **all 50 core `.txt` wired**; ~~garden yield / mushroom squares~~ **live**; ~~banish queue/phylum~~ **live** *(1071–1130 + 4431–4440)*; ~~Mall/NS tower/Spelunky/Bastille/Uneffect/Manuel/YouRobot/Grimstone/Rumple/CakeArena/GreyYou/Valhalla/BadMoon/Spaaace/Hacienda/Leprecondo/Mushroom/Journey/Nemesis/Tavern/Dvorak/Mail/Fight lifecycle/IoTM utilities/ASH surface 3591–3650/ASH semantic 3651–3710/IoTM manager residuals 3711–3770/ChoiceAdventures catalog 3771–3830/GuildUnlock + Beach residual 3831–3890/CLI Tier-4 3891–3950/HTTP request residual 3951–4010/Ed+Goal+Mall+Ascension deepen 4011–4070/Low-priority deepen-partials 4071–4430~~ **live**.
 
-*Next pass:* **ASH behavioral deepen VII** (corpus-driven stub replacement) or **quest per-quest state machine** deepen — pick based on script failure reports. RelayServer/JavaScript/full TCRS derive remain non-goals.
+*Next pass:* **ASH behavioral deepen IX** (corpus-driven stub replacement) or **HTTP Request residual** deepen — pick based on script failure reports. RelayServer/JavaScript/full TCRS derive remain non-goals.
 
 ---
 
 ## Phase History (2026)
 
 ```
+Audit 2026-09-02 → Full recount at phase4490: 1,543 commonMain files / 1,061 ASH regFn / 8,548 @Test / 97 managers / 168 requests / 147 ChoiceSync. Closed ASH behavioral deepen VIII (last_skill_message, eight_bit_points, get_no_pulls, get_items_hash, beret_busking_effects, image_to_monster, dart_parts_to_skills fix, extract_items ResultProcessor, sells_skill/sell_cost maps, path id/name). Non-goals unchanged: Relay, JS, TCRS derive sweep.
+
+Phases 4481–4490 → Behavioral Deepen VIII mega (`last_skill_message` via `UseSkillSync`; `eight_bit_points` zone table + color/mod overloads; `get_no_pulls` via `StoragePullRules`; FNV `get_items_hash`; `beret_busking_effects` PHP LCG; `image_to_monster`; fixed `dart_parts_to_skills`/`extract_items`/`sells_skill`/`sell_cost`; `path_name_to_id`/`path_id_to_name`; runtime revision `phase4490`; 8,548 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)
+
+Audit 2026-09-02 → Full recount at phase4480: 1,542 commonMain files / 1,050 ASH regFn / 8,536 @Test / 97 managers / 168 requests / 147 ChoiceSync. Closed quest state-machine deepen mega (Doctor Bag dual-path+refetch, PirateRealm visit unlocks+compass sell, Party Fair DJ meat/session-log, Telegram office visit, VisitChoiceQuestHooks hub, AdvanceRules past STARTED). Non-goals unchanged: Relay, JS, TCRS derive sweep.
+
+Phases 4471–4480 → Quest state-machine deepen mega (`VisitChoiceQuestHooks` dual-path visit glue; Doctor Bag questlog refetch on empty item + ResultProcessor DOCTOR_BAG-only; PirateRealm visit unlocks 1347–1349 + cursed-compass remove on sell; Party Fair DJ `processMeat`+session-log + partiers/trash lines; Telegram `applyVisit` option capture; `QuestAdvanceRules` sail/party/telegram/doctor past-STARTED signals; runtime revision `phase4480`; 8,536 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)
+
+Audit 2026-09-02 → Full recount at phase4470: 1,541 commonMain files / 1,050 ASH regFn / 8,526 @Test / 97 managers / 168 requests / 147 ChoiceSync. Closed ASH behavioral deepen VII (walk-from-choice, reverse numberology, manuel factoids, rad sickness, dart skills↔parts, every-card name, food/booze helper clears, pre_validate_adventure, live pickpocket, leetify/stat_bonus/absorbed_monsters map/last_item_message). Non-goals unchanged: Relay, JS, TCRS derive sweep.
+
+Phases 4461–4470 → Behavioral Deepen VII mega (`can_walk_from_choice` via `AdventureManager`/`ChoiceWalkAway`; `reverse_numberology` via `NumberologyManager`; `monster_factoids_available` via `MonsterManuelManager`+optional HTTP; `current_rad_sickness`; `dart_skills_to_parts` from `_currentDartboard`; `every_card_name` via `DeckOfEveryCardRequest`; `clear_food_helper`/`clear_booze_helper`; `pre_validate_adventure` via `AdventureZoneGates`; live `pickpocket` fight action; `leetify`/`stat_bonus_today`/`stat_bonus_tomorrow`/`absorbed_monsters` map/`last_item_message`; runtime revision `phase4470`; 8,526 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)
+
 Audit 2026-09-01 → Full recount at phase4460: 1,540 commonMain files / 158,410 LOC / 1,310 test files / 8,512 @Test / 1,035 ASH regFn / 97 managers / 168 requests / 147 ChoiceSync / ~459 cliDispatch regex. Desktop baseline: 1,179 Java files / 330,945 LOC / 321 requests / 95 managers. Closed ASH behavioral deepen VI (goal is_goal/goal_exists aliases, date/time ASH, receive_fax, numeric_modifier STAT/SERVANT/PHYLUM/familiar 4-arg); reprioritized Top Priorities. Non-goals unchanged: Relay, JS, TCRS derive sweep, monster modifier rows, ManaBurn unused-skill sweep.
 
 Phases 4451–4460 → Behavioral Deepen VI mega Tracks A–B (`is_goal` live via `GoalManager` + `resolveAshItemId`/`to_item(id)` id parity; `goal_exists` desktop alias parity via `GoalManager.matchesConditionType` + outfit/item split flag; `goal_count` floundry/leprecondo aliases + text factoid; `gametime_to_int`/`format_date_time`/date helpers via platform `expect`/`actual`; `receive_fax` via `FaxBotManager.receiveFaxOnly`; `numeric_modifier` STAT/SERVANT/PHYLUM via `ModifierDatabase` + familiar 4-arg overload; `banished_by` corpus; runtime revision `phase4460`; 8,512 tests; RelayServer/JavaScript/full TCRS derive remain non-goals)

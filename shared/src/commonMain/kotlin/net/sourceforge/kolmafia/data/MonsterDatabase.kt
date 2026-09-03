@@ -27,6 +27,7 @@ object MonsterDatabase {
     private val _byId = mutableMapOf<Int, MonsterDefinition>()
     private val _byName = mutableMapOf<String, MonsterDefinition>()
     private val _byLeetName = mutableMapOf<String, MonsterDefinition>()
+    private val _byImage = mutableMapOf<String, MonsterDefinition>()
     private var loaded = false
 
     val byId: Map<Int, MonsterDefinition> get() = _byId
@@ -41,6 +42,16 @@ object MonsterDatabase {
 
     fun getById(id: Int): MonsterDefinition? = _byId[id]
     fun getByName(name: String): MonsterDefinition? = _byName[name.lowercase()]
+
+    /** Desktop [MonsterDatabase.findMonsterByImage] — first matching image filename. */
+    fun findByImage(image: String): MonsterDefinition? {
+        val key = image.trim().lowercase()
+        if (key.isEmpty()) return null
+        _byImage[key]?.let { return it }
+        // Filename-only match when callers pass a full path.
+        val bare = key.substringAfterLast('/')
+        return _byImage[bare]
+    }
 
     fun translateLeetMonsterName(leetName: String): String =
         _byLeetName[leetName]?.name ?: leetName
@@ -673,6 +684,11 @@ object MonsterDatabase {
             _byId[id] = monster
             _byName[name.lowercase()] = monster
             _byLeetName[leetify(name)] = monster
+            for (img in images) {
+                val key = img.lowercase()
+                _byImage.putIfAbsent(key, monster)
+                _byImage.putIfAbsent(key.substringAfterLast('/'), monster)
+            }
         }
     }
 }

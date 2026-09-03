@@ -622,10 +622,8 @@ object ResultProcessor {
             }
         }
 
-        // Doctor, Doctor target
-        if (quests.isQuestStep(Quest.DOCTOR_BAG, QuestDatabase.STARTED) ||
-            quests.isQuestStep(Quest.PARTY_FAIR, QuestDatabase.STARTED)
-        ) {
+        // Doctor, Doctor target — desktop ResultProcessor only checks DOCTOR_BAG STARTED
+        if (quests.isQuestStep(Quest.DOCTOR_BAG, QuestDatabase.STARTED)) {
             val targetName = prefs.getString("doctorBagQuestItem", "")
             if (targetName.isNotEmpty()) {
                 val tid = ItemDatabase.getByName(targetName)?.id

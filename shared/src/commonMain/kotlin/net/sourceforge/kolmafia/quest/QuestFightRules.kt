@@ -1,8 +1,10 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.BugbearManager
 import net.sourceforge.kolmafia.session.CryptManager
+import net.sourceforge.kolmafia.session.ResultProcessor
 
 /** Quest step bumps from combat win/loss and item drops. */
 object QuestFightRules {
@@ -10,6 +12,7 @@ object QuestFightRules {
     data class QuestCombatResult(
         val advanced: Boolean,
         val resyncQuestLogPage1: Boolean = false,
+        val sessionLogLines: List<String> = emptyList(),
     )
 
     const val VOLCANO_MAP_ID = 3291
@@ -79,9 +82,11 @@ object QuestFightRules {
         combatItemId: Int? = null,
         consumeItem: (Int, Int) -> Unit = { _, _ -> },
         currentRun: Int = 0,
+        character: KoLCharacter? = null,
     ): QuestCombatResult {
         var advanced = false
         var resyncQuestLogPage1 = false
+        val sessionLogLines = mutableListOf<String>()
         if (FightItemPrefSync.apply(
                 html = responseText,
                 monster = monster,
@@ -122,10 +127,11 @@ object QuestFightRules {
                 if (applyTelegramCombat(questDatabase, monster, preferences)) advanced = true
                 if (applyGhostBossReset(questDatabase, monster, preferences)) advanced = true
                 applyPartyFairCombat(
-                    questDatabase, monster, preferences, responseText, hasItemEquipped,
+                    questDatabase, monster, preferences, responseText, hasItemEquipped, character,
                 )?.let { partyFair ->
                     if (partyFair.advanced) advanced = true
                     if (partyFair.resyncQuestLogPage1) resyncQuestLogPage1 = true
+                    sessionLogLines += partyFair.sessionLogLines
                 }
                 if (QuestCombatWinExtrasSync.apply(
                         monster, questDatabase, preferences, ascensionNumber,
@@ -181,12 +187,13 @@ object QuestFightRules {
         ) {
             if (advance(questDatabase, Quest.NEMESIS, "step25")) advanced = true
         }
-        return QuestCombatResult(advanced, resyncQuestLogPage1)
+        return QuestCombatResult(advanced, resyncQuestLogPage1, sessionLogLines)
     }
 
     private data class PartyFairCombatResult(
         val advanced: Boolean = false,
         val resyncQuestLogPage1: Boolean = false,
+        val sessionLogLines: List<String> = emptyList(),
     )
 
     private fun applyTelegramCombat(
@@ -230,6 +237,7 @@ object QuestFightRules {
         preferences: Preferences?,
         responseText: String,
         hasItemEquipped: (Int) -> Boolean,
+        character: KoLCharacter?,
     ): PartyFairCombatResult? {
         val lower = monster.lowercase()
         if (lower !in PARTY_FAIR_MONSTERS) return null
@@ -243,32 +251,48 @@ object QuestFightRules {
                 val kills = if (hasItemEquipped(INTIMIDATING_CHAINSAW_ID)) 2 else 1
                 val remaining = (prefs.getString("_questPartyFairProgress", "0").toIntOrNull() ?: 0) - kills
                 prefs.setString("_questPartyFairProgress", remaining.coerceAtLeast(0).toString())
+                val message = "There are ${remaining.coerceAtLeast(0)} partiers remaining."
                 if (remaining < 1) {
-                    return PartyFairCombatResult(advanced = advance(questDatabase, Quest.PARTY_FAIR, "step2"))
+                    return PartyFairCombatResult(
+                        advanced = advance(questDatabase, Quest.PARTY_FAIR, "step2"),
+                        sessionLogLines = listOf(message),
+                    )
                 }
+                return PartyFairCombatResult(advanced = true, sessionLogLines = listOf(message))
             }
             "dj" -> {
                 val match = QuestSpecialSync.partyFairDjMeatPattern.find(responseText) ?: return null
                 val meat = match.groupValues[1].replace(",", "").toIntOrNull() ?: return null
                 val remaining = (prefs.getString("_questPartyFairProgress", "0").toIntOrNull() ?: 0) - meat
                 prefs.setString("_questPartyFairProgress", remaining.coerceAtLeast(0).toString())
+                // Desktop deducts collected DJ meat from inventory and session-logs the line.
+                ResultProcessor.processMeat(-meat.toLong(), character)
+                val message = "You collect $meat Meat for the DJ."
                 if (remaining < 1) {
-                    return PartyFairCombatResult(advanced = advance(questDatabase, Quest.PARTY_FAIR, "step2"))
+                    return PartyFairCombatResult(
+                        advanced = advance(questDatabase, Quest.PARTY_FAIR, "step2"),
+                        sessionLogLines = listOf(message),
+                    )
                 }
+                return PartyFairCombatResult(advanced = true, sessionLogLines = listOf(message))
             }
             "trash" -> {
                 val match = QuestSpecialSync.partyFairCombatTrashPattern.find(responseText) ?: return null
                 val trash = match.groupValues[1].toIntOrNull() ?: return null
                 val remaining = (prefs.getString("_questPartyFairProgress", "0").toIntOrNull() ?: 0) - trash
                 prefs.setString("_questPartyFairProgress", remaining.coerceAtLeast(0).toString())
+                val message = "You clean up $trash for the environment."
                 if (remaining < 1) {
-                    return PartyFairCombatResult(advanced = advance(questDatabase, Quest.PARTY_FAIR, "step2"))
+                    return PartyFairCombatResult(
+                        advanced = advance(questDatabase, Quest.PARTY_FAIR, "step2"),
+                        sessionLogLines = listOf(message),
+                    )
                 }
+                return PartyFairCombatResult(advanced = true, sessionLogLines = listOf(message))
             }
             "woots" -> return PartyFairCombatResult(resyncQuestLogPage1 = true)
             else -> return null
         }
-        return PartyFairCombatResult(advanced = true)
     }
 
     private fun nemesisStep(monster: String, won: Boolean): String? {

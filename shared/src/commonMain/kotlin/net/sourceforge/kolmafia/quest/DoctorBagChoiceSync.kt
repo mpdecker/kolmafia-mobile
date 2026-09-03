@@ -5,7 +5,8 @@ import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * Desktop [ChoiceControl] Is There A Doctor In The House? choice 1340.
- * Defers quest-log HTTP refetch when item empty.
+ * Visit parses malady/location; accept advances to step1 when cure item is already held,
+ * otherwise STARTED and optionally refetches questlog page 1 (desktop empty-item path).
  */
 object DoctorBagChoiceSync {
 
@@ -46,11 +47,17 @@ object DoctorBagChoiceSync {
         preferences: Preferences?,
         questDatabase: QuestDatabase,
         itemCount: (Int) -> Int = { 0 },
+        resyncQuestLogPage1: (() -> Unit)? = null,
     ): Boolean {
         if (choiceId != CHOICE_ID || preferences == null) return false
         if (decision != 1) return false
         val itemName = preferences.getString("doctorBagQuestItem", "")
-        val itemId = if (itemName.isNotEmpty()) ItemDatabase.getByName(itemName)?.id ?: 0 else 0
+        // Desktop refetches questlog when visit text was not recognised (empty item name).
+        if (itemName.isEmpty()) {
+            resyncQuestLogPage1?.invoke()
+        }
+        val resolvedName = preferences.getString("doctorBagQuestItem", "")
+        val itemId = if (resolvedName.isNotEmpty()) ItemDatabase.getByName(resolvedName)?.id ?: 0 else 0
         val step = if (itemId > 0 && itemCount(itemId) > 0) {
             "step1"
         } else {

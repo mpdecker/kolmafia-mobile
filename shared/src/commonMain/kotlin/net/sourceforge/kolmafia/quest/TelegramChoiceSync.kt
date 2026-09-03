@@ -50,6 +50,24 @@ object TelegramChoiceSync {
         }
     }
 
+    /** Office visit: capture RE: quest option names before accepting. */
+    fun applyVisit(
+        choiceId: Int,
+        html: String,
+        preferences: Preferences?,
+        questDatabase: QuestDatabase?,
+    ): Boolean {
+        if (choiceId != OFFICE || preferences == null) return false
+        val matches = TELEGRAM_PATTERN.findAll(html).map { it.groupValues[1] }.toList()
+        if (matches.isEmpty()) return false
+        // Preserve current name if already set; otherwise seed first option for scripts.
+        if (preferences.getString("lttQuestName", "").isBlank()) {
+            preferences.setString("lttQuestName", matches.first())
+        }
+        preferences.setString("_lttQuestOptions", matches.joinToString("|"))
+        return true
+    }
+
     private fun applyOffice(
         decision: Int,
         visitHtml: String,

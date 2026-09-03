@@ -117,6 +117,7 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
     }
 
     // ── Phase 990: sells_skill ─────────────────────────────────────
+    // 1-arg soft stub (desktop registers only 2-arg)
     regFn(scope, "sells_skill", AshType.BOOLEAN,
         listOf("cm" to AshType.COINMASTER)) { _, _ ->
         AshValue.FALSE
@@ -125,9 +126,15 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
     regFn(scope, "sells_skill", AshType.BOOLEAN,
         listOf("cm" to AshType.COINMASTER, "skill" to AshType.SKILL)) { _, args ->
         val master = CoinmasterRegistry.findByNickname(args[0].toString())
+            ?: return@regFn AshValue.FALSE
         val skillId = gameDatabase?.skill(args[1].toString())?.id
             ?: args[1].toString().toIntOrNull()
             ?: return@regFn AshValue.FALSE
-        AshValue.of(master?.buyItems?.any { it.isSkillPurchase && it.item.itemId == skillId } == true)
+        // Phase 4489: skill buy rows via isSkillPurchase / item.itemId == skillId
+        AshValue.of(
+            master.buyItems.any { row ->
+                row.isSkillPurchase && row.item.itemId == skillId
+            },
+        )
     }
 }

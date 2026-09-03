@@ -15,12 +15,10 @@ internal fun GameRuntimeLibrary.registerAshP991TrackRBatch(scope: AshScope) {
     val itemToInt = AggregateType(AshType.ITEM, AshType.INT)
     regFn(scope, "extract_items", itemToInt,
         listOf("html" to AshType.STRING)) { _, args ->
+        // Phase 4488: ResultProcessor.parseItems parity (equip/qty/stored comments).
         val result = AggregateValue(itemToInt)
-        val html = args[0].toString()
-        val regex = Regex("""You acquire.*?<b>([^<]+)</b>(?:\s*\((\d+)\))?""")
-        for (match in regex.findAll(html)) {
-            val name = match.groupValues[1]
-            val qty = match.groupValues[2].toIntOrNull() ?: 1
+        val html = args[0].toString().replace("- ", "-")
+        for ((name, qty) in net.sourceforge.kolmafia.session.ResultProcessor.parseItems(html)) {
             result[AshValue.item(name)] = AshValue.of(qty.toLong())
         }
         result
@@ -98,9 +96,9 @@ internal fun GameRuntimeLibrary.registerAshP991TrackRBatch(scope: AshScope) {
         AshValue.of(succeeded)
     }
 
-    // ── Phase 995: pickpocket ─────────────────────────────────────
+    // ── Phase 995 / 4469: pickpocket — live fight action (desktop steal/pickpocket) ─
     regFn(scope, "pickpocket", AshType.BUFFER, emptyList()) { _, _ ->
-        AshValue(AshType.BUFFER, StringBuilder("pickpocket"))
+        fightAction("steal")
     }
     // runaway() already registered in AshP894 (Track A) with live HTTP
 
