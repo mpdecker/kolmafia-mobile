@@ -33,6 +33,40 @@ internal fun GameRuntimeLibrary.registerAshP928TrackFBatch(scope: AshScope) {
         AshValue.of(runSweetSynthesisEffect(args[1].toString(), args[0].toLong().toInt()))
     }
 
+    // sweet_synthesis(effect, flags)
+    regFn(scope, "sweet_synthesis", AshType.BOOLEAN,
+        listOf("effect" to AshType.EFFECT, "flags" to AshType.INT)) { _, args ->
+        AshValue.of(
+            runSweetSynthesisEffect(
+                args[0].toString(),
+                1,
+                flags = args[1].toLong().toInt() or CandyDatabase.defaultFlags(),
+            ),
+        )
+    }
+
+    // sweet_synthesis(count, effect, flags)
+    regFn(scope, "sweet_synthesis", AshType.BOOLEAN,
+        listOf("count" to AshType.INT, "effect" to AshType.EFFECT, "flags" to AshType.INT)) { _, args ->
+        AshValue.of(
+            runSweetSynthesisEffect(
+                args[1].toString(),
+                args[0].toLong().toInt(),
+                flags = args[2].toLong().toInt() or CandyDatabase.defaultFlags(),
+            ),
+        )
+    }
+
+    // sweet_synthesis(count, candy1, candy2)
+    regFn(scope, "sweet_synthesis", AshType.BOOLEAN,
+        listOf("count" to AshType.INT, "item1" to AshType.ITEM, "item2" to AshType.ITEM)) { _, args ->
+        val id1 = gameDatabase?.item(args[1].toString())?.id
+            ?: ItemDatabase.getByName(args[1].toString())?.id ?: 0
+        val id2 = gameDatabase?.item(args[2].toString())?.id
+            ?: ItemDatabase.getByName(args[2].toString())?.id ?: 0
+        AshValue.of(runSweetSynthesisPair(id1, id2, args[0].toLong().toInt()))
+    }
+
     regFn(scope, "sweet_synthesis_result", AshType.EFFECT,
         listOf("item1" to AshType.ITEM, "item2" to AshType.ITEM)) { _, args ->
         val item1Name = args[0].toString()

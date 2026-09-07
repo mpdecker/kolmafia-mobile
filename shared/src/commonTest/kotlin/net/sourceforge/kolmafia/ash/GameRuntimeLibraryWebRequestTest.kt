@@ -72,7 +72,7 @@ class GameRuntimeLibraryWebRequestTest {
                 headers = headersOf(HttpHeaders.ContentType, "text/html")
             )
         })
-        outputLib(lib, """visit_url("$fullUrl", true);""")
+        outputLib(lib, """visit_url("$fullUrl", false, true);""")
         assertTrue(
             capturedUrls.any { it.startsWith(fullUrl) },
             "Expected URL starting with $fullUrl but got: $capturedUrls"

@@ -18,6 +18,8 @@ data class CharacterState(
     val title: String = "",
     /** Relative avatar path from charpane (e.g. otherimages/classav4a.gif). */
     val avatar: String = "",
+    /** Desktop KoLCharacter.ignoreZoneWarnings (account flag ignorezonewarnings). */
+    val ignoreZoneWarnings: Boolean = false,
     /** Desktop CharPaneRequest.canInteract — mall/pull/storage gate (Phases 2451–2465). */
     val canInteract: Boolean = true,
 

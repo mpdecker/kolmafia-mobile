@@ -16,6 +16,7 @@ import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.quest.QuestItemEquippedSync
 import net.sourceforge.kolmafia.session.EquipmentManager
+import net.sourceforge.kolmafia.utilities.UrlSafeBase64
 
 open class EquipmentRequest(
     private val client: HttpClient,
@@ -42,6 +43,34 @@ open class EquipmentRequest(
             """name=name(\d+)\s+value="([^"]*)".*?<center><b>Contents:</b></cente[rR]>(.*?)</td>""",
             RegexOption.DOT_MATCHES_ALL
         )
+
+        private const val VARINT_PAYLOAD_BITS = 7
+        private const val VARINT_PAYLOAD_MASK = (1 shl VARINT_PAYLOAD_BITS) - 1
+        private const val VARINT_CONTINUATION_BIT = 1 shl VARINT_PAYLOAD_BITS
+
+        /** Desktop [EquipmentRequest.outfitNameWithCodpieceGems]. */
+        fun outfitNameWithCodpieceGems(
+            outfitName: String,
+            codpieceItemIds: List<Int> = emptyList(),
+        ): String {
+            val suffix = " c=" + encodeCodpieceConfiguration(codpieceItemIds)
+            val nameLength = minOf(outfitName.length, 50 - suffix.length)
+            return outfitName.substring(0, nameLength).trimEnd() + suffix
+        }
+
+        private fun encodeCodpieceConfiguration(codpieceItemIds: List<Int>): String {
+            val bytes = ArrayList<Byte>()
+            val ids = (0 until 5).map { i -> codpieceItemIds.getOrNull(i)?.coerceAtLeast(0) ?: 0 }
+            for (rawId in ids) {
+                var itemId = rawId
+                do {
+                    val next = itemId and VARINT_PAYLOAD_MASK
+                    itemId = itemId ushr VARINT_PAYLOAD_BITS
+                    bytes.add((if (itemId == 0) next else next or VARINT_CONTINUATION_BIT).toByte())
+                } while (itemId != 0)
+            }
+            return "~" + UrlSafeBase64.encodeWithoutPadding(bytes.toByteArray())
+        }
 
         /**
          * Desktop [EquipmentRequest.parseEquipmentChange].

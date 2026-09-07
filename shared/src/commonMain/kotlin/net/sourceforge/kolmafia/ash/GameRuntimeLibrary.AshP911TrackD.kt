@@ -62,6 +62,13 @@ internal fun GameRuntimeLibrary.registerAshP911Batch(scope: AshScope) {
 
 // ── AshP912 — get_shop, shop_amount, shop_price, shop_limit ────────────────
 
+/** Shared ManageStore sold-item refresh used by get_shop / shop_* / put_shop. */
+internal fun GameRuntimeLibrary.ensureSoldItemsRetrieved() {
+    if (!StoreManager.soldItemsRetrieved) {
+        runBlocking { manageStoreRequest?.fetchSoldItems() }
+    }
+}
+
 internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
     val itemToInt = AggregateType(AshType.ITEM, AshType.INT)
 
@@ -69,6 +76,7 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val result = AggregateValue(itemToInt)
         val hasStore = character?.state?.value?.hasStore ?: false
         if (!hasStore) return@regFn result
+        ensureSoldItemsRetrieved()
         if (StoreManager.soldItemsRetrieved) {
             StoreManager.getSoldItemList().forEach { sold ->
                 val name = gameDatabase?.item(sold.itemId)?.name ?: "item #${sold.itemId}"
@@ -93,6 +101,7 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val itemName = args[0].toString()
         val hasStore = character?.state?.value?.hasStore ?: false
         if (!hasStore) return@regFn AshValue.of(0L)
+        ensureSoldItemsRetrieved()
         val itemId = gameDatabase?.item(itemName)?.id
         if (itemId != null && StoreManager.soldItemsRetrieved) {
             return@regFn AshValue.of(StoreManager.shopAmount(itemId).toLong())
@@ -108,6 +117,7 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val itemName = args[0].toString()
         val hasStore = character?.state?.value?.hasStore ?: false
         if (!hasStore) return@regFn AshValue.of(0L)
+        ensureSoldItemsRetrieved()
         val itemId = gameDatabase?.item(itemName)?.id
         if (itemId != null && StoreManager.soldItemsRetrieved) {
             return@regFn AshValue.of(StoreManager.getPrice(itemId))
@@ -123,6 +133,7 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val itemName = args[0].toString()
         val hasStore = character?.state?.value?.hasStore ?: false
         if (!hasStore) return@regFn AshValue.of(0L)
+        ensureSoldItemsRetrieved()
         val itemId = gameDatabase?.item(itemName)?.id
         if (itemId != null && StoreManager.soldItemsRetrieved) {
             return@regFn AshValue.of(StoreManager.getLimit(itemId).toLong())

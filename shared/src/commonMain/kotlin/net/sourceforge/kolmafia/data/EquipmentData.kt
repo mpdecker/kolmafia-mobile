@@ -6,6 +6,8 @@ data class EquipmentData(
     val statRequirement: String? = null,   // e.g. "Mox: 85", "Mus: 40", null means "none"
     val hands: Int = 0,
     val itemType: String? = null,
+    /** Desktop equipment.txt `shield: N` / `shield: [L]` Damage Reduction. */
+    val shieldDr: String? = null,
 ) {
     val requiresStat: Boolean get() = statRequirement != null
 }

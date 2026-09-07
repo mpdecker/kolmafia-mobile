@@ -105,4 +105,9 @@ open class SkillManager(
         _state.value = _state.value.copy(skills = skills, isStale = false)
         UneffectRemovableMaps.resetFromSession(preferences, this)
     }
+
+    /** Desktop KoLCharacter.setPermedSkills / setHardcorePermedSkills. */
+    open fun setPermedSkills(permed: Map<Int, Boolean>) {
+        _state.value = _state.value.copy(permedSkills = permed)
+    }
 }

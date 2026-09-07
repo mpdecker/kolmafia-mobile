@@ -15,11 +15,13 @@ internal fun GameRuntimeLibrary.registerAshP23Batch(scope: AshScope) {
             if (resistance != null) buildCurrentModifiers().values.get(resistance) else 0.0,
         )
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, elementModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, elementModifierParams) { _, args ->
+        val entry = net.sourceforge.kolmafia.data.ModifierDatabase.get("Element", args[0].toString())
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "string_modifier", AshType.STRING, elementModifierParams) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "string_modifier", AshType.STRING, elementModifierParams) { _, args ->
+        val entry = net.sourceforge.kolmafia.data.ModifierDatabase.get("Element", args[0].toString())
+        AshValue.of(stringFromEntry(entry, args[1].toString()))
     }
 
     regFn(scope, "numerics_modifier", floatAggregateType, listOf("modifier" to AshType.STRING)) { _, args ->

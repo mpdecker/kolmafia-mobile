@@ -4941,6 +4941,77 @@ class AshCompatibilityCorpusTest {
         UseSkillSync.lastUpdate = ""
     }
 
+    @Test
+    fun corpus_behavioralDeepenIx_live() {
+        val character = net.sourceforge.kolmafia.character.KoLCharacter().apply {
+            setTitle("the Humble")
+            setAvatar("otherimages/x.gif")
+        }
+        val lib = GameRuntimeLibrary(character = character, preferences = Preferences(MapSettings()))
+        assertEquals("the Humble", outputLib(lib, "print(get_title());").trim())
+        assertEquals("1", outputLib(lib, "print(count(get_avatar()));").trim())
+        assertEquals("3", outputLib(lib, "print(truncate(3.7));").trim())
+        assertEquals("4.0", outputLib(lib, "print(square_root(16.0));").trim())
+        assertEquals("A", outputLib(lib, """print(heartstone_middle_letter("xax"));""").trim())
+        assertEquals("5", outputLib(lib, "print(count(expected_cold_medicine_cabinet()));").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenX_live() {
+        runBlocking { net.sourceforge.kolmafia.data.MonsterDatabase.load() }
+        val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
+        assertEquals("phase5050", outputLib(lib, "print(get_revision());").trim())
+        val mapped = outputLib(
+            lib,
+            """
+            foreach src, dst in get_monster_mapping("You, Robot") {
+              if (to_string(src) == "Boss Bat") {
+                print(to_string(dst));
+              }
+            }
+            """.trimIndent(),
+        ).trim()
+        assertEquals("Boss Bot", mapped)
+        assertTrue(
+            (outputLib(
+                lib,
+                "print(count(shrunken_head_zombie(to_monster(\"Boss Bat\"), to_path(\"You, Robot\"))));",
+            ).trim().toIntOrNull() ?: 0) >= 1,
+        )
+        assertTrue(
+            outputLib(lib, """print(outfit_name_with_codpiece_gems("X"));""").trim().contains(" c=~"),
+        )
+        val slot = net.sourceforge.kolmafia.character.EquipmentSlot.HAT.ordinal
+        assertTrue(
+            (outputLib(lib, "print(count(futuristic_wardrobe(500, $slot, 1)));").trim().toIntOrNull() ?: 0) >= 1,
+        )
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXi_live() {
+        val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
+        assertEquals("phase5050", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("0", outputLib(lib, "buffer b = visit_url(); print(length(b));").trim())
+        assertEquals("hi", outputLib(lib, """dump("hi");""").trim())
+        outputLib(lib, """disable("foo"); enable("foo");""")
+        assertEquals(
+            "council.php",
+            net.sourceforge.kolmafia.request.CouncilRequest.path(false),
+        )
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXii_live() {
+        val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
+        assertEquals("phase5050", outputLib(lib, "print(get_revision());").trim())
+        assertTrue(net.sourceforge.kolmafia.request.CurseRequest.registerRequest("curse.php"))
+        assertTrue(net.sourceforge.kolmafia.request.CreateItemRequest.registerRequest("craft.php?mode=cook"))
+        assertEquals(
+            0,
+            net.sourceforge.kolmafia.request.SuburbanDisRequest.getAdventuresUsed("suburbandis.php?action=altar"),
+        )
+    }
+
     private fun registerCorpusWeapon(id: Int, name: String) {
         ItemDatabase.registerForTest(
             ItemData(

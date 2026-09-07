@@ -97,7 +97,7 @@ class GameRuntimeLibraryOutfitTest {
     @Test
     fun get_custom_outfits_listsRegisteredCustoms() {
         val lib = GameRuntimeLibrary(outfitManager = null)
-        val out = outputLib(lib, """print(get_custom_outfits()[0]);""")
+        val out = outputLib(lib, """print(get_custom_outfits()[1]);""")
         assertEquals("Test Mining", out.trim())
     }
 

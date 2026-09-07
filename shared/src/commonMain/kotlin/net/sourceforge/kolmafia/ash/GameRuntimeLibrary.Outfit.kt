@@ -8,7 +8,8 @@ internal fun GameRuntimeLibrary.registerOutfitFunctions(scope: AshScope) {
     val itemArrayType = AggregateType(AshType.INT, AshType.ITEM)
     val stringArrayType = AggregateType(AshType.INT, AshType.STRING)
     val intStringMapType = AggregateType(AshType.INT, AshType.STRING)
-    val floatItemMapType = AggregateType(AshType.FLOAT, AshType.ITEM)
+    // Desktop AggregateType(FLOAT, ITEM) → map keyed by ITEM, value FLOAT
+    val itemFloatMapType = AggregateType(AshType.ITEM, AshType.FLOAT)
 
     fun resolveOutfit(name: String): ResolvedOutfit? =
         outfitManager?.getMatchingOutfit(name)
@@ -18,23 +19,21 @@ internal fun GameRuntimeLibrary.registerOutfitFunctions(scope: AshScope) {
         dispatchCli(cmd, runtime)
     }
 
-    regFn(scope, "outfit", AshType.VOID, listOf("name" to AshType.STRING)) { runtime, args ->
+    // Desktop outfit(string) → BOOLEAN continueValue
+    regFn(scope, "outfit", AshType.BOOLEAN, listOf("name" to AshType.STRING)) { runtime, args ->
         val name = args[0].toString()
-        kotlinx.coroutines.runBlocking {
-            outfitManager?.wearOutfit(name) { cmd -> executeEmbeddedCli(cmd, runtime) }
+        val ok = kotlinx.coroutines.runBlocking {
+            outfitManager?.wearOutfit(name) { cmd -> executeEmbeddedCli(cmd, runtime) } == true
         }
-        AshValue.VOID
+        AshValue.of(ok)
     }
 
+    // Desktop: id < 0 || EquipmentManager.hasOutfit(id)
     regFn(scope, "have_outfit", AshType.BOOLEAN, listOf("name" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
-        val manager = outfitManager
-        if (manager == null) return@regFn AshValue.FALSE
+        val manager = outfitManager ?: return@regFn AshValue.FALSE
         val outfit = manager.getMatchingOutfit(name) ?: return@regFn AshValue.FALSE
-        if (outfit.isCustom) {
-            return@regFn AshValue.TRUE
-        }
-        val has = kotlinx.coroutines.runBlocking { manager.hasAllPieces(outfit) }
+        val has = kotlinx.coroutines.runBlocking { manager.hasOutfit(outfit.id) }
         AshValue.of(has)
     }
 
@@ -56,8 +55,12 @@ internal fun GameRuntimeLibrary.registerOutfitFunctions(scope: AshScope) {
     regFn(scope, "outfit_pieces", itemArrayType, listOf("name" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
         val outfit = resolveOutfit(name)
-        val result = AggregateValue(itemArrayType)
-        outfit?.pieces?.forEachIndexed { index, piece ->
+        if (outfit == null) {
+            return@regFn AggregateValue(AggregateType(AshType.INT, AshType.ITEM, fixedSize = 0))
+        }
+        val pieces = outfit.pieces
+        val result = AggregateValue(AggregateType(AshType.INT, AshType.ITEM, fixedSize = pieces.size))
+        pieces.forEachIndexed { index, piece ->
             result[AshValue.of(index.toLong())] = AshValue.item(piece)
         }
         result
@@ -70,25 +73,26 @@ internal fun GameRuntimeLibrary.registerOutfitFunctions(scope: AshScope) {
         AshValue.of(image)
     }
 
-    regFn(scope, "outfit_treats", floatItemMapType, listOf("name" to AshType.STRING)) { _, args ->
+    regFn(scope, "outfit_treats", itemFloatMapType, listOf("name" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
         val outfit = resolveOutfit(name)
-        val result = AggregateValue(floatItemMapType)
+        val result = AggregateValue(itemFloatMapType)
         if (outfit != null) {
             for ((treat, chance) in outfitManager?.treatChances(outfit).orEmpty()) {
-                result[AshValue.of(chance)] = AshValue.item(treat)
+                result[AshValue.item(treat)] = AshValue.of(chance)
             }
         }
         result
     }
 
+    // Desktop outfitListToValue is 1-based (skips index 0)
     regFn(scope, "get_outfits", stringArrayType, emptyList()) { _, _ ->
         val result = AggregateValue(stringArrayType)
         val outfits = kotlinx.coroutines.runBlocking {
             outfitManager?.getOutfitsWithPieces() ?: emptyList()
         }
         outfits.forEachIndexed { index, outfit ->
-            result[AshValue.of(index.toLong())] = AshValue.of(outfit.name)
+            result[AshValue.of((index + 1).toLong())] = AshValue.of(outfit.name)
         }
         result
     }
@@ -96,7 +100,7 @@ internal fun GameRuntimeLibrary.registerOutfitFunctions(scope: AshScope) {
     regFn(scope, "get_custom_outfits", stringArrayType, emptyList()) { _, _ ->
         val result = AggregateValue(stringArrayType)
         OutfitDatabase.customOutfits().forEachIndexed { index, outfit ->
-            result[AshValue.of(index.toLong())] = AshValue.of(outfit.name)
+            result[AshValue.of((index + 1).toLong())] = AshValue.of(outfit.name)
         }
         result
     }

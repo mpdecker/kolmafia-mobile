@@ -33,10 +33,17 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
 
     fun cachedItemAmount(prefKey: String, itemName: String): Long {
         val prefs = preferences ?: return 0L
-        val itemId = gameDatabase?.item(itemName)?.id
+        val itemId = itemName.toIntOrNull()?.takeIf { it > 0 }
+            ?: gameDatabase?.item(itemName)?.id
             ?: inventoryManager?.state?.value?.items?.values
                 ?.find { it.name.equals(itemName, ignoreCase = true) }?.itemId
             ?: return 0L
+        return CollectionCache.load(prefs, prefKey)[itemId]?.toLong() ?: 0L
+    }
+
+    fun cachedItemAmountById(prefKey: String, itemId: Int): Long {
+        if (itemId <= 0) return 0L
+        val prefs = preferences ?: return 0L
         return CollectionCache.load(prefs, prefKey)[itemId]?.toLong() ?: 0L
     }
 
@@ -116,6 +123,9 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
     regFn(scope, "stash_amount", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
         AshValue.of(cachedItemAmount(Preferences.CACHED_STASH, args[0].toString()))
     }
+    regFn(scope, "stash_amount", AshType.INT, listOf("it" to AshType.INT)) { _, args ->
+        AshValue.of(cachedItemAmountById(Preferences.CACHED_STASH, args[0].toLong().toInt()))
+    }
 
     // ── get_display() → int[item] (live — fetches from displaycollection.php) ─
     regFn(scope, "get_display", itemIntType, emptyList()) { _, _ ->
@@ -132,5 +142,8 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
 
     regFn(scope, "display_amount", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
         AshValue.of(cachedItemAmount(Preferences.CACHED_DISPLAY, args[0].toString()))
+    }
+    regFn(scope, "display_amount", AshType.INT, listOf("it" to AshType.INT)) { _, args ->
+        AshValue.of(cachedItemAmountById(Preferences.CACHED_DISPLAY, args[0].toLong().toInt()))
     }
 }

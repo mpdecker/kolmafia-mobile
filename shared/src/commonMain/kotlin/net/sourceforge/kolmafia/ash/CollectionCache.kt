@@ -22,4 +22,13 @@ internal object CollectionCache {
             id to qty
         }.toMap()
     }
+
+    /** Adjust a single item qty in the cached collection (put/take write-back). */
+    fun adjust(preferences: Preferences, key: String, itemId: Int, delta: Int) {
+        if (delta == 0) return
+        val current = load(preferences, key).toMutableMap()
+        val next = (current[itemId] ?: 0) + delta
+        if (next <= 0) current.remove(itemId) else current[itemId] = next
+        save(preferences, key, current)
+    }
 }

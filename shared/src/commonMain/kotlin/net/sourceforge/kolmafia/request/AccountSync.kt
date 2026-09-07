@@ -37,6 +37,10 @@ object AccountSync {
         preferences.setBoolean("unequipFamiliarOnFight", checkbox("flag_unfamequip", html))
         preferences.setBoolean("compactCharacterPane", checkbox("flag_compactchar", html))
         preferences.setBoolean("swapFamiliarEquipment", checkbox("flag_swapfam", html))
+        val ignoreZone = checkbox("flag_ignorezonewarnings", html) ||
+            checkbox("ignorezonewarnings", html)
+        preferences.setBoolean("ignoreZoneWarnings", ignoreZone)
+        character?.setIgnoreZoneWarnings(ignoreZone)
         // Autosell UI style
         preferences.setBoolean("autosellUsesCompact", !checkbox("flag_sellstuffugly", html))
 

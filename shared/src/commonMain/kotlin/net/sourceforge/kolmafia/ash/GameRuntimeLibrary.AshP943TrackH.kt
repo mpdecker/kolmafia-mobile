@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.maximizer.MaximizerContinuation
 import net.sourceforge.kolmafia.platform.UserDataFileIO
 import net.sourceforge.kolmafia.session.NumberologyManager
 
@@ -15,6 +16,9 @@ import net.sourceforge.kolmafia.session.NumberologyManager
  * Phase 947: desc_to_item / desc_to_effect
  * Phase 948: numberology_prize / florist_available
  * Phase 949: allied_radio(string)
+ *
+ * Phase 4871–4930 deepen: desktop-shaped batch coalesce
+ * (`cmd → prefix → comma-joined params`) + flush via CLI.
  */
 internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
     // ── Phase 943: auto_attack ──────────────────────────────────────
@@ -104,15 +108,19 @@ internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
 
     // ── Phase 946: batch_open / batch_close ────────────────────────
     regFn(scope, "batch_open", AshType.VOID, emptyList()) { rt, _ ->
-        batchedCommands.getOrPut(rt) { mutableListOf() }
+        batchedCommands.getOrPut(rt) { LinkedHashMap() }
         AshValue.VOID
     }
 
     regFn(scope, "batch_close", AshType.BOOLEAN, emptyList()) { rt, _ ->
-        val commands = batchedCommands.remove(rt)
-        if (commands != null) {
-            for (cmd in commands) {
-                dispatchCli(cmd, rt)
+        val batched = batchedCommands.remove(rt) ?: return@regFn AshValue.TRUE
+        for ((cmd, prefixes) in batched) {
+            if (!MaximizerContinuation.permitsContinue()) break
+            for ((prefix, buf) in prefixes) {
+                if (!MaximizerContinuation.permitsContinue()) break
+                val params = buf.toString()
+                val rest = if (prefix.isEmpty()) params else "$prefix $params"
+                dispatchCli("$cmd $rest".trim(), rt)
             }
         }
         AshValue.TRUE
@@ -149,5 +157,43 @@ internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
     }
 }
 
+/** Desktop ScriptRuntime.getBatched(): cmd → prefix → comma-joined params. */
+internal typealias BatchedPrefixMap = LinkedHashMap<String, StringBuilder>
+internal typealias BatchedCommandMap = LinkedHashMap<String, BatchedPrefixMap>
+
 @Suppress("ObjectPropertyName")
-private val batchedCommands = mutableMapOf<AshRuntimeContext, MutableList<String>>()
+internal val batchedCommands = mutableMapOf<AshRuntimeContext, BatchedCommandMap>()
+
+internal fun GameRuntimeLibrary.isBatching(rt: AshRuntimeContext): Boolean =
+    batchedCommands.containsKey(rt)
+
+/**
+ * Desktop RuntimeLibrary.batchCommand — coalesce under [cmd]+[prefix] while batching,
+ * otherwise execute immediately as `cmd [prefix] params`.
+ */
+internal fun GameRuntimeLibrary.batchCommand(
+    rt: AshRuntimeContext,
+    cmd: String,
+    prefix: String?,
+    params: String,
+) {
+    val batched = batchedCommands[rt]
+    if (batched == null) {
+        val rest = if (prefix.isNullOrEmpty()) params else "$prefix $params"
+        dispatchCli("$cmd $rest".trim(), rt)
+        return
+    }
+    val prefixMap = batched.getOrPut(cmd) { LinkedHashMap() }
+    val key = prefix ?: ""
+    val existing = prefixMap[key]
+    if (existing == null) {
+        prefixMap[key] = StringBuilder(params)
+    } else {
+        existing.append(", ").append(params)
+    }
+}
+
+/** Desktop ItemFinder pilcrow form: `count ¶itemId`. */
+internal fun pilcrowItemParams(count: Int, itemId: Int): String = "$count \u00B6$itemId"
+
+internal fun pilcrowItemParamsAll(itemId: Int): String = "* \u00B6$itemId"

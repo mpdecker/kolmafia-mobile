@@ -21,6 +21,7 @@ import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionIngredientSources
 import net.sourceforge.kolmafia.data.ConcoctionRefreshContext
 import net.sourceforge.kolmafia.data.DefaultsDatabase
+import net.sourceforge.kolmafia.data.AdventureQueueDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.TCRSDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
@@ -85,6 +86,7 @@ open class SessionManager(
                 preferences.setString(Preferences.LAST_USERNAME, username)
                 gameDatabase.load()
                 DefaultsDatabase.seedMissingDefaults(preferences)
+                AdventureQueueDatabase.deserialize(preferences)
                 ShopRowDatabase.restoreLearnedRows(preferences)
                 characterRequest.fetchCharacterState().fold(
                     onSuccess = { apiResponse ->
@@ -232,6 +234,8 @@ open class SessionManager(
     }
 
     open fun logout() {
+        AdventureQueueDatabase.serialize(preferences)
+        AdventureQueueDatabase.resetQueue()
         ClanManager.clearCache(newCharacter = true)
         CharpaneValhallaSync.reset()
         PvpManager.reset()

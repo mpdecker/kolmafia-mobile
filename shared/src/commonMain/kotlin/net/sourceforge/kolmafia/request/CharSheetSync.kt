@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.request
 
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.skill.SkillManager
 
 /**
  * Desktop CharSheetRequest.parseStatus subset (Phases 2271–2285).
@@ -25,11 +26,16 @@ object CharSheetSync {
     )
     private val SIGN = Regex("""Sign:\s*([A-Za-z ]+)""", RegexOption.IGNORE_CASE)
     private val CLASS = Regex("""Class:\s*([A-Za-z ]+)""", RegexOption.IGNORE_CASE)
+    private val PERMED_SKILL = Regex(
+        """(?:whichskill=|skill\()(\d+)[^>]*>.*?</a>\s*\(\s*(?:<b>\s*)?(HP|P)(?:\s*</b>)?\s*\)""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
 
     fun parseStatus(
         html: String,
         character: KoLCharacter?,
         preferences: Preferences? = null,
+        skillManager: SkillManager? = null,
     ): Boolean {
         if (character == null || html.isBlank()) return false
         if (html.contains("choice.php", ignoreCase = true) &&
@@ -98,6 +104,23 @@ object CharSheetSync {
             plain.contains("Ronin", ignoreCase = true) &&
                 !plain.contains("Out of Ronin", ignoreCase = true),
         )
+        val permed = parsePermedSkills(html)
+        if (permed.isNotEmpty()) {
+            skillManager?.setPermedSkills(permed)
+            changed = true
+        }
         return changed
+    }
+
+    /** Desktop CharSheetRequest skill perm status — skillId → hardcore. */
+    fun parsePermedSkills(html: String): Map<Int, Boolean> {
+        if (html.isBlank()) return emptyMap()
+        val result = linkedMapOf<Int, Boolean>()
+        for (m in PERMED_SKILL.findAll(html)) {
+            val id = m.groupValues[1].toIntOrNull() ?: continue
+            val hardcore = m.groupValues[2].equals("HP", ignoreCase = true)
+            result[id] = hardcore || result[id] == true
+        }
+        return result
     }
 }

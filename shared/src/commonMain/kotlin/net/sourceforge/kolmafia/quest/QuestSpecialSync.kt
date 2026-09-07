@@ -176,7 +176,7 @@ object QuestSpecialSync {
         return null
     }
 
-    internal fun parseGuzzlrSection(
+    fun parseGuzzlrSection(
         bodyHtml: String,
         preferences: Preferences?,
         gameDatabase: GameDatabase?,

@@ -62,16 +62,16 @@ private class FakeStorageRequest(
 class GameRuntimeLibraryMallTest {
 
     @Test
-    fun buy_callsMallManagerAndReturnsPurchasedCount() {
+    fun buy_twoArg_returnsBooleanTrueWhenPurchased() {
         val lib = GameRuntimeLibrary(
             gameDatabase = stubDb(),
             mallManager = mallThatBuys(2)
         )
-        assertEquals("2", outputLib(lib, """print(to_string(buy(2, to_item("$TEST_ITEM"))));"""))
+        assertEquals("true", outputLib(lib, """print(to_string(buy(2, to_item("$TEST_ITEM"))));"""))
     }
 
     @Test
-    fun buy_withMaxPrice_passesCapToMallManager() {
+    fun buy_withMaxPrice_returnsPurchasedCount() {
         val db = stubDb()
         var capturedMax = Int.MAX_VALUE
         val dummyClient = HttpClient(MockEngine { respond("") })
@@ -80,22 +80,23 @@ class GameRuntimeLibraryMallTest {
                 capturedMax = maxPrice
                 return count
             }
+            override suspend fun cheapestPrice(itemName: String) = 100L
         }
         val lib = GameRuntimeLibrary(gameDatabase = db, mallManager = mall)
-        outputLib(lib, """buy(1, to_item("$TEST_ITEM"), 1000);""")
+        assertEquals("1", outputLib(lib, """print(to_string(buy(1, to_item("$TEST_ITEM"), 1000)));"""))
         assertEquals(1000, capturedMax)
     }
 
     @Test
-    fun buy_unknownItem_returnsZero() {
+    fun buy_unknownItem_returnsFalse() {
         val lib = GameRuntimeLibrary(gameDatabase = stubDb(), mallManager = mallThatBuys(1))
-        assertEquals("0", outputLib(lib, """print(to_string(buy(1, to_item("unknown item xyz"))));"""))
+        assertEquals("false", outputLib(lib, """print(to_string(buy(1, to_item("unknown item xyz"))));"""))
     }
 
     @Test
-    fun buy_nullMallManager_returnsZero() {
+    fun buy_nullMallManager_returnsFalse() {
         val lib = GameRuntimeLibrary(gameDatabase = stubDb(), mallManager = null)
-        assertEquals("0", outputLib(lib, """print(to_string(buy(1, to_item("$TEST_ITEM"))));"""))
+        assertEquals("false", outputLib(lib, """print(to_string(buy(1, to_item("$TEST_ITEM"))));"""))
     }
 
     @Test

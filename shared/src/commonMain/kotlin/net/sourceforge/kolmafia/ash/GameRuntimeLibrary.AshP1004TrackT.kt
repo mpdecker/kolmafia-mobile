@@ -107,6 +107,11 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
 
     // ── Phase 1008: council / tavern ────────────────────────────────
     regFn(scope, "council", AshType.VOID, emptyList()) { rt, _ ->
+        val path = net.sourceforge.kolmafia.request.CouncilRequest.path(
+            kingdomOfExploathing = preferences?.getString("path", "")
+                ?.contains("Kingdom of Exploathing", ignoreCase = true) == true,
+        )
+        visitKolPage(path, applyQuestHooks = true)
         dispatchCli("council", rt)
         AshValue.VOID
     }
@@ -167,10 +172,21 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
     regFn(scope, "familiar_equipped_equipment", AshType.ITEM,
         listOf("fam" to AshType.FAMILIAR)) { _, args ->
         val race = args[0].toString()
-        val item = familiarManager?.state?.value?.ownedFamiliars
+        val fm = familiarManager?.state?.value
+        val active = fm?.activeFamiliar
+        // When querying the active familiar race, prefer the worn familiar equipment slot
+        if (active != null && active.race.equals(race, ignoreCase = true)) {
+            val worn = character?.state?.value?.equipment?.get(
+                net.sourceforge.kolmafia.character.EquipmentSlot.FAMILIAR,
+            )?.takeIf { it.isNotBlank() }
+            if (worn != null) return@regFn AshValue.item(worn)
+            val onFam = active.equipment?.name?.takeIf { it.isNotBlank() }
+            if (onFam != null) return@regFn AshValue.item(onFam)
+        }
+        val item = fm?.ownedFamiliars
             ?.firstOrNull { it.race.equals(race, ignoreCase = true) }
             ?.equipment?.name
-        AshValue.item(item.orEmpty())
+        AshValue.item(item.orEmpty().ifBlank { "none" })
     }
 
     val famToBool = AggregateType(AshType.FAMILIAR, AshType.BOOLEAN)

@@ -75,6 +75,7 @@ import net.sourceforge.kolmafia.session.GoalManager
 import net.sourceforge.kolmafia.session.NumberologyManager
 import net.sourceforge.kolmafia.session.GreyYouManager
 import net.sourceforge.kolmafia.session.PirateInsults
+import net.sourceforge.kolmafia.session.StoreManager
 import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.skill.SkillType
 
@@ -715,6 +716,14 @@ internal fun GameRuntimeLibrary.runClosetMoveCli(direction: String, parameters: 
             explicitQty = null
             itemQuery = piece
         }
+        if (itemQuery.equals("meat", ignoreCase = true)) {
+            val meat = (explicitQty ?: 0).toLong()
+            if (meat <= 0) continue
+            kotlinx.coroutines.runBlocking {
+                if (isTake) request.takeMeat(meat) else request.putMeat(meat)
+            }
+            continue
+        }
         val itemId = resolveMallBuyItemId(itemQuery) ?: continue
         val qty = explicitQty
             ?: if (isTake) {
@@ -873,7 +882,8 @@ internal fun GameRuntimeLibrary.runBuyCli(
 internal fun GameRuntimeLibrary.runMallBuyCli(parameters: String, rt: AshRuntimeContext) =
     runBuyCli("buy", parameters, rt)
 
-private suspend fun GameRuntimeLibrary.buyOneCliItem(
+/** Returns purchased quantity (NPC assumed full qty on success; mall uses [MallManager.buy]). */
+internal suspend fun GameRuntimeLibrary.buyOneCliItem(
     itemId: Int,
     itemName: String,
     qty: Int,
@@ -881,7 +891,7 @@ private suspend fun GameRuntimeLibrary.buyOneCliItem(
     forceMall: Boolean,
     npcOnly: Boolean,
     canInteract: Boolean,
-) {
+): Int {
     val entry = NpcStoreDatabase.itemEntry(itemId)
         ?: NpcStoreDatabase.storeForItem(itemName)?.let { store ->
             val price = NpcStoreDatabase.npcPrice(itemName)
@@ -910,17 +920,16 @@ private suspend fun GameRuntimeLibrary.buyOneCliItem(
     if (preferNpc) {
         val npc = npcBuyRequest ?: httpClient?.let { NpcBuyRequest(it) }
         if (npc != null) {
-            npc.buy(entry!!.first.storeKey, itemId, qty, preferences)
-            return
+            return npc.buy(entry!!.first.storeKey, itemId, qty, preferences).getOrNull() ?: 0
         }
     }
-    if (npcOnly) return
-    val mall = mallManager ?: return
-    if (mallPrice >= 0 && mallPrice > maxPrice) return
+    if (npcOnly) return 0
+    val mall = mallManager ?: return 0
+    if (mallPrice >= 0 && mallPrice > maxPrice) return 0
     val char = character
     val equip = equipmentRequest
     val db = gameDatabase
-    if (char != null && equip != null && db != null) {
+    return if (char != null && equip != null && db != null) {
         val checkpoint = OutfitCheckpoint.snapshot(char, equip, db)
         checkpoint.use { mall.buy(itemId, qty, maxPrice) }
     } else {
@@ -931,6 +940,12 @@ private suspend fun GameRuntimeLibrary.buyOneCliItem(
 internal fun GameRuntimeLibrary.resolveMallBuyItemId(query: String): Int? {
     val trimmed = query.trim()
     if (trimmed.isEmpty()) return null
+    if (trimmed.startsWith("\u00B6") || trimmed.startsWith("¶")) {
+        return trimmed.drop(1).trim().toIntOrNull()
+    }
+    if (trimmed.startsWith("[") && trimmed.contains("]")) {
+        return trimmed.substring(1, trimmed.indexOf(']')).toIntOrNull()
+    }
     gameDatabase?.item(trimmed)?.id?.let { return it }
     val name = matchingItemNames(trimmed).firstOrNull() ?: return null
     return gameDatabase?.item(name)?.id ?: ItemDatabase.getByName(name)?.id
@@ -1465,6 +1480,7 @@ object LongTailCli {
         val itemName: String,
         val price: Int,
         val limit: Int,
+        val quantity: Int = 1,
     )
 
     data class MallShopReprice(
@@ -1488,13 +1504,13 @@ object LongTailCli {
         val specs = mutableListOf<MallShopPut>()
         for (raw in parameters.split(',').map { it.trim() }.filter { it.isNotEmpty() }) {
             val at = raw.indexOf('@')
-            val itemName: String
+            var itemToken: String
             var price = 0
             var limit = 0
             if (at == -1) {
-                itemName = raw.trim()
+                itemToken = raw.trim()
             } else {
-                itemName = raw.substring(0, at).trim()
+                itemToken = raw.substring(0, at).trim()
                 var description = raw.substring(at + 1).trim()
                 val limitIdx = description.indexOf("limit", ignoreCase = true)
                 if (limitIdx != -1) {
@@ -1503,8 +1519,24 @@ object LongTailCli {
                 }
                 price = description.replace(",", "").toIntOrNull() ?: 0
             }
-            if (itemName.isNotEmpty() && itemName.all { it.isDigit() }) return null
-            specs += MallShopPut(itemName, price, limit)
+            // Pure numeric token (no pilcrow) is almost always a comma-in-price mistake
+            if (itemToken.isNotEmpty() &&
+                itemToken.all { it.isDigit() } &&
+                !itemToken.contains('\u00B6') &&
+                !itemToken.contains('¶')
+            ) {
+                return null
+            }
+            var quantity = 1
+            val space = itemToken.indexOf(' ')
+            if (space != -1) {
+                val leading = itemToken.substring(0, space)
+                leading.toIntOrNull()?.let {
+                    quantity = it
+                    itemToken = itemToken.substring(space + 1).trim()
+                }
+            }
+            specs += MallShopPut(itemToken, price, limit, quantity)
         }
         return specs
     }
@@ -1969,13 +2001,19 @@ internal fun GameRuntimeLibrary.runNamedCafeCli(
 }
 
 internal fun GameRuntimeLibrary.runMallSellCli(parameters: String, rt: AshRuntimeContext) {
-    val specs = LongTailCli.parseMallShopPuts(parameters.trim())
+    var params = parameters.trim()
+    var usingStorage = false
+    if (params.startsWith("using storage", ignoreCase = true)) {
+        usingStorage = true
+        params = params.substring("using storage".length).trim()
+    }
+    val specs = LongTailCli.parseMallShopPuts(params)
     if (specs == null) {
         rt.print("That is not an item. Did you use a comma in the middle of a number?")
         return
     }
     if (specs.isEmpty()) return
-    putMallShopItems(specs, rt)
+    putMallShopItems(specs, rt, usingStorage)
 }
 
 internal fun GameRuntimeLibrary.runShopCli(parameters: String, rt: AshRuntimeContext) {
@@ -1994,6 +2032,7 @@ internal fun GameRuntimeLibrary.runShopCli(parameters: String, rt: AshRuntimeCon
 private fun GameRuntimeLibrary.putMallShopItems(
     specs: List<LongTailCli.MallShopPut>,
     rt: AshRuntimeContext,
+    usingStorage: Boolean = false,
 ) {
     val store = manageStoreRequest ?: run {
         rt.print("Mall store unavailable")
@@ -2005,37 +2044,50 @@ private fun GameRuntimeLibrary.putMallShopItems(
             rt.print("Unknown item: ${spec.itemName}")
             null
         } else {
-            Triple(itemId, spec.price, spec.limit)
+            Triple(itemId, spec.price, spec.limit) to spec.quantity.coerceAtLeast(1)
         }
     }
     if (resolved.isEmpty()) return
     kotlinx.coroutines.runBlocking {
-        for ((itemId, price, limit) in resolved) {
-            store.addItem(itemId, price, limit, quantity = 1)
+        for ((meta, qty) in resolved) {
+            val (itemId, price, limit) = meta
+            store.addItem(itemId, price, limit, quantity = qty, fromStorage = usingStorage)
         }
     }
 }
 
 private fun GameRuntimeLibrary.runShopTakeCli(parameters: String, rt: AshRuntimeContext) {
-    val (qty, names) = LongTailCli.parseShopTake(parameters)
-    if (names.isEmpty() || names.all { it.isEmpty() }) return
     val store = manageStoreRequest ?: run {
         rt.print("Mall store unavailable")
         return
     }
-    val resolved = names.mapNotNull { name ->
-        val itemId = resolveCliItemId(name)
-        if (itemId == null) {
-            rt.print("Unknown item: $name")
-            null
-        } else {
-            itemId
-        }
-    }
-    if (resolved.isEmpty()) return
     kotlinx.coroutines.runBlocking {
-        for (itemId in resolved) {
-            store.removeItem(itemId, qty.coerceAtLeast(1))
+        if (!StoreManager.soldItemsRetrieved) {
+            store.fetchSoldItems()
+        }
+        for (raw in parameters.split(',').map { it.trim() }.filter { it.isNotEmpty() }) {
+            var piece = raw
+            var takeAll = false
+            var qty = 1
+            if (piece.startsWith("*")) {
+                takeAll = true
+                piece = piece.substring(1).trim()
+            } else {
+                val space = piece.indexOf(' ')
+                if (space != -1) {
+                    piece.substring(0, space).toIntOrNull()?.let {
+                        qty = it
+                        piece = piece.substring(space + 1).trim()
+                    }
+                }
+            }
+            val itemId = resolveCliItemId(piece)
+            if (itemId == null) {
+                rt.print("Unknown item: $piece")
+                continue
+            }
+            val count = if (takeAll) StoreManager.shopAmount(itemId) else qty
+            if (count > 0) store.removeItem(itemId, count)
         }
     }
 }
@@ -2071,6 +2123,12 @@ private fun GameRuntimeLibrary.runShopRepriceCli(parameters: String, rt: AshRunt
 private fun GameRuntimeLibrary.resolveCliItemId(name: String): Int? {
     val trimmed = name.trim()
     if (trimmed.isEmpty()) return null
+    if (trimmed.startsWith("\u00B6") || trimmed.startsWith("¶")) {
+        return trimmed.drop(1).trim().toIntOrNull()
+    }
+    if (trimmed.startsWith("[") && trimmed.contains("]")) {
+        return trimmed.substring(1, trimmed.indexOf(']')).toIntOrNull()
+    }
     return gameDatabase?.item(trimmed)?.id
         ?: ItemDatabase.getByName(trimmed)?.id
         ?: ItemDatabase.getByPluralOrName(trimmed)?.id

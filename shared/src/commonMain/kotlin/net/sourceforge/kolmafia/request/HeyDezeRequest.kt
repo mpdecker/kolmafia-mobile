@@ -80,10 +80,49 @@ class HeyDezeRequest(
             ZodiacSign.find(charState?.zodiacSign.orEmpty())?.isBadMoon == true ||
                 charState?.zodiacSign.equals("Bad Moon", ignoreCase = true) == true
 
+        fun styxStat(url: String): String? {
+            val id = Regex("""[?&]whichbuff=(\d+)""", RegexOption.IGNORE_CASE)
+                .find(url)?.groupValues?.get(1)?.toIntOrNull() ?: return null
+            return when (id) {
+                446 -> "muscle"
+                447 -> "mysticality"
+                448 -> "moxie"
+                else -> null
+            }
+        }
+
         fun parseResponse(url: String, html: String, preferences: Preferences?) {
             if (preferences == null) return
-            if (!url.contains("action=styxbuff", ignoreCase = true)) return
-            preferences.setBoolean(VISITED_PREF, true)
+            if (!url.contains("heydeze.php", ignoreCase = true) &&
+                !url.contains("action=styxbuff", ignoreCase = true)
+            ) {
+                return
+            }
+            if (url.contains("place=meansucker", ignoreCase = true)) {
+                Regex("""\(cost:\s*([\d,]*)\s*Meat\)""", RegexOption.IGNORE_CASE)
+                    .find(html)?.groupValues?.get(1)
+                    ?.replace(",", "")
+                    ?.toIntOrNull()
+                    ?.let { preferences.setInt("meansuckerPrice", it) }
+                return
+            }
+            if (url.contains("action=styxbuff", ignoreCase = true) && styxStat(url) != null) {
+                preferences.setBoolean(VISITED_PREF, true)
+            }
+        }
+
+        fun registerRequest(url: String, sessionLogger: net.sourceforge.kolmafia.session.SessionLogger? = null): Boolean {
+            if (!url.contains("heydeze.php", ignoreCase = true)) return false
+            when {
+                url.contains("place=meansucker", ignoreCase = true) ->
+                    sessionLogger?.appendRawLine("Visiting the Meansucker")
+                url.contains("action=styxbuff", ignoreCase = true) -> {
+                    val stat = styxStat(url) ?: return true
+                    sessionLogger?.appendRawLine("Visiting the Styx Pixie for $stat")
+                }
+                else -> sessionLogger?.appendRawLine("Visiting Hey Deze")
+            }
+            return true
         }
     }
 }

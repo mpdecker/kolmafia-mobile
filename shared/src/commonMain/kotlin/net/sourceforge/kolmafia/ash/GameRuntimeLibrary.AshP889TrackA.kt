@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.adventure.AdventureManager
+import net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.data.ItemDatabase
@@ -88,7 +89,15 @@ internal fun GameRuntimeLibrary.registerAshP892Batch(scope: AshScope) {
             return ChoiceCombatAshState.lastChoiceResponseText
         }
         if (option < 0) {
-            return ChoiceCombatAshState.lastChoiceResponseText
+            val pref = preferences?.getInt("choiceAdventure$choiceId", 0) ?: 0
+            val picked = ChoiceAdventures.pickGoalChoice(
+                choiceId,
+                pref,
+                goalManager,
+                inventoryManager?.state?.value,
+            )
+            if (picked <= 0) return ChoiceCombatAshState.lastChoiceResponseText
+            return submitChoice(picked, extraFields, handleFights)
         }
         val post = buildString {
             append("whichchoice=$choiceId&option=$option")

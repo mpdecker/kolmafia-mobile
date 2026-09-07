@@ -25,7 +25,24 @@ internal fun GameRuntimeLibrary.registerEquipmentQueries(scope: AshScope) {
             ItemPrimaryUse.PANTS -> "pants"
             ItemPrimaryUse.ACCESSORY -> "acc1"
             ItemPrimaryUse.FAMILIAR -> "familiar"
+            ItemPrimaryUse.STICKER -> "sticker1"
+            ItemPrimaryUse.CARD -> "card-sleeve"
+            ItemPrimaryUse.FOLDER -> "folder1"
+            ItemPrimaryUse.BOOTSKIN -> "bootskin"
+            ItemPrimaryUse.BOOTSPUR -> "bootspur"
             else -> ""
+        }
+    }
+
+    fun hasEquippedAnywhere(name: String): Boolean {
+        val equip = character?.state?.value?.equipment ?: return false
+        val lower = name.lowercase()
+        if (equip.values.any { it.equals(lower, ignoreCase = true) }) return true
+        // Also match id-form equipment names when possible
+        val item = gameDatabase?.item(name) ?: return false
+        return equip.values.any { worn ->
+            worn.equals(item.name, ignoreCase = true) ||
+                worn.equals(item.id.toString(), ignoreCase = true)
         }
     }
 
@@ -34,12 +51,10 @@ internal fun GameRuntimeLibrary.registerEquipmentQueries(scope: AshScope) {
         AshValue.item(resolveSlot(args[0].toString()) ?: "none")
     }
 
+    // Desktop KoLCharacter.hasEquipped — ACC1–3, stickers, folders, weapon/offhand
     regFn(scope, "have_equipped", AshType.BOOLEAN,
         listOf("it" to AshType.ITEM)) { _, args ->
-        val name = args[0].toString()
-        val has = character?.state?.value?.equipment?.values
-            ?.any { it.equals(name, ignoreCase = true) } ?: false
-        AshValue.of(has)
+        AshValue.of(hasEquippedAnywhere(args[0].toString()))
     }
 
     regFn(scope, "to_slot", AshType.SLOT,

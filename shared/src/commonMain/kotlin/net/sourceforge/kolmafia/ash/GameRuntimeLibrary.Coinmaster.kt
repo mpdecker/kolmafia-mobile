@@ -36,21 +36,33 @@ internal fun GameRuntimeLibrary.registerCoinmasterFunctions(scope: AshScope) {
         val count = args[1].toLong().toInt()
         val itemId = resolveItemId(args[2].toString()) ?: return@regFn AshValue.FALSE
         if (count <= 0) return@regFn AshValue.TRUE
-        val bought = kotlinx.coroutines.runBlocking {
-            coinmasterManager?.buy(master, itemId, count) ?: 0
+        val ok = kotlinx.coroutines.runBlocking {
+            val initial = inventoryManager?.getCount(itemId) ?: 0
+            val bought = coinmasterManager?.buy(master, itemId, count) ?: 0
+            val after = inventoryManager?.getCount(itemId) ?: (initial + bought)
+            // Prefer inventory delta when inventory is wired; else manager qty
+            if (inventoryManager != null) after >= initial + count && bought >= count
+            else bought >= count
         }
-        AshValue.of(bought >= count)
+        AshValue.of(ok)
     }
 
-    regFn(scope, "sell", AshType.VOID,
-        listOf("master" to AshType.COINMASTER, "count" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
-        val master = resolveMaster(args[0]) ?: return@regFn AshValue.VOID
+    // Desktop sell(coinmaster, count, item) → BOOLEAN continueValue (+ batch coalesce)
+    regFn(scope, "sell", AshType.BOOLEAN,
+        listOf("master" to AshType.COINMASTER, "count" to AshType.INT, "it" to AshType.ITEM)) { rt, args ->
+        val master = resolveMaster(args[0]) ?: return@regFn AshValue.FALSE
         val count = args[1].toLong().toInt()
-        val itemId = resolveItemId(args[2].toString()) ?: return@regFn AshValue.VOID
-        if (count > 0) {
-            kotlinx.coroutines.runBlocking { coinmasterManager?.sell(master, itemId, count) }
+        val itemId = resolveItemId(args[2].toString()) ?: return@regFn AshValue.FALSE
+        if (count <= 0) return@regFn AshValue.TRUE
+        if (isBatching(rt)) {
+            val nick = master.nickname.ifBlank { master.shopId ?: master.masterName }
+            batchCommand(rt, "coinmaster", "sell $nick", pilcrowItemParams(count, itemId))
+            return@regFn AshValue.TRUE
         }
-        AshValue.VOID
+        val sold = kotlinx.coroutines.runBlocking {
+            coinmasterManager?.sell(master, itemId, count) ?: 0
+        }
+        AshValue.of(sold >= count)
     }
 
     regFn(scope, "buys_item", AshType.BOOLEAN,
@@ -79,6 +91,23 @@ internal fun GameRuntimeLibrary.registerCoinmasterFunctions(scope: AshScope) {
         val master = resolveMaster(args[0]) ?: return@regFn AshValue.ZERO
         val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.ZERO
         AshValue.of((coinmasterManager?.sellPrice(master, itemId) ?: 0).toLong())
+    }
+
+    // Desktop sell_price(coinmaster, skill) — token cost of skill purchase row
+    regFn(scope, "sell_price", AshType.INT,
+        listOf("master" to AshType.COINMASTER, "skill" to AshType.SKILL)) { _, args ->
+        val master = resolveMaster(args[0]) ?: return@regFn AshValue.ZERO
+        val skillId = gameDatabase?.skill(args[1].toString())?.id
+            ?: args[1].toString().toIntOrNull()
+            ?: return@regFn AshValue.ZERO
+        val row = master.buyItems.firstOrNull { it.isSkillPurchase && it.item.itemId == skillId }
+            ?: return@regFn AshValue.ZERO
+        val price = when {
+            row.price > 0 -> row.price
+            row.costs.isNotEmpty() -> row.costs.first().count
+            else -> 0
+        }
+        AshValue.of(price.toLong())
     }
 
     // Phase 4489: sell_cost returns item→int cost map (desktop ITEM_TO_INT), item + skill overloads.
@@ -132,6 +161,7 @@ internal fun GameRuntimeLibrary.registerCraftFunctions(scope: AshScope) {
         listOf("mode" to AshType.STRING, "count" to AshType.INT, "item1" to AshType.ITEM, "item2" to AshType.ITEM)) { _, args ->
         val mode = args[0].toString()
         val count = args[1].toLong().toInt()
+        if (count <= 0) return@regFn AshValue.ZERO
         val id1 = resolveItemId(args[2].toString()) ?: return@regFn AshValue.ZERO
         val id2 = resolveItemId(args[3].toString()) ?: return@regFn AshValue.ZERO
         val created = kotlinx.coroutines.runBlocking {

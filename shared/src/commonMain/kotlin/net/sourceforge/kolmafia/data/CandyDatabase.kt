@@ -51,13 +51,17 @@ object CandyDatabase {
 
     fun synthesisPair(effectId: Int, inventoryCount: (Int) -> Int): Boolean {
         ensureTiersInitialized()
-        return synthesisPairByCount(effectId, inventoryCount).isNotEmpty()
+        return synthesisPairByCount(effectId, inventoryCount, FLAG_AVAILABLE).isNotEmpty()
     }
 
     /** First available candy pair item IDs for [effectId], or empty if none. */
-    fun synthesisPairIds(effectId: Int, inventoryCount: (Int) -> Int): List<Int> {
+    fun synthesisPairIds(
+        effectId: Int,
+        inventoryCount: (Int) -> Int,
+        flags: Int = FLAG_AVAILABLE,
+    ): List<Int> {
         ensureTiersInitialized()
-        return synthesisPairByCount(effectId, inventoryCount)
+        return synthesisPairByCount(effectId, inventoryCount, flags)
     }
 
     /** Desktop [CandyDatabase.synthesisResult]: effect ID from combining two candy item IDs. */
@@ -87,6 +91,25 @@ object CandyDatabase {
         }
     }
 
+    /** Desktop [CandyDatabase.candyForTier] with flag filters. */
+    fun candyForTier(
+        tier: Int,
+        flags: Int,
+        inventoryCount: (Int) -> Int = { Int.MAX_VALUE },
+    ): List<Int> {
+        ensureTiersInitialized()
+        return candyForTierFiltered(tier, flags, inventoryCount).sorted()
+    }
+
+    /** All known candy item IDs (tiers 0–3 union) for mall price refresh. */
+    fun allCandyItemIds(): Set<Int> {
+        ensureTiersInitialized()
+        return tier0Candy + tier1Candy + tier2Candy + tier3Candy
+    }
+
+    /** Desktop [CandyDatabase.updatePrices] — returns item IDs to refresh. */
+    fun candyIdsForPriceUpdate(): List<Int> = allCandyItemIds().sorted()
+
     private fun ensureTiersInitialized() {
         if (tiersInitialized) return
         for (item in ItemDatabase.all()) {
@@ -109,24 +132,24 @@ object CandyDatabase {
     private fun synthesisPairByCount(
         effectId: Int,
         inventoryCount: (Int) -> Int,
+        flags: Int = FLAG_AVAILABLE,
     ): List<Int> {
         val tier = CandyEffectTier.getEffectTier(effectId)
         if (tier !in 1..3) return emptyList()
 
-        val flags = FLAG_AVAILABLE
-        val candy1Ids = candyForTier(tier, flags, inventoryCount)
+        val candy1Ids = candyForTierFiltered(tier, flags, inventoryCount)
             .sortedByDescending { inventoryCount(it) }
 
         for (itemId1 in candy1Ids) {
             val count1 = inventoryCount(itemId1)
-            if (count1 == 0) return emptyList()
+            if (count1 == 0 && (flags and FLAG_AVAILABLE) != 0) return emptyList()
 
             val candy2Ids = sweetSynthesisPairingInternal(effectId, itemId1, flags, inventoryCount)
                 .sortedByDescending { inventoryCount(it) }
 
             for (itemId2 in candy2Ids) {
                 val count2 = inventoryCount(itemId2)
-                if (count2 == 0) break
+                if (count2 == 0 && (flags and FLAG_AVAILABLE) != 0) break
                 if (itemId1 == itemId2 && count2 == 1) continue
                 return listOf(itemId1, itemId2)
             }
@@ -134,7 +157,7 @@ object CandyDatabase {
         return emptyList()
     }
 
-    private fun candyForTier(
+    private fun candyForTierFiltered(
         tier: Int,
         flags: Int,
         inventoryCount: (Int) -> Int,

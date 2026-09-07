@@ -80,6 +80,72 @@ open class ClosetRequest(
         }
     }
 
+    /** Desktop ClosetRequestType.MEAT_TO_CLOSET. */
+    open suspend fun putMeat(amount: Long): Result<String> {
+        if (amount <= 0) return Result.success("")
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
+        return try {
+            val response = client.get("$KOL_BASE_URL/closet.php") {
+                parameter("action", "addtakeclosetmeat")
+                parameter("addtake", "add")
+                parameter("quantity", amount)
+            }
+            if (response.status.isSuccess()) {
+                val body = response.bodyAsText()
+                TransferItemSync.parseClosetTransfer(
+                    url = "closet.php?action=addtakeclosetmeat&addtake=add&quantity=$amount",
+                    html = body,
+                    itemId = 0,
+                    quantity = 0,
+                    inventory = inventoryManager,
+                    character = character,
+                )
+                Result.success(body)
+            } else {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Desktop ClosetRequestType.MEAT_TO_INVENTORY. */
+    open suspend fun takeMeat(amount: Long): Result<String> {
+        if (amount <= 0) return Result.success("")
+        if (RequestAbortGate.abortIfInFightOrChoice()) {
+            return Result.failure(IllegalStateException(RequestAbortGate.lastAbortMessage.ifEmpty {
+                "You are currently in a fight or choice."
+            }))
+        }
+        return try {
+            val response = client.get("$KOL_BASE_URL/closet.php") {
+                parameter("action", "addtakeclosetmeat")
+                parameter("addtake", "take")
+                parameter("quantity", amount)
+            }
+            if (response.status.isSuccess()) {
+                val body = response.bodyAsText()
+                TransferItemSync.parseClosetTransfer(
+                    url = "closet.php?action=addtakeclosetmeat&addtake=take&quantity=$amount",
+                    html = body,
+                    itemId = 0,
+                    quantity = 0,
+                    inventory = inventoryManager,
+                    character = character,
+                )
+                Result.success(body)
+            } else {
+                Result.failure(Exception("HTTP ${response.status.value}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /** Take all items from the closet into inventory. */
     open suspend fun emptyCloset(): Result<Int> {
         return try {

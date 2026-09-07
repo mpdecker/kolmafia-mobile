@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
+data class CallFrame(val fileName: String, val name: String, val lineNumber: Int)
+
 class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
 
     enum class ControlFlow { NORMAL, RETURN, BREAK, CONTINUE, EXIT }
@@ -8,6 +10,7 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
     var returnValue: AshValue = AshValue.VOID
     val output = StringBuilder()
     private var combatAction = ""
+    private val callStack = ArrayDeque<CallFrame>()
 
     internal val globalScope = AshScope().also { library.registerAll(it) }
 
@@ -244,26 +247,33 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
         }
     }
 
+    fun getCallFrames(): List<CallFrame> = callStack.toList()
+
     private fun callFunction(name: String, args: List<AshValue>, scope: AshScope): AshValue {
         val fn = scope.resolveFunction(name, args.map { it.type })
             ?: throw ScriptException(
                 "No matching overload of '$name' for (${args.joinToString { it.type.name }})"
             )
-        return if (fn.libraryImpl != null) {
-            fn.libraryImpl.invoke(this, args)
-        } else {
-            val fnScope = globalScope.child()
-            fn.params.forEachIndexed { i, (pName, pType) ->
-                fnScope.declareVar(pName, pType, args[i].coerceTo(pType))
+        callStack.addLast(CallFrame("ASH", name, 0))
+        return try {
+            if (fn.libraryImpl != null) {
+                fn.libraryImpl.invoke(this, args)
+            } else {
+                val fnScope = globalScope.child()
+                fn.params.forEachIndexed { i, (pName, pType) ->
+                    fnScope.declareVar(pName, pType, args[i].coerceTo(pType))
+                }
+                val savedCF = controlFlow; val savedRV = returnValue
+                controlFlow = ControlFlow.NORMAL
+                returnValue = fn.returnType.defaultValue()
+                executeBlock(fn.body!!, fnScope)
+                val result = returnValue
+                if (controlFlow == ControlFlow.RETURN) controlFlow = ControlFlow.NORMAL
+                returnValue = savedRV
+                result
             }
-            val savedCF = controlFlow; val savedRV = returnValue
-            controlFlow = ControlFlow.NORMAL
-            returnValue = fn.returnType.defaultValue()
-            executeBlock(fn.body!!, fnScope)
-            val result = returnValue
-            if (controlFlow == ControlFlow.RETURN) controlFlow = ControlFlow.NORMAL
-            returnValue = savedRV
-            result
+        } finally {
+            callStack.removeLastOrNull()
         }
     }
 

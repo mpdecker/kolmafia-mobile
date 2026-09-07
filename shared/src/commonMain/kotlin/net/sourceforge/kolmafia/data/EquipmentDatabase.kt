@@ -72,6 +72,17 @@ object EquipmentDatabase {
 
     fun getHands(itemId: Int): Int = byItemId[itemId]?.hands ?: 0
 
+    /**
+     * Desktop [EquipmentDatabase.getShieldDamageReduction].
+     * `[L]` means DR equals the player's level.
+     */
+    fun getShieldDamageReduction(itemId: Int, playerLevel: Int = 0): Int {
+        val data = byItemId[itemId] ?: return 0
+        val raw = data.shieldDr ?: return 0
+        if (raw.equals("[L]", ignoreCase = true)) return playerLevel
+        return raw.toIntOrNull() ?: 0
+    }
+
     fun getItemType(itemId: Int): String {
         val item = ItemDatabase.getById(itemId) ?: return ""
         byItemId[itemId]?.itemType?.let { return it }
@@ -311,17 +322,23 @@ object EquipmentDatabase {
             }
             var hands = 0
             var itemType: String? = null
+            var shieldDr: String? = null
             parts.getOrNull(3)?.trim()?.takeIf { it.isNotBlank() }?.let { extra ->
                 val match = handsTypePattern.matchEntire(extra)
-                if (match != null) {
-                    hands = match.groupValues[1].toIntOrNull() ?: 0
-                    itemType = match.groupValues[2].trim()
-                } else {
-                    itemType = extra
+                when {
+                    match != null -> {
+                        hands = match.groupValues[1].toIntOrNull() ?: 0
+                        itemType = match.groupValues[2].trim()
+                    }
+                    extra.startsWith("shield:", ignoreCase = true) -> {
+                        itemType = "shield"
+                        shieldDr = extra.substringAfter(':').trim().ifBlank { null }
+                    }
+                    else -> itemType = extra
                 }
             }
 
-            val equip = EquipmentData(name, power, statReq, hands, itemType)
+            val equip = EquipmentData(name, power, statReq, hands, itemType, shieldDr)
             byName[name.lowercase()] = equip
         }
     }

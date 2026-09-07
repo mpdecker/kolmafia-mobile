@@ -25,6 +25,31 @@ object TurnCounter {
             }
             return text.ifBlank { "Manual" }
         }
+
+        /** Desktop [TurnCounter.isExempt] — `loc=*` exempts every location; `loc=id` is a set. */
+        fun isExempt(adventureId: String): Boolean {
+            var allLocations = false
+            val locs = mutableSetOf<String>()
+            var text = label
+            while (true) {
+                val pos = text.lastIndexOf(' ')
+                if (pos < 0) {
+                    val word = text.trim()
+                    if (word == "loc=*") allLocations = true
+                    else if (word.startsWith("loc=")) locs += word.substring(4)
+                    break
+                }
+                val word = text.substring(pos + 1).trim()
+                when {
+                    word == "loc=*" -> allLocations = true
+                    word.startsWith("loc=") -> if (!allLocations) locs += word.substring(4)
+                    word.startsWith("type=") || word.contains(".php") -> Unit
+                    else -> break
+                }
+                text = text.substring(0, pos).trim()
+            }
+            return allLocations || locs.contains(adventureId)
+        }
     }
 
     fun load(preferences: Preferences): List<Entry> {
@@ -142,11 +167,18 @@ object TurnCounter {
     fun turnsRemaining(entry: Entry?, currentRun: Int): Int =
         if (entry == null) -1 else (entry.absoluteTurn - currentRun).coerceAtLeast(0)
 
-    fun findByLabel(preferences: Preferences, label: String): Entry? =
-        load(preferences).firstOrNull {
-            it.parsedLabel().equals(label, ignoreCase = true) ||
-                it.label.contains(label, ignoreCase = true)
+    fun findByLabel(preferences: Preferences, label: String): Entry? {
+        val needle = label.lowercase()
+        val checkExempt = needle.isEmpty()
+        return load(preferences).firstOrNull { entry ->
+            if (checkExempt && entry.isExempt("")) return@firstOrNull false
+            if (needle.isEmpty()) {
+                true
+            } else {
+                entry.parsedLabel().lowercase().contains(needle)
+            }
         }
+    }
 
     /** Desktop [TurnCounter.isCounting] — active counter with parsed label and turn >= currentRun. */
     fun isCounting(preferences: Preferences, label: String, currentRun: Int): Boolean =
@@ -188,6 +220,7 @@ object TurnCounter {
         return load(preferences)
             .filter { entry ->
                 entry.absoluteTurn in minTurn..maxTurn &&
+                    !(needle.isBlank() && entry.isExempt("")) &&
                     (needle.isBlank() || entry.parsedLabel().lowercase().contains(needle))
             }
             .map { it.parsedLabel() }

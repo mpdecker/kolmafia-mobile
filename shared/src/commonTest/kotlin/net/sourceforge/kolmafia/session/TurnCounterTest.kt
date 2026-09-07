@@ -129,6 +129,28 @@ class TurnCounterTest {
     }
 
     @Test
+    fun getCounterLabels_skipsLocStarWhenLabelEmpty() {
+        val prefs = Preferences(MapSettings())
+        TurnCounter.startCounting(prefs, currentRun = 100, turns = 5, "Hidden loc=*", "x.gif")
+        TurnCounter.startCounting(prefs, currentRun = 100, turns = 5, "Visible", "y.gif")
+        val empty = TurnCounter.getCounterLabels(prefs, "", 100, 0, 10)
+        assertTrue("Visible" in empty)
+        assertTrue("Hidden" !in empty)
+        val named = TurnCounter.getCounterLabels(prefs, "Hidden", 100, 0, 10)
+        assertTrue("Hidden" in named)
+    }
+
+    @Test
+    fun isExempt_locStarExemptsEmptyAdventureId() {
+        val prefs = Preferences(MapSettings())
+        TurnCounter.startCounting(prefs, currentRun = 1, turns = 1, "Wander loc=*", "x.gif")
+        val entry = TurnCounter.findByLabel(prefs, "Wander")
+        assertNotNull(entry)
+        assertTrue(entry.isExempt(""))
+        assertTrue(entry.isExempt("123"))
+    }
+
+    @Test
     fun resetMayonnaiseWindowsForRun_clampsExpiredMayoToZeroRemaining() {
         val prefs = Preferences(MapSettings())
         TurnCounter.startCounting(

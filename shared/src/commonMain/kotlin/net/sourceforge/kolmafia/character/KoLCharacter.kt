@@ -175,6 +175,10 @@ class KoLCharacter {
         _state.value = _state.value.copy(title = title)
     }
 
+    fun setIgnoreZoneWarnings(ignore: Boolean) {
+        _state.value = _state.value.copy(ignoreZoneWarnings = ignore)
+    }
+
     fun setLevel(level: Int) {
         if (level > 0) _state.value = _state.value.copy(level = level)
     }

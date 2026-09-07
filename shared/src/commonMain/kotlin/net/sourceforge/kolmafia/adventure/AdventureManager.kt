@@ -18,6 +18,7 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceWalkAway
 import net.sourceforge.kolmafia.adventure.choice.DeferredChoice
 import net.sourceforge.kolmafia.adventure.choice.VioletFogManager
 import net.sourceforge.kolmafia.adventure.choice.solvers.FightersOfFighting
+import net.sourceforge.kolmafia.data.AdventureQueueDatabase
 import net.sourceforge.kolmafia.session.FightActionCostSync
 import net.sourceforge.kolmafia.session.FightStructuralSync
 import net.sourceforge.kolmafia.session.FightDiscoComboSync
@@ -1028,6 +1029,10 @@ open class AdventureManager(
         }
         if (result.monster.isNotEmpty() && MonsterStatusTracker.getLastMonster() == null) {
             preferences.setString(Preferences.LAST_MONSTER, result.monster)
+        }
+        if (result.monster.isNotEmpty()) {
+            AdventureQueueDatabase.enqueue(location.name, result.monster)
+            AdventureQueueDatabase.serialize(preferences)
         }
         val hubItemIds = result.itemsGained.mapNotNull { name -> gameDatabase?.item(name)?.id }
         val questCombatResult = questDatabase?.let {
