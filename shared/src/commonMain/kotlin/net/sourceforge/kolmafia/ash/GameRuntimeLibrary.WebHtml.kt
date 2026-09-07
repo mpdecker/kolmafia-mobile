@@ -10,12 +10,19 @@ internal fun GameRuntimeLibrary.registerWebHtml(scope: AshScope) {
     val stringStringMap = AggregateType(AshType.STRING, AshType.STRING)
 
     fun loadHtml(url: String, encoded: Boolean): String {
+        val lower = url.lowercase()
+        if (lower.endsWith(".htm") || lower.endsWith(".html")) {
+            return net.sourceforge.kolmafia.platform.UserDataFileIO.readText(url)
+                ?: net.sourceforge.kolmafia.platform.UserDataFileIO.readText("html/$url")
+                ?: ""
+        }
         val client = httpClient ?: return ""
         val fullUrl = if (encoded || url.startsWith("http://") || url.startsWith("https://")) {
             url
         } else {
             "$KOL_BASE_URL/${url.trimStart('/')}"
         }
+        lastVisitPath = fullUrl
         return runBlocking {
             try {
                 val body = client.get(fullUrl).body<String>()
@@ -30,13 +37,15 @@ internal fun GameRuntimeLibrary.registerWebHtml(scope: AshScope) {
         }
     }
 
-    regFn(scope, "load_html", AshType.STRING, listOf("url" to AshType.STRING)) { _, args ->
-        AshValue.of(loadHtml(args[0].toString(), encoded = false))
+    fun bufferOf(text: String) = AshValue(AshType.BUFFER, StringBuilder(text))
+
+    regFn(scope, "load_html", AshType.BUFFER, listOf("url" to AshType.STRING)) { _, args ->
+        bufferOf(loadHtml(args[0].toString(), encoded = false))
     }
 
-    regFn(scope, "load_html", AshType.STRING,
+    regFn(scope, "load_html", AshType.BUFFER,
         listOf("url" to AshType.STRING, "encoded" to AshType.BOOLEAN)) { _, args ->
-        AshValue.of(loadHtml(args[0].toString(), args[1].toBoolean()))
+        bufferOf(loadHtml(args[0].toString(), args[1].toBoolean()))
     }
 
     regFn(scope, "form_field", AshType.STRING,
@@ -53,5 +62,23 @@ internal fun GameRuntimeLibrary.registerWebHtml(scope: AshScope) {
             "${k.toString().encodeURLParameter()}=${v.toString().encodeURLParameter()}"
         }
         AshValue.of(if (query.isEmpty()) base else "$base?$query")
+    }
+
+    // Desktop make_url(location, usePostMethod, encoded)
+    regFn(scope, "make_url", AshType.STRING,
+        listOf(
+            "location" to AshType.STRING,
+            "usePostMethod" to AshType.BOOLEAN,
+            "encoded" to AshType.BOOLEAN,
+        )) { _, args ->
+        val location = args[0].toString()
+        val encoded = args[2].toBoolean()
+        AshValue.of(
+            if (encoded || location.startsWith("http://") || location.startsWith("https://")) {
+                location
+            } else {
+                location.trimStart('/')
+            },
+        )
     }
 }

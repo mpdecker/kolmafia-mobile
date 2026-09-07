@@ -60,8 +60,21 @@ internal fun GameRuntimeLibrary.registerAshP950TrackIBatch(scope: AshScope) {
     // ── Phase 952: form_fields ──────────────────────────────────────
     regFn(scope, "form_fields", stringToString, emptyList()) { _, _ ->
         val result = AggregateValue(stringToString)
-        for ((k, v) in ChoiceCombatAshState.lastFormFields) {
-            result[AshValue.of(k)] = AshValue.of(v)
+        val fields = ChoiceCombatAshState.lastFormFields
+        if (fields.isNotEmpty()) {
+            for ((k, v) in fields) {
+                result[AshValue.of(k)] = AshValue.of(v)
+            }
+            return@regFn result
+        }
+        val q = lastVisitPath.indexOf('?')
+        if (q >= 0) {
+            lastVisitPath.substring(q + 1).split('&').forEach { pair ->
+                val eq = pair.indexOf('=')
+                if (eq > 0) {
+                    result[AshValue.of(pair.substring(0, eq))] = AshValue.of(pair.substring(eq + 1))
+                }
+            }
         }
         result
     }

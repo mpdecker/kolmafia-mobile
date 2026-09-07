@@ -13,11 +13,15 @@ internal fun GameRuntimeLibrary.registerAshP25Batch(scope: AshScope) {
         val entry = ModifierDatabase.get("Stat", statName)
         AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, statModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, statModifierParams) { _, args ->
+        val statName = StatNames.resolve(args[0].toString()).orEmpty()
+        val entry = ModifierDatabase.get("Stat", statName)
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "string_modifier", AshType.STRING, statModifierParams) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "string_modifier", AshType.STRING, statModifierParams) { _, args ->
+        val statName = StatNames.resolve(args[0].toString()).orEmpty()
+        val entry = ModifierDatabase.get("Stat", statName)
+        AshValue.of(stringFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "type_of", AshType.STRING, listOf("value" to AshType.STAT)) { _, _ ->
         AshValue.of(AshType.STAT.name)

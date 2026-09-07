@@ -22,6 +22,7 @@ import net.sourceforge.kolmafia.request.PirateSpecialSync
 import net.sourceforge.kolmafia.request.PizzaCubeRequest
 import net.sourceforge.kolmafia.request.PlaceSync
 import net.sourceforge.kolmafia.request.SendMailSync
+import net.sourceforge.kolmafia.skill.SkillManager
 
 /**
  * Selective ResponseTextParser.externalUpdate page routers (Phases 2261–2330).
@@ -90,6 +91,7 @@ object ResponseTextParser {
         preferences: Preferences? = null,
         character: KoLCharacter? = null,
         inventory: InventoryManager? = null,
+        skillManager: SkillManager? = null,
     ) {
         val page = classify(url) ?: return
         if (html.isBlank() && page != "sellstuff") return
@@ -98,7 +100,7 @@ object ResponseTextParser {
         when (page) {
             "actionbar" -> ActionBarManager.update(html)
             "account" -> AccountSync.parseAccountData(u, html, preferences, character)
-            "charsheet" -> CharSheetSync.parseStatus(html, character, preferences)
+            "charsheet" -> CharSheetSync.parseStatus(html, character, preferences, skillManager)
             "sellstuff" -> AutosellSync.parseCompact(u, inventory, character)
             "sellstuff_ugly" -> AutosellSync.parseDetailed(u, html, inventory, character)
             "mallstore" -> ManageStoreSync.parseResponse(u, html, inventory, preferences)

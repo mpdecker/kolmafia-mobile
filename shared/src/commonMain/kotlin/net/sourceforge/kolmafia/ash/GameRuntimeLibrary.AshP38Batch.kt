@@ -1,11 +1,14 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.AdventureQueueDatabase
 import net.sourceforge.kolmafia.data.CombatDatabase
 import net.sourceforge.kolmafia.data.ZoneCombatData
 
 /**
  * AshP38 — live location monster queries from [CombatDatabase].
  * Mirrors desktop [RuntimeLibrary.get_monsters] / [RuntimeLibrary.appearance_rates].
+ *
+ * Phase 5006–5017: [AdventureQueueDatabase] stateful rates when includeQueue=true.
  */
 internal fun GameRuntimeLibrary.registerAshP38Batch(scope: AshScope) {
     val monsterIntType = AggregateType(AshType.INT, AshType.MONSTER)
@@ -21,21 +24,37 @@ internal fun GameRuntimeLibrary.registerAshP38Batch(scope: AshScope) {
     }
 
     regFn(scope, "appearance_rates", floatMonsterType, listOf("location" to AshType.LOCATION)) { _, args ->
-        buildAppearanceRates(resolveLocationQueryName(args[0].toString()), floatMonsterType)
+        buildAppearanceRates(resolveLocationQueryName(args[0].toString()), floatMonsterType, false)
     }
 
     regFn(scope, "appearance_rates", floatMonsterType, listOf("location" to AshType.STRING)) { _, args ->
-        buildAppearanceRates(resolveLocationQueryName(args[0].toString()), floatMonsterType)
+        buildAppearanceRates(resolveLocationQueryName(args[0].toString()), floatMonsterType, false)
     }
 
-    // Queue-aware overload: adventure queue not tracked yet — same as includeQueue=false.
     regFn(
         scope,
         "appearance_rates",
         floatMonsterType,
         listOf("location" to AshType.LOCATION, "includeQueue" to AshType.BOOLEAN),
     ) { _, args ->
-        buildAppearanceRates(resolveLocationQueryName(args[0].toString()), floatMonsterType)
+        buildAppearanceRates(
+            resolveLocationQueryName(args[0].toString()),
+            floatMonsterType,
+            args[1].toBoolean(),
+        )
+    }
+
+    regFn(
+        scope,
+        "appearance_rates",
+        floatMonsterType,
+        listOf("location" to AshType.STRING, "includeQueue" to AshType.BOOLEAN),
+    ) { _, args ->
+        buildAppearanceRates(
+            resolveLocationQueryName(args[0].toString()),
+            floatMonsterType,
+            args[1].toBoolean(),
+        )
     }
 
     regFn(
@@ -69,7 +88,11 @@ private fun buildGetMonsters(locationName: String, type: AggregateType): Aggrega
     return result
 }
 
-private fun buildAppearanceRates(locationName: String, type: AggregateType): AggregateValue {
+private fun GameRuntimeLibrary.buildAppearanceRates(
+    locationName: String,
+    type: AggregateType,
+    includeQueue: Boolean,
+): AggregateValue {
     val result = AggregateValue(type)
     val data = CombatDatabase.getByLocation(locationName) ?: return result
     val combatPercent = data.combatPercent
@@ -81,8 +104,23 @@ private fun buildAppearanceRates(locationName: String, type: AggregateType): Agg
     val totalWeight = weighted.sumOf { it.weight }
     if (totalWeight <= 0 || combatPercent < 0) return result
 
+    val weightByName = weighted.associate { it.name.lowercase() to it.weight }
+    val turns = character?.state?.value?.turnsPlayed ?: 0
     for (mw in weighted) {
-        val rate = mw.weight.toDouble() / totalWeight * combatPercent
+        val rate = if (includeQueue) {
+            val numerator = combatPercent.toDouble() * mw.weight
+            AdventureQueueDatabase.applyQueueEffects(
+                numerator = numerator,
+                monsterName = mw.name,
+                locationName = locationName,
+                totalWeighting = totalWeight,
+                weightOf = { name -> weightByName[name.lowercase()] ?: 0 },
+                preferences = preferences,
+                turnsPlayed = turns,
+            )
+        } else {
+            mw.weight.toDouble() / totalWeight * combatPercent
+        }
         result[AshValue(AshType.MONSTER, mw.name)] = AshValue.of(rate)
     }
     return result

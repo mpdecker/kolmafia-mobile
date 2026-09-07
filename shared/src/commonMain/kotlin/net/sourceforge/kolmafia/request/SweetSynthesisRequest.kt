@@ -24,6 +24,7 @@ class SweetSynthesisRequest(
         charState: CharacterState?,
         inventoryCounts: (Int) -> Int,
         hasSkill: Boolean,
+        flags: Int = CandyDatabase.defaultFlags(),
     ): Result<String> {
         if (!hasSkill) {
             return Result.failure(IllegalStateException("You need the Sweet Synthesis skill."))
@@ -41,8 +42,10 @@ class SweetSynthesisRequest(
             ?: return Result.failure(
                 IllegalArgumentException("Unknown synthesis effect: $effectQuery"),
             )
-        CandyDatabase.loadBlacklist(preferences)
-        val pair = CandyDatabase.synthesisPairIds(effectId, inventoryCounts)
+        if ((flags and CandyDatabase.ASH_FLAG_NO_BLACKLIST) == 0) {
+            CandyDatabase.loadBlacklist(preferences)
+        }
+        val pair = CandyDatabase.synthesisPairIds(effectId, inventoryCounts, flags)
         if (pair.size < 2) {
             return Result.failure(
                 IllegalStateException("No available candy pair for that effect."),

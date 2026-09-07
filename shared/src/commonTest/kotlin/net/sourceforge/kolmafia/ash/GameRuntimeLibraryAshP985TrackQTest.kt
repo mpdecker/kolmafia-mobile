@@ -29,12 +29,15 @@ class GameRuntimeLibraryAshP985TrackQTest {
     @Test
     fun phase989_dailySpecial_default() {
         val lib = GameRuntimeLibrary(preferences = prefs())
-        assertEquals("", outputLib(lib, "print(daily_special());"))
+        assertEquals("none", outputLib(lib, "print(daily_special());"))
     }
 
     @Test
-    fun phase990_sellsSkill_defaultFalse() {
+    fun phase990_sellsSkill_unknownFalse() {
         val lib = GameRuntimeLibrary(preferences = prefs())
-        assertEquals("false", outputLib(lib, """print(sells_skill(to_coinmaster("none")));"""))
+        assertEquals(
+            "false",
+            outputLib(lib, """print(sells_skill(to_coinmaster("none"), to_skill("none")));"""),
+        )
     }
 }

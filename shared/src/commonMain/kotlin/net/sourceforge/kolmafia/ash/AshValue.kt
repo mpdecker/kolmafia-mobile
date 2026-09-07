@@ -89,6 +89,8 @@ open class AshValue internal constructor(open val type: AshType, val content: An
 class AshMatcherState(val pattern: Regex, var input: String) {
     var lastMatch: MatchResult? = null
     private var searchStart = 0
+    /** Desktop Matcher append position for append_replacement / append_tail. */
+    private var appendPosition = 0
 
     fun find(): Boolean {
         lastMatch = pattern.find(input, searchStart)
@@ -122,15 +124,71 @@ class AshMatcherState(val pattern: Regex, var input: String) {
     fun replaceAll(replacement: String): String =
         pattern.replace(input, replacement)
 
+    /**
+     * Desktop Matcher.appendReplacement — append unmatched prefix + expanded replacement.
+     * Throws if no successful match has been found since last reset.
+     */
+    fun appendReplacement(buffer: StringBuilder, replacement: String) {
+        val match = lastMatch ?: error("No match attempted or previous match failed")
+        if (appendPosition > match.range.first) {
+            error("No match attempted or previous match failed")
+        }
+        buffer.append(input, appendPosition, match.range.first)
+        buffer.append(expandReplacement(replacement, match))
+        appendPosition = match.range.last + 1
+    }
+
+    /** Desktop Matcher.appendTail — append remaining unmatched suffix. */
+    fun appendTail(buffer: StringBuilder) {
+        if (appendPosition < input.length) {
+            buffer.append(input, appendPosition, input.length)
+        }
+        appendPosition = input.length
+    }
+
+    fun namedGroups(): Set<String> {
+        val names = linkedSetOf<String>()
+        val namePattern = Regex("""\(\?<([a-zA-Z][a-zA-Z0-9]*)>""")
+        namePattern.findAll(pattern.pattern).forEach { names += it.groupValues[1] }
+        return names
+    }
+
     fun reset(newInput: String) {
         input = newInput
         lastMatch = null
         searchStart = 0
+        appendPosition = 0
     }
 
     fun reset() = reset(input)
 
     override fun toString(): String = lastMatch?.value ?: ""
+
+    private fun expandReplacement(replacement: String, match: MatchResult): String {
+        val out = StringBuilder()
+        var i = 0
+        while (i < replacement.length) {
+            val c = replacement[i]
+            when {
+                c == '\\' && i + 1 < replacement.length -> {
+                    out.append(replacement[i + 1])
+                    i += 2
+                }
+                c == '$' && i + 1 < replacement.length && replacement[i + 1].isDigit() -> {
+                    var j = i + 1
+                    while (j < replacement.length && replacement[j].isDigit()) j++
+                    val idx = replacement.substring(i + 1, j).toIntOrNull() ?: 0
+                    out.append(match.groupValues.getOrElse(idx) { "" })
+                    i = j
+                }
+                else -> {
+                    out.append(c)
+                    i++
+                }
+            }
+        }
+        return out.toString()
+    }
 }
 
 class AggregateValue(override val type: AggregateType) : AshValue(type, null) {

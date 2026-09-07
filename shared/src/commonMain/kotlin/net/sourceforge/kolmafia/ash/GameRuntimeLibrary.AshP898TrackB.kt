@@ -1,10 +1,16 @@
 package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
+import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.equipment.OutfitManager
+import net.sourceforge.kolmafia.familiar.FamiliarData
+import net.sourceforge.kolmafia.familiar.FamiliarUsability
 import net.sourceforge.kolmafia.inventory.EquippedItemCount
+import net.sourceforge.kolmafia.maximizer.FamiliarCarryRules
 import net.sourceforge.kolmafia.modifiers.SlotNames
+import net.sourceforge.kolmafia.session.YouRobotManager
 
 /**
  * AshP898–AshP904 — Equip / familiar gear ASH surface (Track B).
@@ -14,11 +20,15 @@ import net.sourceforge.kolmafia.modifiers.SlotNames
 
 internal fun GameRuntimeLibrary.registerAshP898Batch(scope: AshScope) {
     regFn(scope, "equip", AshType.BOOLEAN,
-        listOf("it" to AshType.ITEM)) { _, args ->
+        listOf("it" to AshType.ITEM)) { rt, args ->
         val itemName = args[0].toString()
-        val req = equipmentRequest ?: return@regFn AshValue.of(false)
         val db = gameDatabase ?: return@regFn AshValue.of(false)
         val item = db.item(itemName) ?: return@regFn AshValue.of(false)
+        val req = equipmentRequest
+        if (req == null) {
+            dispatchCli("equip $itemName", rt)
+            return@regFn AshValue.TRUE
+        }
         val slot = SlotNames.toEquipmentSlot(
             when (item.primaryUse) {
                 ItemPrimaryUse.HAT -> "hat"
@@ -87,17 +97,27 @@ internal fun GameRuntimeLibrary.registerAshP899Batch(scope: AshScope) {
 private fun GameRuntimeLibrary.equipFamiliarItem(race: String, itemName: String): AshValue {
     val fm = familiarManager ?: return AshValue.of(false)
     val db = gameDatabase ?: return AshValue.of(false)
-    val item = db.item(itemName) ?: return AshValue.of(false)
+    val unequip = itemName.equals("none", ignoreCase = true) || itemName.isBlank()
+    val item = if (unequip) null else db.item(itemName) ?: return AshValue.of(false)
+    if (!unequip && item != null && !familiarCanEquipItem(race, item)) {
+        return AshValue.of(false)
+    }
     val familiar = fm.state.value.ownedFamiliars
         .firstOrNull { it.race.equals(race, ignoreCase = true) }
         ?: return AshValue.of(false)
     val activeFam = fm.state.value.activeFamiliar
     if (activeFam != null && activeFam.race.equals(race, ignoreCase = true)) {
         val slot = SlotNames.toEquipmentSlot("familiar") ?: return AshValue.of(false)
-        val ok = runBlocking { equipmentRequest?.equipItem(item.id, slot)?.isSuccess ?: false }
+        val ok = runBlocking {
+            if (unequip) equipmentRequest?.unequipSlot(slot)?.isSuccess == true
+            else equipmentRequest?.equipItem(item!!.id, slot)?.isSuccess == true
+        }
         return AshValue.of(ok)
     }
-    val ok = runBlocking { fm.equipItem(familiar, item.id).isSuccess }
+    val ok = runBlocking {
+        if (unequip) fm.equipItem(familiar, 0).isSuccess
+        else fm.equipItem(familiar, item!!.id).isSuccess
+    }
     return AshValue.of(ok)
 }
 
@@ -109,27 +129,54 @@ internal fun GameRuntimeLibrary.registerAshP900Batch(scope: AshScope) {
         val itemName = args[0].toString()
         val db = gameDatabase ?: return@regFn AshValue.of(false)
         val item = db.item(itemName) ?: return@regFn AshValue.of(false)
-        val isEquip = item.primaryUse in EQUIPPABLE_USES
-        AshValue.of(isEquip)
+        if (item.primaryUse !in EQUIPPABLE_USES) return@regFn AshValue.of(false)
+        val mgr = equipmentManager
+        AshValue.of(mgr?.canEquip(item.id) ?: true)
     }
 
     regFn(scope, "can_equip", AshType.BOOLEAN,
         listOf("fam" to AshType.FAMILIAR)) { _, args ->
-        val race = args[0].toString()
-        val fm = familiarManager ?: return@regFn AshValue.of(false)
-        val owned = fm.state.value.ownedFamiliars
-            .any { it.race.equals(race, ignoreCase = true) }
-        AshValue.of(owned)
+        AshValue.of(familiarTypeCanEquip(args[0].toString()))
     }
 
     regFn(scope, "can_equip", AshType.BOOLEAN,
         listOf("fam" to AshType.FAMILIAR, "it" to AshType.ITEM)) { _, args ->
         val race = args[0].toString()
         val itemName = args[1].toString()
+        if (itemName.equals("none", ignoreCase = true) || itemName.isBlank()) {
+            return@regFn AshValue.of(familiarTypeCanEquip(race))
+        }
         val db = gameDatabase ?: return@regFn AshValue.of(false)
         val item = db.item(itemName) ?: return@regFn AshValue.of(false)
-        AshValue.of(item.primaryUse == ItemPrimaryUse.FAMILIAR)
+        AshValue.of(familiarCanEquipItem(race, item))
     }
+}
+
+/** Desktop FamiliarData.canEquip() path/limit gates (ownership not required). */
+private fun GameRuntimeLibrary.familiarTypeCanEquip(race: String): Boolean {
+    val state = character?.state?.value
+    if (state != null) {
+        if (state.inPokefam) return false
+        if (!state.ascensionPath.canUseFamiliars()) return false
+        if (state.inRobocore && !YouRobotManager.canUseFamiliars()) return false
+    }
+    val def = FamiliarDefinitionDatabase.getByName(race) ?: return false
+    val fam = FamiliarData(
+        id = def.id,
+        name = def.name,
+        race = def.name,
+        weight = 1,
+        experience = 0,
+        kills = 0,
+    )
+    return FamiliarUsability.isUsable(fam, state, preferences)
+}
+
+/** Desktop FamiliarData.canEquip(item) subset via [FamiliarCarryRules] + FAMILIAR gear. */
+private fun GameRuntimeLibrary.familiarCanEquipItem(race: String, item: ItemData): Boolean {
+    if (!familiarTypeCanEquip(race)) return false
+    if (item.primaryUse == ItemPrimaryUse.FAMILIAR) return true
+    return FamiliarCarryRules.canCarryItem(race, item)
 }
 
 private val EQUIPPABLE_USES = setOf(

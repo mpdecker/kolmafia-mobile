@@ -1,22 +1,26 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.data.BountyDatabase
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.modifiers.PhylumNames
 import net.sourceforge.kolmafia.modifiers.SlotNames
 
 /**
- * ASH-P27 behavioral batch — live BOUNTY/SLOT/PHYLUM entity validation and modifier no-ops.
+ * ASH-P27 behavioral batch — BOUNTY/SLOT/PHYLUM entity validation + ModifierDatabase lookups.
  */
 internal fun GameRuntimeLibrary.registerAshP27Batch(scope: AshScope) {
     val bountyModifierParams = listOf("bounty" to AshType.BOUNTY, "modifier" to AshType.STRING)
-    regFn(scope, "numeric_modifier", AshType.FLOAT, bountyModifierParams) { _, _ ->
-        AshValue.of(0.0)
+    regFn(scope, "numeric_modifier", AshType.FLOAT, bountyModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Bounty", args[0].toString())
+        AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, bountyModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, bountyModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Bounty", args[0].toString())
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "string_modifier", AshType.STRING, bountyModifierParams) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "string_modifier", AshType.STRING, bountyModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Bounty", args[0].toString())
+        AshValue.of(stringFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "type_of", AshType.STRING, listOf("bounty" to AshType.BOUNTY)) { _, _ ->
         AshValue.of(AshType.BOUNTY.name)
@@ -26,14 +30,17 @@ internal fun GameRuntimeLibrary.registerAshP27Batch(scope: AshScope) {
     }
 
     val slotModifierParams = listOf("slot" to AshType.SLOT, "modifier" to AshType.STRING)
-    regFn(scope, "numeric_modifier", AshType.FLOAT, slotModifierParams) { _, _ ->
-        AshValue.of(0.0)
+    regFn(scope, "numeric_modifier", AshType.FLOAT, slotModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Slot", args[0].toString())
+        AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, slotModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, slotModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Slot", args[0].toString())
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "string_modifier", AshType.STRING, slotModifierParams) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "string_modifier", AshType.STRING, slotModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Slot", args[0].toString())
+        AshValue.of(stringFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "type_of", AshType.STRING, listOf("slot" to AshType.SLOT)) { _, _ ->
         AshValue.of(AshType.SLOT.name)
@@ -44,14 +51,16 @@ internal fun GameRuntimeLibrary.registerAshP27Batch(scope: AshScope) {
 
     val phylumModifierParams = listOf("phylum" to AshType.PHYLUM, "modifier" to AshType.STRING)
     regFn(scope, "numeric_modifier", AshType.FLOAT, phylumModifierParams) { _, args ->
-        val entry = net.sourceforge.kolmafia.data.ModifierDatabase.get("Phylum", args[0].toString())
+        val entry = ModifierDatabase.get("Phylum", args[0].toString())
         AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, phylumModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, phylumModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Phylum", args[0].toString())
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "string_modifier", AshType.STRING, phylumModifierParams) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "string_modifier", AshType.STRING, phylumModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Phylum", args[0].toString())
+        AshValue.of(stringFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "type_of", AshType.STRING, listOf("phylum" to AshType.PHYLUM)) { _, _ ->
         AshValue.of(AshType.PHYLUM.name)

@@ -16,6 +16,7 @@ import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.character.PokefamTeamSlot
 import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.inventory.InventoryItem
 import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -111,6 +112,37 @@ open class FamiliarManager(
         fetchFamiliars()
         eventBus.emit(GameEvent.FamiliarEquipped(familiar, item))
         return Result.success(Unit)
+    }
+
+    /**
+     * Desktop [FamiliarManager.equipAllFamiliars] — inventory-only equip of each owned
+     * familiar's hatchling item when present and not already equipped.
+     */
+    open suspend fun equipAllFamiliars(
+        inventoryCount: (Int) -> Int,
+    ): Boolean {
+        val owned = _state.value.ownedFamiliars
+        val active = _state.value.activeFamiliar
+        var equippedAny = false
+        for (familiar in owned) {
+            val def = FamiliarDefinitionDatabase.getById(familiar.id) ?: continue
+            val itemName = def.familiarItem.trim()
+            if (itemName.isEmpty() || itemName.equals("none", ignoreCase = true)) continue
+            val itemId = ItemDatabase.getByName(itemName)?.id ?: continue
+            if (itemId <= 0) continue
+            if (familiar.equipment?.itemId == itemId) continue
+            if (inventoryCount(itemId) <= 0) continue
+            if (active?.id != familiar.id) {
+                if (switchFamiliar(familiar).isFailure) continue
+            }
+            if (equipItem(familiar, itemId).isSuccess) {
+                equippedAny = true
+            }
+        }
+        if (active != null && _state.value.activeFamiliar?.id != active.id) {
+            switchFamiliar(active)
+        }
+        return true
     }
 
     private fun updateFamiliarEquipment(familiarId: Int, item: InventoryItem?) {

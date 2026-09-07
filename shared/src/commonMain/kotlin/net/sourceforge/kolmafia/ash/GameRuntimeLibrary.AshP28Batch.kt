@@ -1,21 +1,25 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.modifiers.ModifierNames
 import net.sourceforge.kolmafia.shop.CoinmasterRegistry
 
 /**
- * ASH-P28 behavioral batch — live COINMASTER/MODIFIER entity validation and modifier no-ops.
+ * ASH-P28 behavioral batch — COINMASTER/MODIFIER entity validation + ModifierDatabase lookups.
  */
 internal fun GameRuntimeLibrary.registerAshP28Batch(scope: AshScope) {
     val coinmasterModifierParams = listOf("value" to AshType.COINMASTER, "modifier" to AshType.STRING)
-    regFn(scope, "numeric_modifier", AshType.FLOAT, coinmasterModifierParams) { _, _ ->
-        AshValue.of(0.0)
+    regFn(scope, "numeric_modifier", AshType.FLOAT, coinmasterModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Coinmaster", args[0].toString())
+        AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, coinmasterModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, coinmasterModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Coinmaster", args[0].toString())
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "string_modifier", AshType.STRING, coinmasterModifierParams) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "string_modifier", AshType.STRING, coinmasterModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Coinmaster", args[0].toString())
+        AshValue.of(stringFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "type_of", AshType.STRING, listOf("value" to AshType.COINMASTER)) { _, _ ->
         AshValue.of(AshType.COINMASTER.name)
@@ -24,15 +28,19 @@ internal fun GameRuntimeLibrary.registerAshP28Batch(scope: AshScope) {
         AshValue.of(CoinmasterRegistry.isValid(args[0].toString()))
     }
 
+    // $modifier entity as subject — look up Modifier-type rows by the modifier's own name
     val modifierModifierParams = listOf("value" to AshType.MODIFIER, "modifier" to AshType.STRING)
-    regFn(scope, "numeric_modifier", AshType.FLOAT, modifierModifierParams) { _, _ ->
-        AshValue.of(0.0)
+    regFn(scope, "numeric_modifier", AshType.FLOAT, modifierModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Modifier", args[0].toString())
+        AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, modifierModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, modifierModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Modifier", args[0].toString())
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "string_modifier", AshType.STRING, modifierModifierParams) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "string_modifier", AshType.STRING, modifierModifierParams) { _, args ->
+        val entry = ModifierDatabase.get("Modifier", args[0].toString())
+        AshValue.of(stringFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "type_of", AshType.STRING, listOf("value" to AshType.MODIFIER)) { _, _ ->
         AshValue.of(AshType.MODIFIER.name)

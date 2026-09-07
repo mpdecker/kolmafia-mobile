@@ -51,16 +51,15 @@ internal fun GameRuntimeLibrary.registerPhase4470(scope: AshScope) {
     }
 
     // ── 4463: monster_factoids_available ──────────────────────────
-    regFn(
-        scope,
-        "monster_factoids_available",
-        AshType.INT,
-        listOf("monster" to AshType.MONSTER, "cachedOnly" to AshType.BOOLEAN),
-    ) { _, args ->
-        val id = MonsterDatabase.getByName(args[0].toString())?.id
-            ?: args[0].toLong().toInt()
-        if (id == 0) return@regFn AshValue.ZERO
-        val cachedOnly = args[1].toBoolean()
+    fun monsterFactoidsAvailable(monsterArg: AshValue, cachedOnly: Boolean): AshValue {
+        val id = when (val c = monsterArg.content) {
+            is Long -> c.toInt()
+            is Int -> c
+            else -> MonsterDatabase.getByName(monsterArg.toString())?.id
+                ?: monsterArg.toString().toIntOrNull()
+                ?: 0
+        }
+        if (id == 0) return AshValue.ZERO
         var count = MonsterManuelManager.getFactoidsAvailable(id)
         if (!cachedOnly && count == 0 && id > 0) {
             val client = httpClient
@@ -69,7 +68,23 @@ internal fun GameRuntimeLibrary.registerPhase4470(scope: AshScope) {
                 count = MonsterManuelManager.getFactoidsAvailable(id)
             }
         }
-        AshValue.of(count.toLong())
+        return AshValue.of(count.toLong())
+    }
+    regFn(
+        scope,
+        "monster_factoids_available",
+        AshType.INT,
+        listOf("monster" to AshType.MONSTER),
+    ) { _, args ->
+        monsterFactoidsAvailable(args[0], cachedOnly = false)
+    }
+    regFn(
+        scope,
+        "monster_factoids_available",
+        AshType.INT,
+        listOf("monster" to AshType.MONSTER, "cachedOnly" to AshType.BOOLEAN),
+    ) { _, args ->
+        monsterFactoidsAvailable(args[0], args[1].toBoolean())
     }
 
     // ── 4464: current_rad_sickness ────────────────────────────────

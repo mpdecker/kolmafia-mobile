@@ -1,9 +1,9 @@
 package net.sourceforge.kolmafia.ash
 
 import kotlinx.coroutines.runBlocking
+import net.sourceforge.kolmafia.data.CafeAccessibility
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterRegistry
-import net.sourceforge.kolmafia.session.StoreManager
 
 /**
  * AshP985–990 Track Q — Shop / mall residuals.
@@ -37,8 +37,14 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
         listOf("items" to itemSet)) { _, args ->
         val ids = (args[0] as? AggregateValue)?.map?.keys
             ?.mapNotNull { item ->
-                item.toString().toIntOrNull()
+                when (val c = item.content) {
+                    is Long -> c.toInt().takeIf { it > 0 }
+                    is Int -> c.takeIf { it > 0 }
+                    else -> null
+                }
+                    ?: item.toString().toIntOrNull()?.takeIf { it > 0 }
                     ?: gameDatabase?.item(item.toString())?.id
+                    ?: ItemDatabase.getByName(item.toString())?.id
             }.orEmpty()
         val count = runBlocking { mallManager?.refreshMallPrices(ids) ?: 0 }
         AshValue.of(count.toLong())
@@ -54,6 +60,7 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
     val stringArray = AggregateType(AshType.INT, AshType.STRING)
     regFn(scope, "get_shop_log", stringArray, emptyList()) { _, _ ->
         val result = AggregateValue(stringArray)
+        ensureSoldItemsRetrieved()
         val entries = runBlocking { manageStoreRequest?.getStoreLog()?.getOrNull() }.orEmpty()
         entries.forEachIndexed { index, entry -> result[AshValue.of(index.toLong())] = AshValue.of(entry) }
         result
@@ -61,12 +68,23 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
 
     // ── Phase 988: put_shop_using_storage / well_stocked ────────────
     regFn(scope, "put_shop_using_storage", AshType.BOOLEAN,
-        listOf("price" to AshType.INT, "limit" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        listOf("price" to AshType.INT, "limit" to AshType.INT, "it" to AshType.ITEM)) { rt, args ->
         val itemId = gameDatabase?.item(args[2].toString())?.id ?: return@regFn AshValue.FALSE
+        val price = args[0].toLong().toInt()
+        val limit = args[1].toLong().toInt()
         val available = runBlocking { storageRequest?.fetchContents()?.get(itemId) ?: 0 }
-        val ok = available > 0 && runBlocking {
+        if (available <= 0) return@regFn AshValue.TRUE
+        if (isBatching(rt)) {
+            batchCommand(
+                rt, "shop", "put using storage",
+                "${pilcrowItemParams(available, itemId)} @ $price limit $limit",
+            )
+            return@regFn AshValue.TRUE
+        }
+        ensureSoldItemsRetrieved()
+        val ok = runBlocking {
             manageStoreRequest?.addItem(
-                itemId, args[0].toLong().toInt(), args[1].toLong().toInt(), available, fromStorage = true,
+                itemId, price, limit, available, fromStorage = true,
             )?.isSuccess == true
         }
         AshValue.of(ok)
@@ -74,18 +92,30 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
 
     regFn(scope, "put_shop_using_storage", AshType.BOOLEAN,
         listOf("price" to AshType.INT, "limit" to AshType.INT, "qty" to AshType.INT,
-            "it" to AshType.ITEM)) { _, args ->
+            "it" to AshType.ITEM)) { rt, args ->
         val itemId = gameDatabase?.item(args[3].toString())?.id ?: return@regFn AshValue.FALSE
         val qty = args[2].toLong().toInt()
+        if (qty <= 0) return@regFn AshValue.TRUE
+        val price = args[0].toLong().toInt()
+        val limit = args[1].toLong().toInt()
+        if (isBatching(rt)) {
+            batchCommand(
+                rt, "shop", "put using storage",
+                "${pilcrowItemParams(qty, itemId)} @ $price limit $limit",
+            )
+            return@regFn AshValue.TRUE
+        }
+        ensureSoldItemsRetrieved()
         val available = runBlocking { storageRequest?.fetchContents()?.get(itemId) ?: 0 }
         val ok = qty in 1..available && runBlocking {
             manageStoreRequest?.addItem(
-                itemId, args[0].toLong().toInt(), args[1].toLong().toInt(), qty, fromStorage = true,
+                itemId, price, limit, qty, fromStorage = true,
             )?.isSuccess == true
         }
         AshValue.of(ok)
     }
 
+    // Desktop well_stocked — mall search only (no own-shop fallback)
     regFn(scope, "well_stocked", AshType.BOOLEAN,
         listOf("itemName" to AshType.STRING, "quantity" to AshType.INT, "price" to AshType.INT)) { _, args ->
         val itemId = gameDatabase?.item(args[0].toString())?.id ?: return@regFn AshValue.FALSE
@@ -93,13 +123,7 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
         val price = args[2].toLong()
         val autosell = ItemDatabase.getById(itemId)?.autosellPrice?.toLong() ?: 0L
         if (quantity < 6 || price < 2L * autosell) return@regFn AshValue.FALSE
-        val manager = mallManager
-        if (manager == null) {
-            return@regFn AshValue.of(
-                StoreManager.shopAmount(itemId) >= quantity &&
-                    StoreManager.getPrice(itemId) <= price,
-            )
-        }
+        val manager = mallManager ?: return@regFn AshValue.FALSE
         val listings = runBlocking { manager.searchListings(args[0].toString(), 20) }
         var available = 0
         for (listing in listings.sortedBy { it.price }) {
@@ -110,19 +134,19 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
         AshValue.FALSE
     }
 
-    // ── Phase 989: daily_special ────────────────────────────────────
+    // Desktop daily_special — gnomads MicroBrewery else Canadia ChezSnootée via _dailySpecial
     regFn(scope, "daily_special", AshType.ITEM, emptyList()) { _, _ ->
-        val special = preferences?.getString("dailySpecial", "")?.takeIf { it.isNotBlank() }
-        AshValue.item(special ?: "")
+        val state = character?.state?.value
+        val prefs = preferences
+        val eligible = CafeAccessibility.isMicroBreweryAvailable(state, prefs) ||
+            CafeAccessibility.isChezSnooteeAvailable(state)
+        if (!eligible) return@regFn AshValue.item("none")
+        val special = prefs?.getString("_dailySpecial", "")?.takeIf { it.isNotBlank() }
+            ?: prefs?.getString("dailySpecial", "")?.takeIf { it.isNotBlank() }
+        AshValue.item(special ?: "none")
     }
 
-    // ── Phase 990: sells_skill ─────────────────────────────────────
-    // 1-arg soft stub (desktop registers only 2-arg)
-    regFn(scope, "sells_skill", AshType.BOOLEAN,
-        listOf("cm" to AshType.COINMASTER)) { _, _ ->
-        AshValue.FALSE
-    }
-
+    // ── Phase 990: sells_skill (desktop 2-arg only) ─────────────────
     regFn(scope, "sells_skill", AshType.BOOLEAN,
         listOf("cm" to AshType.COINMASTER, "skill" to AshType.SKILL)) { _, args ->
         val master = CoinmasterRegistry.findByNickname(args[0].toString())
@@ -130,7 +154,6 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
         val skillId = gameDatabase?.skill(args[1].toString())?.id
             ?: args[1].toString().toIntOrNull()
             ?: return@regFn AshValue.FALSE
-        // Phase 4489: skill buy rows via isSkillPurchase / item.itemId == skillId
         AshValue.of(
             master.buyItems.any { row ->
                 row.isSkillPurchase && row.item.itemId == skillId

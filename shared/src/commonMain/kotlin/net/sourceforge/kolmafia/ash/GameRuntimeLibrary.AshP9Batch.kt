@@ -15,8 +15,8 @@ internal fun GameRuntimeLibrary.registerAshP9Batch(scope: AshScope) {
         val running = adventureManager?.isRunning?.value == true
         AshValue.of(running)
     }
-    regFn(scope, "has_queued_commands", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "has_queued_commands", AshType.BOOLEAN, emptyList()) { rt, _ ->
+        AshValue.of(batchedCommands[rt]?.isNotEmpty() == true)
     }
 
     regFn(scope, "to_buffer", AshType.BUFFER, listOf("value" to AshType.STRING)) { _, args ->

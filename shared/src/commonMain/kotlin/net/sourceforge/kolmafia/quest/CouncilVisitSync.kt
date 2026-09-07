@@ -32,7 +32,7 @@ object CouncilVisitSync {
         return true
     }
 
-    internal fun isCouncilUrl(url: String): Boolean =
+    fun isCouncilUrl(url: String): Boolean =
         url.contains("council.php", ignoreCase = true) ||
             url.contains("action=expl_council", ignoreCase = true)
 }

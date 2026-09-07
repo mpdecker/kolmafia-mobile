@@ -20,7 +20,12 @@ internal fun GameRuntimeLibrary.registerAshP956TrackJBatch(scope: AshScope) {
         gameDatabase?.item(id)?.name ?: ItemDatabase.getItemName(id)
 
     fun effectIdOf(effectArg: AshValue): Int {
-        val name = effectArg.toString()
+        when (val c = effectArg.content) {
+            is Long -> if (c > 0) return c.toInt()
+            is Int -> if (c > 0) return c
+        }
+        val name = effectArg.toString().trim()
+        name.toIntOrNull()?.takeIf { it > 0 }?.let { return it }
         return gameDatabase?.effect(name)?.id
             ?: SweetSynthesisRequest.resolveEffectId(name)
             ?: 0
@@ -45,7 +50,8 @@ internal fun GameRuntimeLibrary.registerAshP956TrackJBatch(scope: AshScope) {
         listOf("effect" to AshType.EFFECT, "flags" to AshType.INT),
     ) { _, args ->
         CandyDatabase.loadBlacklist(preferences)
-        val pair = CandyDatabase.synthesisPairForEffect(effectIdOf(args[0]), invCounts())
+        val flags = args[1].toLong().toInt()
+        val pair = CandyDatabase.synthesisPairIds(effectIdOf(args[0]), invCounts(), flags)
         val result = AggregateValue(AggregateType(AshType.INT, AshType.ITEM, 2))
         if (pair.size >= 2) {
             result[AshValue.of(0)] = AshValue.item(itemName(pair[0]))
@@ -72,9 +78,34 @@ internal fun GameRuntimeLibrary.registerAshP956TrackJBatch(scope: AshScope) {
         }
         result
     }
+
+    regFn(
+        scope,
+        "sweet_synthesis_pairing",
+        itemArray,
+        listOf("effect" to AshType.EFFECT, "item" to AshType.ITEM, "flags" to AshType.INT),
+    ) { _, args ->
+        val itemId = gameDatabase?.item(args[1].toString())?.id
+            ?: ItemDatabase.getByName(args[1].toString())?.id
+            ?: 0
+        val flags = args[2].toLong().toInt()
+        CandyDatabase.loadBlacklist(preferences)
+        val partners = CandyDatabase.sweetSynthesisPairing(
+            effectIdOf(args[0]), itemId, invCounts(), flags,
+        )
+        val result = AggregateValue(AggregateType(AshType.INT, AshType.ITEM, partners.size))
+        partners.forEachIndexed { i, id ->
+            result[AshValue.of(i)] = AshValue.item(itemName(id))
+        }
+        result
+    }
 }
 
-internal fun GameRuntimeLibrary.runSweetSynthesisEffect(effectQuery: String, count: Int): Boolean {
+internal fun GameRuntimeLibrary.runSweetSynthesisEffect(
+    effectQuery: String,
+    count: Int,
+    flags: Int = CandyDatabase.defaultFlags(),
+): Boolean {
     if (count <= 0) return false
     val client = httpClient ?: return false
     val choice = choiceRequest ?: return false
@@ -96,6 +127,7 @@ internal fun GameRuntimeLibrary.runSweetSynthesisEffect(effectQuery: String, cou
                     charState = character?.state?.value,
                     inventoryCounts = counts,
                     hasSkill = hasSkill,
+                    flags = flags,
                 )
                 .onFailure { ok = false }
         }

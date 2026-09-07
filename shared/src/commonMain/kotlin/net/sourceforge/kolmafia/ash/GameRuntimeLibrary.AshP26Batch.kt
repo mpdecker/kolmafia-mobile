@@ -14,11 +14,15 @@ internal fun GameRuntimeLibrary.registerAshP26Batch(scope: AshScope) {
         val entry = net.sourceforge.kolmafia.data.ModifierDatabase.get("Servant", servantName)
         AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, servantModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, servantModifierParams) { _, args ->
+        val servantName = ServantData.resolve(args[0].toString())?.type ?: args[0].toString()
+        val entry = net.sourceforge.kolmafia.data.ModifierDatabase.get("Servant", servantName)
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "string_modifier", AshType.STRING, servantModifierParams) { _, _ ->
-        AshValue.EMPTY_STRING
+    regFn(scope, "string_modifier", AshType.STRING, servantModifierParams) { _, args ->
+        val servantName = ServantData.resolve(args[0].toString())?.type ?: args[0].toString()
+        val entry = net.sourceforge.kolmafia.data.ModifierDatabase.get("Servant", servantName)
+        AshValue.of(stringFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "type_of", AshType.STRING, listOf("servant" to AshType.SERVANT)) { _, _ ->
         AshValue.of(AshType.SERVANT.name)
@@ -32,8 +36,9 @@ internal fun GameRuntimeLibrary.registerAshP26Batch(scope: AshScope) {
         val entry = resolveVykeaModifierEntry(args[0].toString())
         AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
-    regFn(scope, "boolean_modifier", AshType.BOOLEAN, vykeaModifierParams) { _, _ ->
-        AshValue.FALSE
+    regFn(scope, "boolean_modifier", AshType.BOOLEAN, vykeaModifierParams) { _, args ->
+        val entry = resolveVykeaModifierEntry(args[0].toString())
+        AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
     regFn(scope, "string_modifier", AshType.STRING, vykeaModifierParams) { _, args ->
         val entry = resolveVykeaModifierEntry(args[0].toString())

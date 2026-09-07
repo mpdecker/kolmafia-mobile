@@ -10,6 +10,11 @@ import io.ktor.http.headersOf
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemData
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.inventory.InventoryItem
+import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClosetRequest
@@ -18,6 +23,8 @@ import net.sourceforge.kolmafia.request.EatFoodRequest
 import net.sourceforge.kolmafia.request.ManageStoreRequest
 import net.sourceforge.kolmafia.request.StorageRequest
 import net.sourceforge.kolmafia.request.UseItemRequest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -271,9 +278,16 @@ class GameRuntimeLibraryItemActionsTest {
 
     @Test
     fun putShop_returnsFalseWithNullRequest() {
+        val inv = object : InventoryManager(
+            HttpClient(MockEngine { respond("") }),
+            GameEventBus(),
+        ) {
+            override fun getCount(itemId: Int): Int = if (itemId == 42) 3 else 0
+        }
         val lib = GameRuntimeLibrary(
             gameDatabase = stubDb(),
-            manageStoreRequest = null
+            manageStoreRequest = null,
+            inventoryManager = inv,
         )
         assertEquals("false",
             outputLib(lib, """print(to_string(put_shop(100, 0, to_item("test item"))));"""))

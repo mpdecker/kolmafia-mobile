@@ -59,6 +59,10 @@ object TransferItemSync {
             ClosetMeatSync.apply(character, html, url)
         }
         val action = url.substringAfter("action=", "").substringBefore('&').lowercase()
+        if (action.contains("addtakeclosetmeat")) {
+            // Meat amount is applied via ClosetMeatSync above when HTML reports closet meat.
+            return html.isNotBlank()
+        }
         return when {
             action.contains("put") || action.contains("closetpush") -> {
                 if (html.isNotBlank()) {

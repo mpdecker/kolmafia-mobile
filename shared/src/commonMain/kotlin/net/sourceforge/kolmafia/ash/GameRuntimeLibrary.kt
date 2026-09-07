@@ -364,8 +364,80 @@ import net.sourceforge.kolmafia.session.YegDemonNameSync
 import net.sourceforge.kolmafia.session.PastaThrall
 import net.sourceforge.kolmafia.request.NemesisRequest
 import net.sourceforge.kolmafia.request.TavernRequest
+import net.sourceforge.kolmafia.request.CouncilRequest
+import net.sourceforge.kolmafia.request.SaberRequest
+import net.sourceforge.kolmafia.request.DigRequest
+import net.sourceforge.kolmafia.request.KnollRequest
+import net.sourceforge.kolmafia.request.TutorialRequest
+import net.sourceforge.kolmafia.request.BeerPongRequest
+import net.sourceforge.kolmafia.request.OrcChasmRequest
+import net.sourceforge.kolmafia.request.LogoutRequest
+import net.sourceforge.kolmafia.request.IslandRequest
+import net.sourceforge.kolmafia.request.PyramidRequest
+import net.sourceforge.kolmafia.request.AirportRequest
+import net.sourceforge.kolmafia.request.TelescopeRequest
+import net.sourceforge.kolmafia.request.GuzzlrRequest
+import net.sourceforge.kolmafia.request.EdBaseRequest
+import net.sourceforge.kolmafia.request.AccountRequest
+import net.sourceforge.kolmafia.request.CharPaneRequest
+import net.sourceforge.kolmafia.request.CharSheetRequest
+import net.sourceforge.kolmafia.request.TransferItemRequest
+import net.sourceforge.kolmafia.request.ContactListRequest
+import net.sourceforge.kolmafia.request.PasswordHashRequest
+import net.sourceforge.kolmafia.request.MoonPhaseRequest
+import net.sourceforge.kolmafia.request.ChannelColorsRequest
+import net.sourceforge.kolmafia.request.CurseRequest
+import net.sourceforge.kolmafia.request.TrophyRequest
+import net.sourceforge.kolmafia.request.UmbrellaRequest
+import net.sourceforge.kolmafia.request.RichardRequest
+import net.sourceforge.kolmafia.request.SuburbanDisRequest
+import net.sourceforge.kolmafia.request.ShowClanRequest
+import net.sourceforge.kolmafia.request.ClanLoungeSwimmingPoolRequest
+import net.sourceforge.kolmafia.request.UseSkillRequest
+import net.sourceforge.kolmafia.request.WildfireCampRequest
+import net.sourceforge.kolmafia.request.ArtistRequest
+import net.sourceforge.kolmafia.request.AltarOfLiteracyRequest
+import net.sourceforge.kolmafia.request.DreadsylvaniaRequest
+import net.sourceforge.kolmafia.request.PantogramRequest
+import net.sourceforge.kolmafia.request.MummeryRequest
+import net.sourceforge.kolmafia.request.DecorateTentRequest
+import net.sourceforge.kolmafia.request.LedCandleRequest
+import net.sourceforge.kolmafia.request.Crimbo21TreeRequest
+import net.sourceforge.kolmafia.request.Crimbo09Request
+import net.sourceforge.kolmafia.request.Crimbo10Request
+import net.sourceforge.kolmafia.request.CombineMeatRequest
+import net.sourceforge.kolmafia.request.Crimbo12Request
+import net.sourceforge.kolmafia.request.WaxGlobRequest
+import net.sourceforge.kolmafia.request.UpdateSuppressedRequest
+import net.sourceforge.kolmafia.request.HeyDezeRequest
+import net.sourceforge.kolmafia.request.BurningNewspaperRequest
+import net.sourceforge.kolmafia.request.MeteoroidRequest
+import net.sourceforge.kolmafia.request.GrubbyWoolRequest
+import net.sourceforge.kolmafia.request.Crimbo05Request
+import net.sourceforge.kolmafia.request.Crimbo06Request
+import net.sourceforge.kolmafia.request.Crimbo07Request
+import net.sourceforge.kolmafia.request.AutoSellRequestHub
+import net.sourceforge.kolmafia.request.Crimbo11Request
+import net.sourceforge.kolmafia.request.Crimbo14Request
+import net.sourceforge.kolmafia.request.Crimbo16Request
+import net.sourceforge.kolmafia.request.Crimbo17Request
+import net.sourceforge.kolmafia.request.StillRequestHub
+import net.sourceforge.kolmafia.request.SugarSheetRequestHub
+import net.sourceforge.kolmafia.request.StarChartRequestHub
+import net.sourceforge.kolmafia.request.InterestingCoinRequestHub
+import net.sourceforge.kolmafia.request.NuggletCraftingRequestHub
+import net.sourceforge.kolmafia.request.SewerRequestHub
+import net.sourceforge.kolmafia.request.ClipArtRequestHub
+import net.sourceforge.kolmafia.request.GnomeTinkerRequestHub
+import net.sourceforge.kolmafia.request.PhineasRequestHub
+import net.sourceforge.kolmafia.request.TerminalExtrudeRequestHub
+import net.sourceforge.kolmafia.request.SpacegateEquipmentRequestHub
+import net.sourceforge.kolmafia.request.ChefStaffRequestHub
 import net.sourceforge.kolmafia.request.ActionBarRequest
 import net.sourceforge.kolmafia.request.LocketRequest
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
+import net.sourceforge.kolmafia.skill.UseSkillSync
+import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.chat.ChatProbe
 import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -555,13 +627,19 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase4490"
+        const val REVISION = "phase5050"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
 
     /** Captured stdout from the most recent [cli_execute] call. */
     internal val lastCliOutput = StringBuilder()
+
+    /** Last URL built by visit_url / load_html / visitKolPage (desktop get_path_full). */
+    internal var lastVisitPath: String = ""
+
+    /** Desktop StaticEntity.disable/enable feature names. */
+    internal val disabledFeatures: MutableSet<String> = mutableSetOf()
 
     /** Desktop KoLmafiaCLI.previousLine — last dispatched CLI line (not `repeat`). */
     internal var previousLine: String? = null
@@ -1234,6 +1312,11 @@ class GameRuntimeLibrary(
         },
 
         // closet / display / stash put & take
+        Regex("^closet\\s+empty$", RegexOption.IGNORE_CASE) to { _, _ ->
+            kotlinx.coroutines.runBlocking {
+                refreshClosetCacheAfter(closetRequest?.emptyCloset())
+            }
+        },
         Regex("^closet\\s+(put|take)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
             runClosetMoveCli(m.groupValues[1], m.groupValues[2])
         },
@@ -2964,6 +3047,108 @@ class GameRuntimeLibrary(
                 },
             )
             SpadingManager.processPlace(url, html, preferences, sessionLogger)
+            CouncilRequest.parseResponse(
+                url, html, questDatabase, preferences,
+                character?.state?.value?.level ?: 1,
+            ) { itemId, qty -> inventoryManager?.consumeItemLocally(itemId, qty) }
+            SaberRequest.parseResponse(
+                url, html, preferences,
+                currentMonsterName = preferences?.getString("lastEncounter", "").orEmpty(),
+                currentTurn = character?.state?.value?.currentRun ?: 0,
+                banishManager = banishManager,
+            )
+            DigRequest.parseResponse(url, html, equipmentManager)
+            DigRequest.registerRequest(url, sessionLogger)
+            KnollRequest.parseResponse(url, html, questDatabase, inventoryManager)
+            KnollRequest.registerRequest(url, sessionLogger)
+            TutorialRequest.parseResponse(url, html, questDatabase)
+            BeerPongRequest.parseResponse(url, html, questDatabase, preferences, sessionLogger)
+            OrcChasmRequest.parseResponse(url, html, preferences, character, inventoryManager)
+            LogoutRequest.parseResponse(url, html, character)
+            IslandRequest.parseResponse(url, html, preferences)
+            PyramidRequest.parseResponse(url, html, preferences)
+            AirportRequest.parseResponse(url, html, preferences)
+            TelescopeRequest.parseResponse(url, html, preferences)
+            GuzzlrRequest.parseResponse(url, html, questDatabase, preferences, gameDatabase)
+            EdBaseRequest.parseResponse(url, html, edServantManager)
+            AccountRequest.parseResponse(url, html, preferences, character)
+            CharPaneRequest.parseResponse(url, html, character)
+            CharSheetRequest.parseResponse(url, html, character, preferences, skillManager)
+            TransferItemRequest.parseResponse(url, html, inventoryManager, character, preferences)
+            ContactListRequest.parseResponse(url, html)
+            PasswordHashRequest.parseResponse(url, html, preferences)
+            MoonPhaseRequest.parseResponse(html, preferences)
+            ChannelColorsRequest.parseResponse(url, html, preferences)
+            CurseRequest.parseResponse(url, html, preferences, inventoryManager, sessionLogger)
+            TrophyRequest.parseResponse(url, html)
+            UmbrellaRequest.parseResponse(url, html, preferences)
+            RichardRequest.registerRequest(url, sessionLogger)
+            SuburbanDisRequest.parseResponse(
+                url, html, questDatabase, preferences, inventoryManager,
+                character?.state?.value?.ascensionNumber ?: 0,
+            )
+            ShowClanRequest.parseResponse(url, html)
+            ClanLoungeSwimmingPoolRequest.parseResponse(url, html, preferences)
+            ClanLoungeSwimmingPoolRequest.registerRequest(url, sessionLogger)
+            UseSkillRequest.parseResponse(url, html, preferences)
+            WildfireCampRequest.parseResponse(url, html, preferences)
+            ArtistRequest.parseResponse(url, html, questDatabase, inventoryManager)
+            AltarOfLiteracyRequest.parseResponse(url, html, preferences)
+            DreadsylvaniaRequest.parseResponse(url, html, preferences)
+            PantogramRequest.parseResponse(url, html, preferences, inventoryManager)
+            MummeryRequest.parseResponse(
+                url,
+                html,
+                preferences,
+                familiarRace = familiarManager?.state?.value?.activeFamiliar?.race.orEmpty(),
+            )
+            DecorateTentRequest.parseResponse(url, html, preferences) { id ->
+                inventoryManager?.consumeItemLocally(id, 1)
+            }
+            LedCandleRequest.parseResponse(url, html, preferences)
+            Crimbo21TreeRequest.parseResponse(url, html, inventoryManager) { name ->
+                gameDatabase?.item(name)?.id
+            }
+            Crimbo21TreeRequest.registerRequest(url, sessionLogger)
+            Crimbo09Request.parseResponse(url, html, inventoryManager, preferences)
+            Crimbo09Request.registerRequest(url, sessionLogger)
+            Crimbo10Request.parseResponse(url, html)
+            Crimbo10Request.registerRequest(url, sessionLogger)
+            CombineMeatRequest.parseResponse(url, html) { meat ->
+                character?.let { c ->
+                    val cur = c.state.value.meat
+                    c.updateMeat((cur - meat).coerceAtLeast(0))
+                }
+            }
+            CombineMeatRequest.registerRequest(url, sessionLogger)
+            Crimbo12Request.registerRequest(url, sessionLogger)
+            WaxGlobRequest.registerRequest(url, sessionLogger)
+            HeyDezeRequest.parseResponse(url, html, preferences)
+            HeyDezeRequest.registerRequest(url, sessionLogger)
+            UpdateSuppressedRequest.shouldSuppress(url) // headless ajax/api marker available to callers
+            BurningNewspaperRequest.registerRequest(url, sessionLogger)
+            MeteoroidRequest.registerRequest(url, sessionLogger)
+            GrubbyWoolRequest.registerRequest(url, sessionLogger)
+            Crimbo05Request.registerRequest(url, sessionLogger)
+            Crimbo06Request.registerRequest(url, sessionLogger)
+            Crimbo07Request.registerRequest(url, sessionLogger)
+            AutoSellRequestHub.registerRequest(url, sessionLogger)
+            Crimbo11Request.registerRequest(url, sessionLogger)
+            Crimbo14Request.registerRequest(url, sessionLogger)
+            Crimbo16Request.registerRequest(url, sessionLogger)
+            Crimbo17Request.registerRequest(url, sessionLogger)
+            StillRequestHub.registerRequest(url, sessionLogger)
+            SugarSheetRequestHub.registerRequest(url, sessionLogger)
+            StarChartRequestHub.registerRequest(url, sessionLogger)
+            InterestingCoinRequestHub.registerRequest(url, sessionLogger)
+            NuggletCraftingRequestHub.registerRequest(url, sessionLogger)
+            SewerRequestHub.registerRequest(url, sessionLogger)
+            ClipArtRequestHub.registerRequest(url, sessionLogger)
+            GnomeTinkerRequestHub.registerRequest(url, sessionLogger)
+            PhineasRequestHub.registerRequest(url, sessionLogger)
+            TerminalExtrudeRequestHub.registerRequest(url, sessionLogger)
+            SpacegateEquipmentRequestHub.registerRequest(url, sessionLogger)
+            ChefStaffRequestHub.registerRequest(url, sessionLogger)
             if (url.contains("whichplace=nstower", ignoreCase = true) &&
                 SorceressLairSync.action(url) == "ns_10_sorcfight"
             ) {
@@ -3523,6 +3708,7 @@ class GameRuntimeLibrary(
             preferences = preferences,
             character = character,
             inventory = inventoryManager,
+            skillManager = skillManager,
         )
         if (url != null && (
                 url.contains("charpane.php", ignoreCase = true) ||
@@ -5585,6 +5771,7 @@ class GameRuntimeLibrary(
         val client = httpClient ?: return null
         val db = questDatabase
         var htmlOut: String? = null
+        lastVisitPath = "$KOL_BASE_URL/$path"
         kotlinx.coroutines.runBlocking {
             try {
                 val response = client.get("$KOL_BASE_URL/$path")
@@ -5616,6 +5803,7 @@ class GameRuntimeLibrary(
 
     /** POST form fields to a KoL path (relative), applying visit hooks. */
     internal fun visitKolPost(path: String, postData: String): String? {
+        lastVisitPath = "$KOL_BASE_URL/${path.trimStart('/')}"
         val client = httpClient ?: return null
         var htmlOut: String? = null
         kotlinx.coroutines.runBlocking {
@@ -6354,6 +6542,17 @@ class GameRuntimeLibrary(
         registerPhase4460(scope)
         registerPhase4470(scope)
         registerPhase4490(scope)
+        registerPhase4500(scope)
+        registerPhase4510(scope)
+        registerPhase4570(scope)
+        registerPhase4630(scope)
+        registerPhase4690(scope)
+        registerPhase4750(scope)
+        registerPhase4810(scope)
+        registerPhase4870(scope)
+        registerPhase4930(scope)
+        registerPhase4990(scope)
+        registerPhase5050(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
@@ -6597,17 +6796,36 @@ class GameRuntimeLibrary(
         register(scope, "abs", AshType.FLOAT, listOf("f" to AshType.FLOAT)) { _, args ->
             AshValue.of(abs(args[0].toDouble()))
         }
+        register(scope, "min", AshType.INT, listOf("a" to AshType.INT, "b" to AshType.INT)) { _, args ->
+            AshValue.of(minOf(args[0].toLong(), args[1].toLong()))
+        }
+        register(scope, "min", AshType.FLOAT, listOf("a" to AshType.FLOAT, "b" to AshType.FLOAT)) { _, args ->
+            AshValue.of(minOf(args[0].toDouble(), args[1].toDouble()))
+        }
+        // Ternary / quaternary floor (desktop VARARG without full vararg parser)
+        register(scope, "min", AshType.INT, listOf("a" to AshType.INT, "b" to AshType.INT, "c" to AshType.INT)) { _, args ->
+            AshValue.of(minOf(args[0].toLong(), args[1].toLong(), args[2].toLong()))
+        }
+        register(scope, "min", AshType.INT, listOf("a" to AshType.INT, "b" to AshType.INT, "c" to AshType.INT, "d" to AshType.INT)) { _, args ->
+            AshValue.of(minOf(args[0].toLong(), args[1].toLong(), args[2].toLong(), args[3].toLong()))
+        }
         register(scope, "max", AshType.INT, listOf("a" to AshType.INT, "b" to AshType.INT)) { _, args ->
             AshValue.of(maxOf(args[0].toLong(), args[1].toLong()))
         }
         register(scope, "max", AshType.FLOAT, listOf("a" to AshType.FLOAT, "b" to AshType.FLOAT)) { _, args ->
             AshValue.of(maxOf(args[0].toDouble(), args[1].toDouble()))
         }
-        register(scope, "min", AshType.INT, listOf("a" to AshType.INT, "b" to AshType.INT)) { _, args ->
-            AshValue.of(minOf(args[0].toLong(), args[1].toLong()))
+        register(scope, "max", AshType.INT, listOf("a" to AshType.INT, "b" to AshType.INT, "c" to AshType.INT)) { _, args ->
+            AshValue.of(maxOf(args[0].toLong(), args[1].toLong(), args[2].toLong()))
         }
-        register(scope, "min", AshType.FLOAT, listOf("a" to AshType.FLOAT, "b" to AshType.FLOAT)) { _, args ->
-            AshValue.of(minOf(args[0].toDouble(), args[1].toDouble()))
+        register(scope, "max", AshType.INT, listOf("a" to AshType.INT, "b" to AshType.INT, "c" to AshType.INT, "d" to AshType.INT)) { _, args ->
+            AshValue.of(maxOf(args[0].toLong(), args[1].toLong(), args[2].toLong(), args[3].toLong()))
+        }
+        // Desktop random(int range) → INT in [0, range); float overload is mobile extension
+        register(scope, "random", AshType.INT, listOf("range" to AshType.INT)) { _, args ->
+            val range = args[0].toLong().toInt()
+            if (range < 2) throw ScriptException("Random range must be at least 2")
+            AshValue.of(Random.nextInt(range).toLong())
         }
         register(scope, "random", AshType.FLOAT, listOf("limit" to AshType.FLOAT)) { _, args ->
             AshValue.of(Random.nextDouble() * args[0].toDouble())
@@ -6655,6 +6873,9 @@ class GameRuntimeLibrary(
         }
         register(scope, "abort", AshType.VOID, listOf("msg" to AshType.STRING)) { _, args ->
             throw ScriptException(args[0].toString())
+        }
+        register(scope, "abort", AshType.VOID, emptyList()) { _, _ ->
+            throw ScriptException("Script aborted.")
         }
     }
 
@@ -6753,6 +6974,41 @@ class GameRuntimeLibrary(
                 ?: id.toString()
             AshValue.item(name)
         }
+        // Desktop to_item(name, count) — count is carried for some APIs; mobile item values are name-keyed
+        register(scope, "to_item", AshType.ITEM,
+            listOf("name" to AshType.STRING, "count" to AshType.INT)) { _, args ->
+            AshValue.item(args[0].toString())
+        }
+        register(scope, "to_skill", AshType.SKILL, listOf("id" to AshType.INT)) { _, args ->
+            val id = args[0].toLong().toInt()
+            val name = SkillDefinitionDatabase.getById(id)?.name
+                ?: skillManager?.state?.value?.skills?.find { it.id == id }?.name
+                ?: id.toString()
+            AshValue.skill(name)
+        }
+        register(scope, "to_effect", AshType.EFFECT, listOf("id" to AshType.INT)) { _, args ->
+            val id = args[0].toLong().toInt()
+            val name = gameDatabase?.effect(id)?.name
+                ?: EffectDatabase.getById(id)?.name
+                ?: id.toString()
+            AshValue.effect(name)
+        }
+        register(scope, "to_familiar", AshType.FAMILIAR, listOf("id" to AshType.INT)) { _, args ->
+            val id = args[0].toLong().toInt()
+            val name = FamiliarDefinitionDatabase.getById(id)?.name ?: id.toString()
+            AshValue.familiar(name)
+        }
+        register(scope, "to_monster", AshType.MONSTER, listOf("id" to AshType.INT)) { _, args ->
+            val id = args[0].toLong().toInt()
+            val name = gameDatabase?.monster(id)?.name ?: id.toString()
+            AshValue(AshType.MONSTER, name)
+        }
+        register(scope, "to_location", AshType.LOCATION, listOf("snarfblat" to AshType.INT)) { _, args ->
+            val snarf = args[0].toLong().toInt().toString()
+            val resolved = resolveLocation(snarf)?.name
+                ?: net.sourceforge.kolmafia.modifiers.LocationNames.resolve(snarf)
+            AshValue(AshType.LOCATION, resolved ?: "")
+        }
         register(scope, "have_item", AshType.BOOLEAN, listOf("it" to AshType.ITEM)) { _, args ->
             val name = args[0].toString()
             val qty = inventoryManager?.state?.value?.items?.values
@@ -6800,7 +7056,11 @@ class GameRuntimeLibrary(
 
     private fun registerEffectQueries(scope: AshScope) {
         register(scope, "have_effect", AshType.INT, listOf("ef" to AshType.EFFECT)) { _, args ->
-            val name = args[0].toString()
+            val name = args[0].toString().trim()
+            // Desktop EFFECT_INIT / none / blank → 0
+            if (name.isEmpty() || name.equals("none", ignoreCase = true)) {
+                return@register AshValue.ZERO
+            }
             val duration = effectManager?.state?.value?.effects
                 ?.find { it.name.equals(name, ignoreCase = true) }?.duration ?: 0
             AshValue.of(duration.toLong())
@@ -6817,56 +7077,67 @@ class GameRuntimeLibrary(
     private fun registerGameActions(scope: AshScope) {
         register(scope, "adventure", AshType.BOOLEAN,
             listOf("turns" to AshType.INT, "loc" to AshType.LOCATION)) { _, args ->
-            val turns = args[0].toLong().toInt()
-            val locName = args[1].toString()
-            val manager = adventureManager
-                ?: throw ScriptException("Adventure manager not available")
-            val location = resolveLocation(locName)
-                ?: throw ScriptException("Unknown location: $locName")
-            kotlinx.coroutines.runBlocking {
-                manager.runAdventures(location, turns, this).join()
-            }
-            AshValue.of(true)
+            AshValue.of(runAdventureTurns(args[0].toLong().toInt(), args[1].toString(), null))
+        }
+        register(scope, "adventure", AshType.BOOLEAN,
+            listOf("loc" to AshType.LOCATION, "turns" to AshType.INT)) { _, args ->
+            AshValue.of(runAdventureTurns(args[1].toLong().toInt(), args[0].toString(), null))
+        }
+        register(scope, "adventure", AshType.BOOLEAN,
+            listOf("turns" to AshType.INT, "loc" to AshType.LOCATION, "filter" to AshType.STRING)) { _, args ->
+            AshValue.of(runAdventureTurns(args[0].toLong().toInt(), args[1].toString(), args[2].toString()))
+        }
+        register(scope, "adventure", AshType.BOOLEAN,
+            listOf("loc" to AshType.LOCATION, "turns" to AshType.INT, "filter" to AshType.STRING)) { _, args ->
+            AshValue.of(runAdventureTurns(args[1].toLong().toInt(), args[0].toString(), args[2].toString()))
         }
 
-        // adv1(loc: location, adventuresUsed: int) → boolean
-        // Runs a single adventure at loc. Returns false if no AdventureManager.
+        register(scope, "adv1", AshType.BOOLEAN,
+            listOf("loc" to AshType.LOCATION)) { _, args ->
+            AshValue.of(runAdventureTurns(1, args[0].toString(), null))
+        }
         register(scope, "adv1", AshType.BOOLEAN,
             listOf("loc" to AshType.LOCATION, "adventuresUsed" to AshType.INT)) { _, args ->
-            val locName = args[0].toString()
-            val manager = adventureManager ?: return@register AshValue.of(false)
-            val location = resolveLocation(locName) ?: return@register AshValue.of(false)
-            kotlinx.coroutines.runBlocking {
-                manager.runAdventures(location, 1, this).join()
-            }
-            AshValue.of(true)
+            AshValue.of(runAdventureTurns(1, args[0].toString(), null))
+        }
+        register(scope, "adv1", AshType.BOOLEAN,
+            listOf("loc" to AshType.LOCATION, "adventuresUsed" to AshType.INT, "filter" to AshType.STRING)) { _, args ->
+            AshValue.of(runAdventureTurns(1, args[0].toString(), args[2].toString()))
         }
 
         register(scope, "use_skill", AshType.BOOLEAN,
             listOf("turns" to AshType.INT, "sk" to AshType.SKILL)) { _, args ->
-            val count = args[0].toLong().toInt()
-            val skillName = args[1].toString()
-            val manager = skillManager
-                ?: throw ScriptException("Skill manager not available")
-            val skill = manager.state.value.skills
-                .find { it.name.equals(skillName, ignoreCase = true) }
-                ?: throw ScriptException("Unknown skill: $skillName")
-            kotlinx.coroutines.runBlocking {
-                repeat(count) { manager.cast(skill, 1) }
-            }
-            AshValue.of(true)
+            AshValue.of(castAshSkill(count = args[0].toLong().toInt(), skillName = args[1].toString()))
         }
-
         register(scope, "use_skill", AshType.BOOLEAN,
+            listOf("sk" to AshType.SKILL, "turns" to AshType.INT)) { _, args ->
+            AshValue.of(castAshSkill(count = args[1].toLong().toInt(), skillName = args[0].toString()))
+        }
+        // Desktop 1-arg use_skill returns STRING (UseSkillRequest.lastUpdate)
+        register(scope, "use_skill", AshType.STRING,
             listOf("sk" to AshType.SKILL)) { _, args ->
-            val skillName = args[0].toString()
-            val manager = skillManager
-                ?: throw ScriptException("Skill manager not available")
-            val skill = manager.state.value.skills
-                .find { it.name.equals(skillName, ignoreCase = true) }
-                ?: throw ScriptException("Unknown skill: $skillName")
-            kotlinx.coroutines.runBlocking { manager.cast(skill, 1) }
-            AshValue.of(true)
+            castAshSkill(count = 1, skillName = args[0].toString())
+            AshValue.of(UseSkillSync.lastUpdate)
+        }
+        register(scope, "use_skill", AshType.BOOLEAN,
+            listOf("turns" to AshType.INT, "sk" to AshType.SKILL, "target" to AshType.STRING)) { _, args ->
+            AshValue.of(
+                castAshSkill(
+                    count = args[0].toLong().toInt(),
+                    skillName = args[1].toString(),
+                    target = args[2].toString(),
+                ),
+            )
+        }
+        register(scope, "use_skill", AshType.BOOLEAN,
+            listOf("sk" to AshType.SKILL, "turns" to AshType.INT, "target" to AshType.STRING)) { _, args ->
+            AshValue.of(
+                castAshSkill(
+                    count = args[1].toLong().toInt(),
+                    skillName = args[0].toString(),
+                    target = args[2].toString(),
+                ),
+            )
         }
 
         register(scope, "cli_execute", AshType.BOOLEAN, listOf("cmd" to AshType.STRING)) { runtime, args ->
@@ -6882,8 +7153,86 @@ class GameRuntimeLibrary(
 
     }
 
+    /**
+     * Desktop RuntimeLibrary.use_skill: combat skills via fight.php when in combat;
+     * otherwise CLI cast. Returns false when lastUpdate is non-empty.
+     */
+    private fun castAshSkill(count: Int, skillName: String, target: String? = null): Boolean {
+        if (count <= 0) return true
+        val def = SkillDefinitionDatabase.getByName(skillName)
+            ?: skillManager?.state?.value?.skills?.find { it.name.equals(skillName, ignoreCase = true) }
+                ?.let { SkillDefinitionDatabase.getById(it.id) }
+        val skillId = def?.id
+            ?: skillManager?.state?.value?.skills
+                ?.find { it.name.equals(skillName, ignoreCase = true) }?.id
+            ?: 0
+        val isCombat = def?.isCombat == true ||
+            SkillDefinitionDatabase.getById(skillId)?.isCombat == true
+        val isNonCombat = def?.isNonCombat == true ||
+            SkillDefinitionDatabase.getById(skillId)?.isNonCombat == true
+        if (isCombat) {
+            if (ChoiceCombatAshState.currentRound > 0) {
+                repeat(count) {
+                    visitKolPage("fight.php?action=skill&whichskill=$skillId")
+                }
+                return true
+            }
+            if (!isNonCombat) {
+                UseSkillSync.lastUpdate = "That skill cannot be cast outside of combat"
+                return false
+            }
+        }
+        val manager = skillManager ?: run {
+            UseSkillSync.lastUpdate = "Skill manager not available"
+            return false
+        }
+        val skill = manager.state.value.skills
+            .find { it.name.equals(skillName, ignoreCase = true) || it.id == skillId }
+        if (skill == null) {
+            UseSkillSync.lastUpdate = "Unknown skill: $skillName"
+            return false
+        }
+        UseSkillSync.lastUpdate = ""
+        if (!target.isNullOrBlank() && skillId > 0) {
+            kotlinx.coroutines.runBlocking {
+                repeat(count) {
+                    if (UseSkillSync.lastUpdate.isNotEmpty()) return@repeat
+                    visitKolPage(
+                        "skills.php?action=Skillz&whichskill=$skillId&quantity=1&targetplayer=$target&ajax=1",
+                    )
+                }
+            }
+            return UseSkillSync.lastUpdate.isEmpty()
+        }
+        kotlinx.coroutines.runBlocking {
+            repeat(count) {
+                if (UseSkillSync.lastUpdate.isNotEmpty()) return@repeat
+                manager.cast(skill, 1)
+            }
+        }
+        return UseSkillSync.lastUpdate.isEmpty()
+    }
+
+    private fun runAdventureTurns(turns: Int, locName: String, filter: String?): Boolean {
+        if (turns <= 0) return true
+        val manager = adventureManager ?: return false
+        val location = resolveLocation(locName) ?: return false
+        val previous = net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride
+        if (!filter.isNullOrBlank()) {
+            net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride = filter
+        }
+        return try {
+            kotlinx.coroutines.runBlocking {
+                manager.runAdventures(location, turns, this).join()
+            }
+            true
+        } finally {
+            net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride = previous
+        }
+    }
+
     /** Wraps an [AshRuntimeContext] to mirror [print] into [lastCliOutput]. */
-    private class CliCapturingContext(
+    internal class CliCapturingContext(
         private val delegate: AshRuntimeContext,
         private val buffer: StringBuilder,
     ) : AshRuntimeContext {

@@ -85,6 +85,23 @@ open class ManageStoreRequest(
         Result.failure(e)
     }
 
+    /** Desktop ManageStoreRequest GET backoffice.php which=1 — populate sold-item cache. */
+    open suspend fun fetchSoldItems(): Result<String> = try {
+        val response = client.submitForm(
+            url = "$KOL_BASE_URL/backoffice.php",
+            formParameters = Parameters.build { append("which", "1") },
+        )
+        if (response.status.isSuccess()) {
+            val body = response.bodyAsText()
+            StoreManager.update(body, StoreManager.TableType.DEETS)
+            Result.success(body)
+        } else {
+            Result.failure(Exception("HTTP ${response.status.value}"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
     open suspend fun getStoreLog(): Result<List<String>> = try {
         val response = client.submitForm(
             url = "$KOL_BASE_URL/backoffice.php",
