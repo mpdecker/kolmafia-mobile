@@ -134,7 +134,7 @@ class GameRuntimeLibraryPhase4470Test {
         GreyYouManager.absorbedMonsters += monsterId
         val lib = GameRuntimeLibrary()
         assertEquals("1", outputLib(lib, "print(count(absorbed_monsters()));"))
-        assertEquals("steal", outputLib(lib, "print(pickpocket());"))
+        assertEquals("pickpocket", outputLib(lib, "print(pickpocket());"))
     }
 
     @Test
@@ -160,7 +160,7 @@ class GameRuntimeLibraryPhase4470Test {
     @Test
     fun revisionIsPhase4470() {
         val lib = GameRuntimeLibrary()
-        assertEquals("phase5050", outputLib(lib, "print(get_revision());"))
-        assertEquals("phase5050", GameRuntimeLibrary.REVISION)
+        assertEquals("phase5590", outputLib(lib, "print(get_revision());"))
+        assertEquals("phase5590", GameRuntimeLibrary.REVISION)
     }
 }

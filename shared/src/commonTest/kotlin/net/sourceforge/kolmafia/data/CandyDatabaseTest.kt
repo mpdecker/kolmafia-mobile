@@ -2,12 +2,19 @@ package net.sourceforge.kolmafia.data
 
 import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import net.sourceforge.kolmafia.preferences.Preferences
 
 class CandyDatabaseTest {
+
+    @BeforeTest
+    fun setUp() {
+        ItemDatabase.resetForTest()
+        CandyDatabase.resetForTest()
+    }
 
     @AfterTest
     fun cleanup() {
@@ -72,5 +79,7 @@ class CandyDatabaseTest {
                 plural = null,
             ),
         )
+        // Force tier rebuild so newly registered test candies are indexed.
+        CandyDatabase.resetForTest()
     }
 }

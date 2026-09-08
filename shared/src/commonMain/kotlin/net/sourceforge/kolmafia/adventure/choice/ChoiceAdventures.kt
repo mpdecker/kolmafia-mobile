@@ -2,7 +2,9 @@ package net.sourceforge.kolmafia.adventure.choice
 
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.inventory.InventoryState
+import net.sourceforge.kolmafia.quest.MonorailChoiceSync
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
+import net.sourceforge.kolmafia.session.DynamicChoiceSpoilers
 import net.sourceforge.kolmafia.session.GoalManager
 
 /**
@@ -49,8 +51,15 @@ object ChoiceAdventures {
 
     fun entry(choice: Int): Entry? = adventures[choice] ?: spoilers[choice]
 
-    fun choiceSpoilers(choice: Int): Spoilers? {
+    fun choiceSpoilers(
+        choice: Int,
+        html: String = ChoiceCombatAshState.lastChoiceResponseText,
+    ): Spoilers? {
         if (choice <= 0) return null
+        VioletFogManager.choiceSpoilers(choice)?.let { return it }
+        LouvreManager.choiceSpoilers(choice)?.let { return it }
+        MonorailChoiceSync.choiceSpoilers(choice, html)?.let { return it }
+        DynamicChoiceSpoilers.choiceSpoilers(choice)?.let { return it }
         return adventures[choice]?.spoilers() ?: spoilers[choice]?.spoilers()
     }
 

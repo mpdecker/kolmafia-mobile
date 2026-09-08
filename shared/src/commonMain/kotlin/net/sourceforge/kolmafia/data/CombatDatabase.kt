@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.data
 
+import net.sourceforge.kolmafia.session.EncounterManager
 import net.sourceforge.kolmafia.shared.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -29,25 +30,61 @@ object CombatDatabase : ZoneLookup {
             for (idx in 2 until parts.size) {
                 val entry = parts[idx].trim()
                 if (entry.isBlank()) continue
-                val colonIdx = entry.lastIndexOf(": ")
-                if (colonIdx >= 0) {
-                    val name = entry.substring(0, colonIdx).trim()
-                    val weight = entry.substring(colonIdx + 2).trim().toIntOrNull() ?: 1
-                    monsters.add(MonsterWeight(name, weight))
-                } else {
-                    monsters.add(MonsterWeight(entry, 1))
-                }
+                monsters.add(parseMonsterEntry(entry))
             }
 
             val data = ZoneCombatData(
                 locationName = locationName,
                 combatPercent = combatPercent,
-                monsters = monsters
+                monsters = monsters,
             )
 
             entries.add(data)
             byLocation[locationName.lowercase()] = data
         }
+    }
+
+    /**
+     * Parse `Name`, `Name: 2`, `Name: 1r50`, `Name: 1o`, `Name: 1e` combats.txt tokens.
+     */
+    internal fun parseMonsterEntry(entry: String): MonsterWeight {
+        val colonIdx = entry.lastIndexOf(':')
+        if (colonIdx < 0) {
+            val name = entry.trim()
+            return MonsterWeight(
+                name = name,
+                weight = 1,
+                superlikely = EncounterManager.isSuperlikelyMonster(name),
+            )
+        }
+        val name = entry.substring(0, colonIdx).trim()
+        var token = entry.substring(colonIdx + 1).trim()
+        var rejection = 0
+        var parity = 0
+        val rIdx = token.indexOf('r')
+        if (rIdx >= 0) {
+            rejection = token.substring(rIdx + 1).filter { it.isDigit() }.toIntOrNull() ?: 0
+            token = token.substring(0, rIdx)
+        }
+        // Trailing o/e ascension parity flags (after stripping rejection)
+        when {
+            token.endsWith('o', ignoreCase = true) && token.dropLast(1).toIntOrNull() != null -> {
+                parity = 1
+                token = token.dropLast(1)
+            }
+            token.endsWith('e', ignoreCase = true) && token.dropLast(1).toIntOrNull() != null -> {
+                parity = 2
+                token = token.dropLast(1)
+            }
+        }
+        val weight = token.toIntOrNull() ?: 1
+        return MonsterWeight(
+            name = name,
+            weight = weight,
+            rejectionPercent = rejection,
+            ascensionParity = parity,
+            superlikely = EncounterManager.isSuperlikelyMonster(name),
+        )
     }
 
     override fun getByLocation(name: String): ZoneCombatData? = byLocation[name.lowercase()]

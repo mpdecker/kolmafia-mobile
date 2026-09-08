@@ -3,8 +3,12 @@ package net.sourceforge.kolmafia.character
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.inventory.CollectionCacheSync
 import net.sourceforge.kolmafia.maximizer.MaximizerSubSlotItems
+import net.sourceforge.kolmafia.preferences.Preferences
 
 class KoLCharacter {
     private val _state = MutableStateFlow(CharacterState())
@@ -161,6 +165,116 @@ class KoLCharacter {
     fun setKingLiberated(liberated: Boolean = true) {
         _state.value = _state.value.copy(kingLiberated = liberated)
         CharpaneInteraction.applyInteraction(this)
+    }
+
+    /**
+     * Desktop [KoLCharacter.liberateKing] — path-point awards, hardcore/ronin lift,
+     * freepull merge, pullsRemaining=-1, breakfast reset, modifier override clear.
+     * Avatar paths keep [challengePath] until the player picks a new class.
+     */
+    fun liberateKing(preferences: Preferences? = null) {
+        if (_state.value.kingLiberated) return
+
+        val prev = _state.value
+        val oldPath = prev.ascensionPath
+        val points = if (prev.isHardcore) 2 else 1
+        val classId = prev.characterClass
+        val clazz = prev.characterClassEnum
+
+        preferences?.setBoolean("kingLiberated", true)
+
+        when (oldPath) {
+            AscensionPath.AVATAR_OF_WEST_OF_LOATHING -> {
+                val pref = when {
+                    clazz == CharacterClass.BEANSLINGER || classId == 19 -> "awolPointsBeanslinger"
+                    clazz == CharacterClass.COW_PUNCHER || classId == 18 -> "awolPointsCowpuncher"
+                    clazz == CharacterClass.SNAKE_OILER || classId == 20 -> "awolPointsSnakeoiler"
+                    else -> null
+                }
+                if (pref != null) preferences?.increment(pref, points, 10)
+            }
+            AscensionPath.SHADOWS_OVER_LOATHING -> {
+                val pref = when (clazz) {
+                    CharacterClass.PIG_SKINNER -> "asolPointsPigSkinner"
+                    CharacterClass.CHEESE_WIZARD -> "asolPointsCheeseWizard"
+                    CharacterClass.JAZZ_AGENT -> "asolPointsJazzAgent"
+                    else -> null
+                }
+                if (pref != null) preferences?.increment(pref, points, 11)
+            }
+            AscensionPath.GLOVER -> {
+                preferences?.increment("garlandUpgrades", 1, 10)
+                if (preferences != null) oldPath.incrementPoints(preferences, points)
+            }
+            AscensionPath.UNDER_THE_SEA -> {
+                // Sea points award on Nautical Seaceress defeat, not king liberation.
+            }
+            else -> {
+                if (preferences != null) oldPath.incrementPoints(preferences, points)
+            }
+        }
+
+        val nextPath = if (oldPath.isAvatar) prev.challengePath else AscensionPath.NONE.apiName
+        _state.value = prev.copy(
+            kingLiberated = true,
+            isHardcore = false,
+            roninLeft = 0,
+            challengePath = nextPath,
+            canInteract = true,
+        )
+        preferences?.setBoolean("canInteract", true)
+        preferences?.setInt("pullsRemaining", -1)
+
+        if (preferences != null) {
+            CollectionCacheSync.mergeFreepullsIntoStorage(preferences)
+        }
+        ConcoctionDatabase.setPullsRemaining(-1)
+        preferences?.setBoolean("breakfastCompleted", false)
+        ModifierDatabase.resetOverrides()
+
+        // Avatar paths wait for class pick before further path-exit work.
+        if (oldPath.isAvatar) return
+
+        // Phase 5427+: desktop liberateKing path-exit deepen (prefs only; HTTP refresh deferred).
+        when (oldPath) {
+            AscensionPath.LEGACY_OF_LOATHING -> {
+                preferences?.resetToDefault("replicaChateauAvailable", "false")
+                preferences?.resetToDefault("replicaNeverendingPartyAlways", "false")
+                preferences?.resetToDefault("ownsReplicaFloristFriar", "false")
+                preferences?.resetToDefault("replicaWitchessSetAvailable", "false")
+                preferences?.resetToDefault("sourceTerminalEducate1", "")
+                preferences?.resetToDefault("sourceTerminalEducate2", "")
+                preferences?.resetToDefault("sourceTerminalEnquiry", "")
+            }
+            AscensionPath.SMALL -> {
+                val s = _state.value
+                _state.value = s.copy(
+                    fullness = s.fullness * 10,
+                    inebriety = s.inebriety * 10,
+                )
+            }
+            else -> Unit
+        }
+        // Heavy Rains / Nuclear Autumn / You Robot path-skill reset requires SkillManager DI;
+        // mark preference so callers can refresh skills on next status poll.
+        if (oldPath == AscensionPath.HEAVY_RAINS ||
+            oldPath == AscensionPath.NUCLEAR_AUTUMN ||
+            oldPath == AscensionPath.NUCLEAR ||
+            oldPath == AscensionPath.YOU_ROBOT ||
+            oldPath == AscensionPath.LEGACY_OF_LOATHING
+        ) {
+            preferences?.setBoolean("_liberateKingNeedsSkillRefresh", true)
+        }
+        // Path-exit status refresh queue (CharSheet/Familiar/effects via CharacterStatusRefresh).
+        if (oldPath == AscensionPath.NUCLEAR_AUTUMN ||
+            oldPath == AscensionPath.NUCLEAR ||
+            oldPath == AscensionPath.YOU_ROBOT ||
+            oldPath == AscensionPath.SMALL ||
+            oldPath == AscensionPath.HEAVY_RAINS ||
+            oldPath == AscensionPath.LEGACY_OF_LOATHING
+        ) {
+            preferences?.setBoolean("_liberateKingNeedsPostRefresh", true)
+        }
     }
 
     fun setCanInteract(interact: Boolean) {

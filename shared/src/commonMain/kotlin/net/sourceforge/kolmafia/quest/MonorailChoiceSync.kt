@@ -1,10 +1,13 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures
+import net.sourceforge.kolmafia.adventure.choice.ChoiceOption
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
 /**
- * Desktop [ChoiceControl] On a Downtown Train choice 1308 —
- * visitChoice muffin order state + postChoice0 tin consumption.
+ * Desktop [ChoiceControl] / [MonorailManager] On a Downtown Train choice 1308 —
+ * visitChoice muffin order state + postChoice0 tin consumption + dynamic spoilers.
  */
 object MonorailChoiceSync {
 
@@ -15,6 +18,50 @@ object MonorailChoiceSync {
 
     private val MUFFIN_TYPE_PATTERN =
         Regex("""Looks like your order for a (.*? muffin) is not yet ready""")
+
+    private val CHOICE_FORM_PATTERN =
+        Regex("""name=choiceform\d+(.*?)</form>""", RegexOption.DOT_MATCHES_ALL)
+    private val OPTION_PATTERN = Regex("""name=option value=(\d+)""")
+    private val BUTTON_TEXT_PATTERN =
+        Regex("""type=['"]?submit['"]? value=['"](.*?)['"]""", RegexOption.DOT_MATCHES_ALL)
+
+    /** Desktop [MonorailManager.lyleSpoilers] — button text → (spoiler label, item name). */
+    private val LYLE_SPOILERS: Map<String, Pair<String, String?>> = mapOf(
+        "Exchange 10 shovelfuls of dirt and 10 hunks of granite for an earthenware muffin tin!" to
+            ("" to "earthenware muffin tin"),
+        "Order a blueberry muffin" to ("" to "blueberry muffin"),
+        "Order a bran muffin" to ("" to "bran muffin"),
+        "Order a chocolate chip muffin" to ("" to "chocolate chip muffin"),
+        "Back to the Platform!" to ("" to null),
+    )
+
+    /**
+     * Desktop [MonorailManager.choiceSpoilers] — options are dynamically numbered;
+     * parse form HTML and map button text to muffin spoilers.
+     */
+    fun choiceSpoilers(
+        choice: Int,
+        html: String = ChoiceCombatAshState.lastChoiceResponseText,
+    ): ChoiceAdventures.Spoilers? {
+        if (choice != CHOICE_ID || html.isBlank()) return null
+        val options = mutableListOf<ChoiceOption>()
+        for (formMatch in CHOICE_FORM_PATTERN.findAll(html)) {
+            val section = formMatch.groupValues[1]
+            val choiceNumber = OPTION_PATTERN.find(section)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                ?: continue
+            val buttonText = BUTTON_TEXT_PATTERN.find(section)?.groupValues?.getOrNull(1) ?: continue
+            val spoiler = LYLE_SPOILERS[buttonText] ?: continue
+            val itemName = spoiler.second
+            // Prefer item name when desktop spoiler label is empty (ASH display).
+            options += ChoiceOption(
+                name = spoiler.first.ifBlank { itemName.orEmpty() },
+                option = choiceNumber,
+                itemNames = listOfNotNull(itemName),
+            )
+        }
+        if (options.isEmpty()) return null
+        return ChoiceAdventures.Spoilers(choice, "On a Downtown Train", options)
+    }
 
     fun applyVisit(
         choiceId: Int,

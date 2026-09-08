@@ -39,6 +39,17 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
             canInteract = canInteract(),
         )
 
+    fun buySucceeded(itemId: Int, initial: Int, bought: Int, want: Int): Boolean {
+        if (bought < want) return false
+        // When no inventory manager is wired (unit tests / headless), trust bought count.
+        if (inventoryManager == null) return true
+        return invCount(itemId) >= initial + want
+    }
+
+    fun purchaseDelta(itemId: Int, initial: Int, bought: Int): Int =
+        if (inventoryManager == null) bought.coerceAtLeast(0)
+        else (invCount(itemId) - initial).coerceAtLeast(0)
+
     // Desktop: buy(item) → boolean via inventory delta after CLI NPC/mall routing
     regFn(scope, "buy", AshType.BOOLEAN, listOf("it" to AshType.ITEM)) { _, args ->
         val itemName = args[0].toString()
@@ -46,7 +57,7 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         val ok = kotlinx.coroutines.runBlocking {
             val initial = invCount(itemId)
             val bought = buyViaCli(itemId, itemName, 1)
-            invCount(itemId) >= initial + 1 && bought >= 1
+            buySucceeded(itemId, initial, bought, 1)
         }
         AshValue.of(ok)
     }
@@ -61,7 +72,7 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         val ok = kotlinx.coroutines.runBlocking {
             val initial = invCount(itemId)
             val bought = buyViaCli(itemId, itemName, count)
-            invCount(itemId) >= initial + count && bought >= count
+            buySucceeded(itemId, initial, bought, count)
         }
         AshValue.of(ok)
     }
@@ -74,7 +85,7 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         val ok = kotlinx.coroutines.runBlocking {
             val initial = invCount(itemId)
             val bought = buyViaCli(itemId, itemName, count)
-            invCount(itemId) >= initial + count && bought >= count
+            buySucceeded(itemId, initial, bought, count)
         }
         AshValue.of(ok)
     }
@@ -89,8 +100,8 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         val maxPrice = args[2].toLong().toInt()
         val purchased = kotlinx.coroutines.runBlocking {
             val initial = invCount(itemId)
-            buyViaCli(itemId, itemName, count, maxPrice)
-            (invCount(itemId) - initial).coerceAtLeast(0)
+            val bought = buyViaCli(itemId, itemName, count, maxPrice)
+            purchaseDelta(itemId, initial, bought)
         }
         AshValue.of(purchased.toLong())
     }
@@ -103,8 +114,8 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         val maxPrice = args[2].toLong().toInt()
         val purchased = kotlinx.coroutines.runBlocking {
             val initial = invCount(itemId)
-            buyViaCli(itemId, itemName, count, maxPrice)
-            (invCount(itemId) - initial).coerceAtLeast(0)
+            val bought = buyViaCli(itemId, itemName, count, maxPrice)
+            purchaseDelta(itemId, initial, bought)
         }
         AshValue.of(purchased.toLong())
     }

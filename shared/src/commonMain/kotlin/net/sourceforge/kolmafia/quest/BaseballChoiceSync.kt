@@ -91,7 +91,7 @@ object BaseballChoiceSync {
     }
 
     fun defaultBanish(preferences: Preferences): (String, Banisher, Int) -> Unit = { name, banisher, turn ->
-        BanishManager(preferences).banishMonster(name, banisher, turn)
+        BanishManager(preferences).banishMonster(name, banisher, turn, adventureResult = false)
     }
 
     fun defaultTrack(preferences: Preferences): (String, TrackManager.Tracker, Int) -> Unit =

@@ -433,9 +433,158 @@ import net.sourceforge.kolmafia.request.PhineasRequestHub
 import net.sourceforge.kolmafia.request.TerminalExtrudeRequestHub
 import net.sourceforge.kolmafia.request.SpacegateEquipmentRequestHub
 import net.sourceforge.kolmafia.request.ChefStaffRequestHub
+import net.sourceforge.kolmafia.request.BURTRequest
+import net.sourceforge.kolmafia.request.FreeSnackRequest
+import net.sourceforge.kolmafia.request.GameShoppeRequest
+import net.sourceforge.kolmafia.request.ShadowForgeRequest
+import net.sourceforge.kolmafia.request.IsotopeSmitheryRequest
+import net.sourceforge.kolmafia.request.AltarOfBonesRequest
+import net.sourceforge.kolmafia.request.TravelingTraderRequest
+import net.sourceforge.kolmafia.request.CrimboCartelRequest
+import net.sourceforge.kolmafia.request.BigBrotherRequest
+import net.sourceforge.kolmafia.request.FudgeWandRequest
+import net.sourceforge.kolmafia.request.SkeletonOfCrimboPastRequest
+import net.sourceforge.kolmafia.request.AWOLQuartermasterRequest
+import net.sourceforge.kolmafia.request.MrStoreRequest
+import net.sourceforge.kolmafia.request.SwaggerShopRequest
+import net.sourceforge.kolmafia.request.SendGiftRequestHub
+import net.sourceforge.kolmafia.request.SendMailRequestHub
+import net.sourceforge.kolmafia.request.GourdRequestHub
+import net.sourceforge.kolmafia.request.FriarRequestHub
+import net.sourceforge.kolmafia.request.FamiliarRequestHub
+import net.sourceforge.kolmafia.request.Crimbo20BoozeRequest
+import net.sourceforge.kolmafia.request.Crimbo20FoodRequest
+import net.sourceforge.kolmafia.request.Crimbo20CandyRequest
+import net.sourceforge.kolmafia.request.DedigitizerRequest
+import net.sourceforge.kolmafia.request.BatFabricatorRequest
+import net.sourceforge.kolmafia.request.DiscoGiftCoRequest
+import net.sourceforge.kolmafia.request.RenaissanceGiftShopRequest
+import net.sourceforge.kolmafia.request.SummoningChamberRequestHub
+import net.sourceforge.kolmafia.request.SafetyShelterRequest
+import net.sourceforge.kolmafia.request.DimemasterRequestHub
+import net.sourceforge.kolmafia.request.QuartersmasterRequestHub
+import net.sourceforge.kolmafia.request.FlowerTradeinRequestHub
+import net.sourceforge.kolmafia.request.MerchTableRequestHub
+import net.sourceforge.kolmafia.request.DripArmoryRequestHub
+import net.sourceforge.kolmafia.request.TrapperRequestHub
+import net.sourceforge.kolmafia.request.ReplicaMrStoreRequestHub
+import net.sourceforge.kolmafia.request.BlackMarketRequestHub
+import net.sourceforge.kolmafia.request.Crimbo25SammyRequestHub
+import net.sourceforge.kolmafia.request.Crimbo23ElfArmoryRequestHub
+import net.sourceforge.kolmafia.request.FiveDPrinterRequestHub
+import net.sourceforge.kolmafia.request.PixelRequestHub
+import net.sourceforge.kolmafia.request.JarlsbergRequestHub
+import net.sourceforge.kolmafia.request.AlliedHqRequestHub
+import net.sourceforge.kolmafia.request.RumpleRequestHub
+import net.sourceforge.kolmafia.request.TicketCounterRequestHub
+import net.sourceforge.kolmafia.request.DinseyCompanyStoreRequestHub
+import net.sourceforge.kolmafia.request.EdShopRequestHub
+import net.sourceforge.kolmafia.request.PrecinctRequestHub
+import net.sourceforge.kolmafia.request.SpacegateFabricationRequestHub
+import net.sourceforge.kolmafia.request.FDKOLRequestHub
+import net.sourceforge.kolmafia.request.MrStore2002RequestHub
+import net.sourceforge.kolmafia.request.AppleStoreRequestHub
+import net.sourceforge.kolmafia.request.BrogurtRequestHub
+import net.sourceforge.kolmafia.request.GMartRequestHub
+import net.sourceforge.kolmafia.request.RubeeRequestHub
+import net.sourceforge.kolmafia.request.YourCampfireRequestHub
+import net.sourceforge.kolmafia.request.KiwiKwikiMartRequestHub
+import net.sourceforge.kolmafia.request.NeandermallRequestHub
+import net.sourceforge.kolmafia.request.CrimboCartelLegacyRequestHub
+import net.sourceforge.kolmafia.request.Crimbo23ElfBarRequestHub
+import net.sourceforge.kolmafia.request.Crimbo23ElfCafeRequestHub
+import net.sourceforge.kolmafia.request.Crimbo23ElfFactoryRequestHub
+import net.sourceforge.kolmafia.request.Crimbo23PirateArmoryRequestHub
+import net.sourceforge.kolmafia.request.Crimbo23PirateBarRequestHub
+import net.sourceforge.kolmafia.request.Crimbo23PirateCafeRequestHub
+import net.sourceforge.kolmafia.request.Crimbo23PirateFactoryRequestHub
+import net.sourceforge.kolmafia.request.Crimbo24BarRequestHub
+import net.sourceforge.kolmafia.request.Crimbo24CafeRequestHub
+import net.sourceforge.kolmafia.request.Crimbo24FactoryRequestHub
+import net.sourceforge.kolmafia.request.FunALogRequestHub
+import net.sourceforge.kolmafia.request.JunkMagazineRequestHub
+import net.sourceforge.kolmafia.request.KOLHSArtRequestHub
+import net.sourceforge.kolmafia.request.KOLHSChemRequestHub
+import net.sourceforge.kolmafia.request.KOLHSShopRequestHub
+import net.sourceforge.kolmafia.request.SeptEmberCenserRequestHub
+import net.sourceforge.kolmafia.request.SpinMasterLatheRequestHub
+import net.sourceforge.kolmafia.request.ShoreGiftShopRequestHub
+import net.sourceforge.kolmafia.request.InternetMemeShopRequestHub
+import net.sourceforge.kolmafia.request.TerrifiedEagleInnRequestHub
+import net.sourceforge.kolmafia.request.TinkeringBenchRequestHub
+import net.sourceforge.kolmafia.request.VendingMachineRequestHub
+import net.sourceforge.kolmafia.request.FixodentRequestHub
+import net.sourceforge.kolmafia.request.PlumberGearRequestHub
+import net.sourceforge.kolmafia.request.PlumberItemRequestHub
+import net.sourceforge.kolmafia.request.PokemporiumRequestHub
+import net.sourceforge.kolmafia.request.FancyDanRequestHub
+import net.sourceforge.kolmafia.request.NinaStoreRequestHub
+import net.sourceforge.kolmafia.request.YeNeweSouvenirShoppeRequestHub
+import net.sourceforge.kolmafia.request.XOShopRequestHub
+import net.sourceforge.kolmafia.request.SpantRequestHub
+import net.sourceforge.kolmafia.request.GuzzlrRequestHub
+import net.sourceforge.kolmafia.request.GrandmaRequestHub
+import net.sourceforge.kolmafia.request.ArmoryAndLeggeryRequestHub
+import net.sourceforge.kolmafia.request.CosmicRaysBazaarRequestHub
+import net.sourceforge.kolmafia.request.GeneticFiddlingRequestHub
+import net.sourceforge.kolmafia.request.AirportDutyFreeRequestHub
+import net.sourceforge.kolmafia.request.ChemiCorpRequestHub
+import net.sourceforge.kolmafia.request.GotporkOrphanageRequestHub
+import net.sourceforge.kolmafia.request.GotporkPDRequestHub
+import net.sourceforge.kolmafia.request.BuffJimmyRequestHub
+import net.sourceforge.kolmafia.request.TacoDanRequestHub
+import net.sourceforge.kolmafia.request.ShawarmaInitiativeRequestHub
+import net.sourceforge.kolmafia.request.CanteenRequestHub
+import net.sourceforge.kolmafia.request.SpacegateArmoryRequestHub
+import net.sourceforge.kolmafia.request.LtTRequestHub
+import net.sourceforge.kolmafia.request.CindyRequestHub
+import net.sourceforge.kolmafia.request.InfernoDiscoRequestHub
+import net.sourceforge.kolmafia.request.WarbearBoxRequestHub
+import net.sourceforge.kolmafia.request.WalMartRequestHub
+import net.sourceforge.kolmafia.request.ToxicChemistryRequestHub
+import net.sourceforge.kolmafia.request.FishboneryRequestHub
+import net.sourceforge.kolmafia.request.DinostaurRequestHub
+import net.sourceforge.kolmafia.request.DinoBoneFragmentRequestHub
+import net.sourceforge.kolmafia.request.BeerGardenRequestHub
+import net.sourceforge.kolmafia.request.ShoeRepairRequestHub
+import net.sourceforge.kolmafia.request.WetCrapForSaleRequestHub
+import net.sourceforge.kolmafia.request.PorkElfPotteryShardRequestHub
+import net.sourceforge.kolmafia.request.WinterGardenRequestHub
+import net.sourceforge.kolmafia.request.UsingYourShowerThoughtsRequestHub
+import net.sourceforge.kolmafia.request.ThankShopRequestHub
+import net.sourceforge.kolmafia.request.SliemceRequestHub
+import net.sourceforge.kolmafia.request.DollHawkerRequestHub
+import net.sourceforge.kolmafia.request.LunarLunchRequestHub
+import net.sourceforge.kolmafia.request.TwitchJoustingRequestHub
+import net.sourceforge.kolmafia.request.PrimordialSoupKitchenRequestHub
+import net.sourceforge.kolmafia.request.KringleRequestHub
+import net.sourceforge.kolmafia.request.LandfillDetritus2015RequestHub
+import net.sourceforge.kolmafia.request.DocGalaktikShopRequestHub
+import net.sourceforge.kolmafia.request.MeatsmithShopRequestHub
+import net.sourceforge.kolmafia.request.MayoClinicShopRequestHub
+import net.sourceforge.kolmafia.request.HiddenTavernShopRequestHub
+import net.sourceforge.kolmafia.request.HippyStoreRequestHub
+import net.sourceforge.kolmafia.request.FwShopRequestHub
+import net.sourceforge.kolmafia.request.DripCafeteriaShopRequestHub
+import net.sourceforge.kolmafia.request.Vault1ShopRequestHub
+import net.sourceforge.kolmafia.request.Vault2ShopRequestHub
+import net.sourceforge.kolmafia.request.Vault3ShopRequestHub
+import net.sourceforge.kolmafia.request.GeneralStoreRequestHub
+import net.sourceforge.kolmafia.request.GnollShopRequestHub
+import net.sourceforge.kolmafia.request.BartenderShopRequestHub
+import net.sourceforge.kolmafia.request.BartlebysShopRequestHub
+import net.sourceforge.kolmafia.request.WildfireShopRequestHub
+import net.sourceforge.kolmafia.request.WhiteCitadelShopRequestHub
+import net.sourceforge.kolmafia.request.KnobDispensaryRequestHub
+import net.sourceforge.kolmafia.request.BugbearBakeryRequestHub
+import net.sourceforge.kolmafia.request.ChinatownShopsRequestHub
+import net.sourceforge.kolmafia.request.TweedleporiumRequestHub
 import net.sourceforge.kolmafia.request.ActionBarRequest
 import net.sourceforge.kolmafia.request.LocketRequest
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
+import net.sourceforge.kolmafia.session.DynamicChoiceSpoilers
+import net.sourceforge.kolmafia.session.AvailableCombatSkills
+import net.sourceforge.kolmafia.session.FightRamTracker
 import net.sourceforge.kolmafia.skill.UseSkillSync
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.chat.ChatProbe
@@ -627,7 +776,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase5050"
+        const val REVISION = "phase5590"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -2968,6 +3117,7 @@ class GameRuntimeLibrary(
     }
 
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
+        syncDynamicChoiceSpoilers()
         val normalizedUrl = url.orEmpty()
             .removePrefix(KOL_BASE_URL)
             .removePrefix("/")
@@ -3149,6 +3299,152 @@ class GameRuntimeLibrary(
             TerminalExtrudeRequestHub.registerRequest(url, sessionLogger)
             SpacegateEquipmentRequestHub.registerRequest(url, sessionLogger)
             ChefStaffRequestHub.registerRequest(url, sessionLogger)
+            BURTRequest.registerRequest(url, sessionLogger)
+            FreeSnackRequest.registerRequest(url, sessionLogger)
+            GameShoppeRequest.registerRequest(url, sessionLogger)
+            ShadowForgeRequest.registerRequest(url, sessionLogger)
+            IsotopeSmitheryRequest.registerRequest(url, sessionLogger)
+            AltarOfBonesRequest.registerRequest(url, sessionLogger)
+            TravelingTraderRequest.registerRequest(url, sessionLogger)
+            CrimboCartelRequest.registerRequest(url, sessionLogger)
+            BigBrotherRequest.registerRequest(url, sessionLogger)
+            FudgeWandRequest.registerRequest(url, sessionLogger)
+            SkeletonOfCrimboPastRequest.registerRequest(url, sessionLogger)
+            AWOLQuartermasterRequest.registerRequest(url, sessionLogger)
+            MrStoreRequest.registerRequest(url, sessionLogger)
+            SwaggerShopRequest.registerRequest(url, sessionLogger)
+            SendGiftRequestHub.registerRequest(url, sessionLogger)
+            SendMailRequestHub.registerRequest(url, sessionLogger)
+            GourdRequestHub.registerRequest(url, sessionLogger)
+            FriarRequestHub.registerRequest(url, sessionLogger)
+            FamiliarRequestHub.registerRequest(url, sessionLogger)
+            Crimbo20BoozeRequest.registerRequest(url, sessionLogger)
+            Crimbo20FoodRequest.registerRequest(url, sessionLogger)
+            Crimbo20CandyRequest.registerRequest(url, sessionLogger)
+            DedigitizerRequest.registerRequest(url, sessionLogger)
+            BatFabricatorRequest.registerRequest(url, sessionLogger)
+            DiscoGiftCoRequest.registerRequest(url, sessionLogger)
+            RenaissanceGiftShopRequest.registerRequest(url, sessionLogger)
+            SummoningChamberRequestHub.registerRequest(url, sessionLogger)
+            SafetyShelterRequest.registerRequest(url, sessionLogger)
+            DimemasterRequestHub.registerRequest(url, sessionLogger)
+            QuartersmasterRequestHub.registerRequest(url, sessionLogger)
+            FlowerTradeinRequestHub.registerRequest(url, sessionLogger)
+            MerchTableRequestHub.registerRequest(url, sessionLogger)
+            DripArmoryRequestHub.registerRequest(url, sessionLogger)
+            TrapperRequestHub.registerRequest(url, sessionLogger)
+            ReplicaMrStoreRequestHub.registerRequest(url, sessionLogger)
+            BlackMarketRequestHub.registerRequest(url, sessionLogger)
+            Crimbo25SammyRequestHub.registerRequest(url, sessionLogger)
+            Crimbo23ElfArmoryRequestHub.registerRequest(url, sessionLogger)
+            FiveDPrinterRequestHub.registerRequest(url, sessionLogger)
+            PixelRequestHub.registerRequest(url, sessionLogger)
+            JarlsbergRequestHub.registerRequest(url, sessionLogger)
+            AlliedHqRequestHub.registerRequest(url, sessionLogger)
+            RumpleRequestHub.registerRequest(url, sessionLogger)
+            TicketCounterRequestHub.registerRequest(url, sessionLogger)
+            DinseyCompanyStoreRequestHub.registerRequest(url, sessionLogger)
+            EdShopRequestHub.registerRequest(url, sessionLogger)
+            PrecinctRequestHub.registerRequest(url, sessionLogger)
+            SpacegateFabricationRequestHub.registerRequest(url, sessionLogger)
+            FDKOLRequestHub.registerRequest(url, sessionLogger)
+            MrStore2002RequestHub.registerRequest(url, sessionLogger)
+            AppleStoreRequestHub.registerRequest(url, sessionLogger)
+            BrogurtRequestHub.registerRequest(url, sessionLogger)
+            GMartRequestHub.registerRequest(url, sessionLogger)
+            RubeeRequestHub.registerRequest(url, sessionLogger)
+            YourCampfireRequestHub.registerRequest(url, sessionLogger)
+            KiwiKwikiMartRequestHub.registerRequest(url, sessionLogger)
+            NeandermallRequestHub.registerRequest(url, sessionLogger)
+            CrimboCartelLegacyRequestHub.registerRequest(url, sessionLogger)
+            Crimbo23ElfBarRequestHub.registerRequest(url, sessionLogger)
+            Crimbo23ElfCafeRequestHub.registerRequest(url, sessionLogger)
+            Crimbo23ElfFactoryRequestHub.registerRequest(url, sessionLogger)
+            Crimbo23PirateArmoryRequestHub.registerRequest(url, sessionLogger)
+            Crimbo23PirateBarRequestHub.registerRequest(url, sessionLogger)
+            Crimbo23PirateCafeRequestHub.registerRequest(url, sessionLogger)
+            Crimbo23PirateFactoryRequestHub.registerRequest(url, sessionLogger)
+            Crimbo24BarRequestHub.registerRequest(url, sessionLogger)
+            Crimbo24CafeRequestHub.registerRequest(url, sessionLogger)
+            Crimbo24FactoryRequestHub.registerRequest(url, sessionLogger)
+            FunALogRequestHub.registerRequest(url, sessionLogger)
+            JunkMagazineRequestHub.registerRequest(url, sessionLogger)
+            KOLHSArtRequestHub.registerRequest(url, sessionLogger)
+            KOLHSChemRequestHub.registerRequest(url, sessionLogger)
+            KOLHSShopRequestHub.registerRequest(url, sessionLogger)
+            SeptEmberCenserRequestHub.registerRequest(url, sessionLogger)
+            SpinMasterLatheRequestHub.registerRequest(url, sessionLogger)
+            ShoreGiftShopRequestHub.registerRequest(url, sessionLogger)
+            InternetMemeShopRequestHub.registerRequest(url, sessionLogger)
+            TerrifiedEagleInnRequestHub.registerRequest(url, sessionLogger)
+            TinkeringBenchRequestHub.registerRequest(url, sessionLogger)
+            VendingMachineRequestHub.registerRequest(url, sessionLogger)
+            FixodentRequestHub.registerRequest(url, sessionLogger)
+            PlumberGearRequestHub.registerRequest(url, sessionLogger)
+            PlumberItemRequestHub.registerRequest(url, sessionLogger)
+            PokemporiumRequestHub.registerRequest(url, sessionLogger)
+            FancyDanRequestHub.registerRequest(url, sessionLogger)
+            NinaStoreRequestHub.registerRequest(url, sessionLogger)
+            YeNeweSouvenirShoppeRequestHub.registerRequest(url, sessionLogger)
+            XOShopRequestHub.registerRequest(url, sessionLogger)
+            SpantRequestHub.registerRequest(url, sessionLogger)
+            GuzzlrRequestHub.registerRequest(url, sessionLogger)
+            GrandmaRequestHub.registerRequest(url, sessionLogger)
+            ArmoryAndLeggeryRequestHub.registerRequest(url, sessionLogger)
+            CosmicRaysBazaarRequestHub.registerRequest(url, sessionLogger)
+            GeneticFiddlingRequestHub.registerRequest(url, sessionLogger)
+            AirportDutyFreeRequestHub.registerRequest(url, sessionLogger)
+            ChemiCorpRequestHub.registerRequest(url, sessionLogger)
+            GotporkOrphanageRequestHub.registerRequest(url, sessionLogger)
+            GotporkPDRequestHub.registerRequest(url, sessionLogger)
+            BuffJimmyRequestHub.registerRequest(url, sessionLogger)
+            TacoDanRequestHub.registerRequest(url, sessionLogger)
+            ShawarmaInitiativeRequestHub.registerRequest(url, sessionLogger)
+            CanteenRequestHub.registerRequest(url, sessionLogger)
+            SpacegateArmoryRequestHub.registerRequest(url, sessionLogger)
+            LtTRequestHub.registerRequest(url, sessionLogger)
+            CindyRequestHub.registerRequest(url, sessionLogger)
+            InfernoDiscoRequestHub.registerRequest(url, sessionLogger)
+            WarbearBoxRequestHub.registerRequest(url, sessionLogger)
+            WalMartRequestHub.registerRequest(url, sessionLogger)
+            ToxicChemistryRequestHub.registerRequest(url, sessionLogger)
+            FishboneryRequestHub.registerRequest(url, sessionLogger)
+            DinostaurRequestHub.registerRequest(url, sessionLogger)
+            DinoBoneFragmentRequestHub.registerRequest(url, sessionLogger)
+            BeerGardenRequestHub.registerRequest(url, sessionLogger)
+            ShoeRepairRequestHub.registerRequest(url, sessionLogger)
+            WetCrapForSaleRequestHub.registerRequest(url, sessionLogger)
+            PorkElfPotteryShardRequestHub.registerRequest(url, sessionLogger)
+            WinterGardenRequestHub.registerRequest(url, sessionLogger)
+            UsingYourShowerThoughtsRequestHub.registerRequest(url, sessionLogger)
+            ThankShopRequestHub.registerRequest(url, sessionLogger)
+            SliemceRequestHub.registerRequest(url, sessionLogger)
+            DollHawkerRequestHub.registerRequest(url, sessionLogger)
+            LunarLunchRequestHub.registerRequest(url, sessionLogger)
+            TwitchJoustingRequestHub.registerRequest(url, sessionLogger)
+            PrimordialSoupKitchenRequestHub.registerRequest(url, sessionLogger)
+            KringleRequestHub.registerRequest(url, sessionLogger)
+            LandfillDetritus2015RequestHub.registerRequest(url, sessionLogger)
+            DocGalaktikShopRequestHub.registerRequest(url, sessionLogger)
+            MeatsmithShopRequestHub.registerRequest(url, sessionLogger)
+            MayoClinicShopRequestHub.registerRequest(url, sessionLogger)
+            HiddenTavernShopRequestHub.registerRequest(url, sessionLogger)
+            HippyStoreRequestHub.registerRequest(url, sessionLogger)
+            FwShopRequestHub.registerRequest(url, sessionLogger)
+            DripCafeteriaShopRequestHub.registerRequest(url, sessionLogger)
+            Vault1ShopRequestHub.registerRequest(url, sessionLogger)
+            Vault2ShopRequestHub.registerRequest(url, sessionLogger)
+            Vault3ShopRequestHub.registerRequest(url, sessionLogger)
+            GeneralStoreRequestHub.registerRequest(url, sessionLogger)
+            GnollShopRequestHub.registerRequest(url, sessionLogger)
+            BartenderShopRequestHub.registerRequest(url, sessionLogger)
+            BartlebysShopRequestHub.registerRequest(url, sessionLogger)
+            WildfireShopRequestHub.registerRequest(url, sessionLogger)
+            WhiteCitadelShopRequestHub.registerRequest(url, sessionLogger)
+            KnobDispensaryRequestHub.registerRequest(url, sessionLogger)
+            BugbearBakeryRequestHub.registerRequest(url, sessionLogger)
+            ChinatownShopsRequestHub.registerRequest(url, sessionLogger)
+            TweedleporiumRequestHub.registerRequest(url, sessionLogger)
             if (url.contains("whichplace=nstower", ignoreCase = true) &&
                 SorceressLairSync.action(url) == "ns_10_sorcfight"
             ) {
@@ -3386,6 +3682,14 @@ class GameRuntimeLibrary(
                     ExpressionContext.from(state, emptyList())
                 } ?: ExpressionContext.EMPTY
                 CombatSkillConsequenceSync.applyFromFightHtml(html, prefs, exprCtx)
+                AvailableCombatSkills.setFromFightHtml(html)
+                val ramMod = buildCurrentModifiers().values.getInt(DoubleModifier.RAM)
+                if (ChoiceCombatAshState.currentRound <= 1) {
+                    FightRamTracker.onFightStart(ramMod)
+                }
+                extractDescSkillId(url)?.let { skillId ->
+                    FightRamTracker.applySkillCost(FightRamTracker.cyberSkillCost(skillId))
+                }
                 // Dwarf war uniform combat deduce (Phases 2646–2660)
                 if (html.contains("mattock glows", ignoreCase = true) ||
                     html.contains("crystal lens flips", ignoreCase = true) ||
@@ -4718,6 +5022,42 @@ class GameRuntimeLibrary(
     private fun extractDescSkillId(url: String): Int? =
         Regex("""whichskill=(\d+)""").find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
 
+    /** Desktop liberateKing path-skill reset: refresh skills when path exit needs it. */
+    private fun liberateKingAndMaybeRefreshSkills() {
+        character?.liberateKing(preferences)
+        syncDynamicChoiceSpoilers()
+        if (preferences?.getBoolean("_liberateKingNeedsSkillRefresh", false) == true) {
+            preferences.setBoolean("_liberateKingNeedsSkillRefresh", false)
+            kotlinx.coroutines.runBlocking { skillManager?.fetchSkills() }
+        }
+        val char = character
+        if (char != null && preferences?.getBoolean("_liberateKingNeedsPostRefresh", false) == true) {
+            preferences.setBoolean("_liberateKingNeedsPostRefresh", false)
+            kotlinx.coroutines.runBlocking {
+                CharacterStatusRefresh.refreshWithQuantumPreflight(
+                    characterRequest = characterRequest,
+                    character = char,
+                    effectManager = effectManager,
+                    preferences = preferences,
+                    familiarManager = familiarManager,
+                    equipmentManager = equipmentManager,
+                )
+            }
+        }
+    }
+
+    private fun syncDynamicChoiceSpoilers() {
+        DynamicChoiceSpoilers.preferences = preferences
+        DynamicChoiceSpoilers.questDatabase = questDatabase
+        DynamicChoiceSpoilers.itemCount = { id -> inventoryManager?.getCount(id) ?: 0 }
+        DynamicChoiceSpoilers.ascensions = {
+            character?.state?.value?.ascensionNumber ?: 0
+        }
+        DynamicChoiceSpoilers.characterClass = {
+            character?.state?.value?.characterClassEnum
+        }
+    }
+
     internal fun processVisitQuestHooks(html: String, url: String? = null) {
         if (url?.contains("choice.php", ignoreCase = true) == true) {
             val choice = Regex("""whichchoice=(\d+)""", RegexOption.IGNORE_CASE)
@@ -4751,7 +5091,7 @@ class GameRuntimeLibrary(
                 html = html,
                 questDatabase = db,
                 preferences = prefs,
-                setKingLiberated = { character?.setKingLiberated(true) },
+                setKingLiberated = { liberateKingAndMaybeRefreshSkills() },
             )
         }
         if (url?.contains(TowerDoorConfig.DOOR_PLACE, ignoreCase = true) == true ||
@@ -5151,7 +5491,7 @@ class GameRuntimeLibrary(
                         FamiliarDefinitionDatabase.getById(id)?.attributes?.contains(attr) == true
                     },
                     lastVisitedLocationName = preferences?.getString(Preferences.LAST_LOCATION, "").orEmpty(),
-                    setKingLiberated = { character?.setKingLiberated(true) },
+                    setKingLiberated = { liberateKingAndMaybeRefreshSkills() },
                     sessionLog = { line -> sessionLogger?.appendRawLine(line) },
                     checkDartPerks = {
                         val db = gameDatabase ?: return@apply
@@ -6202,6 +6542,8 @@ class GameRuntimeLibrary(
                 dreadKissesTracker,
                 wildfireCampManager,
                 character?.state?.value,
+                questDatabase,
+                CombatAdjustment.combatRateModifier(buildCurrentModifiers(), lastLocationName()),
             )
             AshType.PATH -> PathEntityFields.resolve(base.toString(), field, preferences)
             AshType.ITEM -> ItemEntityFields.resolve(
@@ -6553,6 +6895,15 @@ class GameRuntimeLibrary(
         registerPhase4930(scope)
         registerPhase4990(scope)
         registerPhase5050(scope)
+        registerPhase5110(scope)
+        registerPhase5170(scope)
+        registerPhase5230(scope)
+        registerPhase5290(scope)
+        registerPhase5350(scope)
+        registerPhase5410(scope)
+        registerPhase5470(scope)
+        registerPhase5530(scope)
+        registerPhase5590(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->

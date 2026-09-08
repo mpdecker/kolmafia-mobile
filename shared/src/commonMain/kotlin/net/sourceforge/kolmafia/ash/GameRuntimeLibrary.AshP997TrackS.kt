@@ -5,8 +5,11 @@ import kotlin.math.roundToLong
 import kotlin.math.floor
 import kotlin.math.pow
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.request.PingRequest
+import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 import net.sourceforge.kolmafia.session.DadManager
+import net.sourceforge.kolmafia.session.FightRamTracker
 import net.sourceforge.kolmafia.session.HeistManager
 import net.sourceforge.kolmafia.session.PingManager
 import net.sourceforge.kolmafia.session.UnusualConstructManager
@@ -30,7 +33,9 @@ internal fun GameRuntimeLibrary.registerAshP997TrackSBatch(scope: AshScope) {
     }
 
     regFn(scope, "my_ram", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((preferences?.getInt("_ramDrinks", 0) ?: 0).toLong())
+        val round = ChoiceCombatAshState.currentRound
+        val ramMod = buildCurrentModifiers().values.getInt(DoubleModifier.RAM)
+        AshValue.of(FightRamTracker.getCurrent(round, ramMod).toLong())
     }
 
     regFn(scope, "my_wildfire_water", AshType.INT, emptyList()) { _, _ ->

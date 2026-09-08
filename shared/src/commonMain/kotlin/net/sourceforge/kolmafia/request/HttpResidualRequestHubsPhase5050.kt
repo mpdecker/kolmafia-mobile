@@ -17,7 +17,8 @@ object Crimbo11Request {
 object Crimbo14Request {
     fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
         if (!url.contains("crimbo14.php", ignoreCase = true) &&
-            !url.contains("whichshop=crimbo14", ignoreCase = true)
+            !url.contains("whichshop=crimbo14", ignoreCase = true) &&
+            !url.contains("whichshop=crimbo14turnin", ignoreCase = true)
         ) {
             return false
         }
@@ -85,18 +86,18 @@ object StarChartRequestHub {
 
 object InterestingCoinRequestHub {
     fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
-        if (!url.contains("interesting", ignoreCase = true) &&
-            !url.contains("whichshop=0", ignoreCase = true)
+        if (!url.contains("whichshop=interesting", ignoreCase = true) &&
+            !url.contains("interesting", ignoreCase = true)
         ) {
-            // Desktop interesting coin shop id varies; match common patterns.
-            if (!url.contains("coinmaster", ignoreCase = true) ||
-                !url.contains("interesting", ignoreCase = true)
-            ) {
-                return false
-            }
+            return false
         }
-        if (!url.contains("interesting", ignoreCase = true)) return false
-        sessionLogger?.appendRawLine("Visiting Interesting Coin shop")
+        // Avoid false positives on unrelated "interesting" URLs.
+        if (!url.contains("whichshop=", ignoreCase = true) &&
+            !url.contains("shop.php", ignoreCase = true)
+        ) {
+            return false
+        }
+        sessionLogger?.appendRawLine("Visiting Spend your Interesting Coins")
         return true
     }
 }

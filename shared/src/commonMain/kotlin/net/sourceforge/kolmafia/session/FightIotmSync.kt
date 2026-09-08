@@ -57,9 +57,42 @@ object FightIotmSync {
             FAMILIAR_MELODRAMEDARY ->
                 changed = applyMelodramedary(html, preferences) || changed
         }
+        changed = applyHoldHands(html, preferences, monsterName, locationName) || changed
         // Cosmic bowling ball return timer ticks each fight start (desktop FightRequest)
         if (!won) {
             // no-op: return combats decremented on fight start separately
+        }
+        return changed
+    }
+
+    /**
+     * Desktop [FightRequest] HOLD_HANDS skill success + encounter decrement.
+     */
+    fun applyHoldHands(
+        html: String,
+        preferences: Preferences,
+        monsterName: String,
+        locationName: String,
+    ): Boolean {
+        var changed = false
+        val skillSuccess = html.contains(
+            "stop the battle for a moment and hold hands with you",
+            ignoreCase = true,
+        )
+        if (skillSuccess) {
+            preferences.setString("holdHandsMonster", monsterName)
+            preferences.setInt("holdHandsMonsterCount", 3)
+            if (locationName.isNotBlank()) {
+                preferences.setString("holdHandsLocation", locationName)
+            }
+            changed = true
+        } else if (EncounterManager.isHoldHandsMonster(preferences, monsterName, locationName)) {
+            // Desktop decrements on encounter with the hold-hands monster (not on cast).
+            preferences.setInt(
+                "holdHandsMonsterCount",
+                (preferences.getInt("holdHandsMonsterCount", 0) - 1).coerceAtLeast(0),
+            )
+            changed = true
         }
         return changed
     }

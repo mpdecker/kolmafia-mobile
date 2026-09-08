@@ -31,6 +31,8 @@ object ChoiceCombatAshState {
         lastFightResponseText = ""
         lastFormFields.clear()
         combatFilterOverride = null
+        AvailableCombatSkills.clear()
+        FightRamTracker.reset()
     }
 
     fun setFormFieldsFromPostData(postData: String) {
@@ -70,6 +72,8 @@ object ChoiceCombatAshState {
     fun noteFightEnd(responseText: String = lastFightResponseText) {
         lastFightResponseText = responseText
         currentRound = 0
+        AvailableCombatSkills.clear()
+        FightRamTracker.onFightEnd()
     }
 
     fun bufferOf(text: String): StringBuilder = StringBuilder(text)

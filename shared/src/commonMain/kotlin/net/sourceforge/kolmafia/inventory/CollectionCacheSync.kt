@@ -44,6 +44,20 @@ object CollectionCacheSync {
         CollectionCache.save(preferences, Preferences.CACHED_DISPLAY, display)
     }
 
+    /**
+     * Desktop [KoLCharacter.liberateKing] storage merge:
+     * freepulls move into storage and freepull bucket clears.
+     */
+    fun mergeFreepullsIntoStorage(preferences: Preferences) {
+        val storage = CollectionCache.load(preferences, Preferences.CACHED_STORAGE).toMutableMap()
+        val freepulls = CollectionCache.load(preferences, Preferences.CACHED_FREEPULLS)
+        for ((id, qty) in freepulls) {
+            if (qty <= 0) continue
+            storage[id] = (storage[id] ?: 0) + qty
+        }
+        saveStorage(preferences, storage, emptyMap())
+    }
+
     suspend fun refreshCloset(closetRequest: ClosetRequest, preferences: Preferences) {
         saveCloset(preferences, closetRequest.fetchContents())
     }

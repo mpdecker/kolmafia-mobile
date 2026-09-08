@@ -117,6 +117,10 @@ class AdventureRequest(
      * Desktop TavernManager.recommendSquare subset — first unexplored ('0') cell.
      */
     fun recommendCellarSquare(layout: String): Int {
+        val override = net.sourceforge.kolmafia.session.TavernManager.overrideSquare
+        if (override >= 0) return override + 1
+        val ordered = net.sourceforge.kolmafia.session.TavernManager.nextUnexploredSquare(layout)
+        if (ordered > 0) return ordered
         val pad = layout.padEnd(25, '0')
         for (i in pad.indices) {
             if (pad[i] == '0') return i + 1

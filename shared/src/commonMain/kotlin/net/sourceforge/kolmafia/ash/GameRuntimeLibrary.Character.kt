@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.adventure.AdventurePrep
+import net.sourceforge.kolmafia.character.CharpaneInteraction
 import net.sourceforge.kolmafia.modifiers.StatNames
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
@@ -48,7 +49,7 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
 
     regFn(scope, "can_interact", AshType.BOOLEAN, emptyList()) { _, _ ->
         val cs = character?.state?.value
-        AshValue.of(cs != null && !cs.isHardcore && !cs.isInRonin)
+        AshValue.of(cs != null && CharpaneInteraction.checkInteraction(cs))
     }
 
     regFn(scope, "is_dark_mode", AshType.BOOLEAN, emptyList()) { _, _ ->
@@ -88,9 +89,23 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
         )
     }
 
-    // prepare_for_adventure() → boolean (no location — always succeeds)
+    // prepare_for_adventure() → boolean (uses last location when known)
     regFn(scope, "prepare_for_adventure", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(true)
+        val locationName = preferences?.getString(Preferences.LAST_LOCATION, "").orEmpty()
+        if (locationName.isBlank()) return@regFn AshValue.of(true)
+        val ok = kotlinx.coroutines.runBlocking {
+            AdventurePrep.prepareForAdventure(
+                locationName,
+                outfitManager,
+                preferences,
+                retrieveItemService,
+                useItemRequest,
+                gameDatabase,
+                familiarManager,
+                character?.state?.value,
+            )
+        }
+        AshValue.of(ok)
     }
 
     // prepare_for_adventure(loc: location) → boolean

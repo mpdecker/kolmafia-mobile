@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 
 internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
@@ -63,6 +64,12 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
     regFn(scope, "closet_amount", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
         AshValue.of(cachedItemAmount(Preferences.CACHED_CLOSET, args[0].toString()))
     }
+    regFn(scope, "closet_amount", AshType.INT, listOf("it" to AshType.INT)) { _, args ->
+        val itemId = args[0].toLong().toInt()
+        if (itemId <= 0) return@regFn AshValue.of(0L)
+        val name = gameDatabase?.item(itemId)?.name ?: return@regFn AshValue.of(0L)
+        AshValue.of(cachedItemAmount(Preferences.CACHED_CLOSET, name))
+    }
 
     // ── get_storage() → int[item] (live — fetches from api.php?what=storage) ─
     regFn(scope, "get_storage", itemIntType, emptyList()) { _, _ ->
@@ -88,6 +95,16 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
         val itemName = args[0].toString()
         val storage = cachedItemAmount(Preferences.CACHED_STORAGE, itemName)
         val freepull = cachedItemAmount(Preferences.CACHED_FREEPULLS, itemName)
+        AshValue.of(storage + freepull)
+    }
+    regFn(scope, "storage_amount", AshType.INT, listOf("it" to AshType.INT)) { _, args ->
+        val itemId = args[0].toLong().toInt()
+        if (itemId <= 0) return@regFn AshValue.of(0L)
+        val name = gameDatabase?.item(itemId)?.name
+            ?: ItemDatabase.getItemName(itemId).takeIf { it.isNotBlank() }
+            ?: return@regFn AshValue.of(0L)
+        val storage = cachedItemAmount(Preferences.CACHED_STORAGE, name)
+        val freepull = cachedItemAmount(Preferences.CACHED_FREEPULLS, name)
         AshValue.of(storage + freepull)
     }
 

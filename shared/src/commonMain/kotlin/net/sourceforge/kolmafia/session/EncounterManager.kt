@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.session
 
 import net.sourceforge.kolmafia.combat.MonsterStatusTracker
+import net.sourceforge.kolmafia.data.CombatDatabase
 import net.sourceforge.kolmafia.data.EncounterData
 import net.sourceforge.kolmafia.data.EncounterDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
@@ -230,6 +231,35 @@ object EncounterManager {
 
     fun isSaberForceMonster(preferences: Preferences?): Boolean =
         isSaberForceMonster(MonsterStatusTracker.getLastMonsterName(), preferences)
+
+    /** Desktop [EncounterManager.isSaberForceZone] — saber monster appears in [zone]. */
+    fun isSaberForceZone(zone: String, preferences: Preferences?): Boolean {
+        if (preferences == null) return false
+        if (preferences.getInt("_saberForceMonsterCount", 0) < 1) return false
+        val monster = preferences.getString("_saberForceMonster", "")
+        if (monster.isBlank()) return false
+        return CombatDatabase.getByLocation(zone)?.monsters?.any {
+            it.name.equals(monster, ignoreCase = true)
+        } == true
+    }
+
+    fun isSaberForceMonster(monsterName: String, zone: String, preferences: Preferences?): Boolean {
+        if (!isSaberForceZone(zone, preferences)) return false
+        return isSaberForceMonster(monsterName, preferences)
+    }
+
+    /** Desktop [EncounterManager.isHoldHandsMonster]. */
+    fun isHoldHandsMonster(
+        preferences: Preferences?,
+        monsterName: String = MonsterStatusTracker.getLastMonsterName(),
+        locationName: String? = null,
+    ): Boolean {
+        if (preferences == null) return false
+        if (preferences.getInt("holdHandsMonsterCount", 0) < 1) return false
+        val loc = locationName?.takeIf { it.isNotBlank() } ?: return false
+        return monsterName.equals(preferences.getString("holdHandsMonster", ""), ignoreCase = true) &&
+            loc.equals(preferences.getString("holdHandsLocation", ""), ignoreCase = true)
+    }
 
     fun isRelativityMonster(preferences: Preferences?): Boolean {
         if (preferences?.getBoolean("_relativityMonster") != true) return false

@@ -30,6 +30,31 @@ object LouvreManager {
     private val GOAL_ITEMS = intArrayOf(1949, 1950, 1951) // Manetwich, Vangoghbitussin, Pinot Renoir
     private const val GOAL_COUNT = 9
 
+    private val LOCATION_NAMES = arrayOf(
+        "Relativity",
+        "The Persistence of Memory: shoes/Dancin' Fool (buff), Venus, Piet Mondrian",
+        "Piet Mondrian: Scream, Moxie, Adam",
+        "The Scream: Relativity, Venus, Manetwich",
+        "The Birth of Venus: Swordholder (buff), Nighthawks, Adam",
+        "The Creation of Adam: Socrates, Muscle, Sunday Afternoon",
+        "The Death of Socrates: Relativity, Nighthawks, Vangoghbitussin",
+        "Nighthawks: Is This Your Card? (buff), Persistence of Memory, Sunday Afternoon",
+        "Sunday Afternoon on the Island of La Grande Jatte: The Last Supper, Mysticality, Piet Mondrian",
+        "The Last Supper: Relativity, Persistence of Memory, Pinot Renoir",
+    )
+
+    private val GOALS = arrayOf(
+        "Manetwich",
+        "bottle of Vangoghbitussin",
+        "bottle of Pinot Renoir",
+        "Muscle",
+        "Mysticality",
+        "Moxie",
+        "Lady Spookyraven's shoes/Dancin' Fool (buff)",
+        "Swordholder (buff)",
+        "Is This Your Card? (buff)",
+    )
+
     private val nodeMarks = BooleanArray(LAST_CHOICE - FIRST_CHOICE + 1)
 
     fun louvreChoice(choice: Int): Boolean = choice in FIRST_CHOICE..LAST_CHOICE
@@ -98,6 +123,25 @@ object LouvreManager {
 
     private fun choiceTuple(source: Int): IntArray? =
         if (louvreChoice(source)) LOCATION_EXITS[source - FIRST_CHOICE] else null
+
+    /** Desktop [LouvreManager.choiceSpoilers] for `available_choice_options(true)`. */
+    fun choiceSpoilers(choice: Int): ChoiceAdventures.Spoilers? {
+        if (!louvreChoice(choice)) return null
+        val exits = choiceTuple(choice) ?: return null
+        val options = listOf(
+            ChoiceOption(choiceName(exits[0])),
+            ChoiceOption(choiceName(exits[1])),
+            ChoiceOption(choiceName(exits[2])),
+        )
+        return ChoiceAdventures.Spoilers(choice, LOCATION_NAMES[choice - FIRST_CHOICE], options)
+    }
+
+    private fun choiceName(destination: Int): String = when {
+        destination == 0 -> ""
+        destination in 1..GOAL_COUNT -> GOALS[destination - 1]
+        louvreChoice(destination) -> LOCATION_NAMES[destination - FIRST_CHOICE]
+        else -> ""
+    }
 
     private fun pickNewExit(source: Int, goal: Int): Int {
         val choices = choiceTuple(source) ?: return 1

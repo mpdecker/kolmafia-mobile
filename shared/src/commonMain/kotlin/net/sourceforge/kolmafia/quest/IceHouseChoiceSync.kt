@@ -21,7 +21,7 @@ object IceHouseChoiceSync {
         if (choiceId != CHOICE_ID || banishManager == null) return false
         val monster = ICEHOUSE_PATTERN.find(html)?.groupValues?.getOrNull(1)?.trim()
             ?: return false
-        banishManager.banishMonster(monster, Banisher.ICE_HOUSE, currentTurn)
+        banishManager.banishMonster(monster, Banisher.ICE_HOUSE, currentTurn, adventureResult = false)
         return true
     }
 
