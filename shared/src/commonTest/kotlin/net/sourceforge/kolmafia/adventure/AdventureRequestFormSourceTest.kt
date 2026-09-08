@@ -51,8 +51,10 @@ class AdventureRequestFormSourceTest {
     @Test
     fun recommendCellarSquare_findsFirstDark() {
         val request = AdventureRequest(HttpClient(MockEngine { respond("") }))
-        assertEquals(1, request.recommendCellarSquare("0000000000000000000000000"))
-        assertEquals(3, request.recommendCellarSquare("1100000000000000000000000"))
+        // Desktop TavernManager.searchOrder starts at square 4.
+        assertEquals(4, request.recommendCellarSquare("0000000000000000000000000"))
+        assertEquals(4, request.recommendCellarSquare("1100000000000000000000000"))
+        assertEquals(3, request.recommendCellarSquare("1101000000000000000000000"))
         assertEquals(0, request.recommendCellarSquare("1".repeat(25)))
     }
 }

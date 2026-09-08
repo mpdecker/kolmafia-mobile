@@ -4,15 +4,16 @@ import net.sourceforge.kolmafia.ash.currentDateString
 
 /**
  * Real-life holiday names for [holiday()] ASH/CLI.
- * Game-calendar holidays (Bill 1, etc.) are not included in this simplified port.
+ * Mirrors desktop [HolidayDatabase.getRealLifeHoliday] / [getRealLifeOnlyHoliday].
  */
 object HolidayCalendar {
 
     fun getHoliday(dateYmd: String = currentDateString()): String {
         if (dateYmd.length != 8) return ""
+        val year = dateYmd.substring(0, 4).toIntOrNull() ?: return ""
         val month = dateYmd.substring(4, 6).toIntOrNull() ?: return ""
         val day = dateYmd.substring(6, 8).toIntOrNull() ?: return ""
-        return realLifeHoliday(month, day) ?: ""
+        return realLifeHoliday(year, month, day) ?: ""
     }
 
     /** Desktop HolidayDatabase.isMonday — real-calendar Monday gate for lasagna garish bonus. */
@@ -24,52 +25,79 @@ object HolidayCalendar {
         return dayOfWeek(year, month, day) == 1
     }
 
-    private fun realLifeHoliday(month: Int, day: Int): String? = when (month) {
-        1 -> when (day) {
-            1 -> "New Year's Day"
+    private fun realLifeHoliday(year: Int, month: Int, day: Int): String? {
+        // Primary real-life holidays (also shown alongside game calendar).
+        when {
+            month == 1 && day == 1 -> return "Festival of Jarlsberg"
+            month == 2 && day == 14 -> return "Valentine's Day"
+            month == 3 && day == 17 -> return "St. Sneaky Pete's Day"
+            month == 7 && day == 4 -> return "Dependence Day"
+            month == 10 && day == 31 -> return "Halloween"
+            isEaster(year, month, day) -> return "Oyster Egg Day"
+            isThanksgiving(year, month, day) -> return "Feast of Boris"
+        }
+        // Real-life-only holidays.
+        return when {
+            month == 12 && day == 15 -> {
+                val nth = year - 2004
+                "KoLmafia's ${withOrdinalSuffix(nth)} Birthday"
+            }
+            month == 2 && day == 2 -> "Groundhog Day"
+            month == 4 && day == 1 -> "April Fool's Day"
+            month == 9 && day == 19 -> "Talk Like a Pirate Day"
+            month == 12 && day == 25 -> "Crimbo"
+            month == 10 && day == 22 -> "Holatuwol's Birthday"
+            month == 9 && day == 23 -> "Veracity's Birthday"
+            month == 2 && day == 17 -> "Gausie's Birthday"
+            month == 11 && day == 1 -> "Mr. Accessory's Birthday"
             else -> null
         }
-        2 -> when (day) {
-            2 -> "Groundhog Day"
-            14 -> "Valentine's Day"
-            else -> null
-        }
-        3 -> when (day) {
-            17 -> "St. Patrick's Day"
-            else -> null
-        }
-        4 -> when (day) {
-            1 -> "April Fool's Day"
-            else -> null
-        }
-        7 -> when (day) {
-            4 -> "Dependence Day"
-            else -> null
-        }
-        9 -> when (day) {
-            19 -> "Talk Like a Pirate Day"
-            else -> null
-        }
-        10 -> "Halloween"
-        11 -> when (day) {
-            1 -> "Mr. Accessory's Birthday"
-            else -> thanksgivingDay(month, day)
-        }
-        12 -> "Yuletide"
-        else -> null
     }
 
     /** US Thanksgiving — fourth Thursday of November. */
-    private fun thanksgivingDay(month: Int, day: Int): String? {
-        if (month != 11) return null
+    private fun isThanksgiving(year: Int, month: Int, day: Int): Boolean {
+        if (month != 11) return false
         var thursdays = 0
         for (d in 1..day) {
-            if (dayOfWeek(currentDateString().substring(0, 4).toIntOrNull() ?: 2026, month, d) == 4) thursdays++
+            if (dayOfWeek(year, month, d) == 4) thursdays++
         }
-        return if (thursdays == 4 && dayOfWeek(currentDateString().substring(0, 4).toIntOrNull() ?: 2026, month, day) == 4) "Feast of Boris" else null
+        return thursdays == 4 && dayOfWeek(year, month, day) == 4
     }
 
-    /** 0=Sunday … 6=Saturday. Uses Zeller-style approximation on real calendar. */
+    /**
+     * Anonymous Gregorian algorithm for Easter Sunday (desktop HolidayDatabase.getEaster).
+     */
+    private fun isEaster(year: Int, month: Int, day: Int): Boolean {
+        val a = year % 19
+        val b = year / 100
+        val c = year % 100
+        val d = b / 4
+        val e = b % 4
+        val f = (b + 8) / 25
+        val g = (b - f + 1) / 3
+        val h = (19 * a + b - d - g + 15) % 30
+        val i = c / 4
+        val k = c % 4
+        val l = (32 + 2 * e + 2 * i - h - k) % 7
+        val m = (a + 11 * h + 22 * l) / 451
+        val easterMonth = (h + l - 7 * m + 114) / 31
+        val easterDay = ((h + l - 7 * m + 114) % 31) + 1
+        return month == easterMonth && day == easterDay
+    }
+
+    private fun withOrdinalSuffix(n: Int): String {
+        val mod100 = n % 100
+        val suffix = when {
+            mod100 in 11..13 -> "th"
+            n % 10 == 1 -> "st"
+            n % 10 == 2 -> "nd"
+            n % 10 == 3 -> "rd"
+            else -> "th"
+        }
+        return "$n$suffix"
+    }
+
+    /** 0=Sunday … 6=Saturday. Uses Zeller congruence. */
     private fun dayOfWeek(year: Int, month: Int, day: Int): Int {
         val m = if (month < 3) month + 12 else month
         val yr = if (month < 3) year - 1 else year

@@ -55,6 +55,45 @@ object VioletFogManager {
         1620, // HOMEOPATHIC
     )
 
+    private val LOCATION_NAMES = arrayOf(
+        "Violet Fog (Start)",
+        "Man on Bicycle",
+        "Pleasant-Faced Man",
+        "Man on Cornflake",
+        "Giant Chessboard",
+        "Improbable Mustache",
+        "Fog of Birds",
+        "Intense-Looking Man",
+        "Boat on River",
+        "Man in Sunglasses",
+        "Huge Caterpillar",
+        "Man in Bowler",
+        "Dance Number",
+        "Huge Mountain",
+        "The Big Scary Place (Headgear)",
+        "The Big Scary Place (Weapon)",
+        "The Big Scary Place (Garment)",
+        "The Prince of Wishful Thinking (Body)",
+        "The Prince of Wishful Thinking (Wisdom)",
+        "The Prince of Wishful Thinking (Charm)",
+        "She's So Unusual (Alcohol)",
+        "She's So Unusual (Food)",
+        "She's So Unusual (Herbs or Medicines)",
+    )
+
+    private val FOG_GOALS = arrayOf(
+        "escape from the fog",
+        "Cerebral Cloche",
+        "Cerebral Crossbow",
+        "Cerebral Culottes",
+        "Muscle Training",
+        "Mysticality Training",
+        "Moxie Training",
+        "ice stein",
+        "munchies pill",
+        "homeopathic healing powder",
+    )
+
     // FogChoiceTable[source-48][decision-1] = dest choice, 0 unknown, -1 goal
     private val choiceTable = Array(LAST_CHOICE - FIRST_CHOICE + 1) { IntArray(4) }
 
@@ -170,6 +209,28 @@ object VioletFogManager {
 
     internal fun setChoiceForTest(source: Int, decision: Int, dest: Int) {
         choiceTable[source - FIRST_CHOICE][decision - 1] = dest
+    }
+
+    /** Desktop [VioletFogManager.choiceSpoilers] for `available_choice_options(true)`. */
+    fun choiceSpoilers(choice: Int): ChoiceAdventures.Spoilers? {
+        if (!fogChoice(choice)) return null
+        val destinations = choiceTable[choice - FIRST_CHOICE]
+        val options = listOf(
+            ChoiceOption(choiceName(choice, destinations[0])),
+            ChoiceOption(choiceName(choice, destinations[1])),
+            ChoiceOption(choiceName(choice, destinations[2])),
+            ChoiceOption(choiceName(choice, destinations[3])),
+        )
+        return ChoiceAdventures.Spoilers(choice, LOCATION_NAMES[choice - FIRST_CHOICE], options)
+    }
+
+    private fun choiceName(choice: Int, destination: Int): String = when {
+        destination == 0 -> ""
+        destination == -1 ->
+            if (choice < FIRST_GOAL_LOCATION) FOG_GOALS[0]
+            else FOG_GOALS[choice - FIRST_GOAL_LOCATION + 1]
+        fogChoice(destination) -> LOCATION_NAMES[destination - FIRST_CHOICE]
+        else -> ""
     }
 
     private fun parseGoal(

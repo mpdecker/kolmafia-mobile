@@ -82,7 +82,7 @@ object ChoiceUtilities {
         val choiceId = extractChoiceId(html)
             ?: ChoiceCombatAshState.lastChoice.takeIf { it > 0 }
             ?: return base
-        val spoilers = ChoiceAdventures.choiceSpoilers(choiceId) ?: return base
+        val spoilers = ChoiceAdventures.choiceSpoilers(choiceId, html) ?: return base
         for ((decision, text) in base.toList()) {
             val option = ChoiceAdventures.findOption(spoilers.options, decision) ?: continue
             val spoiler = option.name

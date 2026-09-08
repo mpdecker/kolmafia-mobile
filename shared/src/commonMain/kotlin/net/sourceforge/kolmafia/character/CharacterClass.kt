@@ -20,6 +20,10 @@ enum class CharacterClass(
     BEANSLINGER(9,     "Beanslinger",     MainStat.MYSTICALITY,   "Mysticality"),
     SNAKE_OILER(10,    "Snake Oiler",     MainStat.MOXIE,         "Moxie"),
     GELATINOUS_NOOB(11,"Gelatinous Noob", MainStat.MYSTICALITY,   "Mysticality"),
+    // Phase 5351: Avatar of Shadows Over Loathing temporary classes (desktop IDs 28–30)
+    PIG_SKINNER(28,    "Pig Skinner",     MainStat.MUSCLE,        "Muscle"),
+    CHEESE_WIZARD(29,  "Cheese Wizard",   MainStat.MYSTICALITY,   "Mysticality"),
+    JAZZ_AGENT(30,     "Jazz Agent",      MainStat.MOXIE,         "Moxie"),
     UNKNOWN(0,         "Unknown",         MainStat.MUSCLE,        "Muscle");
 
     val isMuscleBased      get() = mainStat == MainStat.MUSCLE
@@ -34,6 +38,7 @@ enum class CharacterClass(
             ED -> AscensionPath.ACTUALLY_ED_THE_UNDYING
             GELATINOUS_NOOB -> AscensionPath.GELATINOUS_NOOB
             COW_PUNCHER, BEANSLINGER, SNAKE_OILER -> AscensionPath.AVATAR_OF_WEST_OF_LOATHING
+            PIG_SKINNER, CHEESE_WIZARD, JAZZ_AGENT -> AscensionPath.SHADOWS_OVER_LOATHING
             else -> AscensionPath.UNKNOWN
         }
 

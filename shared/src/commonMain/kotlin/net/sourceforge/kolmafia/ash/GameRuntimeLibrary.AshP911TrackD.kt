@@ -111,6 +111,14 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val qty = findShopEntry(shopItems, itemName)?.second ?: 0
         AshValue.of(qty.toLong())
     }
+    regFn(scope, "shop_amount", AshType.INT, listOf("it" to AshType.INT)) { _, args ->
+        val itemId = args[0].toLong().toInt()
+        if (itemId <= 0) return@regFn AshValue.of(0L)
+        val hasStore = character?.state?.value?.hasStore ?: false
+        if (!hasStore) return@regFn AshValue.of(0L)
+        ensureSoldItemsRetrieved()
+        AshValue.of(StoreManager.shopAmount(itemId).toLong())
+    }
 
     regFn(scope, "shop_price", AshType.INT,
         listOf("it" to AshType.ITEM)) { _, args ->
@@ -127,6 +135,14 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         val price = findShopEntry(shopPrices, itemName)?.second ?: 0
         AshValue.of(price.toLong())
     }
+    regFn(scope, "shop_price", AshType.INT, listOf("it" to AshType.INT)) { _, args ->
+        val itemId = args[0].toLong().toInt()
+        if (itemId <= 0) return@regFn AshValue.of(0L)
+        val hasStore = character?.state?.value?.hasStore ?: false
+        if (!hasStore) return@regFn AshValue.of(0L)
+        ensureSoldItemsRetrieved()
+        AshValue.of(StoreManager.getPrice(itemId))
+    }
 
     regFn(scope, "shop_limit", AshType.INT,
         listOf("it" to AshType.ITEM)) { _, args ->
@@ -142,6 +158,14 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
             ?: return@regFn AshValue.of(0L)
         val limit = findShopEntry(shopLimits, itemName)?.second ?: 0
         AshValue.of(limit.toLong())
+    }
+    regFn(scope, "shop_limit", AshType.INT, listOf("it" to AshType.INT)) { _, args ->
+        val itemId = args[0].toLong().toInt()
+        if (itemId <= 0) return@regFn AshValue.of(0L)
+        val hasStore = character?.state?.value?.hasStore ?: false
+        if (!hasStore) return@regFn AshValue.of(0L)
+        ensureSoldItemsRetrieved()
+        AshValue.of(StoreManager.getLimit(itemId).toLong())
     }
 }
 

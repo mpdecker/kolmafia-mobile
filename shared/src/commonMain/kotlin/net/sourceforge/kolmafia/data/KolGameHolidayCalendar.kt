@@ -98,6 +98,87 @@ object KolGameHolidayCalendar {
 
     fun grimacePhaseIndex(calendarDay: Int = dayInKoLYear()): Int = phaseStep(calendarDay) / 2
 
+    /** Desktop [HolidayDatabase.getRonaldMoonlight]. */
+    fun ronaldMoonlight(calendarDay: Int = dayInKoLYear()): Int {
+        val phase = ronaldPhaseIndex(calendarDay)
+        return if (phase > 4) 8 - phase else phase
+    }
+
+    /** Desktop [HolidayDatabase.getGrimaceMoonlight]. */
+    fun grimaceMoonlight(calendarDay: Int = dayInKoLYear()): Int {
+        val phase = grimacePhaseIndex(calendarDay)
+        return if (phase > 4) 8 - phase else phase
+    }
+
+    /** Desktop [HolidayDatabase.getMoonlight] — Ronald + Grimace + Hamburglar. */
+    fun getMoonlight(calendarDay: Int = dayInKoLYear(), dayDifference: Long = kolRolloverDayDifference()): Int {
+        val ronald = ronaldPhaseIndex(calendarDay)
+        val grimace = grimacePhaseIndex(calendarDay)
+        return ronaldMoonlight(calendarDay) +
+            grimaceMoonlight(calendarDay) +
+            getHamburglarLight(ronald, grimace, miniMoonPosition(dayDifference))
+    }
+
+    /** Desktop [HolidayDatabase.getHamburglarLight]. */
+    fun getHamburglarLight(ronaldPhase: Int, grimacePhase: Int, hamburglarPosition: Int): Int =
+        when (hamburglarPosition) {
+            0 -> if (grimacePhase > 0 && grimacePhase < 5) -1 else 1
+            1 -> if (grimacePhase < 4) 1 else -1
+            2 -> if (grimacePhase > 3) 1 else 0
+            4 -> if (grimacePhase > 0 && grimacePhase < 5) 1 else 0
+            5 -> if (ronaldPhase > 3) 1 else 0
+            7 -> if (ronaldPhase > 0 && ronaldPhase < 5) 1 else 0
+            8 -> if (ronaldPhase > 0 && ronaldPhase < 5) -1 else 1
+            9 -> if (ronaldPhase < 4) 1 else -1
+            10 -> {
+                var total = 0
+                if (ronaldPhase > 3) total++
+                if (grimacePhase > 0 && grimacePhase < 5) total++
+                total
+            }
+            else -> 0
+        }
+
+    fun getGameHoliday(calendarDay: Int = dayInKoLYear()): String? {
+        val (month, day) = calendarComponents(calendarDay)
+        return GAME_HOLIDAYS[month to day]
+    }
+
+    fun getGameHolidayInDays(daysAhead: Int, calendarDay: Int = dayInKoLYear()): String? =
+        getGameHoliday((calendarDay + daysAhead) % 96)
+
+    /** Desktop [HolidayDatabase.getEvents] — holidays + Labor Day Eve + stat day. */
+    fun getEvents(dayDifference: Long = kolRolloverDayDifference()): List<String> {
+        val list = getHolidays(dayDifference).toMutableList()
+        val calendarDay = dayInKoLYear(dayDifference)
+        if (getGameHolidayInDays(1, calendarDay) == "Lab&oacute;r Day") {
+            list += "Lab&oacute;r Day Eve"
+        }
+        when (getStatDay(calendarDay)) {
+            "muscle" -> list += "Muscle Day"
+            "mysticality" -> list += "Mysticality Day"
+            "moxie" -> list += "Moxie Day"
+        }
+        return list
+    }
+
+    /** Desktop [HolidayDatabase.getHolidaySummary] — today/tomorrow/in N days countdown. */
+    fun getHolidaySummary(dayDifference: Long = kolRolloverDayDifference()): String {
+        val today = getHoliday(dayDifference)
+        if (today.isNotBlank()) return getDayCountAsString(0, today)
+        val calendarDay = dayInKoLYear(dayDifference)
+        for (i in 0 until 96) {
+            val holiday = getGameHolidayInDays(i, calendarDay) ?: continue
+            return getDayCountAsString(i, holiday)
+        }
+        return ""
+    }
+
+    fun getDayCountAsString(dayCount: Int, event: String): String {
+        val count = getDayCountAsString(dayCount)
+        return if (dayCount > 1) "$count until $event" else "$event $count"
+    }
+
     fun getPhaseName(phase: Int): String = PHASE_NAMES.getOrNull(phase) ?: "unknown"
 
     fun getRonaldPhaseAsString(calendarDay: Int = dayInKoLYear()): String =

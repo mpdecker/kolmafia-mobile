@@ -152,13 +152,17 @@ internal fun GameRuntimeLibrary.registerAshP900Batch(scope: AshScope) {
     }
 }
 
-/** Desktop FamiliarData.canEquip() path/limit gates (ownership not required). */
+/** Desktop ASH can_equip(familiar): owned + path/limit gates when terrarium is known. */
 private fun GameRuntimeLibrary.familiarTypeCanEquip(race: String): Boolean {
     val state = character?.state?.value
     if (state != null) {
         if (state.inPokefam) return false
         if (!state.ascensionPath.canUseFamiliars()) return false
         if (state.inRobocore && !YouRobotManager.canUseFamiliars()) return false
+    }
+    val fm = familiarManager
+    if (fm != null) {
+        return FamiliarUsability.usableByRace(fm.state.value, race, state, preferences) != null
     }
     val def = FamiliarDefinitionDatabase.getByName(race) ?: return false
     val fam = FamiliarData(

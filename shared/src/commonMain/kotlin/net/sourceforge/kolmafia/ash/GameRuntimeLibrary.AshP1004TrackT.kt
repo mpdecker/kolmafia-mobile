@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.ash
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.data.KolGameHolidayCalendar
 import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
+import net.sourceforge.kolmafia.session.TavernManager
 
 /**
  * AshP1004–1010 Track T — Date / time / misc residuals.
@@ -27,14 +28,13 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
 
     // ── Phase 1005: moon_light / moon_phase ─────────────────────────
     regFn(scope, "moon_light", AshType.INT, emptyList()) { _, _ ->
-        val ronald = KolGameHolidayCalendar.ronaldPhaseIndex()
-        val grimace = KolGameHolidayCalendar.grimacePhaseIndex()
-        val light = moonLight(ronald, grimace)
-        AshValue.of(light.toLong())
+        // Desktop HolidayDatabase.getMoonlight() (includes Hamburglar)
+        AshValue.of(KolGameHolidayCalendar.getMoonlight().toLong())
     }
 
     regFn(scope, "moon_phase", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of(KolGameHolidayCalendar.ronaldPhaseIndex().toLong())
+        // Desktop HolidayDatabase.getPhaseStep()
+        AshValue.of(KolGameHolidayCalendar.phaseStep().toLong())
     }
 
     regFn(scope, "ronald_phase", AshType.INT, emptyList()) { _, _ ->
@@ -117,22 +117,19 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
     }
 
     regFn(scope, "tavern", AshType.INT, emptyList()) { _, _ ->
-        val layout = preferences?.getString("tavernLayout", "")?.takeIf { it.isNotBlank() }
-        val target = layout?.indexOf('3') ?: -1
-        AshValue.of((if (target >= 0) target + 1 else 0).toLong())
+        AshValue.of(runTavernGoal(TavernManager.FAUCET).toLong())
     }
 
     regFn(scope, "tavern", AshType.INT, listOf("goal" to AshType.STRING)) { _, args ->
         val goal = args[0].toString()
-        val layout = preferences?.getString("tavernLayout", "")?.takeIf { it.isNotBlank() }
-        val targetChar = when {
-            goal.equals("baron", ignoreCase = true) -> '4'
-            goal.equals("explore", ignoreCase = true) -> '0'
-            goal.equals("faucet", ignoreCase = true) -> '3'
-            else -> '3'
+        val code = when {
+            goal.equals("baron", ignoreCase = true) -> TavernManager.BARON
+            goal.equals("fight", ignoreCase = true) -> TavernManager.FIGHT_BARON
+            goal.equals("explore", ignoreCase = true) -> TavernManager.EXPLORE
+            goal.equals("faucet", ignoreCase = true) -> TavernManager.FAUCET
+            else -> TavernManager.FAUCET
         }
-        val target = layout?.indexOf(targetChar) ?: -1
-        AshValue.of((if (target >= 0) target + 1 else 0).toLong())
+        AshValue.of(runTavernGoal(code).toLong())
     }
 
     // ── Phase 1009: receive_fax / refresh_stash ─────────────────────
@@ -204,6 +201,24 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
             }
         }
         result
+    }
+}
+
+private fun GameRuntimeLibrary.runTavernGoal(goal: Int): Int {
+    val prefs = preferences ?: return -1
+    val deps = TavernManager.ExploreDeps(
+        preferences = prefs,
+        characterState = character?.state?.value,
+        questDatabase = questDatabase,
+        adventureManager = adventureManager,
+        visitUrl = { path -> visitKolPage(path, applyQuestHooks = true) },
+    )
+    return when (goal) {
+        TavernManager.FAUCET -> TavernManager.locateTavernFaucet(deps)
+        TavernManager.BARON -> TavernManager.locateBaron(deps)
+        TavernManager.FIGHT_BARON -> TavernManager.fightBaron(deps)
+        TavernManager.EXPLORE -> TavernManager.exploreAll(deps)
+        else -> TavernManager.locateTavernFaucet(deps)
     }
 }
 

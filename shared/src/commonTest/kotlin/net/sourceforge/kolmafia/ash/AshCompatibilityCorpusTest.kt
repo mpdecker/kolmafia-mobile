@@ -4960,7 +4960,7 @@ class AshCompatibilityCorpusTest {
     fun corpus_behavioralDeepenX_live() {
         runBlocking { net.sourceforge.kolmafia.data.MonsterDatabase.load() }
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5050", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
         val mapped = outputLib(
             lib,
             """
@@ -4990,7 +4990,7 @@ class AshCompatibilityCorpusTest {
     @Test
     fun corpus_behavioralDeepenXi_live() {
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5050", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
         assertEquals("0", outputLib(lib, "buffer b = visit_url(); print(length(b));").trim())
         assertEquals("hi", outputLib(lib, """dump("hi");""").trim())
         outputLib(lib, """disable("foo"); enable("foo");""")
@@ -5003,13 +5003,309 @@ class AshCompatibilityCorpusTest {
     @Test
     fun corpus_behavioralDeepenXii_live() {
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5050", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
         assertTrue(net.sourceforge.kolmafia.request.CurseRequest.registerRequest("curse.php"))
         assertTrue(net.sourceforge.kolmafia.request.CreateItemRequest.registerRequest("craft.php?mode=cook"))
         assertEquals(
             0,
             net.sourceforge.kolmafia.request.SuburbanDisRequest.getAdventuresUsed("suburbandis.php?action=altar"),
         )
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxii_live() {
+        val prefs = Preferences(MapSettings())
+        prefs.setInt("hippiesDefeated", 1000)
+        assertEquals(
+            1,
+            net.sourceforge.kolmafia.data.ZoneCombatCalculator.adjustConditionalWeighting(
+                zone = "The Battlefield (Frat Uniform)",
+                monster = "The Big Wisniewski",
+                weighting = 1,
+                ctx = net.sourceforge.kolmafia.data.ZoneCombatCalculator.Context(preferences = prefs),
+            ),
+        )
+        assertEquals(
+            1,
+            net.sourceforge.kolmafia.data.ZoneCombatCalculator.adjustConditionalWeighting(
+                zone = "Oil Peak",
+                monster = "oil baron",
+                weighting = 1,
+                ctx = net.sourceforge.kolmafia.data.ZoneCombatCalculator.Context(monsterLevel = 75),
+            ),
+        )
+        assertTrue(net.sourceforge.kolmafia.request.DimemasterRequestHub.registerRequest("shop.php?whichshop=dimemaster"))
+        assertTrue(net.sourceforge.kolmafia.request.FiveDPrinterRequestHub.registerRequest("shop.php?whichshop=5dprinter"))
+        val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
+        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxiii_live() {
+        val prefs = Preferences(MapSettings())
+        prefs.setString("shadowRiftIngress", "woods")
+        assertEquals(
+            1,
+            net.sourceforge.kolmafia.data.ZoneCombatCalculator.adjustConditionalWeighting(
+                zone = "Shadow Rift",
+                monster = "shadow devil",
+                weighting = 1,
+                ctx = net.sourceforge.kolmafia.data.ZoneCombatCalculator.Context(preferences = prefs),
+            ),
+        )
+        assertTrue(
+            net.sourceforge.kolmafia.session.FightIotmSync.applyHoldHands(
+                html = "You stop the battle for a moment and hold hands with you.",
+                preferences = prefs,
+                monsterName = "spooky vampire",
+                locationName = "The Spooky Forest",
+            ),
+        )
+        assertTrue(net.sourceforge.kolmafia.request.TicketCounterRequestHub.registerRequest("shop.php?whichshop=arcade"))
+        val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
+        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxiv_live() {
+        val prefs = Preferences(MapSettings())
+        prefs.setString("tavernLayout", "0000000000003000000000000")
+        assertEquals(13, net.sourceforge.kolmafia.session.TavernManager.faucetSquare(prefs.getString("tavernLayout", "")))
+        net.sourceforge.kolmafia.session.FightRamTracker.onFightStart(1)
+        assertEquals(4, net.sourceforge.kolmafia.session.FightRamTracker.getCurrent(1, 1))
+        net.sourceforge.kolmafia.session.AvailableCombatSkills.setFromFightHtml(
+            """<select name=whichskill><option value="1003">Entangling Noodles (3 MP)</option></select>""",
+        )
+        assertTrue(net.sourceforge.kolmafia.session.AvailableCombatSkills.has(1003))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo23ElfBarRequestHub.registerRequest("shop.php?whichshop=crimbo23_elf_bar"))
+        assertTrue(net.sourceforge.kolmafia.request.FunALogRequestHub.registerRequest("shop.php?whichshop=piraterealm"))
+        assertTrue(net.sourceforge.kolmafia.request.KOLHSShopRequestHub.registerRequest("shop.php?whichshop=kolhs_shop"))
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("13", outputLib(lib, "print(tavern());").trim())
+        assertEquals("0", outputLib(lib, "print(storage_amount(1));").trim())
+        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        net.sourceforge.kolmafia.session.ChoiceCombatAshState.reset()
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxv_live() {
+        val prefs = Preferences(MapSettings())
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(
+                hardcore = "1",
+                kingliberated = "0",
+                path = "Avatar of West of Loathing",
+                classId = "18", // desktop Cow Puncher id
+            ),
+        )
+        char.liberateKing(prefs)
+        assertEquals(2, prefs.getInt("awolPointsCowpuncher", 0))
+        assertTrue(char.state.value.canInteract)
+        assertTrue(net.sourceforge.kolmafia.request.SeptEmberCenserRequestHub.registerRequest("shop.php?whichshop=september"))
+        assertTrue(net.sourceforge.kolmafia.request.SpinMasterLatheRequestHub.registerRequest("shop.php?whichshop=lathe"))
+        assertTrue(net.sourceforge.kolmafia.request.ShoreGiftShopRequestHub.registerRequest("shop.php?whichshop=shore"))
+        assertTrue(net.sourceforge.kolmafia.request.InternetMemeShopRequestHub.registerRequest("shop.php?whichshop=bacon"))
+        assertTrue(net.sourceforge.kolmafia.request.TerrifiedEagleInnRequestHub.registerRequest("shop.php?whichshop=dv"))
+        assertTrue(net.sourceforge.kolmafia.request.TinkeringBenchRequestHub.registerRequest("shop.php?whichshop=wereprofessor_tinker"))
+        assertTrue(net.sourceforge.kolmafia.request.VendingMachineRequestHub.registerRequest("shop.php?whichshop=damachine"))
+        assertTrue(net.sourceforge.kolmafia.request.FixodentRequestHub.registerRequest("shop.php?whichshop=fixodent"))
+        assertTrue(net.sourceforge.kolmafia.request.PlumberGearRequestHub.registerRequest("shop.php?whichshop=mariogear"))
+        assertTrue(net.sourceforge.kolmafia.request.PlumberItemRequestHub.registerRequest("shop.php?whichshop=marioitems"))
+        assertTrue(net.sourceforge.kolmafia.request.PokemporiumRequestHub.registerRequest("shop.php?whichshop=pokefam"))
+        assertTrue(net.sourceforge.kolmafia.request.FancyDanRequestHub.registerRequest("shop.php?whichshop=olivers"))
+        assertTrue(net.sourceforge.kolmafia.request.NinaStoreRequestHub.registerRequest("shop.php?whichshop=nina"))
+        assertTrue(net.sourceforge.kolmafia.request.YeNeweSouvenirShoppeRequestHub.registerRequest("shop.php?whichshop=shakeshop"))
+        assertTrue(net.sourceforge.kolmafia.request.XOShopRequestHub.registerRequest("shop.php?whichshop=xo"))
+        assertTrue(net.sourceforge.kolmafia.request.SpantRequestHub.registerRequest("shop.php?whichshop=spant"))
+        val lib = GameRuntimeLibrary(character = char, preferences = prefs)
+        assertEquals("true", outputLib(lib, "print(to_string(can_interact()));").trim())
+        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxvi_live() {
+        net.sourceforge.kolmafia.adventure.choice.VioletFogManager.reset(Preferences(MapSettings()), 1)
+        net.sourceforge.kolmafia.adventure.choice.VioletFogManager.setChoiceForTest(48, 1, 49)
+        net.sourceforge.kolmafia.adventure.choice.VioletFogManager.setChoiceForTest(48, 2, 50)
+        net.sourceforge.kolmafia.adventure.choice.VioletFogManager.setChoiceForTest(48, 3, 51)
+        net.sourceforge.kolmafia.adventure.choice.VioletFogManager.setChoiceForTest(48, 4, -1)
+        val vf = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(48)
+        assertEquals("Violet Fog (Start)", vf?.name)
+        assertEquals("Man on Bicycle", vf?.options?.get(0)?.name)
+        assertEquals("escape from the fog", vf?.options?.get(3)?.name)
+        val louvre = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(905)
+        assertTrue(louvre?.name?.contains("Persistence of Memory") == true)
+        assertTrue(louvre?.options?.isNotEmpty() == true)
+
+        val prefs = Preferences(MapSettings())
+        prefs.setBoolean("replicaChateauAvailable", true)
+        prefs.setString("sourceTerminalEnquiry", "educate")
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(
+                kingliberated = "0",
+                path = "Legacy of Loathing",
+                hardcore = "0",
+            ),
+        )
+        char.liberateKing(prefs)
+        assertEquals("false", prefs.getString("replicaChateauAvailable", "true"))
+        assertTrue(prefs.getBoolean("_liberateKingNeedsSkillRefresh", false))
+        assertTrue(net.sourceforge.kolmafia.request.PixelRequestHub.registerRequest("shop.php?whichshop=mystic"))
+        assertTrue(net.sourceforge.kolmafia.request.GuzzlrRequestHub.registerRequest("shop.php?whichshop=guzzlr"))
+        assertTrue(net.sourceforge.kolmafia.request.GrandmaRequestHub.registerRequest("shop.php?whichshop=grandma"))
+        assertTrue(net.sourceforge.kolmafia.request.ArmoryAndLeggeryRequestHub.registerRequest("shop.php?whichshop=armory"))
+        assertTrue(net.sourceforge.kolmafia.request.CosmicRaysBazaarRequestHub.registerRequest("shop.php?whichshop=exploathing"))
+        assertTrue(net.sourceforge.kolmafia.request.GeneticFiddlingRequestHub.registerRequest("shop.php?whichshop=mutate"))
+        assertTrue(net.sourceforge.kolmafia.request.AirportDutyFreeRequestHub.registerRequest("shop.php?whichshop=airport"))
+        assertTrue(net.sourceforge.kolmafia.request.ChemiCorpRequestHub.registerRequest("shop.php?whichshop=batman_chemicorp"))
+        assertTrue(net.sourceforge.kolmafia.request.GotporkOrphanageRequestHub.registerRequest("shop.php?whichshop=batman_orphanage"))
+        assertTrue(net.sourceforge.kolmafia.request.GotporkPDRequestHub.registerRequest("shop.php?whichshop=batman_pd"))
+        assertTrue(net.sourceforge.kolmafia.request.BuffJimmyRequestHub.registerRequest("shop.php?whichshop=sbb_jimmy"))
+        assertTrue(net.sourceforge.kolmafia.request.TacoDanRequestHub.registerRequest("shop.php?whichshop=sbb_taco"))
+        assertTrue(net.sourceforge.kolmafia.request.ShawarmaInitiativeRequestHub.registerRequest("shop.php?whichshop=si_shop1"))
+        assertTrue(net.sourceforge.kolmafia.request.CanteenRequestHub.registerRequest("shop.php?whichshop=si_shop2"))
+        assertTrue(net.sourceforge.kolmafia.request.SpacegateArmoryRequestHub.registerRequest("shop.php?whichshop=si_shop3"))
+        assertTrue(net.sourceforge.kolmafia.request.LtTRequestHub.registerRequest("shop.php?whichshop=ltt"))
+        assertTrue(net.sourceforge.kolmafia.request.CindyRequestHub.registerRequest("shop.php?whichshop=cindy"))
+        val lib = GameRuntimeLibrary(preferences = prefs)
+        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        net.sourceforge.kolmafia.session.ChoiceCombatAshState.reset()
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxvii_live() {
+        val moon = outputLib(GameRuntimeLibrary(), "print(moon_phase());").toInt()
+        assertTrue(moon in 0..15)
+
+        val monorailHtml = """
+            <form name=choiceform1>
+            <input type=hidden name=option value=3>
+            <input type=submit value="Order a blueberry muffin">
+            </form>
+            <form name=choiceform2>
+            <input type=hidden name=option value=1>
+            <input type=submit value="Back to the Platform!">
+            </form>
+        """.trimIndent()
+        val monorail = net.sourceforge.kolmafia.quest.MonorailChoiceSync.choiceSpoilers(1308, monorailHtml)
+        assertEquals("On a Downtown Train", monorail?.name)
+        assertEquals("blueberry muffin", monorail?.options?.find { it.option == 3 }?.name)
+        assertEquals(
+            "On a Downtown Train",
+            net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(1308, monorailHtml)?.name,
+        )
+
+        assertEquals("Halloween", net.sourceforge.kolmafia.data.HolidayCalendar.getHoliday("20261031"))
+        assertEquals("Crimbo", net.sourceforge.kolmafia.data.HolidayCalendar.getHoliday("20261225"))
+        assertEquals("", net.sourceforge.kolmafia.data.HolidayCalendar.getHoliday("20261015"))
+
+        val icePrefs = Preferences(MapSettings())
+        val iceBanishes = net.sourceforge.kolmafia.banish.BanishManager(icePrefs)
+        assertTrue(
+            net.sourceforge.kolmafia.quest.IceHouseChoiceSync.applyVisit(
+                836,
+                "perfectly-preserved sabre-toothed lime, right?",
+                iceBanishes,
+                currentTurn = 10,
+            ),
+        )
+        assertTrue(iceBanishes.isBanished("sabre-toothed lime", 10))
+
+        assertTrue(net.sourceforge.kolmafia.request.InterestingCoinRequestHub.registerRequest("shop.php?whichshop=interesting"))
+        assertTrue(net.sourceforge.kolmafia.request.InfernoDiscoRequestHub.registerRequest("shop.php?whichshop=infernodisco"))
+        assertTrue(net.sourceforge.kolmafia.request.DiscoGiftCoRequest.registerRequest("shop.php?whichshop=infernodisco"))
+        assertTrue(net.sourceforge.kolmafia.request.WarbearBoxRequestHub.registerRequest("shop.php?whichshop=warbear"))
+        assertTrue(net.sourceforge.kolmafia.request.WalMartRequestHub.registerRequest("shop.php?whichshop=glaciest"))
+        assertTrue(net.sourceforge.kolmafia.request.ToxicChemistryRequestHub.registerRequest("shop.php?whichshop=toxic"))
+        assertTrue(net.sourceforge.kolmafia.request.FishboneryRequestHub.registerRequest("shop.php?whichshop=fishbones"))
+        assertTrue(net.sourceforge.kolmafia.request.DinostaurRequestHub.registerRequest("shop.php?whichshop=dino"))
+        assertFalse(net.sourceforge.kolmafia.request.DinostaurRequestHub.registerRequest("shop.php?whichshop=dinobone"))
+        assertTrue(net.sourceforge.kolmafia.request.DinoBoneFragmentRequestHub.registerRequest("shop.php?whichshop=dinobone"))
+        assertTrue(net.sourceforge.kolmafia.request.BeerGardenRequestHub.registerRequest("shop.php?whichshop=beergarden"))
+        assertTrue(net.sourceforge.kolmafia.request.ShoeRepairRequestHub.registerRequest("shop.php?whichshop=shoeshop"))
+        assertTrue(net.sourceforge.kolmafia.request.WetCrapForSaleRequestHub.registerRequest("shop.php?whichshop=sandpenny"))
+        assertTrue(net.sourceforge.kolmafia.request.PorkElfPotteryShardRequestHub.registerRequest("shop.php?whichshop=potsherd"))
+        assertTrue(net.sourceforge.kolmafia.request.WinterGardenRequestHub.registerRequest("shop.php?whichshop=snowgarden"))
+        assertTrue(net.sourceforge.kolmafia.request.UsingYourShowerThoughtsRequestHub.registerRequest("shop.php?whichshop=showerthoughts"))
+        assertTrue(net.sourceforge.kolmafia.request.ThankShopRequestHub.registerRequest("shop.php?whichshop=thankshop"))
+        assertTrue(net.sourceforge.kolmafia.request.SliemceRequestHub.registerRequest("shop.php?whichshop=voteslime"))
+        assertTrue(net.sourceforge.kolmafia.request.DollHawkerRequestHub.registerRequest("shop.php?whichshop=elvishp2"))
+        assertTrue(net.sourceforge.kolmafia.request.LunarLunchRequestHub.registerRequest("shop.php?whichshop=elvishp3"))
+        assertTrue(net.sourceforge.kolmafia.request.TwitchJoustingRequestHub.registerRequest("shop.php?whichshop=twitch_jousting"))
+        assertTrue(net.sourceforge.kolmafia.request.PrimordialSoupKitchenRequestHub.registerRequest("shop.php?whichshop=twitchsoup"))
+        assertTrue(net.sourceforge.kolmafia.request.KringleRequestHub.registerRequest("shop.php?whichshop=crimbo19toys"))
+        assertTrue(net.sourceforge.kolmafia.request.LandfillDetritus2015RequestHub.registerRequest("shop.php?whichshop=detritus2015"))
+        assertTrue(net.sourceforge.kolmafia.request.DedigitizerRequest.registerRequest("shop.php?whichshop=cyber_dedigitizer"))
+        assertTrue(net.sourceforge.kolmafia.request.IsotopeSmitheryRequest.registerRequest("shop.php?whichshop=elvishp1"))
+        assertTrue(net.sourceforge.kolmafia.request.AlliedHqRequestHub.registerRequest("shop.php?whichshop=twitch_alliedhq"))
+        assertEquals("phase5590", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxviii_live() {
+        val light = outputLib(GameRuntimeLibrary(), "print(moon_light());").toInt()
+        assertTrue(light in 0..11)
+
+        val summary = net.sourceforge.kolmafia.data.KolGameHolidayCalendar.getHolidaySummary()
+        assertTrue(summary.isNotBlank())
+        val events = net.sourceforge.kolmafia.data.KolGameHolidayCalendar.getEvents()
+        assertTrue(events.isNotEmpty() || summary.contains("until") || summary.contains("today") || summary.contains("tomorrow"))
+
+        val prefs = Preferences(MapSettings())
+        prefs.setString("haciendaLayout", "000000000000000000")
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.preferences = prefs
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.questDatabase =
+            net.sourceforge.kolmafia.quest.QuestDatabase(prefs)
+        val barracks = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(410)
+        assertEquals("The Barracks", barracks?.name)
+        assertTrue(barracks?.options?.isNotEmpty() == true)
+
+        val rabbit = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(442)
+        assertEquals("Rabbit Hole", rabbit?.name)
+        assertTrue(rabbit?.options?.any { it.name.contains("hookah") } == true)
+
+        val temple = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(579)
+        assertEquals("Such Great Heights", temple?.name)
+
+        val cabin = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(721)
+        assertTrue(cabin?.name?.contains("Cabin") == true)
+
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(
+                kingliberated = "0",
+                path = "Heavy Rains",
+                hardcore = "0",
+            ),
+        )
+        char.liberateKing(prefs)
+        assertTrue(prefs.getBoolean("_liberateKingNeedsPostRefresh", false))
+
+        assertTrue(net.sourceforge.kolmafia.request.ShadowForgeRequest.registerRequest("shop.php?whichshop=shadowforge"))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo14Request.registerRequest("shop.php?whichshop=crimbo14turnin"))
+        assertTrue(net.sourceforge.kolmafia.request.DocGalaktikShopRequestHub.registerRequest("shop.php?whichshop=doc"))
+        assertTrue(net.sourceforge.kolmafia.request.MeatsmithShopRequestHub.registerRequest("shop.php?whichshop=meatsmith"))
+        assertTrue(net.sourceforge.kolmafia.request.MayoClinicShopRequestHub.registerRequest("shop.php?whichshop=mayoclinic"))
+        assertTrue(net.sourceforge.kolmafia.request.HiddenTavernShopRequestHub.registerRequest("shop.php?whichshop=hiddentavern"))
+        assertTrue(net.sourceforge.kolmafia.request.HippyStoreRequestHub.registerRequest("shop.php?whichshop=hippy"))
+        assertTrue(net.sourceforge.kolmafia.request.FwShopRequestHub.registerRequest("shop.php?whichshop=fwshop"))
+        assertTrue(net.sourceforge.kolmafia.request.DripCafeteriaShopRequestHub.registerRequest("shop.php?whichshop=dripcafeteria"))
+        assertTrue(net.sourceforge.kolmafia.request.Vault1ShopRequestHub.registerRequest("shop.php?whichshop=vault1"))
+        assertTrue(net.sourceforge.kolmafia.request.Vault2ShopRequestHub.registerRequest("shop.php?whichshop=vault2"))
+        assertTrue(net.sourceforge.kolmafia.request.Vault3ShopRequestHub.registerRequest("shop.php?whichshop=vault3"))
+        assertTrue(net.sourceforge.kolmafia.request.GeneralStoreRequestHub.registerRequest("shop.php?whichshop=generalstore"))
+        assertTrue(net.sourceforge.kolmafia.request.GnollShopRequestHub.registerRequest("shop.php?whichshop=gnoll"))
+        assertTrue(net.sourceforge.kolmafia.request.BartenderShopRequestHub.registerRequest("shop.php?whichshop=bartender"))
+        assertTrue(net.sourceforge.kolmafia.request.BartlebysShopRequestHub.registerRequest("shop.php?whichshop=bartlebys"))
+        assertTrue(net.sourceforge.kolmafia.request.WildfireShopRequestHub.registerRequest("shop.php?whichshop=wildfire"))
+        assertTrue(net.sourceforge.kolmafia.request.WhiteCitadelShopRequestHub.registerRequest("shop.php?whichshop=whitecitadel"))
+        assertTrue(net.sourceforge.kolmafia.request.KnobDispensaryRequestHub.registerRequest("shop.php?whichshop=knobdisp"))
+        assertTrue(net.sourceforge.kolmafia.request.BugbearBakeryRequestHub.registerRequest("shop.php?whichshop=bugbear"))
+        assertTrue(net.sourceforge.kolmafia.request.ChinatownShopsRequestHub.registerRequest("shop.php?whichshop=chinatown"))
+        assertTrue(net.sourceforge.kolmafia.request.TweedleporiumRequestHub.registerRequest("shop.php?whichshop=tweedle"))
+        assertEquals("phase5590", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     private fun registerCorpusWeapon(id: Int, name: String) {

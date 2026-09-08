@@ -142,14 +142,14 @@ object CandyDatabase {
 
         for (itemId1 in candy1Ids) {
             val count1 = inventoryCount(itemId1)
-            if (count1 == 0 && (flags and FLAG_AVAILABLE) != 0) return emptyList()
+            if (count1 == 0 && (flags and FLAG_AVAILABLE) != 0) continue
 
             val candy2Ids = sweetSynthesisPairingInternal(effectId, itemId1, flags, inventoryCount)
                 .sortedByDescending { inventoryCount(it) }
 
             for (itemId2 in candy2Ids) {
                 val count2 = inventoryCount(itemId2)
-                if (count2 == 0 && (flags and FLAG_AVAILABLE) != 0) break
+                if (count2 == 0 && (flags and FLAG_AVAILABLE) != 0) continue
                 if (itemId1 == itemId2 && count2 == 1) continue
                 return listOf(itemId1, itemId2)
             }

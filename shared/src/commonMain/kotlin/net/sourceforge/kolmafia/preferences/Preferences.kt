@@ -65,6 +65,20 @@ class Preferences(private val settings: Settings) {
     fun setFloat(key: String, value: Float) =
         settings.putString(key, value.toString())
 
+    /** Desktop [Preferences.increment] with optional max clamp (no mod wrap). */
+    fun increment(key: String, delta: Int = 1, max: Int = 0): Int {
+        var current = getInt(key, 0) + delta
+        if (max > 0 && current >= max) current = max
+        setInt(key, current)
+        return current
+    }
+
+    /** Restore a user pref to its bundled [DefaultsDatabase] value (or [fallback]). */
+    fun resetToDefault(key: String, fallback: String = "") {
+        val def = DefaultsDatabase.getString(key)
+        setString(key, def.ifBlank { fallback })
+    }
+
     fun registerCounterName(name: String) {
         val existing = getString(COUNTER_NAMES, "").split('|').filter { it.isNotBlank() }.toMutableSet()
         if (existing.add(name)) {

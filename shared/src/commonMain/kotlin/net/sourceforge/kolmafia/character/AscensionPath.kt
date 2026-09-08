@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.character
 
+import net.sourceforge.kolmafia.preferences.Preferences
+
 /**
  * Subset of the desktop AscensionPath enum covering paths with distinct behavioral
  * implications for automation: consumption restrictions, class-specific resources,
@@ -281,6 +283,13 @@ enum class AscensionPath(
         )
 
     fun canUseFamiliars(): Boolean = allowsFamiliars
+
+    /** Desktop Path.incrementPoints — awards [points] to [pointsPreference] when set. */
+    fun incrementPoints(preferences: Preferences, points: Int) {
+        val pref = pointsPreference ?: return
+        if (points == 0) return
+        preferences.increment(pref, points)
+    }
 
     /** Desktop KoLCharacter.inSlowcore — Slow and Steady path disables average-adventure lookup. */
     fun inSlowcore(): Boolean = this == SLOW_AND_STEADY

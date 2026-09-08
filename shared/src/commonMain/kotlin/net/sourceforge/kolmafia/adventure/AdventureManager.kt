@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures
 import net.sourceforge.kolmafia.adventure.choice.ChoiceContext
 import net.sourceforge.kolmafia.adventure.choice.ChoiceCost
@@ -753,7 +754,13 @@ open class AdventureManager(
                 html = html,
                 questDatabase = questDatabase,
                 preferences = preferences,
-                setKingLiberated = { character.setKingLiberated(true) },
+                setKingLiberated = {
+                    character.liberateKing(preferences)
+                    if (preferences.getBoolean("_liberateKingNeedsSkillRefresh", false)) {
+                        preferences.setBoolean("_liberateKingNeedsSkillRefresh", false)
+                        kotlinx.coroutines.runBlocking { skills?.fetchSkills() }
+                    }
+                },
             )
         }
 

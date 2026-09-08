@@ -33,14 +33,14 @@ class GameRuntimeLibraryAshP1004TrackTTest {
     fun phase1005_moonPhase_inRange() {
         val lib = GameRuntimeLibrary(preferences = prefs())
         val result = outputLib(lib, "print(moon_phase());").toInt()
-        assertTrue(result in 0..7, "moon_phase should be 0-7")
+        assertTrue(result in 0..15, "moon_phase should be 0-15 (lunar cycle phase step)")
     }
 
     @Test
     fun phase1005_moonLight_inRange() {
         val lib = GameRuntimeLibrary(preferences = prefs())
         val result = outputLib(lib, "print(moon_light());").toInt()
-        assertTrue(result in 0..8, "moon_light should be 0-8")
+        assertTrue(result in 0..11, "moon_light should be 0-11 (Ronald+Grimace+Hamburglar)")
     }
 
     @Test
@@ -60,7 +60,8 @@ class GameRuntimeLibraryAshP1004TrackTTest {
     @Test
     fun phase1008_tavern_defaultZero() {
         val lib = GameRuntimeLibrary(preferences = prefs())
-        assertEquals("0", outputLib(lib, "print(tavern());"))
+        // Empty layout + level < 3 → desktop-shaped -1 (no adventure explore).
+        assertEquals("-1", outputLib(lib, "print(tavern());"))
     }
 
     @Test
@@ -72,7 +73,7 @@ class GameRuntimeLibraryAshP1004TrackTTest {
 
     @Test
     fun phase1010_revision() {
-        assertEquals("phase5050", GameRuntimeLibrary.REVISION)
+        assertEquals("phase5590", GameRuntimeLibrary.REVISION)
     }
 
     @Test

@@ -1,14 +1,16 @@
 package net.sourceforge.kolmafia.ash
 
-import net.sourceforge.kolmafia.data.AdventureQueueDatabase
 import net.sourceforge.kolmafia.data.CombatDatabase
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ZoneCombatCalculator
 import net.sourceforge.kolmafia.data.ZoneCombatData
 
 /**
- * AshP38 — live location monster queries from [CombatDatabase].
- * Mirrors desktop [RuntimeLibrary.get_monsters] / [RuntimeLibrary.appearance_rates].
+ * AshP38 — live location monster queries from [CombatDatabase] /
+ * [ZoneCombatCalculator].
  *
- * Phase 5006–5017: [AdventureQueueDatabase] stateful rates when includeQueue=true.
+ * Phase 5051–5070: banish/rejection/superlikely-aware rates when
+ * `appearance_rates(loc, includeQueue=true)`.
  */
 internal fun GameRuntimeLibrary.registerAshP38Batch(scope: AshScope) {
     val monsterIntType = AggregateType(AshType.INT, AshType.MONSTER)
@@ -63,7 +65,7 @@ internal fun GameRuntimeLibrary.registerAshP38Batch(scope: AshScope) {
         booleanMonsterType,
         listOf("location" to AshType.LOCATION),
     ) { _, args ->
-        buildLocationMonsters(resolveLocationQueryName(args[0].toString()), booleanMonsterType)
+        buildLocationMonsters(resolveLocationQueryName(args[0].toString()), booleanMonsterType, false)
     }
 
     regFn(
@@ -72,7 +74,33 @@ internal fun GameRuntimeLibrary.registerAshP38Batch(scope: AshScope) {
         booleanMonsterType,
         listOf("location" to AshType.STRING),
     ) { _, args ->
-        buildLocationMonsters(resolveLocationQueryName(args[0].toString()), booleanMonsterType)
+        buildLocationMonsters(resolveLocationQueryName(args[0].toString()), booleanMonsterType, false)
+    }
+
+    regFn(
+        scope,
+        "get_location_monsters",
+        booleanMonsterType,
+        listOf("location" to AshType.LOCATION, "includeQueue" to AshType.BOOLEAN),
+    ) { _, args ->
+        buildLocationMonsters(
+            resolveLocationQueryName(args[0].toString()),
+            booleanMonsterType,
+            args[1].toBoolean(),
+        )
+    }
+
+    regFn(
+        scope,
+        "get_location_monsters",
+        booleanMonsterType,
+        listOf("location" to AshType.STRING, "includeQueue" to AshType.BOOLEAN),
+    ) { _, args ->
+        buildLocationMonsters(
+            resolveLocationQueryName(args[0].toString()),
+            booleanMonsterType,
+            args[1].toBoolean(),
+        )
     }
 }
 
@@ -88,48 +116,65 @@ private fun buildGetMonsters(locationName: String, type: AggregateType): Aggrega
     return result
 }
 
+private fun GameRuntimeLibrary.zoneCombatContext(): ZoneCombatCalculator.Context {
+    val state = character?.state?.value
+    val currentRun = state?.currentRun ?: 0
+    val mods = buildCurrentModifiers()
+    val loc = lastLocationName()
+    val famItem = state?.equipment?.get(net.sourceforge.kolmafia.character.EquipmentSlot.FAMILIAR)
+    val hatName = state?.equipment?.get(net.sourceforge.kolmafia.character.EquipmentSlot.HAT).orEmpty()
+    val pantsName = state?.equipment?.get(net.sourceforge.kolmafia.character.EquipmentSlot.PANTS).orEmpty()
+    val inv = inventoryManager?.state?.value?.items
+    return ZoneCombatCalculator.Context(
+        preferences = preferences,
+        banishManager = banishManager,
+        adventureSpent = adventureSpentTracker,
+        questDatabase = questDatabase,
+        characterState = state,
+        turnsPlayed = currentRun,
+        ascensions = state?.ascensionNumber ?: 0,
+        combatRateAdjustment = CombatAdjustment.combatRateModifier(mods, loc),
+        initiativeAdjustment = mods.values.get(net.sourceforge.kolmafia.modifiers.DoubleModifier.INITIATIVE),
+        crystalBallEquipped = net.sourceforge.kolmafia.session.CrystalBallManager.isEquipped(famItem),
+        monsterLevel = CombatAdjustment.monsterLevelAdjustment(mods, state, loc),
+        familiarId = state?.familiarId ?: 0,
+        hatItemId = ItemDatabase.getByName(hatName)?.id ?: 0,
+        pantsItemId = ItemDatabase.getByName(pantsName)?.id ?: 0,
+        hasMultiPass = (inv?.get(4074)?.quantity ?: 0) > 0,
+    )
+}
+
 private fun GameRuntimeLibrary.buildAppearanceRates(
     locationName: String,
     type: AggregateType,
     includeQueue: Boolean,
 ): AggregateValue {
     val result = AggregateValue(type)
-    val data = CombatDatabase.getByLocation(locationName) ?: return result
-    val combatPercent = data.combatPercent
-    val noneRate = if (combatPercent < 0) -1.0 else (100.0 - combatPercent)
-    // Desktop MONSTER_INIT prints as "none"; mobile to_monster("none") yields empty content.
-    result[AshValue(AshType.MONSTER, "")] = AshValue.of(noneRate)
-
-    val weighted = positiveWeightMonsters(data)
-    val totalWeight = weighted.sumOf { it.weight }
-    if (totalWeight <= 0 || combatPercent < 0) return result
-
-    val weightByName = weighted.associate { it.name.lowercase() to it.weight }
-    val turns = character?.state?.value?.turnsPlayed ?: 0
-    for (mw in weighted) {
-        val rate = if (includeQueue) {
-            val numerator = combatPercent.toDouble() * mw.weight
-            AdventureQueueDatabase.applyQueueEffects(
-                numerator = numerator,
-                monsterName = mw.name,
-                locationName = locationName,
-                totalWeighting = totalWeight,
-                weightOf = { name -> weightByName[name.lowercase()] ?: 0 },
-                preferences = preferences,
-                turnsPlayed = turns,
-            )
-        } else {
-            mw.weight.toDouble() / totalWeight * combatPercent
-        }
-        result[AshValue(AshType.MONSTER, mw.name)] = AshValue.of(rate)
+    val rates = ZoneCombatCalculator.appearanceRates(
+        locationName = locationName,
+        includeQueue = includeQueue,
+        ctx = zoneCombatContext(),
+    )
+    for ((monster, rate) in rates) {
+        result[AshValue(AshType.MONSTER, monster)] = AshValue.of(rate)
     }
     return result
 }
 
-private fun buildLocationMonsters(locationName: String, type: AggregateType): AggregateValue {
+private fun GameRuntimeLibrary.buildLocationMonsters(
+    locationName: String,
+    type: AggregateType,
+    includeQueue: Boolean,
+): AggregateValue {
     val result = AggregateValue(type)
-    for (mw in positiveWeightMonsters(CombatDatabase.getByLocation(locationName))) {
-        result[AshValue(AshType.MONSTER, mw.name)] = AshValue.TRUE
+    val rates = ZoneCombatCalculator.appearanceRates(
+        locationName = locationName,
+        includeQueue = includeQueue,
+        ctx = zoneCombatContext(),
+    )
+    for ((monster, rate) in rates) {
+        if (monster.isEmpty()) continue
+        if (rate > 0) result[AshValue(AshType.MONSTER, monster)] = AshValue.TRUE
     }
     return result
 }

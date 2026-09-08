@@ -34,7 +34,5 @@ internal fun GameRuntimeLibrary.registerDateTimeQueries(scope: AshScope) {
         AshValue.of(secs.coerceAtLeast(0L))
     }
 
-    regFn(scope, "moon_phase", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of((character?.state?.value?.moonPhase ?: 0).toLong())
-    }
+    // moon_phase lives in AshP1004 (HolidayDatabase.getPhaseStep) — do not soft-register here.
 }

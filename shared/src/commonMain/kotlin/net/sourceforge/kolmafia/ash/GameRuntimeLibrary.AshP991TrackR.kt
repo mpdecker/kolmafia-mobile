@@ -96,9 +96,9 @@ internal fun GameRuntimeLibrary.registerAshP991TrackRBatch(scope: AshScope) {
         AshValue.of(succeeded)
     }
 
-    // ── Phase 995 / 4469: pickpocket — live fight action (desktop steal/pickpocket) ─
+    // ── Phase 995 / 4469: pickpocket — CCS/macro string (desktop RuntimeLibrary) ─
     regFn(scope, "pickpocket", AshType.BUFFER, emptyList()) { _, _ ->
-        fightAction("steal")
+        fightAction("pickpocket")
     }
     // runaway() already registered in AshP894 (Track A) with live HTTP
 

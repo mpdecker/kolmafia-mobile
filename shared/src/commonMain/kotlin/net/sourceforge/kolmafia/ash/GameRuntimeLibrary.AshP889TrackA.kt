@@ -5,6 +5,8 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.character.CharacterClass
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.AvailableCombatSkills
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 import net.sourceforge.kolmafia.session.FightCombatModeSync
 import net.sourceforge.kolmafia.skill.SkillType
@@ -159,6 +161,31 @@ internal fun GameRuntimeLibrary.registerAshP892Batch(scope: AshScope) {
             ),
         )
     }
+    regFn(scope, "run_turn", AshType.BUFFER, emptyList()) { _, _ ->
+        when {
+            ChoiceCombatAshState.currentRound > 0 || ChoiceCombatAshState.inMultiFight ||
+                adventureManager?.inMultiFight == true -> {
+                // Combat branch handled by AshP893 run_combat; submit a fight page when mid-fight.
+                val zoneId = preferences?.getString(Preferences.LAST_LOCATION, "")
+                    ?.ifBlank { preferences?.getString("lastAdventure", "") }
+                    .orEmpty()
+                val macro = resolveCombatMacro(zoneId.ifBlank { "0" })
+                val response = if (macro.isNotBlank()) {
+                    visitKolFightMacro(macro) ?: ChoiceCombatAshState.lastFightResponseText
+                } else {
+                    visitKolPage("fight.php") ?: ChoiceCombatAshState.lastFightResponseText
+                }
+                if (response.isNotBlank()) ChoiceCombatAshState.noteFightRound(response)
+                bufferResult(response)
+            }
+            ChoiceCombatAshState.handlingChoice ||
+                adventureManager?.inChoiceResolution == true ||
+                ChoiceCombatAshState.choiceFollowsFight ->
+                // Desktop RuntimeLibrary.run_turn → run_choice(-1) when handling a choice.
+                bufferResult(submitChoice(-1, "", handleFights = true))
+            else -> bufferResult("")
+        }
+    }
 }
 
 internal fun GameRuntimeLibrary.registerAshP893Batch(scope: AshScope) {
@@ -192,18 +219,6 @@ internal fun GameRuntimeLibrary.registerAshP893Batch(scope: AshScope) {
             bufferResult(runCombatOnce())
         } finally {
             ChoiceCombatAshState.combatFilterOverride = null
-        }
-    }
-    regFn(scope, "run_turn", AshType.BUFFER, emptyList()) { _, _ ->
-        when {
-            ChoiceCombatAshState.currentRound > 0 || ChoiceCombatAshState.inMultiFight ||
-                adventureManager?.inMultiFight == true ->
-                bufferResult(runCombatOnce())
-            ChoiceCombatAshState.handlingChoice ||
-                adventureManager?.inChoiceResolution == true ||
-                ChoiceCombatAshState.choiceFollowsFight ->
-                bufferResult(ChoiceCombatAshState.lastChoiceResponseText)
-            else -> bufferResult("")
         }
     }
 }
@@ -298,6 +313,7 @@ internal fun GameRuntimeLibrary.registerAshP895Batch(scope: AshScope) {
 internal fun GameRuntimeLibrary.registerAshP896Batch(scope: AshScope) {
     regFn(scope, "combat_skill_available", AshType.BOOLEAN, listOf("skill" to AshType.SKILL)) { _, args ->
         val skillName = args[0].toString()
+        if (AvailableCombatSkills.hasName(skillName)) return@regFn AshValue.of(true)
         val skills = skillManager?.state?.value?.skills.orEmpty()
         val found = skills.find { it.name.equals(skillName, ignoreCase = true) }
         AshValue.of(found != null && found.type == SkillType.COMBAT)

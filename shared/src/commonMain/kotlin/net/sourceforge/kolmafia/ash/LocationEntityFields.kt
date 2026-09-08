@@ -6,9 +6,11 @@ import net.sourceforge.kolmafia.data.BountyDatabase
 import net.sourceforge.kolmafia.data.CombatDatabase
 import net.sourceforge.kolmafia.data.EncounterDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
+import net.sourceforge.kolmafia.data.ZoneCombatCalculator
 import net.sourceforge.kolmafia.data.ZoneParentDatabase
 import net.sourceforge.kolmafia.modifiers.LocationNames
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.WildfireCampManager
@@ -28,6 +30,8 @@ internal object LocationEntityFields {
         dreadKissesTracker: DreadKissesTracker? = null,
         wildfireCampManager: WildfireCampManager? = null,
         characterState: CharacterState? = null,
+        questDatabase: QuestDatabase? = null,
+        combatRateAdjustment: Double = 0.0,
     ): AshValue {
         val canonical = LocationNames.resolve(locationName) ?: locationName
         val zone = AdventureDatabase.getByName(canonical)
@@ -43,7 +47,16 @@ internal object LocationEntityFields {
             "recommended_stat" -> AshValue.of((zone?.statRequirement ?: 0).toLong())
             "force_noncombat" -> AshValue.of((zone?.forceNoncombat ?: 0).toLong())
             "wanderers" -> AshValue.of(!(zone?.noWander ?: false))
-            "combat_percent" -> AshValue.of(combatPercent(zone).toDouble())
+            "combat_percent" -> AshValue.of(
+                combatPercent(
+                    zone,
+                    preferences,
+                    adventureSpentTracker,
+                    questDatabase,
+                    characterState,
+                    combatRateAdjustment,
+                ),
+            )
             "combat_queue" -> AshValue.of(combatQueue(zone))
             "noncombat_queue" -> AshValue.of(noncombatQueue(canonical))
             "bounty" -> AshValue(AshType.BOUNTY, bountyForLocation(canonical))
@@ -97,9 +110,29 @@ internal object LocationEntityFields {
         return current
     }
 
-    private fun combatPercent(zone: AdventureZone?): Int {
-        if (zone == null) return 0
-        return CombatDatabase.getByLocation(zone.locationName)?.combatPercent ?: 0
+    private fun combatPercent(
+        zone: AdventureZone?,
+        preferences: Preferences?,
+        adventureSpent: AdventureSpentTracker?,
+        questDatabase: QuestDatabase?,
+        characterState: CharacterState?,
+        combatRateAdjustment: Double,
+    ): Double {
+        if (zone == null) return 0.0
+        val data = CombatDatabase.getByLocation(zone.locationName) ?: return 0.0
+        return ZoneCombatCalculator.areaCombatPercent(
+            data = data,
+            stateful = true,
+            ctx = ZoneCombatCalculator.Context(
+                preferences = preferences,
+                adventureSpent = adventureSpent,
+                questDatabase = questDatabase,
+                characterState = characterState,
+                turnsPlayed = characterState?.currentRun ?: 0,
+                ascensions = characterState?.ascensionNumber ?: 0,
+                combatRateAdjustment = combatRateAdjustment,
+            ),
+        )
     }
 
     private fun combatQueue(zone: AdventureZone?): String {

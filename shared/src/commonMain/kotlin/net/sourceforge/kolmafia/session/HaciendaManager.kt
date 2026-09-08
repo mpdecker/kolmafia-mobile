@@ -244,6 +244,55 @@ object HaciendaManager {
         }
     }
 
+    /**
+     * Desktop [HaciendaManager.getSpoilers] for `available_choice_options(true)`.
+     * Choices 410–418 — barracks hallways / rooms / locations.
+     */
+    fun getSpoilers(
+        choice: Int,
+        preferences: Preferences? = DynamicChoiceSpoilers.preferences,
+        questDatabase: QuestDatabase? = DynamicChoiceSpoilers.questDatabase,
+    ): net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.Spoilers? {
+        if (choice !in 410..418) return null
+        val leave = net.sourceforge.kolmafia.adventure.choice.ChoiceOption("leave barracks")
+        val options = when (choice) {
+            410 -> listOf(
+                net.sourceforge.kolmafia.adventure.choice.ChoiceOption(
+                    getWingSpoilers(0, preferences, questDatabase),
+                ),
+                net.sourceforge.kolmafia.adventure.choice.ChoiceOption(
+                    getWingSpoilers(9, preferences, questDatabase),
+                ),
+                leave,
+            )
+            411, 412 -> {
+                val rooms = (0 until 3).map { i ->
+                    val text =
+                        getSpoiler(choice * 9 + i * 3 - 3699, preferences, questDatabase) +
+                            " / " +
+                            getSpoiler(choice * 9 + i * 3 - 3698, preferences, questDatabase) +
+                            " / " +
+                            getSpoiler(choice * 9 + i * 3 - 3697, preferences, questDatabase)
+                    net.sourceforge.kolmafia.adventure.choice.ChoiceOption(text)
+                }
+                rooms + leave
+            }
+            else -> {
+                val locs = (0 until 3).map { i ->
+                    net.sourceforge.kolmafia.adventure.choice.ChoiceOption(
+                        getSpoiler(choice * 3 + i - 1239, preferences, questDatabase),
+                    )
+                }
+                locs + leave
+            }
+        }
+        return net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.Spoilers(
+            choice,
+            "The Barracks",
+            options,
+        )
+    }
+
     fun preRecording(text: String, preferences: Preferences?) {
         preferences ?: return
         for (match in OPTION_PATTERN.findAll(text)) {

@@ -182,6 +182,11 @@ internal fun GameRuntimeLibrary.cliMoon(rt: AshRuntimeContext) {
         rt.print(prediction)
     }
     rt.print("")
+    val summary = KolGameHolidayCalendar.getHolidaySummary()
+    if (summary.isNotBlank()) rt.print(summary)
+    for (event in KolGameHolidayCalendar.getEvents()) {
+        rt.print(event)
+    }
     rt.print(KolGameHolidayCalendar.getHoliday())
     rt.print(KolGameHolidayCalendar.getMoonEffect())
     rt.print("")
