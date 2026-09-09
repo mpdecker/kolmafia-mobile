@@ -52,6 +52,84 @@ class ConcoctionExtensionsTest {
     }
 
     @Test
+    fun manualSmith_isCreateSupported_returnsFalse() {
+        val c = ConcoctionData(
+            result = "Belt of Loathing",
+            resultQuantity = 1,
+            methods = setOf("SMITH", "MANUAL"),
+            ingredients = listOf(
+                ConcoctionIngredient("Girdle of Hatred", 1),
+                ConcoctionIngredient("Novelty Belt Buckle of Violence", 1),
+            ),
+        )
+        assertTrue(c.isManual)
+        assertFalse(c.isCreateSupported())
+        assertFalse(c.isAutoCraftable())
+    }
+
+    @Test
+    fun manualStill_isCreateSupported_returnsFalse() {
+        val c = ConcoctionData(
+            result = "vial of red slime",
+            resultQuantity = 1,
+            methods = setOf("REAGENT", "COOK", "MANUAL"),
+            ingredients = listOf(
+                ConcoctionIngredient("vial of red slime", 1),
+                ConcoctionIngredient("vial of red slime", 1),
+            ),
+        )
+        assertTrue(c.isManual)
+        assertFalse(c.isCreateSupported())
+    }
+
+    @Test
+    fun manualMix_isCreateSupported_returnsFalse() {
+        val c = ConcoctionData(
+            result = "green beer",
+            resultQuantity = 1,
+            methods = setOf("MIX", "MANUAL"),
+            ingredients = listOf(
+                ConcoctionIngredient("ten-leaf clover", 1),
+                ConcoctionIngredient("ice-cold Sir Schlitz", 1),
+            ),
+        )
+        assertTrue(c.isManual)
+        assertFalse(c.isCreateSupported())
+    }
+
+    @Test
+    fun sx3Flag_parsed() {
+        val c = ConcoctionData(
+            result = "oil of expertise",
+            resultQuantity = 1,
+            methods = setOf("SAUCE", "SX3"),
+            ingredients = listOf(
+                ConcoctionIngredient("scrumptious reagent", 1),
+                ConcoctionIngredient("cherry", 1),
+            ),
+        )
+        assertTrue(c.isTripleSauce)
+        assertFalse(c.isManual)
+        assertTrue(c.isCreateSupported())
+    }
+
+    @Test
+    fun noDiscoveryFlag_parsed() {
+        val c = ConcoctionData(
+            result = "Mighty Bjorn action figure",
+            resultQuantity = 1,
+            methods = setOf("COMBINE", "NODISCOVERY"),
+            ingredients = listOf(
+                ConcoctionIngredient("action figure head", 1),
+                ConcoctionIngredient("action figure body", 1),
+            ),
+        )
+        assertTrue(c.isNoDiscovery)
+        assertFalse(c.isManual)
+        assertTrue(c.isCreateSupported())
+    }
+
+    @Test
     fun stillShopRow_parsesRowToken() {
         val c = ConcoctionData(
             result = "bottle of Calcutta Emerald",

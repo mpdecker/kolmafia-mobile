@@ -35,9 +35,34 @@ class GameRuntimeLibraryAshP911TrackDTest {
     }
 
     @Test
+    fun phase911_getClanLounge_resolvesItemNames() {
+        net.sourceforge.kolmafia.clan.ClanManager.resetForTest()
+        net.sourceforge.kolmafia.clan.ClanManager.setClan(1, "TestClan")
+        net.sourceforge.kolmafia.clan.ClanManager.addToLounge("Clan pool table", 1)
+        net.sourceforge.kolmafia.clan.ClanManager.addToLounge("Clan looking glass", 1)
+        val db = net.sourceforge.kolmafia.data.GameDatabase()
+        val lib = GameRuntimeLibrary(preferences = prefs(), gameDatabase = db)
+        val result = outputLib(lib, "print(count(get_clan_lounge()));")
+        assertEquals("2", result)
+        net.sourceforge.kolmafia.clan.ClanManager.resetForTest()
+    }
+
+    @Test
     fun phase911_getClanRumpus_emptyByDefault() {
         val lib = GameRuntimeLibrary(preferences = prefs())
         assertEquals("0", outputLib(lib, "print(count(get_clan_rumpus()));"))
+    }
+
+    @Test
+    fun phase911_getClanRumpus_parsesCountSuffix() {
+        net.sourceforge.kolmafia.clan.ClanManager.resetForTest()
+        net.sourceforge.kolmafia.clan.ClanManager.setClan(1, "TestClan")
+        net.sourceforge.kolmafia.clan.ClanManager.addToRumpus("Girls of Loathing Calendar (3)")
+        net.sourceforge.kolmafia.clan.ClanManager.addToRumpus("Meat Tree")
+        val lib = GameRuntimeLibrary(preferences = prefs())
+        val countResult = outputLib(lib, "print(count(get_clan_rumpus()));")
+        assertEquals("2", countResult)
+        net.sourceforge.kolmafia.clan.ClanManager.resetForTest()
     }
 
     @Test

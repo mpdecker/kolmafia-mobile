@@ -263,50 +263,58 @@ internal fun GameRuntimeLibrary.registerAshP895Batch(scope: AshScope) {
     regFn(scope, "banished_by", stringArray, listOf("monster" to AshType.MONSTER)) { _, args ->
         val name = args[0].monsterRefName()
         val turn = character?.state?.value?.currentRun ?: 0
-        val names = banishManager?.banishedBy(name, turn)?.map { it.canonicalName }.orEmpty()
+        val state = character?.state?.value
+        val names = banishManager?.banishedBy(name, turn, state)?.map { it.canonicalName }.orEmpty()
         stringListToArray(names)
     }
     regFn(scope, "banished_by", stringArray, listOf("monster" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
         val turn = character?.state?.value?.currentRun ?: 0
-        val names = banishManager?.banishedBy(name, turn)?.map { it.canonicalName }.orEmpty()
+        val state = character?.state?.value
+        val names = banishManager?.banishedBy(name, turn, state)?.map { it.canonicalName }.orEmpty()
         stringListToArray(names)
     }
     regFn(scope, "tracked_by", stringArray, listOf("monster" to AshType.MONSTER)) { _, args ->
         val name = args[0].monsterRefName()
         val prefs = preferences ?: return@regFn stringListToArray(emptyList())
         val turn = character?.state?.value?.currentRun ?: 0
-        stringListToArray(TrackManager.trackedBy(prefs, name, turn))
+        val famId = character?.state?.value?.familiarId ?: 0
+        stringListToArray(TrackManager.trackedBy(prefs, name, turn, famId))
     }
     regFn(scope, "tracked_by", stringArray, listOf("monster" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
         val prefs = preferences ?: return@regFn stringListToArray(emptyList())
         val turn = character?.state?.value?.currentRun ?: 0
-        stringListToArray(TrackManager.trackedBy(prefs, name, turn))
+        val famId = character?.state?.value?.familiarId ?: 0
+        stringListToArray(TrackManager.trackedBy(prefs, name, turn, famId))
     }
     regFn(scope, "track_copy_count", AshType.INT, listOf("monster" to AshType.MONSTER)) { _, args ->
         val name = args[0].monsterRefName()
         val prefs = preferences ?: return@regFn AshValue.of(0)
         val turn = character?.state?.value?.currentRun ?: 0
-        AshValue.of(TrackManager.countCopies(prefs, name, turn).toLong())
+        val famId = character?.state?.value?.familiarId ?: 0
+        AshValue.of(TrackManager.countCopies(prefs, name, turn, famId).toLong())
     }
     regFn(scope, "track_copy_count", AshType.INT, listOf("monster" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
         val prefs = preferences ?: return@regFn AshValue.of(0)
         val turn = character?.state?.value?.currentRun ?: 0
-        AshValue.of(TrackManager.countCopies(prefs, name, turn).toLong())
+        val famId = character?.state?.value?.familiarId ?: 0
+        AshValue.of(TrackManager.countCopies(prefs, name, turn, famId).toLong())
     }
     regFn(scope, "track_ignore_queue", AshType.BOOLEAN, listOf("monster" to AshType.MONSTER)) { _, args ->
         val name = args[0].monsterRefName()
         val prefs = preferences ?: return@regFn AshValue.of(false)
         val turn = character?.state?.value?.currentRun ?: 0
-        AshValue.of(TrackManager.isQueueIgnored(prefs, name, turn))
+        val famId = character?.state?.value?.familiarId ?: 0
+        AshValue.of(TrackManager.isQueueIgnored(prefs, name, turn, famId))
     }
     regFn(scope, "track_ignore_queue", AshType.BOOLEAN, listOf("monster" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
         val prefs = preferences ?: return@regFn AshValue.of(false)
         val turn = character?.state?.value?.currentRun ?: 0
-        AshValue.of(TrackManager.isQueueIgnored(prefs, name, turn))
+        val famId = character?.state?.value?.familiarId ?: 0
+        AshValue.of(TrackManager.isQueueIgnored(prefs, name, turn, famId))
     }
 }
 

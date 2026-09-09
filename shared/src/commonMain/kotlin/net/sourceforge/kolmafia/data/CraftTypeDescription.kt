@@ -203,12 +203,16 @@ object CraftTypeDescription {
         }
 
         val base = primary?.label ?: return "[unknown method of creation]"
-        if (requirements.isEmpty()) return base
+        val isManual = "MANUAL" in methods
+        if (requirements.isEmpty() && !isManual) return base
         return buildString {
             append(base)
             for (req in requirements) {
                 append(' ')
                 append(req.suffix)
+            }
+            if (isManual) {
+                append(" (MANUAL)")
             }
         }
     }

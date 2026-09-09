@@ -21,7 +21,8 @@ internal fun GameRuntimeLibrary.registerAshP911Batch(scope: AshScope) {
         val cached = ClanManager.getClanLounge()
         if (cached.isNotEmpty()) {
             for ((name, count) in cached) {
-                result[AshValue.item(name)] = AshValue.of(count.toLong())
+                val resolved = gameDatabase?.item(name)?.name ?: name
+                result[AshValue.item(resolved)] = AshValue.of(count.toLong())
             }
         } else {
             val loungeItems = preferences?.getString("clanLounge", "")?.takeIf { it.isNotBlank() }
@@ -30,7 +31,8 @@ internal fun GameRuntimeLibrary.registerAshP911Batch(scope: AshScope) {
                 val parts = entry.split(":")
                 val name = parts.getOrNull(0) ?: continue
                 val count = parts.getOrNull(1)?.toIntOrNull() ?: 1
-                result[AshValue.item(name)] = AshValue.of(count.toLong())
+                val resolved = gameDatabase?.item(name)?.name ?: name
+                result[AshValue.item(resolved)] = AshValue.of(count.toLong())
             }
             }
         }

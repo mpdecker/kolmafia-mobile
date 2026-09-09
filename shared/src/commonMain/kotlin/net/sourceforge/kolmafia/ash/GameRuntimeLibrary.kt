@@ -300,6 +300,7 @@ import net.sourceforge.kolmafia.session.GuildUnlockManager
 import net.sourceforge.kolmafia.session.BastilleSyncContext
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.DreadScrollManager
+import net.sourceforge.kolmafia.session.HobopolisManager
 import net.sourceforge.kolmafia.session.MerkinQuestSync
 import net.sourceforge.kolmafia.request.SeaMerkinRequest
 import net.sourceforge.kolmafia.request.TrophyHutRequest
@@ -579,6 +580,28 @@ import net.sourceforge.kolmafia.request.KnobDispensaryRequestHub
 import net.sourceforge.kolmafia.request.BugbearBakeryRequestHub
 import net.sourceforge.kolmafia.request.ChinatownShopsRequestHub
 import net.sourceforge.kolmafia.request.TweedleporiumRequestHub
+import net.sourceforge.kolmafia.request.Crimbo18CafeRequestHub
+import net.sourceforge.kolmafia.request.Crimbo18GiftOMatRequestHub
+import net.sourceforge.kolmafia.request.Crimbo19CafeRequestHub
+import net.sourceforge.kolmafia.request.Crimbo20BlackMarketRequestHub
+import net.sourceforge.kolmafia.request.Crimbo20CafeRequestHub
+import net.sourceforge.kolmafia.request.Crimbo21CafeRequestHub
+import net.sourceforge.kolmafia.request.Crimbo21OrnamentsRequestHub
+import net.sourceforge.kolmafia.request.Crimbo25CafeRequestHub
+import net.sourceforge.kolmafia.request.CyberHackMarketRequestHub
+import net.sourceforge.kolmafia.request.GnoMartRequestHub
+import net.sourceforge.kolmafia.request.GuildStore1RequestHub
+import net.sourceforge.kolmafia.request.GuildStore2RequestHub
+import net.sourceforge.kolmafia.request.GuildStore3RequestHub
+import net.sourceforge.kolmafia.request.LittleCanadiaJewelersRequestHub
+import net.sourceforge.kolmafia.request.MadelineBakingSupplyRequestHub
+import net.sourceforge.kolmafia.request.NervewreckersStoreRequestHub
+import net.sourceforge.kolmafia.request.HugglerSnackBarRequestHub
+import net.sourceforge.kolmafia.request.TownGiftShopRequestHub
+import net.sourceforge.kolmafia.request.UnclePAntiquesRequestHub
+import net.sourceforge.kolmafia.request.ClanHallRequestHub
+import net.sourceforge.kolmafia.request.ArenaVisitRequestHub
+import net.sourceforge.kolmafia.request.RaffleVisitRequestHub
 import net.sourceforge.kolmafia.request.ActionBarRequest
 import net.sourceforge.kolmafia.request.LocketRequest
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
@@ -776,7 +799,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase5590"
+        const val REVISION = "phase5890"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -3445,6 +3468,29 @@ class GameRuntimeLibrary(
             BugbearBakeryRequestHub.registerRequest(url, sessionLogger)
             ChinatownShopsRequestHub.registerRequest(url, sessionLogger)
             TweedleporiumRequestHub.registerRequest(url, sessionLogger)
+            Crimbo18GiftOMatRequestHub.registerRequest(url, sessionLogger)
+            Crimbo18CafeRequestHub.registerRequest(url, sessionLogger)
+            Crimbo19CafeRequestHub.registerRequest(url, sessionLogger)
+            Crimbo20BlackMarketRequestHub.registerRequest(url, sessionLogger)
+            Crimbo20CafeRequestHub.registerRequest(url, sessionLogger)
+            Crimbo21CafeRequestHub.registerRequest(url, sessionLogger)
+            Crimbo21OrnamentsRequestHub.registerRequest(url, sessionLogger)
+            Crimbo25CafeRequestHub.registerRequest(url, sessionLogger)
+            CyberHackMarketRequestHub.registerRequest(url, sessionLogger)
+            GnoMartRequestHub.registerRequest(url, sessionLogger)
+            GuildStore1RequestHub.registerRequest(url, sessionLogger)
+            GuildStore2RequestHub.registerRequest(url, sessionLogger)
+            GuildStore3RequestHub.registerRequest(url, sessionLogger)
+            LittleCanadiaJewelersRequestHub.registerRequest(url, sessionLogger)
+            MadelineBakingSupplyRequestHub.registerRequest(url, sessionLogger)
+            NervewreckersStoreRequestHub.registerRequest(url, sessionLogger)
+            HugglerSnackBarRequestHub.registerRequest(url, sessionLogger)
+            TownGiftShopRequestHub.registerRequest(url, sessionLogger)
+            UnclePAntiquesRequestHub.registerRequest(url, sessionLogger)
+            // Phase 5770 non-shop residual hubs
+            ClanHallRequestHub.registerRequest(url, sessionLogger)
+            ArenaVisitRequestHub.registerRequest(url, sessionLogger)
+            RaffleVisitRequestHub.registerRequest(url, sessionLogger)
             if (url.contains("whichplace=nstower", ignoreCase = true) &&
                 SorceressLairSync.action(url) == "ns_10_sorcfight"
             ) {
@@ -3728,6 +3774,10 @@ class GameRuntimeLibrary(
             }
             DreadScrollManager.handleKillscroll(html, preferences, sessionLogger)
             DreadScrollManager.handleHealscroll(html, preferences, sessionLogger)
+            HobopolisManager.parseTownSquareWin(html)?.let { itemName ->
+                val msg = "Richard takes a $itemName"
+                sessionLogger?.appendRawLine(msg)
+            }
             ElVibratoManager.parseResponse(
                 url = url,
                 html = html,
@@ -5044,6 +5094,54 @@ class GameRuntimeLibrary(
                 )
             }
         }
+        // Phase 5735+: consume deferred liberateKing flags with actual local resets
+        // before clearing them, so downstream state reflects the restriction lift.
+        consumeLiberateKingDeferredFlags()
+    }
+
+    /**
+     * Perform available local resets driven by [KoLCharacter.liberateKing] deferred flags,
+     * then clear the flags. Desktop does inline HTTP for each; headless mobile performs
+     * the local state resets that don't require network.
+     */
+    private fun consumeLiberateKingDeferredFlags() {
+        val prefs = preferences ?: return
+
+        // Telescope: desktop calls checkTelescope(). Reset telescopeLookedHigh so the
+        // next telescope visit or Maximizer boost evaluation re-reads telescope state.
+        if (prefs.getBoolean("_liberateKingNeedsTelescope", false)) {
+            prefs.setBoolean("telescopeLookedHigh", false)
+            character?.setCampground(telescopeLookedHigh = false)
+        }
+
+        // Bookshelf: desktop fetches campground bookshelf. Reset hasBookshelf so the
+        // next campground visit re-discovers bookshelf availability.
+        if (prefs.getBoolean("_liberateKingNeedsBookshelf", false)) {
+            character?.setCampground(hasBookshelf = false)
+        }
+
+        // Familiar: desktop re-fetches terrarium. Mark concoction refresh needed since
+        // familiar availability affects crafting gates and Maximizer candidate lists.
+        if (prefs.getBoolean("_liberateKingNeedsFamiliarRefresh", false)) {
+            ConcoctionDatabase.markRefreshNeeded()
+        }
+
+        // Clan lounge: desktop updates clan lounge items. Clear cached lounge pref so
+        // the next clan_viplounge visit re-discovers available furniture.
+        if (prefs.getBoolean("_liberateKingNeedsClanRefresh", false)) {
+            prefs.setString("clanLounge", "")
+        }
+
+        // Hermit: desktop calls HermitRequest.initialize() which resets cached item
+        // list and registers standard hermit items. Mobile has no static hermit cache;
+        // the next hermit.php visit will discover items fresh.
+
+        // Clear all boolean flags (FloristRequest.reset() for florist flag is inside).
+        KoLCharacter.clearLiberateKingDeferredFlags(prefs)
+
+        // After processing deferred flags, mark concoctions as needing refresh since
+        // restriction gates have changed and pullsRemaining is now -1 (set in liberateKing).
+        ConcoctionDatabase.markRefreshNeeded()
     }
 
     private fun syncDynamicChoiceSpoilers() {
@@ -5055,6 +5153,158 @@ class GameRuntimeLibrary(
         }
         DynamicChoiceSpoilers.characterClass = {
             character?.state?.value?.characterClassEnum
+        }
+        DynamicChoiceSpoilers.hasEquipped = { id ->
+            equipmentManager?.hasEquipped(id) == true
+        }
+        DynamicChoiceSpoilers.hasEffect = { name ->
+            effectManager?.state?.value?.effects
+                ?.any { it.name.equals(name, ignoreCase = true) } == true
+        }
+        // ── Track A / C DI (Behavioral Deepen XXX) ───────────────────────────
+        DynamicChoiceSpoilers.elementalResistanceLevels = { element ->
+            val mods = buildCurrentModifiers()
+            CombatAdjustment.elementalResistanceLevels(mods, element)
+        }
+        DynamicChoiceSpoilers.elementalResistanceByLevel = { levels ->
+            val state = character?.state?.value
+            val isMyst = state?.mainStat == net.sourceforge.kolmafia.character.MainStat.MYSTICALITY
+            CombatAdjustment.elementalResistanceByLevel(levels, mystBonus = true, isMystClass = isMyst)
+        }
+        DynamicChoiceSpoilers.buffedMuscle = {
+            character?.state?.value?.buffedMusc ?: 0
+        }
+        DynamicChoiceSpoilers.buffedMyst = {
+            character?.state?.value?.buffedMyst ?: 0
+        }
+        DynamicChoiceSpoilers.buffedMoxie = {
+            character?.state?.value?.buffedMoxie ?: 0
+        }
+        DynamicChoiceSpoilers.currentHP = {
+            (character?.state?.value?.currentHp ?: 0).toLong()
+        }
+        DynamicChoiceSpoilers.currentMP = {
+            (character?.state?.value?.currentMp ?: 0).toLong()
+        }
+        DynamicChoiceSpoilers.inebriety = {
+            character?.state?.value?.inebriety ?: 0
+        }
+        DynamicChoiceSpoilers.initiativeAdjustment = {
+            val mods = buildCurrentModifiers()
+            mods.values.get(net.sourceforge.kolmafia.modifiers.DoubleModifier.INITIATIVE).toDouble()
+        }
+        DynamicChoiceSpoilers.itemDropPercent = {
+            val mods = buildCurrentModifiers()
+            mods.values.get(net.sourceforge.kolmafia.modifiers.DoubleModifier.ITEMDROP).toDouble()
+        }
+        DynamicChoiceSpoilers.foodDropPercent = {
+            val mods = buildCurrentModifiers()
+            mods.values.get(net.sourceforge.kolmafia.modifiers.DoubleModifier.FOODDROP).toDouble()
+        }
+        DynamicChoiceSpoilers.currentBonusDamage = {
+            val mods = buildCurrentModifiers()
+            val weaponDamage = mods.values.get(net.sourceforge.kolmafia.modifiers.DoubleModifier.WEAPON_DAMAGE).toInt()
+            val rangedDamage = mods.values.get(net.sourceforge.kolmafia.modifiers.DoubleModifier.RANGED_DAMAGE).toInt()
+            val weaponId = equipmentManager?.getEquipmentId(
+                net.sourceforge.kolmafia.character.EquipmentSlot.WEAPON,
+            ) ?: -1
+            val isRanged = net.sourceforge.kolmafia.data.EquipmentDatabase.getWeaponType(weaponId) ==
+                net.sourceforge.kolmafia.data.WeaponType.RANGED
+            weaponDamage + if (isRanged) rangedDamage else 0
+        }
+        DynamicChoiceSpoilers.currentPrismaticDamage = {
+            val mods = buildCurrentModifiers()
+            mods.values.get(net.sourceforge.kolmafia.modifiers.DoubleModifier.PRISMATIC_DAMAGE).toInt()
+        }
+        DynamicChoiceSpoilers.estimatedPoolSkill = {
+            val state = character?.state?.value
+            val mods = buildCurrentModifiers()
+            val poolEquip = mods.values.get(net.sourceforge.kolmafia.modifiers.DoubleModifier.POOL_SKILL).toInt()
+            val drunk = state?.inebriety ?: 0
+            val poolSkillPref = preferences?.getInt("poolSkill", 0) ?: 0
+            val poolSharkCount = preferences?.getInt("poolSharkCount", 0) ?: 0
+            DynamicChoiceSpoilers.computeEstimatedPoolSkill(poolEquip, drunk, poolSkillPref, poolSharkCount)
+        }
+        DynamicChoiceSpoilers.lastResponseText = {
+            ChoiceCombatAshState.lastChoiceResponseText
+        }
+        DynamicChoiceSpoilers.hasSkillId = { skillId ->
+            skillManager?.state?.value?.skills?.any { it.id == skillId } == true
+        }
+        DynamicChoiceSpoilers.isWearingOutfit = { outfitId ->
+            val outfitData = net.sourceforge.kolmafia.data.OutfitDatabase.getById(outfitId)
+            if (outfitData != null) {
+                val equipment = character?.state?.value?.equipment ?: emptyMap()
+                net.sourceforge.kolmafia.equipment.OutfitManager.isWearingPieces(
+                    outfitData.equipment,
+                    equipment,
+                )
+            } else {
+                false
+            }
+        }
+        DynamicChoiceSpoilers.lastEncounter = {
+            preferences?.getString("lastEncounter", "") ?: ""
+        }
+        DynamicChoiceSpoilers.numericModifier = { modName ->
+            val mods = buildCurrentModifiers()
+            val modifier = net.sourceforge.kolmafia.modifiers.DoubleModifier.entries.firstOrNull {
+                it.name.equals(modName, ignoreCase = true)
+            }
+            if (modifier != null) mods.values.get(modifier).toDouble() else 0.0
+        }
+        // ── Overlook Lodge familiar-exclusion DI (Group E) ────────────────────
+        DynamicChoiceSpoilers.hasActiveFamiliar = {
+            familiarManager?.state?.value?.activeFamiliar?.race?.isNotEmpty() == true
+        }
+        DynamicChoiceSpoilers.activeFamiliarItemDrop = {
+            val race = familiarManager?.state?.value?.activeFamiliar?.race.orEmpty()
+            if (race.isNotEmpty()) {
+                val entry = net.sourceforge.kolmafia.data.ModifierDatabase.getFamiliar(race)
+                if (entry != null) {
+                    net.sourceforge.kolmafia.modifiers.ModifierParser.parse(entry.modifiers)
+                        .get(net.sourceforge.kolmafia.modifiers.DoubleModifier.ITEMDROP)
+                } else 0.0
+            } else 0.0
+        }
+        DynamicChoiceSpoilers.activeFamiliarFoodDrop = {
+            val race = familiarManager?.state?.value?.activeFamiliar?.race.orEmpty()
+            if (race.isNotEmpty()) {
+                val entry = net.sourceforge.kolmafia.data.ModifierDatabase.getFamiliar(race)
+                if (entry != null) {
+                    net.sourceforge.kolmafia.modifiers.ModifierParser.parse(entry.modifiers)
+                        .get(net.sourceforge.kolmafia.modifiers.DoubleModifier.FOODDROP)
+                } else 0.0
+            } else 0.0
+        }
+        DynamicChoiceSpoilers.enthronedItemDrop = {
+            val race = preferences?.getString("enthronedFamiliar", "").orEmpty()
+            if (race.isNotEmpty()) {
+                val entry = net.sourceforge.kolmafia.data.ModifierDatabase.getThrone(race)
+                if (entry != null) {
+                    net.sourceforge.kolmafia.modifiers.ModifierParser.parse(entry.modifiers)
+                        .get(net.sourceforge.kolmafia.modifiers.DoubleModifier.ITEMDROP)
+                } else 0.0
+            } else 0.0
+        }
+        DynamicChoiceSpoilers.bjornedItemDrop = {
+            val race = preferences?.getString("bjornedFamiliar", "").orEmpty()
+            if (race.isNotEmpty()) {
+                val entry = net.sourceforge.kolmafia.data.ModifierDatabase.getThrone(race)
+                if (entry != null) {
+                    net.sourceforge.kolmafia.modifiers.ModifierParser.parse(entry.modifiers)
+                        .get(net.sourceforge.kolmafia.modifiers.DoubleModifier.ITEMDROP)
+                } else 0.0
+            } else 0.0
+        }
+        // Florist Twin Peak, Clancy lute, Eggman, Ed cat are rare sidekick paths;
+        // providers default to 0.0 and can be wired later when those managers exist.
+
+        // ── RequestLogger familiar name DI (Group F) ──────────────────────────
+        RequestLogger.familiarDisplayById = { famId ->
+            familiarManager?.state?.value?.ownedFamiliars
+                ?.firstOrNull { it.id == famId }
+                ?.let { fam -> "${fam.name}, the ${fam.race}" }
         }
     }
 
@@ -6904,6 +7154,11 @@ class GameRuntimeLibrary(
         registerPhase5470(scope)
         registerPhase5530(scope)
         registerPhase5590(scope)
+        registerPhase5650(scope)
+        registerPhase5710(scope)
+        registerPhase5770(scope)
+        registerPhase5830(scope)
+        registerPhase5890(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
@@ -7610,17 +7865,20 @@ class GameRuntimeLibrary(
         register(scope, "is_banished", AshType.BOOLEAN, listOf("monster" to AshType.MONSTER)) { _, args ->
             val name = args[0].toString()
             val currentTurn = character?.state?.value?.currentRun ?: 0
-            AshValue.of(banishManager?.isBanished(name, currentTurn) ?: false)
+            val state = character?.state?.value
+            AshValue.of(banishManager?.isBanished(name, currentTurn, state) ?: false)
         }
         register(scope, "is_banished", AshType.BOOLEAN, listOf("monster" to AshType.STRING)) { _, args ->
             val name = args[0].toString()
             val currentTurn = character?.state?.value?.currentRun ?: 0
-            AshValue.of(banishManager?.isBanished(name, currentTurn) ?: false)
+            val state = character?.state?.value
+            AshValue.of(banishManager?.isBanished(name, currentTurn, state) ?: false)
         }
         register(scope, "is_banished", AshType.BOOLEAN, listOf("phylum" to AshType.PHYLUM)) { _, args ->
             val phylum = args[0].toString()
             val currentTurn = character?.state?.value?.currentRun ?: 0
-            AshValue.of(banishManager?.isBanishedPhylum(phylum, currentTurn) ?: false)
+            val state = character?.state?.value
+            AshValue.of(banishManager?.isBanishedPhylum(phylum, currentTurn, state) ?: false)
         }
 
         // banishers_used() → string[monster]
@@ -7628,7 +7886,8 @@ class GameRuntimeLibrary(
         register(scope, "banishers_used", returnType, emptyList()) { _, _ ->
             val result = AggregateValue(returnType)
             val currentTurn = character?.state?.value?.currentRun ?: 0
-            banishManager?.getActiveBanishes(currentTurn)
+            val state = character?.state?.value
+            banishManager?.getActiveBanishes(currentTurn, state)
                 ?.forEach { (monsterName, banisher) ->
                     result[AshValue(AshType.MONSTER, monsterName)] = AshValue.of(banisher.canonicalName)
                 }

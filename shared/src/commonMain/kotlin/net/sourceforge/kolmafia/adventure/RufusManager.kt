@@ -213,14 +213,18 @@ class RufusManager(private val preferences: Preferences) {
         }
     }
 
-    enum class ShadowTheme(val goal: String, val artifact: String?) {
-        FIRE("muscle", "shadow lighter"),
-        MATH("mysticality", "shadow heptahedron"),
-        WATER("moxie", "shadow bucket"),
-        TIME("effects", null),
-        BLOOD("maxHP", "shadow heart"),
-        COLD("maxMP", "shadow snowflake"),
-        GHOST("resistance", "shadow wave"),
+    enum class ShadowTheme(
+        val normalDisplay: String,
+        val goal: String,
+        val artifact: String?,
+    ) {
+        FIRE("90-100 Muscle substats", "muscle", "shadow lighter"),
+        MATH("90-100 Mysticality substats", "mysticality", "shadow heptahedron"),
+        WATER("90-100 Moxie substats", "moxie", "shadow bucket"),
+        TIME("+3 turns to 3 random effects", "effects", null),
+        BLOOD("30 Shadow's Heart: Maximum HP +300%", "maxHP", "shadow heart"),
+        COLD("30 Shadow's Chill: Maximum MP +300%", "maxMP", "shadow snowflake"),
+        GHOST("30 Shadow's Thickness: Superhuman (+5) Spooky, Hot, Sleaze resistance", "resistance", "shadow wave"),
         ;
 
         companion object {
@@ -286,6 +290,18 @@ class RufusManager(private val preferences: Preferences) {
     }
 
     companion object {
+        /**
+         * Static version of [shadowLabyrinthTheme] for use by [DynamicChoiceSpoilers]
+         * which cannot hold an instance reference.
+         */
+        fun shadowLabyrinthThemeStatic(text: String): ShadowTheme? {
+            val the = text.indexOf(" the ")
+            val place = text.lastIndexOf(' ')
+            if (the == -1 || place == -1 || place <= the) return null
+            val adjective = text.substring(the + 5, place)
+            return ShadowTheme.adjectiveToTheme[adjective]
+        }
+
         private const val DEFAULT_SR_ENCOUNTERS = 11
         private val SHADOW_BOSSES = setOf(
             "shadow spire",

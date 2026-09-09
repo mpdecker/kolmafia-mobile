@@ -34,4 +34,37 @@ object HolidayNames {
         override?.let { holidays += it }
         return holidays.distinct()
     }
+
+    /**
+     * Desktop [HolidayDatabase.getEvents] — combined game + real-life holidays
+     * **without** combo-day replacement, plus stat-day and Labor Day Eve.
+     */
+    fun getEvents(): List<String> {
+        val list = getHolidays(replaceWithSpecial = false).toMutableList()
+        val calendarDay = KolGameHolidayCalendar.dayInKoLYear()
+        if (KolGameHolidayCalendar.getGameHolidayInDays(1, calendarDay) == "Lab&oacute;r Day") {
+            list += "Lab&oacute;r Day Eve"
+        }
+        when (KolGameHolidayCalendar.getStatDay(calendarDay)) {
+            "muscle" -> list += "Muscle Day"
+            "mysticality" -> list += "Mysticality Day"
+            "moxie" -> list += "Moxie Day"
+        }
+        return list
+    }
+
+    /**
+     * Desktop [HolidayDatabase.getHolidaySummary] — combined holiday with
+     * combo-day replacement for today, falling back to next game-calendar holiday.
+     */
+    fun getHolidaySummary(): String {
+        val today = getHoliday()
+        if (today.isNotBlank()) return KolGameHolidayCalendar.getDayCountAsString(0, today)
+        val calendarDay = KolGameHolidayCalendar.dayInKoLYear()
+        for (i in 0 until 96) {
+            val holiday = KolGameHolidayCalendar.getGameHolidayInDays(i, calendarDay) ?: continue
+            return KolGameHolidayCalendar.getDayCountAsString(i, holiday)
+        }
+        return ""
+    }
 }

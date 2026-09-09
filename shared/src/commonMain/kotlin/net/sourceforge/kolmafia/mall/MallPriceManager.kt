@@ -39,6 +39,22 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
         )
     }
 
+    /**
+     * Caches the price only when [dayNumber] matches [currentDay] — prevents stale
+     * cross-rollover prices from polluting the session cache. Day numbers are
+     * caller-supplied rollover-day counters (e.g. `KoLCharacter.currentDays`).
+     */
+    fun cachePriceIfFromCurrentDay(
+        itemId: Int,
+        price: Long,
+        quantity: Int,
+        shopId: Int,
+        dayNumber: Int,
+        currentDay: Int,
+    ) {
+        if (dayNumber == currentDay) cachePrice(itemId, price, quantity, shopId)
+    }
+
     fun getCachedPrice(itemId: Int): CachedPrice? {
         val entry = cache[itemId] ?: return null
         if (clock.nowSeconds - entry.cachedAt >= TTL_SECONDS) return null
@@ -50,6 +66,34 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
 
     /** Desktop MallPriceManager.getMallPrice — cached mall listing price after prefetch. */
     fun getMallPrice(itemId: Int): Long = getHistoricalPrice(itemId)
+
+    /**
+     * Desktop MallPriceManager.getMallPrice(itemId, maxAge) — returns cached/historical
+     * price only if the recorded age (via [getHistoricalAge]) is within [maxAgeSeconds].
+     * If [maxAgeSeconds] < 0 behaves like [getMallPrice] (no age filter).
+     * Returns 0 when the price is stale or unknown.
+     */
+    fun getMallPrice(itemId: Int, maxAgeSeconds: Long): Long {
+        if (maxAgeSeconds < 0) return getMallPrice(itemId)
+        val age = getHistoricalAge(itemId)
+        if (age < 0 || age > maxAgeSeconds) return 0L
+        return getMallPrice(itemId)
+    }
+
+    /**
+     * Desktop MallPriceManager.getMallPrice(itemId, maxAge, forceUpdate) soft overload.
+     * When [forceUpdate] is true the age gate is ignored and the historical price is
+     * returned unconditionally (no live HTTP search — headless).
+     * When [forceUpdate] is false behaves like [getMallPrice] with age gate.
+     */
+    fun getMallPrice(itemId: Int, maxAgeSeconds: Long, forceUpdate: Boolean): Long {
+        if (forceUpdate) {
+            // Headless: return last known cache/DB price even past TTL (no live HTTP search).
+            MallPriceDatabase.getPrice(itemId).takeIf { it > 0 }?.let { return it }
+            return cache[itemId]?.cached?.price ?: 0L
+        }
+        return getMallPrice(itemId, maxAgeSeconds)
+    }
 
     /** Seconds since the cached price was recorded; -1 if unknown or expired. */
     fun getHistoricalAge(itemId: Int): Long {

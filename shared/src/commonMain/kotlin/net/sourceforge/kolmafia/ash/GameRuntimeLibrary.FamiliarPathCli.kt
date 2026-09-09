@@ -39,7 +39,12 @@ internal fun GameRuntimeLibrary.cliFamiliarEquipmentLock(lock: Boolean, rt: AshR
         rt.print("Familiar item already unlocked.")
         return
     }
-    visitKolPage("familiar.php?action=lockequip")
+    val req = familiarRequest
+    if (req != null) {
+        kotlinx.coroutines.runBlocking { req.lockEquip() }
+    } else {
+        visitKolPage("familiar.php?action=lockequip")
+    }
     prefs?.setBoolean("familiarEquipmentLocked", lock)
     rt.print(if (lock) "Familiar item locked." else "Familiar item unlocked.")
 }

@@ -98,6 +98,7 @@ object ZoneCombatCalculator {
                     turnsPlayed = ctx.turnsPlayed,
                     areaCombatPercent = combatPct,
                     crystalBallEquipped = ctx.crystalBallEquipped,
+                    currentFamiliarId = ctx.familiarId,
                 )
             } else {
                 numerator / totalWeight
@@ -225,10 +226,10 @@ object ZoneCombatCalculator {
         weight = adjustConditionalWeighting(locationName, mw.name, weight, ctx)
 
         if (!stateful) return weight
-        if (ctx.banishManager?.isBanished(mw.name, ctx.turnsPlayed) == true) return -3
+        if (ctx.banishManager?.isBanished(mw.name, ctx.turnsPlayed, ctx.characterState) == true) return -3
         val prefs = ctx.preferences
         if (prefs != null) {
-            val copies = TrackManager.countCopies(prefs, mw.name, ctx.turnsPlayed)
+            val copies = TrackManager.countCopies(prefs, mw.name, ctx.turnsPlayed, ctx.familiarId)
             if (copies > 0 && weight > 0) weight += copies * mw.weight.coerceAtLeast(1)
             val rwbLoc = prefs.getString("rwbLocation", "")
             val rwbCount = prefs.getInt("rwbMonsterCount", 0)

@@ -138,8 +138,9 @@ fun ConcoctionData.isStillsuitCraftable(): Boolean =
 
 fun ConcoctionData.isCreateAndConsume(): Boolean = isSushiCraftable()
 
-fun ConcoctionData.isCreateSupported(): Boolean =
-    isAutoCraftable() || isStillCraftable() || isCoinmasterCraftable() ||
+fun ConcoctionData.isCreateSupported(): Boolean {
+    if (isManual) return false
+    return isAutoCraftable() || isStillCraftable() || isCoinmasterCraftable() ||
         isClipArtCraftable() || isRollCraftable() || isTerminalCraftable() ||
         isSewerCraftable() || isVykeaCraftable() || isMuseCraftable() ||
         isPhineasCraftable() || isStaffCraftable() || isTinkerCraftable() ||
@@ -149,6 +150,7 @@ fun ConcoctionData.isCreateSupported(): Boolean =
         isMayamCraftable() || isPhotoBoothCraftable() || isTakerspaceCraftable() ||
         isGnomePartCraftable() || isSpacegateCraftable() || isFantasyRealmCraftable() ||
         isFloundryCraftable() || isStillsuitCraftable()
+}
 
 fun ConcoctionData.isAutoCraftable(): Boolean =
     isSuseCraftable() || isStationCraftable()

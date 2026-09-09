@@ -12,7 +12,14 @@ object TurnCounter {
         val absoluteTurn: Int,
         val label: String,
         val image: String,
+        /** Mutable: the turn on which this counter last produced a warning. */
+        var lastWarned: Int = -1,
     ) {
+        /** Desktop `type=wander` heuristic — label contains "window" or has `type=wander` tag. */
+        val isWander: Boolean
+            get() = label.contains("type=wander") ||
+                label.contains("window", ignoreCase = true)
+
         fun parsedLabel(): String {
             var text = label
             while (true) {
@@ -52,6 +59,11 @@ object TurnCounter {
         }
     }
 
+    /** In-memory lastWarned by label+image — pref format has no room for it (desktop parity). */
+    private val lastWarnedMemory = mutableMapOf<String, Int>()
+
+    private fun entryKey(label: String, image: String): String = "$label\u0000$image"
+
     fun load(preferences: Preferences): List<Entry> {
         val raw = preferences.getString(PREF_KEY, "")
         if (raw.isBlank()) return emptyList()
@@ -62,7 +74,8 @@ object TurnCounter {
             val turn = tokens[i].toIntOrNull() ?: break
             val label = tokens[i + 1]
             val image = tokens[i + 2]
-            entries.add(Entry(turn, label, image))
+            val warned = lastWarnedMemory[entryKey(label, image)] ?: -1
+            entries.add(Entry(turn, label, image, lastWarned = warned))
             i += 3
         }
         return entries
@@ -71,6 +84,14 @@ object TurnCounter {
     fun save(preferences: Preferences, entries: List<Entry>) {
         val value = entries.joinToString(":") { "${it.absoluteTurn}:${it.label}:${it.image}" }
         preferences.setString(PREF_KEY, value)
+        // Keep lastWarned for surviving entries; drop keys no longer present.
+        val alive = entries.map { entryKey(it.label, it.image) }.toSet()
+        lastWarnedMemory.keys.retainAll(alive)
+        for (entry in entries) {
+            if (entry.lastWarned >= 0) {
+                lastWarnedMemory[entryKey(entry.label, entry.image)] = entry.lastWarned
+            }
+        }
     }
 
     fun startCounting(preferences: Preferences, currentRun: Int, turns: Int, label: String, image: String) {
@@ -262,7 +283,107 @@ object TurnCounter {
         )
     }
 
+    // ── Temporary counters (Group B phases 5846–5855) ──────────────────────
+
+    /**
+     * Desktop [TurnCounter.startCountingTemporary] — append to `_tempRelayCounters` pref
+     * as `turns:label:image|` for deferred start via [handleTemporaryCounters].
+     */
+    fun startCountingTemporary(preferences: Preferences, turns: Int, label: String, image: String) {
+        val temp = preferences.getString(TEMP_PREF_KEY, "")
+        preferences.setString(TEMP_PREF_KEY, "$temp$turns:$label:$image|")
+    }
+
+    /**
+     * Desktop [TurnCounter.handleTemporaryCounters] — if the temp pref is non-empty, the last
+     * location has wanderers, and (type != "Combat" OR [encounter] is not a no-wander monster),
+     * start each deferred counter and clear the pref.
+     */
+    fun handleTemporaryCounters(
+        preferences: Preferences,
+        currentRun: Int,
+        type: String,
+        encounter: String,
+        lastLocationHasWanderers: Boolean,
+        isNoWanderMonster: (String) -> Boolean = { false },
+    ) {
+        val temp = preferences.getString(TEMP_PREF_KEY, "")
+        if (temp.isBlank()) return
+        if (!lastLocationHasWanderers) return
+        if (type.equals("Combat", ignoreCase = true) && isNoWanderMonster(encounter)) return
+
+        val counters = temp.split('|')
+        for (counter in counters) {
+            if (counter.isBlank()) continue
+            val parts = counter.split(':')
+            if (parts.size < 3) continue
+            val turns = parts[0].toIntOrNull() ?: continue
+            startCounting(preferences, currentRun, turns, parts[1], parts[2])
+        }
+        preferences.setString(TEMP_PREF_KEY, "")
+    }
+
+    /**
+     * Desktop [TurnCounter.getExpiredCounter] — return the first counter that has expired
+     * (absoluteTurn ≤ currentRun + turnsUsed - 1), respecting lastWarned and exemption.
+     * Updates [Entry.lastWarned] and auto-saves.
+     *
+     * @param informational true for informational counters (exempt ones), false for normal
+     */
+    fun getExpiredCounter(
+        preferences: Preferences,
+        currentRun: Int,
+        turnsUsed: Int,
+        adventureId: String,
+        informational: Boolean,
+    ): Entry? {
+        if (turnsUsed == 0) return null
+        val currentTurns = currentRun + turnsUsed - 1
+        val entries = load(preferences).toMutableList()
+
+        for (entry in entries) {
+            if (entry.absoluteTurn > currentTurns) continue
+            if (entry.lastWarned == currentRun) continue
+            if (entry.isExempt(adventureId) != informational) continue
+
+            // Informational counters defer until actual expiration
+            if (informational && entry.absoluteTurn > currentRun) continue
+
+            // Remove past non-wander counters
+            if (entry.absoluteTurn < currentRun) {
+                if (entry.isWander) continue
+                entries.remove(entry)
+                save(preferences, entries)
+                entry.lastWarned = currentRun
+                return entry
+            }
+
+            entry.lastWarned = currentRun
+            save(preferences, entries)
+            return entry
+        }
+        return null
+    }
+
+    /**
+     * Desktop [TurnCounter.getUnexpiredCounters] — newline-separated
+     * `label (turnsRemaining)` for all counters at or after [currentRun].
+     */
+    fun getUnexpiredCounters(preferences: Preferences, currentRun: Int): String {
+        val sb = StringBuilder()
+        for (entry in load(preferences)) {
+            if (entry.absoluteTurn < currentRun) continue
+            if (sb.isNotEmpty()) sb.append('\n')
+            sb.append(entry.parsedLabel())
+            sb.append(" (")
+            sb.append(entry.absoluteTurn - currentRun)
+            sb.append(')')
+        }
+        return sb.toString()
+    }
+
     const val PREF_KEY = "relayCounters"
+    const val TEMP_PREF_KEY = "_tempRelayCounters"
     const val MAYONNAISE_LABEL_PREFIX = "Mmmmmmayonnaise window "
 
     val NEMESIS_ASSASSIN_MONSTERS = setOf(

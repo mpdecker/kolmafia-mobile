@@ -39,8 +39,8 @@ class GameRuntimeLibraryPhase4690Test {
 
     @Test
     fun revision_phase4870() {
-        assertEquals("phase5590", GameRuntimeLibrary.REVISION)
-        assertEquals("phase5590", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
+        assertEquals("phase5890", GameRuntimeLibrary.REVISION)
+        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
     }
 
     @Test
@@ -123,7 +123,8 @@ class GameRuntimeLibraryPhase4690Test {
         assertTrue(WildfireCampRequest.registerRequest("place.php?whichplace=wildfire_camp"))
         assertTrue(ArtistRequest.registerRequest("place.php?whichplace=town_wrong&action=townwrong_artist_quest"))
         assertTrue(AltarOfLiteracyRequest.registerRequest("town_altar.php"))
-        assertTrue(DreadsylvaniaRequest.registerRequest("clan_dreadsylvania.php?loc=1"))
+        assertTrue(DreadsylvaniaRequest.registerRequest("clan_dreadsylvania.php?action=forceloc&loc=1"))
+        assertTrue(DreadsylvaniaRequest.registerRequest("clan_dreadsylvania.php?action=feedbooze&whichbooze=1&boozequantity=1"))
         assertEquals(1, DreadsylvaniaRequest.getAdventuresUsed("clan_dreadsylvania.php?loc=2"))
         assertTrue(PantogramRequest.registerRequest("choice.php?whichchoice=1270&option=1"))
         assertTrue(MummeryRequest.registerRequest("choice.php?whichchoice=1271&option=1"))
