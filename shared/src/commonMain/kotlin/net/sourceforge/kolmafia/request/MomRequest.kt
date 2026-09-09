@@ -10,7 +10,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 
-/** Desktop MomRequest — monkeycastle.php mombuff (no scuba checkpoint this phase). */
+/** Desktop MomRequest — monkeycastle.php mombuff (Phases 6086–6088). */
 class MomRequest(
     private val client: HttpClient,
 ) {
@@ -18,6 +18,9 @@ class MomRequest(
         option: Int,
         preferences: Preferences?,
         questDatabase: QuestDatabase? = null,
+        inventoryCount: (Int) -> Int = { 0 },
+        adventureUnderwater: Boolean = false,
+        underwaterFamiliar: Boolean = false,
     ): Result<String> {
         if (option !in 1..7) {
             return Result.failure(IllegalArgumentException("Decide which food to get."))
@@ -26,6 +29,14 @@ class MomRequest(
             return Result.failure(
                 IllegalStateException("You have already had food from Mom Sea Monkee today."),
             )
+        }
+        accessible(
+            questFinished = questDatabase?.isQuestFinished(Quest.SEA_MONKEES) == true,
+            inventoryCount = inventoryCount,
+            adventureUnderwater = adventureUnderwater,
+            underwaterFamiliar = underwaterFamiliar,
+        )?.let { reason ->
+            return Result.failure(IllegalStateException(reason))
         }
         return try {
             val response = client.submitForm(
@@ -58,6 +69,17 @@ class MomRequest(
     companion object {
         const val FOOD_RECEIVED_PREF = "_momFoodReceived"
 
+        // Desktop MomRequest scuba / mask / familiar underwater item ids.
+        const val SCUBA_GEAR = 734
+        const val AERATED_DIVING_HELMET = 3607
+        const val BATHYSPHERE = 3470
+        const val DAS_BOOT = 3609
+        const val AMPHIBIOUS_TOPHAT = 4229
+        const val SCHOLAR_MASK = 4285
+        const val GLADIATOR_MASK = 4284
+        const val CRAPPY_MASK = 4282
+        const val OLD_SCUBA_TANK = 6315
+
         val FOOD: List<String> = listOf(
             "hot", "cold", "stench", "spooky", "sleaze", "critical", "stats",
         )
@@ -74,6 +96,36 @@ class MomRequest(
                 if (name.equals(lower, ignoreCase = true)) return index + 1
             }
             return 0
+        }
+
+        /**
+         * Desktop [MomRequest.accessible] — null when OK, else human-readable block reason.
+         */
+        fun accessible(
+            questFinished: Boolean,
+            inventoryCount: (Int) -> Int = { 0 },
+            adventureUnderwater: Boolean = false,
+            underwaterFamiliar: Boolean = false,
+        ): String? {
+            if (!questFinished) return "You haven't rescued Mom yet."
+            val hasSelfGear = adventureUnderwater ||
+                listOf(
+                    AERATED_DIVING_HELMET,
+                    SCHOLAR_MASK,
+                    GLADIATOR_MASK,
+                    CRAPPY_MASK,
+                    SCUBA_GEAR,
+                    OLD_SCUBA_TANK,
+                ).any { inventoryCount(it) > 0 }
+            if (!hasSelfGear) {
+                return "You don't have the right equipment to adventure underwater."
+            }
+            val hasFamiliarGear = underwaterFamiliar ||
+                listOf(AMPHIBIOUS_TOPHAT, DAS_BOOT, BATHYSPHERE).any { inventoryCount(it) > 0 }
+            if (!hasFamiliarGear) {
+                return "Your familiar doesn't have the right equipment to adventure underwater."
+            }
+            return null
         }
 
         fun parseResponse(

@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.request
 
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
 
 /**
@@ -51,12 +52,27 @@ object Crimbo17Request {
     }
 }
 
-/** Desktop StillRequest — still shop register. */
+/** Desktop StillRequest — still shop register + visit token parse. */
 object StillRequestHub {
     fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
         if (!url.contains("whichshop=still", ignoreCase = true)) return false
         sessionLogger?.appendRawLine("Visiting the Still")
         return true
+    }
+
+    fun parseResponse(
+        url: String,
+        html: String,
+        preferences: Preferences?,
+    ) {
+        if (!url.contains("whichshop=still", ignoreCase = true)) return
+        val prefs = preferences ?: return
+        Regex("""(\d+)\s+bottle\s+of\s+booze""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            ?.let { prefs.setInt("availableBoozeBottles", it) }
+        Regex("""You have\s*<b>([\d,]+)</b>\s*bottle""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { prefs.setInt("availableBoozeBottles", it) }
     }
 }
 
@@ -99,6 +115,17 @@ object InterestingCoinRequestHub {
         }
         sessionLogger?.appendRawLine("Visiting Spend your Interesting Coins")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!url.contains("whichshop=interesting", ignoreCase = true)) return
+        val prefs = preferences ?: return
+        Regex("""([\d,]+)\s+Interesting Coin""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let {
+                prefs.setInt("availableInterestingCoins", it)
+                prefs.setBoolean("hasInterestingCoin", it > 0)
+            }
     }
 }
 

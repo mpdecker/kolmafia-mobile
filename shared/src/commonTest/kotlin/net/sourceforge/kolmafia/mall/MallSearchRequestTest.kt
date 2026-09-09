@@ -4,6 +4,7 @@ import io.ktor.client.*
 import io.ktor.client.engine.mock.*
 import io.ktor.http.*
 import kotlinx.coroutines.test.runTest
+import net.sourceforge.kolmafia.session.SessionLogger
 import kotlin.test.*
 
 class MallSearchRequestTest {
@@ -89,9 +90,39 @@ class MallSearchRequestTest {
         """.trimIndent()
         val rows = MallSearchRequest(HttpClient(MockEngine { respond("x", HttpStatusCode.OK) }))
             .parseMallHtml(html, limit = 10)
-        assertEquals(2, rows.size)
-        assertEquals(false, rows[0].canPurchase)
-        assertEquals(true, rows[1].canPurchase)
-        assertEquals(222, rows[1].shopId)
+        // graybelow limited rows are stripped in preprocess; remaining purchasable row remains.
+        assertEquals(1, rows.size)
+        assertEquals(true, rows[0].canPurchase)
+        assertEquals(222, rows[0].shopId)
+    }
+
+    @Test
+    fun registerRequest_logsMallSearch() {
+        val prefs = com.russhwolf.settings.MapSettings()
+        val logger = SessionLogger(
+            net.sourceforge.kolmafia.preferences.Preferences(prefs),
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        )
+        assertTrue(MallSearchRequest.registerRequest("mall.php?pudnuggler=fuzzy+dice&category=allitems", logger))
+        val lines1 = logger.recentLines()
+        assertTrue(lines1.any { it.contains("mallsearch") && it.contains("fuzzy dice") })
+        assertTrue(MallSearchRequest.registerRequest("mallstore.php?whichstore=12345", logger))
+        val lines2 = logger.recentLines()
+        assertTrue(lines2.any { it.contains("mallsearch shop #12345") })
+        assertFalse(MallSearchRequest.registerRequest("mallstore.php?whichstore=1&buying=1&whichitem=1.100", logger))
+    }
+
+    @Test
+    fun preflight_getSearchStringDecodesEntities() {
+        // Without a registered item, falls back to input; decode helper still covers data names.
+        assertEquals("A & B", MallSearchPreflight.decodeEntities("A &amp; B"))
+        assertEquals("\"quoted\"", MallSearchPreflight.decodeEntities("&quot;quoted&quot;"))
+    }
+
+    @Test
+    fun favorites_patternExtractsStoreIds() {
+        val html = """&action=unfave&whichstore=111">x&action=unfave&whichstore=222">"""
+        val ids = MallSearchRequest.FAVORITES_PATTERN.findAll(html).map { it.groupValues[1].toInt() }.toList()
+        assertEquals(listOf(111, 222), ids)
     }
 }

@@ -1,6 +1,10 @@
 package net.sourceforge.kolmafia.ash
 
-/** AshP261 — Interactive ASH soft defaults (`user_confirm` / `user_prompt`; no native dialog UI). */
+/** AshP261 — Interactive ASH soft defaults (`user_confirm` / `user_prompt`; no native dialog UI).
+ *
+ * Headless contract (XXXVI–XXXVII stub docs): `user_confirm` auto-yes / timeout default;
+ * `user_prompt` returns empty or first aggregate key. Native dialog UI is an explicit non-goal.
+ */
 internal fun GameRuntimeLibrary.registerAshP261Batch(scope: AshScope) {
     regFn(scope, "user_confirm", AshType.BOOLEAN, listOf("message" to AshType.STRING)) { _, _ ->
         AshValue.of(true)

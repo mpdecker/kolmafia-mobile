@@ -35,8 +35,9 @@ object QuestFightRules {
 
     private val TELEGRAM_BOSS_MONSTERS = setOf(
         "jeff the fancy skeleton", "daisy the unclean", "pecos dave",
-        "pharaoh amoon-ra cowtep", "snake-eyes glenn", "former sheriff dan driscoll",
-        "unusual construct", "clara", "granny hackleton",
+        "pharaoh amoon-ra cowtep", "snake-eyes glenn", "snakeeye glenn",
+        "former sheriff dan driscoll", "unusual construct", "clara",
+        "granny hackleton",
     )
 
     private val GHOST_BOSS_MONSTERS = setOf(

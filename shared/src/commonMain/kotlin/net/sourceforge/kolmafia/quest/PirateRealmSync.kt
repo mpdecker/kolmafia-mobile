@@ -329,11 +329,12 @@ object PirateRealmSync {
         }
 
         val step = when {
-            html.contains("You grab an eyepatch") -> QuestDatabase.STARTED
-            html.contains("sail1.gif") -> "step1"
-            html.contains("sail2.gif") -> "step6"
-            html.contains("sail3.gif") -> "step11"
-            html.contains("an envelope with your name on it") -> QuestDatabase.FINISHED
+            html.contains("You grab an eyepatch", ignoreCase = true) -> QuestDatabase.STARTED
+            html.contains("sail1.gif", ignoreCase = true) -> "step1"
+            html.contains("sail2.gif", ignoreCase = true) -> "step6"
+            html.contains("sail3.gif", ignoreCase = true) -> "step11"
+            html.contains("an envelope with your name on it", ignoreCase = true) ->
+                QuestDatabase.FINISHED
             else -> return false
         }
 
@@ -344,6 +345,27 @@ object PirateRealmSync {
         }
 
         return advanceIfBetter(questDatabase, Quest.PIRATEREALM, step)
+    }
+
+    /**
+     * Adventure-loop / visit_url safety net: apply sail/finish unlocks whenever
+     * PirateRealm HTML appears, even without `whichplace=realm_pirate` in the URL.
+     */
+    fun applyFromAdventureHtml(
+        html: String,
+        questDatabase: QuestDatabase,
+        preferences: Preferences?,
+    ): Boolean {
+        if (!html.contains("sail1.gif", ignoreCase = true) &&
+            !html.contains("sail2.gif", ignoreCase = true) &&
+            !html.contains("sail3.gif", ignoreCase = true) &&
+            !html.contains("an envelope with your name on it", ignoreCase = true) &&
+            !html.contains("You grab an eyepatch", ignoreCase = true) &&
+            !html.contains("Pirate Realm", ignoreCase = true)
+        ) {
+            return false
+        }
+        return parseResponse(html, questDatabase, preferences)
     }
 
     private fun applyFinishUnlocks(html: String, preferences: Preferences?) {

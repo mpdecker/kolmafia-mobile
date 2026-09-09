@@ -33,6 +33,25 @@ import net.sourceforge.kolmafia.request.TrophyHutRequest
 import net.sourceforge.kolmafia.request.VolcanoIslandRequest
 import net.sourceforge.kolmafia.quest.SorceressLairSync
 import net.sourceforge.kolmafia.shop.SwaggerShopSync
+import net.sourceforge.kolmafia.request.FightRequestHub
+import net.sourceforge.kolmafia.request.FriarRequestHub
+import net.sourceforge.kolmafia.request.FamiliarRequestHub
+import net.sourceforge.kolmafia.request.SafetyShelterRequest
+import net.sourceforge.kolmafia.request.SendGiftRequestHub
+import net.sourceforge.kolmafia.request.SendMailRequestHub
+import net.sourceforge.kolmafia.request.SummoningChamberRequestHub
+import net.sourceforge.kolmafia.request.GrandpaRequestHub
+import net.sourceforge.kolmafia.request.PortalRequestHub
+import net.sourceforge.kolmafia.request.TutorialRequestHub
+import net.sourceforge.kolmafia.request.HashingViseRequestHub
+import net.sourceforge.kolmafia.request.PottedTeaTreeRequestHub
+import net.sourceforge.kolmafia.request.PizzaCubeRequestHub
+import net.sourceforge.kolmafia.request.UntinkerRequestHub
+import net.sourceforge.kolmafia.request.PulverizeRequestHub
+import net.sourceforge.kolmafia.request.CurseRequestHub
+import net.sourceforge.kolmafia.request.DigRequestHub
+import net.sourceforge.kolmafia.request.CampAwayRequestHub
+import net.sourceforge.kolmafia.request.HeyDezeRequestHub
 
 /**
  * Desktop [RequestLogger.doRegister] / [RequestLogger.updateSessionLog] hub
@@ -55,6 +74,9 @@ object RequestLogger {
 
     /** DI: resolve item id → item name. Default: ItemDatabase lookup. */
     var itemNameById: (Int) -> String? = { id -> ItemDatabase.getItemName(id).ifBlank { null } }
+
+    /** DI: combat action actor name for Round N: session-log lines. */
+    var fightActorName: () -> String = { "Player" }
 
     fun updateSessionLog(message: String, sessionLogger: SessionLogger?) {
         val trimmed = message.trim()
@@ -121,9 +143,85 @@ object RequestLogger {
             wasLastRequestSimple = false
             return true
         }
-        if (urlString.startsWith("messages.php", ignoreCase = true) ||
-            urlString.startsWith("mail.php", ignoreCase = true)
-        ) {
+        if (urlString.startsWith("messages.php", ignoreCase = true)) {
+            updateSessionLog("Visiting Messages", sessionLogger)
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("mail.php", ignoreCase = true)) {
+            updateSessionLog("Visiting Mail Centre", sessionLogger)
+            wasLastRequestSimple = false
+            return true
+        }
+        if (SendGiftRequestHub.registerRequest(urlString, sessionLogger, formFields)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (SendMailRequestHub.registerRequest(urlString, sessionLogger, formFields)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (FightRequestHub.registerRequest(urlString, sessionLogger, preferences, formFields)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (FriarRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (SummoningChamberRequestHub.registerRequest(urlString, sessionLogger, formFields)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (SafetyShelterRequest.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (GrandpaRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (PortalRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (TutorialRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (HashingViseRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (PottedTeaTreeRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (PizzaCubeRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (UntinkerRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (PulverizeRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (CurseRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (DigRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (CampAwayRequestHub.registerRequest(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+        if (HeyDezeRequestHub.registerRequest(urlString, sessionLogger)) {
             wasLastRequestSimple = false
             return true
         }
@@ -285,6 +383,16 @@ object RequestLogger {
             return true
         }
 
+        // fight.php POST bodies carry action fields without a query string
+        if (urlString.startsWith("fight.php", ignoreCase = true) ||
+            urlString.startsWith("fambattle.php", ignoreCase = true)
+        ) {
+            if (FightRequestHub.registerRequest(urlString, sessionLogger, preferences, formFields)) {
+                wasLastRequestSimple = false
+                return true
+            }
+        }
+
         // No query → skip (except claimed above)
         if (!urlString.contains("?")) {
             return false
@@ -330,7 +438,7 @@ object RequestLogger {
             return true
         }
 
-        if (registerLongTail(urlString, sessionLogger, preferences)) {
+        if (registerLongTail(urlString, sessionLogger, preferences, formFields)) {
             wasLastRequestSimple = false
             return true
         }
@@ -917,6 +1025,7 @@ object RequestLogger {
         url: String,
         sessionLogger: SessionLogger?,
         preferences: Preferences?,
+        formFields: Map<String, String> = emptyMap(),
     ): Boolean {
         when {
             url.startsWith("closet.php") ||
@@ -926,6 +1035,11 @@ object RequestLogger {
 
             url.startsWith("storage.php") -> {
                 return registerStorage(url, sessionLogger)
+            }
+
+            url.startsWith("familiars.php") -> {
+                FamiliarRequestHub.registerRequest(url, sessionLogger)
+                return true
             }
 
             url.startsWith("familiar.php") -> {
@@ -1028,12 +1142,31 @@ object RequestLogger {
 
             url.startsWith("mallstore.php") || url.startsWith("mall.php") ||
                 url.startsWith("managestore.php") -> {
+                if (net.sourceforge.kolmafia.mall.MallSearchRequest.registerRequest(url, sessionLogger)) {
+                    wasLastRequestSimple = false
+                    return true
+                }
+                if (url.startsWith("mallstore.php")) {
+                    MallPurchaseRequest.registerRequest(url)?.let {
+                        updateSessionLog(it, sessionLogger)
+                        wasLastRequestSimple = false
+                        return true
+                    }
+                }
                 updateSessionLog("mall", sessionLogger)
                 return true
             }
 
-            url.startsWith("sendmessage.php") || url.startsWith("sendkmail.php") -> {
+            url.startsWith("sendmessage.php") || url.startsWith("sendkmail.php") ||
+                url.startsWith("town_sendgift.php") -> {
+                if (SendGiftRequestHub.registerRequest(url, sessionLogger, formFields)) return true
+                if (SendMailRequestHub.registerRequest(url, sessionLogger, formFields)) return true
                 updateSessionLog("send message", sessionLogger)
+                return true
+            }
+
+            url.startsWith("friars.php") -> {
+                FriarRequestHub.registerRequest(url, sessionLogger)
                 return true
             }
 
@@ -1348,8 +1481,12 @@ object RequestLogger {
 
     /** Desktop MomRequest.registerRequest. */
     private fun registerMom(url: String, sessionLogger: SessionLogger?): Boolean {
-        val id = queryParam(url, "who")
-            ?: queryParam(url, "action")?.let { Regex("""\d+""").find(it)?.value }
+        if (!url.contains("action=mombuff", ignoreCase = true)) {
+            // Bare monkeycastle visits are logged elsewhere; only food claims here.
+            return url.startsWith("monkeycastle.php")
+        }
+        val id = queryParam(url, "whichbuff")
+            ?: Regex("""whichbuff=(\d+)""", RegexOption.IGNORE_CASE).find(url)?.groupValues?.getOrNull(1)
         if (id != null) {
             updateSessionLog("mom food $id", sessionLogger)
         }
@@ -1400,6 +1537,9 @@ object RequestLogger {
         return s
     }
 
+    /** Hub-visible query param lookup (URL query only). */
+    internal fun queryParamForHub(url: String, key: String): String? = queryParam(url, key)
+
     private fun queryParam(url: String, key: String): String? {
         val qIndex = url.indexOf('?')
         val query = if (qIndex >= 0) url.substring(qIndex + 1) else return null
@@ -1439,25 +1579,29 @@ object RequestLogger {
      * pairs (also single whichitem= / howmany= and qty/quantity fallbacks).
      * Returns list of (itemId, count) pairs.
      */
-    internal fun parseTransferItems(url: String): List<Pair<Int, Int>> {
+    internal fun parseTransferItems(
+        url: String,
+        formFields: Map<String, String> = emptyMap(),
+    ): List<Pair<Int, Int>> {
         val result = mutableListOf<Pair<Int, Int>>()
+        fun field(key: String): String? = formFields[key] ?: queryParam(url, key)
         // Try single whichitem= first (desktop single-item transfer)
-        val singleId = queryParam(url, "whichitem")?.toIntOrNull()
+        val singleId = field("whichitem")?.toIntOrNull()
         if (singleId != null && singleId > 0) {
-            val qty = queryParam(url, "howmany")?.toIntOrNull()
-                ?: queryParam(url, "qty")?.toIntOrNull()
-                ?: queryParam(url, "quantity")?.toIntOrNull()
+            val qty = field("howmany")?.toIntOrNull()
+                ?: field("qty")?.toIntOrNull()
+                ?: field("quantity")?.toIntOrNull()
                 ?: 1
             result.add(singleId to qty.coerceAtLeast(1))
             return result
         }
         // Multi-item: whichitem1= / howmany1=, whichitem2= / howmany2= …
         for (i in 1..100) {
-            val itemId = queryParam(url, "whichitem$i")?.toIntOrNull() ?: break
+            val itemId = field("whichitem$i")?.toIntOrNull() ?: break
             if (itemId <= 0) continue
-            val qty = queryParam(url, "howmany$i")?.toIntOrNull()
-                ?: queryParam(url, "qty$i")?.toIntOrNull()
-                ?: queryParam(url, "quantity$i")?.toIntOrNull()
+            val qty = field("howmany$i")?.toIntOrNull()
+                ?: field("qty$i")?.toIntOrNull()
+                ?: field("quantity$i")?.toIntOrNull()
                 ?: 1
             result.add(itemId to qty.coerceAtLeast(1))
         }

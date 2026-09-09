@@ -35,10 +35,20 @@ object QuestLogSync {
         "The Sea Monkees",
         "wish my big brother was here",
         "Party Fair",
+        "Neverending Party",
+        "Remaining bill",
+        "Meat for the DJ",
         "telegram for you",
+        "Ask around the Rough Diamond Saloon",
+        "Search for Daisy's homestead",
         "doctor bag",
+        "Is There A Doctor In The House",
+        "to the patient",
         "Pirate Realm",
         "You grab an eyepatch",
+        "sail1.gif",
+        "sail2.gif",
+        "sail3.gif",
         "an envelope with your name on it",
         "Degrassi Knoll",
         "South of the Border",
@@ -74,8 +84,9 @@ object QuestLogSync {
         questLogRequest: QuestLogRequest?,
         context: QuestSyncContext = QuestSyncContext(),
     ) {
-        QuestAdvanceRules.apply(responseText, questDatabase)
+        QuestAdvanceRules.apply(responseText, questDatabase, context.preferences)
         QuestSpecialSync.apply(responseText, questDatabase, context.preferences, context.gameDatabase)
+        PirateRealmSync.applyFromAdventureHtml(responseText, questDatabase, context.preferences)
         TowerSync.parseTower(responseText, questDatabase, context.preferences)
         if (context.url?.contains("council.php", ignoreCase = true) == true) {
             QuestCouncilDatabase.handleCouncilText(responseText, questDatabase)

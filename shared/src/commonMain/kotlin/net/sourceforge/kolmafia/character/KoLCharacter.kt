@@ -203,6 +203,30 @@ class KoLCharacter {
         CharpaneInteraction.applyInteraction(this)
     }
 
+    fun setHardcore(hardcore: Boolean) {
+        _state.value = _state.value.copy(isHardcore = hardcore)
+        CharpaneInteraction.applyInteraction(this)
+    }
+
+    fun setCasual(casual: Boolean) {
+        _state.value = _state.value.copy(isCasual = casual)
+        CharpaneInteraction.applyInteraction(this)
+    }
+
+    fun setSkillsRecalled(recalled: Boolean) {
+        _state.value = _state.value.copy(skillsRecalled = recalled)
+    }
+
+    fun setChallengePath(path: String) {
+        _state.value = _state.value.copy(challengePath = path)
+        CharpaneInteraction.applyInteraction(this)
+    }
+
+    fun setRoninLeft(left: Int) {
+        _state.value = _state.value.copy(roninLeft = left.coerceAtLeast(0))
+        CharpaneInteraction.applyInteraction(this)
+    }
+
     /**
      * Desktop [KoLCharacter.liberateKing] — path-point awards, hardcore/ronin lift,
      * freepull merge, pullsRemaining=-1, breakfast reset, modifier override clear.

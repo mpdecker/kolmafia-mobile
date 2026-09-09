@@ -30,6 +30,11 @@ object TimeTowerSync {
         setAvailable(!html.contains(TWITCH_GONE_MARKER, ignoreCase = true), prefs)
     }
 
+    /** Desktop QuestManager.handleTimeTower — main.php map shows twitchtower when available. */
+    fun syncFromMainPhp(html: String, prefs: Preferences) {
+        setAvailable(html.contains("twitchtower", ignoreCase = true), prefs)
+    }
+
     private fun setAvailable(available: Boolean, prefs: Preferences) {
         if (prefs.getBoolean(PREF, false) == available) return
         prefs.setBoolean(PREF, available)

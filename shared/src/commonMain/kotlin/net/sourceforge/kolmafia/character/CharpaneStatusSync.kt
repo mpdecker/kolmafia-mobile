@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.character
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.SpelunkyRequest
 import net.sourceforge.kolmafia.session.BatManager
+import net.sourceforge.kolmafia.session.DynamicChoiceSpoilers
 import net.sourceforge.kolmafia.session.YouRobotManager
 
 /** Parses charpane.php HTML for status fields when api.php status is incomplete (Phase 408). */
@@ -134,6 +135,7 @@ object CharpaneStatusSync {
         checkOtherModifiers(html, preferences)
         checkFamiliar(html, character, familiarManager)
         checkClancy(html, preferences, state)
+        checkJarlsbergCompanion(html, preferences, state)
         checkYouRobot(html, character, state, preferences)
         CharpaneInteraction.applyInteraction(character, preferences)
         val mode = character.state.value.limitMode
@@ -372,6 +374,20 @@ object CharpaneStatusSync {
             },
         )
         preferences.setBoolean("clancyWantsAttention", wantsAttention)
+    }
+
+    /** Desktop CharPaneRequest.checkCompanion — Jarlsberg path companion from charpane text. */
+    fun checkJarlsbergCompanion(html: String, preferences: Preferences?, state: CharacterState) {
+        preferences ?: return
+        if (!state.isJarlsberg) return
+        val companion = when {
+            html.contains("the Eggman") -> "Eggman"
+            html.contains("the Radish Horse") -> "Radish Horse"
+            html.contains("the Hippotatomous") -> "Hippotatomous"
+            html.contains("the Cream Puff") -> "Cream Puff"
+            else -> ""
+        }
+        preferences.setString(DynamicChoiceSpoilers.JARLSBERG_COMPANION_PREF, companion)
     }
 
     private val youRobotScrapsExpanded = Regex("""scrap\.gif.*?>([\d,]+)<""")

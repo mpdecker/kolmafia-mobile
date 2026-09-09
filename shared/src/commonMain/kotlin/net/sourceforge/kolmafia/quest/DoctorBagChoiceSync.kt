@@ -23,8 +23,15 @@ object DoctorBagChoiceSync {
         "bad clams" to "anti-anti-antidote",
         "criss-cross laceration" to "plaid bandage",
         "knocked out by a random encounter" to "phonics down",
-        "Thin Blood Syndrome" to "red blood cells",
+        "thin blood syndrome" to "red blood cells",
         "a blood shortage" to "bag of pygmy blood",
+        // Phrasing aliases seen in choice / quest-log HTML
+        "heatstroke" to "palm-frond fan",
+        "cough syrup" to "antique bottle of cough syrup",
+        "vitality serum" to "Doc Galaktik's Vitality Serum",
+        "plaid bandage" to "plaid bandage",
+        "phonics down" to "phonics down",
+        "pygmy blood" to "bag of pygmy blood",
     )
 
     fun applyVisit(
@@ -35,10 +42,16 @@ object DoctorBagChoiceSync {
         if (choiceId != CHOICE_ID || preferences == null) return false
         val match = DOCTOR_BAG_PATTERN.find(html) ?: return false
         val malady = match.groupValues[1]
-        val item = MALADY_ITEMS.firstOrNull { malady.contains(it.first) }?.second.orEmpty()
+        val item = resolveMaladyItem(malady)
         preferences.setString("doctorBagQuestItem", item)
         preferences.setString("doctorBagQuestLocation", match.groupValues[2].trim())
         return true
+    }
+
+    /** Desktop ChoiceControl case 1340 malady → cure-item map (case-insensitive). */
+    internal fun resolveMaladyItem(malady: String): String {
+        val lower = malady.lowercase()
+        return MALADY_ITEMS.firstOrNull { lower.contains(it.first.lowercase()) }?.second.orEmpty()
     }
 
     fun applyAccept(
@@ -50,14 +63,21 @@ object DoctorBagChoiceSync {
         resyncQuestLogPage1: (() -> Unit)? = null,
     ): Boolean {
         if (choiceId != CHOICE_ID || preferences == null) return false
-        if (decision != 1) return false
-        val itemName = preferences.getString("doctorBagQuestItem", "")
+        if (decision != 1) {
+            // Decision 2 abandons — desktop clears prefs via ChoiceControl.
+            if (decision == 2) {
+                QuestSpecialSync.abandonDoctorBag(questDatabase, preferences)
+                return true
+            }
+            return false
+        }
+        var itemName = preferences.getString("doctorBagQuestItem", "")
         // Desktop refetches questlog when visit text was not recognised (empty item name).
         if (itemName.isEmpty()) {
             resyncQuestLogPage1?.invoke()
+            itemName = preferences.getString("doctorBagQuestItem", "")
         }
-        val resolvedName = preferences.getString("doctorBagQuestItem", "")
-        val itemId = if (resolvedName.isNotEmpty()) ItemDatabase.getByName(resolvedName)?.id ?: 0 else 0
+        val itemId = if (itemName.isNotEmpty()) ItemDatabase.getByName(itemName)?.id ?: 0 else 0
         val step = if (itemId > 0 && itemCount(itemId) > 0) {
             "step1"
         } else {

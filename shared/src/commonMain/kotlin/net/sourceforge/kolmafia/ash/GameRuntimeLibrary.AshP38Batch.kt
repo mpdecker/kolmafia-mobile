@@ -174,6 +174,8 @@ private fun GameRuntimeLibrary.buildLocationMonsters(
     )
     for ((monster, rate) in rates) {
         if (monster.isEmpty()) continue
+        // Desktop includes monsters with positive rates; negative sentinels (-1/-3/-4)
+        // are appearance_rates-only and stay out of get_location_monsters.
         if (rate > 0) result[AshValue(AshType.MONSTER, monster)] = AshValue.TRUE
     }
     return result

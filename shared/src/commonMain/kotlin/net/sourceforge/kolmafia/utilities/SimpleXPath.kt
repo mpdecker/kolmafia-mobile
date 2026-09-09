@@ -5,6 +5,9 @@ import net.sourceforge.kolmafia.ash.ScriptException
 /**
  * Minimal xpath evaluator for common KoL script patterns.
  * Mirrors desktop HtmlCleaner xpath for desc/adventure/account HTML fragments.
+ *
+ * Phase 6011–6025 (XXXVI): `contains(@attr,'lit')`, numeric position `[n]` /
+ * `[last()]`, and mid-path attribute steps `//tag/@attr`.
  */
 object SimpleXPath {
 
@@ -33,6 +36,16 @@ object SimpleXPath {
 
     private fun splitAttributeSuffix(xpath: String): Pair<String, String?> {
         if (xpath.startsWith("//@")) return xpath to null
+        // Prefer "/@attr" mid-path form, then bare trailing "@attr".
+        val slashMatch = Regex("""/@([A-Za-z_][\w-]*)$""").find(xpath)
+        if (slashMatch != null) {
+            val attr = slashMatch.groupValues[1]
+            val path = xpath.removeSuffix("/@$attr")
+            if (path.contains('@') && path.lastIndexOf('[') > path.lastIndexOf(']')) {
+                return xpath to null
+            }
+            return path to attr.lowercase()
+        }
         val match = Regex("""@([A-Za-z_][\w-]*)$""").find(xpath) ?: return xpath to null
         val attr = match.groupValues[1]
         val path = xpath.removeSuffix("@$attr")
@@ -68,6 +81,15 @@ object SimpleXPath {
                     val end = findStepEnd(remaining, 1)
                     val step = remaining.substring(1, end)
                     remaining = remaining.substring(end)
+                    if (step.startsWith("@")) {
+                        // Mid-path attribute step: take @attr from the current node set only
+                        // (do not walk descendants — that would duplicate nested attrs).
+                        val attr = step.removePrefix("@").lowercase()
+                        return nodes.mapNotNull { node ->
+                            if (node.isTextNode) null
+                            else node.attributes[attr]?.let { textNode(it) }
+                        }
+                    }
                     nodes = evaluateChildStep(nodes, step)
                 }
                 else -> throw ScriptException("invalid xpath expression")
@@ -78,49 +100,113 @@ object SimpleXPath {
 
     private fun findStepEnd(xpath: String, start: Int): Int {
         var index = start
+        var depth = 0
         while (index < xpath.length) {
-            if (index > start && xpath.startsWith("//", index)) return index
-            if (index > start && xpath[index] == '/') return index
+            when (xpath[index]) {
+                '[' -> depth++
+                ']' -> depth--
+                else -> {
+                    if (depth == 0) {
+                        if (index > start && xpath.startsWith("//", index)) return index
+                        if (index > start && xpath[index] == '/') return index
+                    }
+                }
+            }
             index++
         }
         return xpath.length
     }
 
     private fun evaluateDescendantStep(current: List<HtmlNode>, step: String): List<HtmlNode> {
-        val (tag, predicates) = parseStep(step)
-        return current.flatMap { node ->
+        val parsed = parseStep(step)
+        val matched = current.flatMap { node ->
             val descendants = mutableListOf<HtmlNode>()
             collectDescendants(node, descendants)
-            descendants.filter { matches(it, tag, predicates) }
+            descendants.filter { matches(it, parsed.tag, parsed.attrPredicates) }
         }
+        return applyPosition(matched, parsed.position)
     }
 
     private fun evaluateChildStep(current: List<HtmlNode>, step: String): List<HtmlNode> {
-        val (tag, predicates) = parseStep(step)
-        return current.flatMap { node ->
-            node.children.filter { !it.isTextNode && matches(it, tag, predicates) }
+        val parsed = parseStep(step)
+        val matched = current.flatMap { node ->
+            node.children.filter { !it.isTextNode && matches(it, parsed.tag, parsed.attrPredicates) }
+        }
+        return applyPosition(matched, parsed.position)
+    }
+
+    private fun applyPosition(nodes: List<HtmlNode>, position: PositionPredicate?): List<HtmlNode> {
+        if (position == null) return nodes
+        if (nodes.isEmpty()) return emptyList()
+        return when (position) {
+            is PositionPredicate.Index -> {
+                val idx = position.oneBased - 1
+                if (idx in nodes.indices) listOf(nodes[idx]) else emptyList()
+            }
+            PositionPredicate.Last -> listOf(nodes.last())
         }
     }
 
-    private fun parseStep(step: String): Pair<String?, List<AttrPredicate>> {
-        if (step == "text()") return null to emptyList()
+    private fun parseStep(step: String): ParsedStep {
+        if (step == "text()") return ParsedStep(null, emptyList(), null)
         val tagMatch = Regex("""^([A-Za-z*][\w:-]*|\*)""").find(step)
             ?: throw ScriptException("invalid xpath expression")
         val tag = tagMatch.groupValues[1].lowercase()
-        val predicates = mutableListOf<AttrPredicate>()
-        Regex("""\[@([A-Za-z_][\w-]*)\s*=\s*(['"])(.*?)\2\]""").findAll(step).forEach { match ->
-            predicates += AttrPredicate(match.groupValues[1].lowercase(), match.groupValues[3])
+        val predicatesRaw = step.substring(tagMatch.range.last + 1)
+        if (predicatesRaw.isEmpty()) return ParsedStep(tag, emptyList(), null)
+
+        val attrPredicates = mutableListOf<AttrPredicate>()
+        var position: PositionPredicate? = null
+        var index = 0
+        while (index < predicatesRaw.length) {
+            if (predicatesRaw[index] != '[') {
+                throw ScriptException("invalid xpath expression")
+            }
+            val close = predicatesRaw.indexOf(']', index)
+            if (close < 0) throw ScriptException("invalid xpath expression")
+            val body = predicatesRaw.substring(index + 1, close).trim()
+            when {
+                body.equals("last()", ignoreCase = true) -> {
+                    if (position != null) throw ScriptException("invalid xpath expression")
+                    position = PositionPredicate.Last
+                }
+                body.toIntOrNull() != null -> {
+                    if (position != null) throw ScriptException("invalid xpath expression")
+                    val n = body.toInt()
+                    if (n <= 0) throw ScriptException("invalid xpath expression")
+                    position = PositionPredicate.Index(n)
+                }
+                else -> {
+                    val contains = CONTAINS_PRED.matchEntire(body)
+                    val exact = EXACT_ATTR_PRED.matchEntire(body)
+                    when {
+                        contains != null -> attrPredicates += AttrPredicate.Contains(
+                            contains.groupValues[1].lowercase(),
+                            contains.groupValues[3],
+                        )
+                        exact != null -> attrPredicates += AttrPredicate.Exact(
+                            exact.groupValues[1].lowercase(),
+                            exact.groupValues[3],
+                        )
+                        else -> throw ScriptException("invalid xpath expression")
+                    }
+                }
+            }
+            index = close + 1
         }
-        if (step.contains('[') && predicates.isEmpty()) {
-            throw ScriptException("invalid xpath expression")
-        }
-        return tag to predicates
+        return ParsedStep(tag, attrPredicates, position)
     }
 
     private fun matches(node: HtmlNode, tag: String?, predicates: List<AttrPredicate>): Boolean {
         if (node.isTextNode) return false
         if (tag != null && tag != "*" && node.tag != tag) return false
-        return predicates.all { node.attributes[it.name] == it.value }
+        return predicates.all { pred ->
+            val value = node.attributes[pred.name].orEmpty()
+            when (pred) {
+                is AttrPredicate.Exact -> value == pred.value
+                is AttrPredicate.Contains -> value.contains(pred.value)
+            }
+        }
     }
 
     private fun collectDescendants(node: HtmlNode, out: MutableList<HtmlNode>) {
@@ -160,5 +246,25 @@ object SimpleXPath {
 
     private fun textNode(text: String): HtmlNode = HtmlNode(tag = null, text = text)
 
-    private data class AttrPredicate(val name: String, val value: String)
+    private sealed class AttrPredicate {
+        abstract val name: String
+        data class Exact(override val name: String, val value: String) : AttrPredicate()
+        data class Contains(override val name: String, val value: String) : AttrPredicate()
+    }
+
+    private sealed class PositionPredicate {
+        data class Index(val oneBased: Int) : PositionPredicate()
+        data object Last : PositionPredicate()
+    }
+
+    private data class ParsedStep(
+        val tag: String?,
+        val attrPredicates: List<AttrPredicate>,
+        val position: PositionPredicate?,
+    )
+
+    private val EXACT_ATTR_PRED =
+        Regex("""^@([A-Za-z_][\w-]*)\s*=\s*(['"])(.*?)\2$""")
+    private val CONTAINS_PRED =
+        Regex("""^contains\(\s*@([A-Za-z_][\w-]*)\s*,\s*(['"])(.*?)\2\s*\)$""", RegexOption.IGNORE_CASE)
 }

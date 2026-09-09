@@ -78,10 +78,7 @@ object TelegramChoiceSync {
             questDatabase.setProgress(Quest.TELEGRAM, QuestDatabase.STARTED)
             preferences?.setInt("lttQuestDifficulty", decision)
             preferences?.setInt("lttQuestStageCount", 0)
-            val matches = TELEGRAM_PATTERN.findAll(visitHtml).toList()
-            if (decision > 0 && decision <= matches.size) {
-                preferences?.setString("lttQuestName", matches[decision - 1].groupValues[1])
-            }
+            bindQuestNameOnAccept(decision, visitHtml, preferences)
             return true
         }
         if (decision == 5) {
@@ -92,5 +89,29 @@ object TelegramChoiceSync {
             return true
         }
         return false
+    }
+
+    /**
+     * Bind [lttQuestName] from visit HTML RE: options, falling back to the
+     * `_lttQuestOptions` list captured on [applyVisit].
+     */
+    private fun bindQuestNameOnAccept(
+        decision: Int,
+        visitHtml: String,
+        preferences: Preferences?,
+    ) {
+        if (preferences == null || decision <= 0) return
+        val fromHtml = TELEGRAM_PATTERN.findAll(visitHtml).map { it.groupValues[1] }.toList()
+        if (decision <= fromHtml.size) {
+            preferences.setString("lttQuestName", fromHtml[decision - 1])
+            return
+        }
+        val fromPref = preferences.getString("_lttQuestOptions", "")
+            .split('|')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (decision <= fromPref.size) {
+            preferences.setString("lttQuestName", fromPref[decision - 1])
+        }
     }
 }

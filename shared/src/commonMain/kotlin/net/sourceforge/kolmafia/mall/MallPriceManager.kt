@@ -2,6 +2,15 @@ package net.sourceforge.kolmafia.mall
 
 class MallPriceManager(private val clock: Clock = SystemClock) {
 
+    /**
+     * Optional DI for live mall search when [getMallPrice] is called with [forceUpdate].
+     * Invoked from [prefetchMallPrice]; the synchronous overload cannot await network.
+     */
+    var mallSearch: (suspend (Int) -> List<MallListing>)? = null
+
+    /** Test hook for synchronous force-update prefetch without coroutines. */
+    internal var mallSearchSync: ((Int) -> List<MallListing>)? = null
+
     interface Clock {
         val nowSeconds: Long
     }
@@ -82,17 +91,31 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
 
     /**
      * Desktop MallPriceManager.getMallPrice(itemId, maxAge, forceUpdate) soft overload.
-     * When [forceUpdate] is true the age gate is ignored and the historical price is
-     * returned unconditionally (no live HTTP search — headless).
+     * When [forceUpdate] is true the age gate is ignored. If [mallSearchSync] is wired,
+     * performs a headless search and [updateMallPrice]; otherwise returns the last known
+     * cache/DB price even past TTL. Live HTTP prefetch requires [prefetchMallPrice].
      * When [forceUpdate] is false behaves like [getMallPrice] with age gate.
      */
     fun getMallPrice(itemId: Int, maxAgeSeconds: Long, forceUpdate: Boolean): Long {
         if (forceUpdate) {
-            // Headless: return last known cache/DB price even past TTL (no live HTTP search).
+            mallSearchSync?.invoke(itemId)?.let { results ->
+                saveMallSearch(itemId, results)
+                return updateMallPrice(itemId, results)
+            }
             MallPriceDatabase.getPrice(itemId).takeIf { it > 0 }?.let { return it }
             return cache[itemId]?.cached?.price ?: 0L
         }
         return getMallPrice(itemId, maxAgeSeconds)
+    }
+
+    /** Live mall search + cache refresh when [mallSearch] DI is available. */
+    suspend fun prefetchMallPrice(itemId: Int): Long {
+        if (itemId <= 0) return 0L
+        mallSearch?.invoke(itemId)?.let { results ->
+            saveMallSearch(itemId, results)
+            return updateMallPrice(itemId, results)
+        }
+        return getMallPrice(itemId, maxAgeSeconds = -1, forceUpdate = true)
     }
 
     /** Seconds since the cached price was recorded; -1 if unknown or expired. */

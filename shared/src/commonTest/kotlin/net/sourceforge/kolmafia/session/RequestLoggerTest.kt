@@ -353,4 +353,100 @@ class RequestLoggerTest {
         assertTrue(RequestLogger.registerRequest("familiar.php?action=lockequip", logger, prefs))
         assertTrue(logger.recentLines().any { it == "familiar lockequip" })
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Group D — mail/gift hub routing (Behavioral Deepen XXXIV)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    @Test
+    fun mailPhp_logsVisitLine() {
+        assertTrue(RequestLogger.registerRequest("mail.php", logger, prefs))
+        assertEquals("Visiting Mail Centre", logger.recentLines().last())
+    }
+
+    @Test
+    fun messagesPhp_logsVisitLine() {
+        assertTrue(RequestLogger.registerRequest("messages.php", logger, prefs))
+        assertEquals("Visiting Messages", logger.recentLines().last())
+    }
+
+    @Test
+    fun sendMail_logsRecipientAndAttachments() {
+        RequestLogger.itemNameById = { id -> if (id == 123) "tropical punch" else null }
+        assertTrue(
+            RequestLogger.registerRequest(
+                "sendmessage.php?action=send&towho=Buffy&whichitem1=123&howmany1=2&sendmeat=500",
+                logger,
+                prefs,
+            ),
+        )
+        assertTrue(
+            logger.recentLines().any {
+                it.contains("send a kmail to Buffy") &&
+                    it.contains("tropical punch") &&
+                    it.contains("500 Meat")
+            },
+        )
+        RequestLogger.itemNameById = { id ->
+            net.sourceforge.kolmafia.data.ItemDatabase.getItemName(id).ifBlank { null }
+        }
+    }
+
+    @Test
+    fun sendGift_logsRecipientAndAttachments() {
+        RequestLogger.itemNameById = { id -> if (id == 456) "coconut shell" else null }
+        assertTrue(
+            RequestLogger.registerRequest(
+                "town_sendgift.php?action=Yep.&towho=Player&whichitem1=456&howmany1=1",
+                logger,
+                prefs,
+            ),
+        )
+        assertTrue(
+            logger.recentLines().any {
+                it.contains("send a gift to Player") && it.contains("coconut shell")
+            },
+        )
+        RequestLogger.itemNameById = { id ->
+            net.sourceforge.kolmafia.data.ItemDatabase.getItemName(id).ifBlank { null }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Group E — fight session-log via RequestLogger (Behavioral Deepen XXXIV)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    @Test
+    fun fightPhpPostBody_logsRoundActionLine() {
+        RequestLogger.fightActorName = { "TestPlayer" }
+        ChoiceCombatAshState.currentRound = 2
+        assertTrue(
+            RequestLogger.registerRequest(
+                urlString = "fight.php",
+                sessionLogger = logger,
+                preferences = prefs,
+                formFields = mapOf("action" to "attack"),
+            ),
+        )
+        assertEquals("Round 2: TestPlayer attacks!", logger.recentLines().last())
+        RequestLogger.fightActorName = { "Player" }
+        ChoiceCombatAshState.reset()
+    }
+
+    @Test
+    fun fightPhpSkill_logsCastLine() {
+        RequestLogger.fightActorName = { "TestPlayer" }
+        ChoiceCombatAshState.currentRound = 1
+        assertTrue(
+            RequestLogger.registerRequest(
+                urlString = "fight.php",
+                sessionLogger = logger,
+                preferences = prefs,
+                formFields = mapOf("action" to "skill", "whichskill" to "3004"),
+            ),
+        )
+        assertTrue(logger.recentLines().any { it.startsWith("Round 1: TestPlayer casts ") })
+        RequestLogger.fightActorName = { "Player" }
+        ChoiceCombatAshState.reset()
+    }
 }

@@ -1222,7 +1222,25 @@ val sharedModule = module {
     singleOf(::CoinmasterRequest)
     singleOf(::MallSearchRequest)
     singleOf(::MallPurchaseRequest)
-    single { MallPriceManager() }
+    single {
+        MallPriceManager().also { mgr ->
+            mgr.mallSearch = { itemId ->
+                val name = net.sourceforge.kolmafia.data.ItemDatabase.getItemName(itemId)
+                if (name.isBlank()) emptyList()
+                else get<MallSearchRequest>().search("\"$name\"", limit = 0)
+            }
+            mgr.mallSearchSync = { itemId ->
+                val name = net.sourceforge.kolmafia.data.ItemDatabase.getItemName(itemId)
+                if (name.isBlank()) {
+                    emptyList()
+                } else {
+                    kotlinx.coroutines.runBlocking {
+                        get<MallSearchRequest>().search("\"$name\"", limit = 0)
+                    }
+                }
+            }
+        }
+    }
     singleOf(::NpcBuyRequest)
     single { MallManager(get(), get(), get(), get()) }
     single {

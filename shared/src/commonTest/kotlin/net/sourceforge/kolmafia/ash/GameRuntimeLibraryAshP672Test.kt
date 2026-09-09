@@ -13,8 +13,8 @@ import net.sourceforge.kolmafia.quest.TelegramChoiceSync
 class GameRuntimeLibraryAshP672Test {
 
     @Test
-    fun revision_phase677() {
-        assertEquals("phase5890", GameRuntimeLibrary.REVISION)
+    fun revision_phase6010() {
+        assertEquals("phase6010", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -97,5 +97,25 @@ class GameRuntimeLibraryAshP672Test {
         )
         assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.TELEGRAM))
         assertEquals("Desk Job", prefs.getString("lttQuestName"))
+    }
+
+    @Test
+    fun office_acceptBindsNameFromStoredOptionsWhenVisitHtmlEmpty() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        prefs.setString("_lttQuestOptions", "Fancy Man|Pioneer Daughter|Desperados")
+        assertTrue(
+            TelegramChoiceSync.apply(
+                choiceId = TelegramChoiceSync.OFFICE,
+                decision = 2,
+                html = "post",
+                visitHtml = "",
+                questDatabase = db,
+                preferences = prefs,
+            ),
+        )
+        assertEquals(QuestDatabase.STARTED, db.getProgress(Quest.TELEGRAM))
+        assertEquals(2, prefs.getInt("lttQuestDifficulty"))
+        assertEquals("Pioneer Daughter", prefs.getString("lttQuestName"))
     }
 }

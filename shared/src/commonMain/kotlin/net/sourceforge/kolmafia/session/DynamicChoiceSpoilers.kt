@@ -6,10 +6,14 @@ import net.sourceforge.kolmafia.adventure.choice.ChoiceOption
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.adventure.choice.ItemPool
 import net.sourceforge.kolmafia.character.CharacterClass
+import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.modifiers.DoubleModifier
+import net.sourceforge.kolmafia.modifiers.ModifierParser
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.quest.ToppingPeakNcSync
+import net.sourceforge.kolmafia.request.FloristRequest
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -135,6 +139,8 @@ object DynamicChoiceSpoilers {
     const val VALUABLE_TRINKET = 139
 
     // ── Skill IDs (desktop SkillPool) ───────────────────────────────────────
+    const val WORKING_LUNCH_SKILL_ID = 14016
+    const val JARLSBERG_COMPANION_PREF = "jarlsbergCompanion"
     private const val SKILL_DRIPPY_EYE_SPROUT = 191
     private const val SKILL_DRIPPY_EYE_STONE = 192
     private const val SKILL_DRIPPY_EYE_BEETLE = 193
@@ -2089,4 +2095,33 @@ object DynamicChoiceSpoilers {
         }
         return poolSkillFromEquip + poolSkillPref + poolSharkBonus + drunkBonus
     }
+
+    /** Desktop ChoiceAdventures choice 606 Clancy lute / Ed cat weight formula. */
+    internal fun computeWeightedSidekickItemDrop(weight: Int): Double {
+        if (weight <= 0) return 0.0
+        return sqrt(55.0 * weight) + weight - 3
+    }
+
+    /** Desktop CharPaneRequest.LUTE + minstrel level weight (5 * level). */
+    internal fun computeClancyLuteItemDrop(instrument: String, minstrelLevel: Int): Double {
+        if (!instrument.equals("lute", ignoreCase = true)) return 0.0
+        return computeWeightedSidekickItemDrop(5 * minstrelLevel)
+    }
+
+    /** Desktop EdServantData cat servant (id 1) at level 7+. */
+    internal fun computeEdCatServantItemDrop(servantType: String, level: Int): Double {
+        if (!servantType.equals("Cat", ignoreCase = true) || level < 7) return 0.0
+        return computeWeightedSidekickItemDrop(level)
+    }
+
+    /** Desktop Companion.EGGMAN + SkillPool.WORKING_LUNCH gate. */
+    internal fun computeEggmanItemDrop(hasWorkingLunch: Boolean): Double =
+        if (hasWorkingLunch) 75.0 else 50.0
+
+    /** Sum Twin Peak florist plant ITEMDROP modifiers (ModifierType.FLORIST). */
+    internal fun computeFloristTwinPeakItemDrop(plants: List<FloristRequest.Florist>): Double =
+        plants.sumOf { plant ->
+            val entry = ModifierDatabase.get("Florist", plant.plantName) ?: return@sumOf 0.0
+            ModifierParser.parse(entry.modifiers).get(DoubleModifier.ITEMDROP)
+        }
 }

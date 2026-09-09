@@ -298,7 +298,17 @@ enum class AscensionPath(
         private val byApiName: Map<String, AscensionPath> =
             entries.associateBy { it.apiName.lowercase() }
 
+        private val byPathId: Map<Int, AscensionPath> =
+            entries.filter { it.pathId > 0 }.associateBy { it.pathId }
+
         fun fromApiString(s: String): AscensionPath =
             byApiName[s.lowercase().trim()] ?: UNKNOWN
+
+        /** Desktop [AscensionPath.idToPath] — api.php `path` integer. */
+        fun fromPathId(id: Int): AscensionPath =
+            when {
+                id <= 0 -> NONE
+                else -> byPathId[id] ?: UNKNOWN
+            }
     }
 }

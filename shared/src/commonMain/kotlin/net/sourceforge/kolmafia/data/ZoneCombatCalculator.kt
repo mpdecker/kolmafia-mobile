@@ -71,10 +71,16 @@ object ZoneCombatCalculator {
 
         data class Effective(val name: String, val weight: Int, val rejection: Int)
         val effective = mutableListOf<Effective>()
+        // Desktop getMonsterData: weighting == -2 omitted; weighting < 0 emitted as sentinel.
         for (mw in normal) {
             val w = effectiveWeight(mw, locationName, includeQueue, ctx)
-            if (w <= 0) continue
-            effective.add(Effective(mw.name, w, getRejection(mw, ctx).coerceIn(0, 100)))
+            when {
+                w == -2 -> continue
+                w < 0 -> result[mw.name] = w.toDouble()
+                w > 0 -> effective.add(
+                    Effective(mw.name, w, getRejection(mw, ctx).coerceIn(0, 100)),
+                )
+            }
         }
 
         val totalWeight = effective.sumOf { it.weight * (1.0 - it.rejection / 100.0) }
@@ -218,36 +224,38 @@ object ZoneCombatCalculator {
         stateful: Boolean,
         ctx: Context,
     ): Int {
-        var weight = mw.weight
+        // Desktop recalculate(): adjustConditionalWeighting first, then copies * baseWeighting.
+        var baseWeighting = adjustConditionalWeighting(locationName, mw.name, mw.weight, ctx)
         // Desktop: 'o' bit → available on even ascensions; 'e' bit → odd ascensions.
         if (mw.ascensionParity == 1 && ctx.ascensions % 2 == 1) return -2
         if (mw.ascensionParity == 2 && ctx.ascensions % 2 == 0) return -2
 
-        weight = adjustConditionalWeighting(locationName, mw.name, weight, ctx)
+        // Temporarily zeroed conditional (-4) stays -4 even after track/holdHands.
+        if (baseWeighting == -4) return -4
 
-        if (!stateful) return weight
-        if (ctx.banishManager?.isBanished(mw.name, ctx.turnsPlayed, ctx.characterState) == true) return -3
-        val prefs = ctx.preferences
-        if (prefs != null) {
-            val copies = TrackManager.countCopies(prefs, mw.name, ctx.turnsPlayed, ctx.familiarId)
-            if (copies > 0 && weight > 0) weight += copies * mw.weight.coerceAtLeast(1)
-            val rwbLoc = prefs.getString("rwbLocation", "")
-            val rwbCount = prefs.getInt("rwbMonsterCount", 0)
-            if (rwbCount > 0 && rwbLoc.equals(locationName, ignoreCase = true) &&
-                !prefs.getString("rwbMonster", "").equals(mw.name, ignoreCase = true)
-            ) {
-                return -3
-            }
-            val holdCount = prefs.getInt("holdHandsMonsterCount", 0)
-            if (holdCount > 0 &&
-                prefs.getString("holdHandsLocation", "").equals(locationName, ignoreCase = true) &&
-                prefs.getString("holdHandsMonster", "").equals(mw.name, ignoreCase = true) &&
-                weight > 0
-            ) {
-                weight += mw.weight.coerceAtLeast(1)
-            }
+        if (!stateful) return baseWeighting
+        if (ctx.banishManager?.isBanished(mw.name, ctx.turnsPlayed, ctx.characterState) == true) {
+            return -3
         }
-        return weight
+        val prefs = ctx.preferences ?: return baseWeighting
+        val rwbLoc = prefs.getString("rwbLocation", "")
+        val rwbCount = prefs.getInt("rwbMonsterCount", 0)
+        if (rwbCount > 0 && rwbLoc.equals(locationName, ignoreCase = true) &&
+            !prefs.getString("rwbMonster", "").equals(mw.name, ignoreCase = true)
+        ) {
+            return -3
+        }
+        if (baseWeighting <= 0) return baseWeighting
+
+        var copies = TrackManager.countCopies(prefs, mw.name, ctx.turnsPlayed, ctx.familiarId)
+        val holdCount = prefs.getInt("holdHandsMonsterCount", 0)
+        if (holdCount > 0 &&
+            prefs.getString("holdHandsLocation", "").equals(locationName, ignoreCase = true) &&
+            prefs.getString("holdHandsMonster", "").equals(mw.name, ignoreCase = true)
+        ) {
+            copies += 1
+        }
+        return baseWeighting + copies * baseWeighting
     }
 
     /**

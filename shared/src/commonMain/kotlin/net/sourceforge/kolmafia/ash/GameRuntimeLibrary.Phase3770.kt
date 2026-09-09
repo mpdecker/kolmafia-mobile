@@ -9,8 +9,9 @@ import net.sourceforge.kolmafia.session.LocketManager
 /**
  * IoTM manager residual sidecar — phases 3711–3770.
  *
- * Live `get_florist_plants` / corrected `get_chateau` furniture inventory, plus headless
- * `git_*` / `svn_*` stubs so scripts that declare those names parse on mobile.
+ * Live `get_florist_plants` / corrected `get_chateau` furniture inventory, plus intentional
+ * headless `git_*` / `svn_*` stubs so scripts that declare those names parse on mobile
+ * (no local VCS checkout — explicit non-goal; Phase 6061–6065 stub-contract docs).
  */
 internal fun GameRuntimeLibrary.registerPhase3770(scope: AshScope) {
     val plantRow = AggregateType(AshType.INT, AshType.STRING, fixedSize = 3)

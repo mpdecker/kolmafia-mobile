@@ -123,6 +123,14 @@ object ItemPool {
     const val DINGY_DINGHY = 141
     const val MOSQUITO_LARVA = 275
     const val RUSTY_SCREWDRIVER = 454
+    const val BATSKIN_BELT = 191
+    const val HEMP_STRING = 218
+    const val TALISMAN = 486
+    const val BONERDAGON_SKULL = 675
+    const val BADASS_BELT = 677
+    const val CITADEL_SATCHEL = 1656
+    const val BONERDAGON_VERTEBRA = 1247
+    const val BONERDAGON_NECKLACE = 1248
     const val CANDLES = 480
     const val TISSUE_PAPER_IMMATERIA = 605
     const val TIN_FOIL_IMMATERIA = 606
@@ -190,7 +198,9 @@ object ItemPool {
     const val UNCONSCIOUS_COLLECTIVE_DREAM_JAR = 5897
     const val JUNK_JUNK = 6735
     const val TIN_LIZZIE = 6775
+    const val COPPERHEAD_CHARM = 7178
     const val FIRST_PIZZA = 7179
+    const val COPPERHEAD_CHARM_RAMPANT = 7186
     const val LACROSSE_STICK = 7180
     const val EYE_OF_THE_STARS = 7181
     const val STANKARA_STONE = 7182

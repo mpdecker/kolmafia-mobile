@@ -259,11 +259,37 @@ class QuestAdvanceRulesTest {
     }
 
     @Test
-    fun apply_pirateFinishedOnBelowdecksScam() {
-        val db = QuestDatabase(Preferences(MapSettings()))
-        db.setProgress(Quest.PIRATE, "step6")
-        val text = "Oh, and also you've managed to scam your way belowdecks, which is cool."
-        assertTrue(QuestAdvanceRules.apply(text, db))
-        assertEquals(QuestDatabase.FINISHED, db.getProgress(Quest.PIRATE))
+    fun apply_telegramAdvancesAllNineQuestlines() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.TELEGRAM, QuestDatabase.STARTED)
+
+        assertTrue(QuestAdvanceRules.apply("Search for Daisy's homestead.", db, prefs))
+        assertEquals("step1", db.getProgress(Quest.TELEGRAM))
+        assertEquals("Missing: Pioneer Daughter", prefs.getString("lttQuestName", ""))
+        assertEquals(1, prefs.getInt("lttQuestDifficulty", 0))
+
+        assertTrue(QuestAdvanceRules.apply("Defeat Clara.", db, prefs))
+        assertEquals("step4", db.getProgress(Quest.TELEGRAM))
+        assertEquals("Missing: Many Children", prefs.getString("lttQuestName", ""))
+        assertEquals(3, prefs.getInt("lttQuestDifficulty", 0))
+    }
+
+    @Test
+    fun apply_telegramWagonTrainStep2() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        db.setProgress(Quest.TELEGRAM, "step1")
+        assertTrue(QuestAdvanceRules.apply("Defend the Hackleton wagon train!", db, prefs))
+        assertEquals("step2", db.getProgress(Quest.TELEGRAM))
+        assertEquals("Wagon Train Escort Wanted", prefs.getString("lttQuestName", ""))
+    }
+
+    @Test
+    fun apply_telegramIgnoresStepsWhenUnstarted() {
+        val prefs = Preferences(MapSettings())
+        val db = QuestDatabase(prefs)
+        assertFalse(QuestAdvanceRules.apply("Ask around the Rough Diamond Saloon", db, prefs))
+        assertEquals(QuestDatabase.UNSTARTED, db.getProgress(Quest.TELEGRAM))
     }
 }

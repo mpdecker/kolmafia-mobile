@@ -10,6 +10,7 @@ import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
+import net.sourceforge.kolmafia.quest.ShenSync
 import net.sourceforge.kolmafia.shop.DesertBeachUnlockSync
 
 /**
@@ -71,6 +72,7 @@ object ResultProcessor {
 
     /** Optional DI for inventory mutations during processItem/removeItem/autoCreate. */
     var inventoryProvider: (() -> InventoryManager?)? = null
+    var characterProvider: (() -> KoLCharacter?)? = null
     var questDatabaseProvider: (() -> QuestDatabase?)? = null
     var ascensionNumberProvider: (() -> Int)? = null
     var equipmentManagerProvider: (() -> EquipmentManager?)? = null
@@ -150,6 +152,7 @@ object ResultProcessor {
         if (questDatabase != null) questDatabaseProvider = { questDatabase }
         if (equipmentManager != null) equipmentManagerProvider = { equipmentManager }
         if (character != null) {
+            characterProvider = { character }
             ascensionNumberProvider = { character.state.value.ascensionNumber }
         }
         try {
@@ -524,6 +527,12 @@ object ResultProcessor {
                 listOf(ItemPool.BUSTED_WINGS, ItemPool.BIRD_BRAIN)
             ItemPool.MCCLUSKY_FILE ->
                 listOf(ItemPool.MCCLUSKY_FILE_PAGE5)
+            ItemPool.BADASS_BELT ->
+                listOf(ItemPool.BATSKIN_BELT, ItemPool.BONERDAGON_SKULL)
+            ItemPool.BONERDAGON_NECKLACE ->
+                listOf(ItemPool.HEMP_STRING, ItemPool.BONERDAGON_VERTEBRA)
+            ItemPool.TALISMAN ->
+                listOf(ItemPool.COPPERHEAD_CHARM, ItemPool.COPPERHEAD_CHARM_RAMPANT)
             else -> return
         }
         if (recipe.any { (inv.state.value.items[it]?.quantity ?: 0) < 1 }) return
@@ -678,6 +687,21 @@ object ResultProcessor {
                 autoCreate(ItemPool.REASSEMBLED_BLACKBIRD, prefs, inv, quests)
             ItemPool.BUSTED_WINGS, ItemPool.BIRD_BRAIN ->
                 autoCreate(ItemPool.RECONSTITUTED_CROW, prefs, inv, quests)
+            ItemPool.BATSKIN_BELT, ItemPool.BONERDAGON_SKULL ->
+                if (adventureResults) autoCreate(ItemPool.BADASS_BELT, prefs, inv, quests)
+            ItemPool.HEMP_STRING, ItemPool.BONERDAGON_VERTEBRA ->
+                autoCreate(ItemPool.BONERDAGON_NECKLACE, prefs, inv, quests)
+            ItemPool.COPPERHEAD_CHARM, ItemPool.COPPERHEAD_CHARM_RAMPANT ->
+                ShenSync.applyItemAcquire(
+                    itemId,
+                    quests,
+                    hasItemId = { id -> inventoryCount(inv, id) > 0 },
+                    autoCreateTalisman = { autoCreate(ItemPool.TALISMAN, prefs, inv, quests) },
+                )
+            ItemPool.TALISMAN ->
+                quests.setQuestIfBetter(Quest.PALINDOME, QuestDatabase.STARTED)
+            ItemPool.CITADEL_SATCHEL ->
+                processMeat(-300, characterProvider?.invoke())
             ItemPool.PIRATE_FLEDGES -> quests.setProgress(Quest.PIRATE, "step6")
             ItemPool.MACGUFFIN_DIARY, ItemPool.ED_DIARY -> {
                 processItem(ItemPool.FORGED_ID_DOCUMENTS, -1, prefs, quests, inv)
@@ -906,6 +930,7 @@ object ResultProcessor {
 
     fun resetForTest() {
         inventoryProvider = null
+        characterProvider = null
         questDatabaseProvider = null
         ascensionNumberProvider = null
         equipmentManagerProvider = null
