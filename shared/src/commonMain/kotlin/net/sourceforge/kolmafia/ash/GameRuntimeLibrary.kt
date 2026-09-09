@@ -99,6 +99,9 @@ import net.sourceforge.kolmafia.request.SkateParkRequest
 import net.sourceforge.kolmafia.request.AutosellRequest
 import net.sourceforge.kolmafia.request.BatFellowRequest
 import net.sourceforge.kolmafia.request.PulverizeRequest
+import net.sourceforge.kolmafia.request.GrandpaRequest
+import net.sourceforge.kolmafia.request.MomRequest
+import net.sourceforge.kolmafia.request.SummoningChamberRequest
 import net.sourceforge.kolmafia.request.QuantumTerrariumRequest
 import net.sourceforge.kolmafia.request.SpelunkyRequest
 import net.sourceforge.kolmafia.request.ZapRequest
@@ -119,6 +122,7 @@ import net.sourceforge.kolmafia.request.StillSuitRequest
 import net.sourceforge.kolmafia.request.EquipmentRequest
 import net.sourceforge.kolmafia.request.CreateItemCraftSync
 import net.sourceforge.kolmafia.shop.CoinmasterManager
+import net.sourceforge.kolmafia.shop.CoinmasterResponseSync
 import net.sourceforge.kolmafia.shop.NpcShopSync
 import net.sourceforge.kolmafia.shop.ShopInventorySync
 import net.sourceforge.kolmafia.shop.SwaggerShopSync
@@ -307,6 +311,7 @@ import net.sourceforge.kolmafia.request.TrophyHutRequest
 import net.sourceforge.kolmafia.request.VolcanoIslandRequest
 import net.sourceforge.kolmafia.session.VoteMonsterManager
 import net.sourceforge.kolmafia.session.FightStructuralSync
+import net.sourceforge.kolmafia.session.FightSessionLog
 import net.sourceforge.kolmafia.session.FightIotmResidualSync
 import net.sourceforge.kolmafia.session.StillSuitManager
 import net.sourceforge.kolmafia.session.CrystalBallManager
@@ -380,6 +385,7 @@ import net.sourceforge.kolmafia.request.TelescopeRequest
 import net.sourceforge.kolmafia.request.GuzzlrRequest
 import net.sourceforge.kolmafia.request.EdBaseRequest
 import net.sourceforge.kolmafia.request.AccountRequest
+import net.sourceforge.kolmafia.request.ApiRequest
 import net.sourceforge.kolmafia.request.CharPaneRequest
 import net.sourceforge.kolmafia.request.CharSheetRequest
 import net.sourceforge.kolmafia.request.TransferItemRequest
@@ -448,11 +454,7 @@ import net.sourceforge.kolmafia.request.SkeletonOfCrimboPastRequest
 import net.sourceforge.kolmafia.request.AWOLQuartermasterRequest
 import net.sourceforge.kolmafia.request.MrStoreRequest
 import net.sourceforge.kolmafia.request.SwaggerShopRequest
-import net.sourceforge.kolmafia.request.SendGiftRequestHub
-import net.sourceforge.kolmafia.request.SendMailRequestHub
 import net.sourceforge.kolmafia.request.GourdRequestHub
-import net.sourceforge.kolmafia.request.FriarRequestHub
-import net.sourceforge.kolmafia.request.FamiliarRequestHub
 import net.sourceforge.kolmafia.request.Crimbo20BoozeRequest
 import net.sourceforge.kolmafia.request.Crimbo20FoodRequest
 import net.sourceforge.kolmafia.request.Crimbo20CandyRequest
@@ -460,8 +462,6 @@ import net.sourceforge.kolmafia.request.DedigitizerRequest
 import net.sourceforge.kolmafia.request.BatFabricatorRequest
 import net.sourceforge.kolmafia.request.DiscoGiftCoRequest
 import net.sourceforge.kolmafia.request.RenaissanceGiftShopRequest
-import net.sourceforge.kolmafia.request.SummoningChamberRequestHub
-import net.sourceforge.kolmafia.request.SafetyShelterRequest
 import net.sourceforge.kolmafia.request.DimemasterRequestHub
 import net.sourceforge.kolmafia.request.QuartersmasterRequestHub
 import net.sourceforge.kolmafia.request.FlowerTradeinRequestHub
@@ -799,7 +799,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase5890"
+        const val REVISION = "phase6130"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -3185,6 +3185,20 @@ class GameRuntimeLibrary(
                         )
                     }
                 }
+            // Phase 6049+: Summoning Chamber choice 922 visit_url accounting.
+            if (url.contains("whichchoice=922", ignoreCase = true) && preferences != null) {
+                val parsed = SummoningChamberRequest.parseResponse(url, html, preferences)
+                if (parsed.consumeSummoningItems) {
+                    inventoryManager?.consumeItemLocally(
+                        net.sourceforge.kolmafia.session.DemonTypes.BLACK_CANDLE,
+                        3,
+                    )
+                    inventoryManager?.consumeItemLocally(
+                        net.sourceforge.kolmafia.session.DemonTypes.EVIL_SCROLL,
+                        1,
+                    )
+                }
+            }
         }
         if (url != null) {
             RequestLogger.registerRequest(url, sessionLogger, preferences)
@@ -3336,11 +3350,9 @@ class GameRuntimeLibrary(
             AWOLQuartermasterRequest.registerRequest(url, sessionLogger)
             MrStoreRequest.registerRequest(url, sessionLogger)
             SwaggerShopRequest.registerRequest(url, sessionLogger)
-            SendGiftRequestHub.registerRequest(url, sessionLogger)
-            SendMailRequestHub.registerRequest(url, sessionLogger)
+            // SendGift/SendMail/Friar/Familiar/Summoning/Safety claimed by
+            // RequestLogger.registerRequest above — avoid duplicate session-log lines.
             GourdRequestHub.registerRequest(url, sessionLogger)
-            FriarRequestHub.registerRequest(url, sessionLogger)
-            FamiliarRequestHub.registerRequest(url, sessionLogger)
             Crimbo20BoozeRequest.registerRequest(url, sessionLogger)
             Crimbo20FoodRequest.registerRequest(url, sessionLogger)
             Crimbo20CandyRequest.registerRequest(url, sessionLogger)
@@ -3348,8 +3360,6 @@ class GameRuntimeLibrary(
             BatFabricatorRequest.registerRequest(url, sessionLogger)
             DiscoGiftCoRequest.registerRequest(url, sessionLogger)
             RenaissanceGiftShopRequest.registerRequest(url, sessionLogger)
-            SummoningChamberRequestHub.registerRequest(url, sessionLogger)
-            SafetyShelterRequest.registerRequest(url, sessionLogger)
             DimemasterRequestHub.registerRequest(url, sessionLogger)
             QuartersmasterRequestHub.registerRequest(url, sessionLogger)
             FlowerTradeinRequestHub.registerRequest(url, sessionLogger)
@@ -3840,6 +3850,23 @@ class GameRuntimeLibrary(
                     clearEquipment = { slot -> character?.updateEquipment(slot, "") },
                 ),
             )
+            // Behavioral Deepen XXXIV Group E — After Battle / Round session-log residual
+            // for visit_url fight.php paths (AdventureManager already uses FightDomSync).
+            // Do not call noteFightRound here: visit hooks may see mid-fight HTML without a
+            // matching end, which would poison RequestAbortGate for later requests.
+            run {
+                val fightResult = AdventureParser.parseFightResult(html)
+                val stillFighting = AdventureParser.isInMultiFight(html) ||
+                    html.contains("You're fighting", ignoreCase = true)
+                FightSessionLog.apply(
+                    html = html,
+                    sessionLogger = sessionLogger,
+                    won = fightResult.won,
+                    fightEnded = fightResult.won || !stillFighting,
+                    monsterName = lastMonster.ifBlank { fightResult.monster },
+                    preferences = preferences,
+                )
+            }
             FightIotmResidualSync.apply(
                 html = html,
                 monsterName = lastMonster,
@@ -3952,6 +3979,17 @@ class GameRuntimeLibrary(
                     characterState = character?.state?.value,
                     sessionLogger = sessionLogger,
                 )
+            // Phase 6048+: pulverize smash accounting on visit_url craft.php.
+            if (url.contains("action=pulverize", ignoreCase = true)) {
+                val smashed = PulverizeRequest.parseResponse(url, html)
+                if (smashed > 0) {
+                    val itemId = Regex("""smashitem=(\d+)""", RegexOption.IGNORE_CASE)
+                        .find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                    if (itemId != null && itemId > 0) {
+                        inventoryManager?.consumeItemLocally(itemId, smashed)
+                    }
+                }
+            }
         }
         if (url != null && url.contains("inventory.php", ignoreCase = true) &&
             url.contains("reminisce", ignoreCase = true)
@@ -4075,22 +4113,17 @@ class GameRuntimeLibrary(
             }
             ClanIdSync.apply(html)
         }
-        if (url != null && (
-                url.contains("api.php", ignoreCase = true) &&
-                    url.contains("what=status", ignoreCase = true)
+        if (url != null && url.contains("api.php", ignoreCase = true)) {
+            ApiRequest.parseResponse(
+                url = url,
+                responseText = html,
+                character = character,
+                preferences = preferences,
+                effectManager = effectManager,
+                equipmentManager = equipmentManager,
+                familiarManager = familiarManager,
+                inventoryManager = inventoryManager,
             )
-        ) {
-            SpelunkyRequest.parseStatus(html, preferences)
-            character?.let { char ->
-                ApiStatusSync.parseStatus(
-                    responseText = html,
-                    character = char,
-                    preferences = preferences,
-                    effectManager = effectManager,
-                    equipmentManager = equipmentManager,
-                    familiarManager = familiarManager,
-                )
-            }
         }
         if (url != null && url.contains("campground.php", ignoreCase = true)) {
             CampgroundSync.parseResponse(
@@ -4127,11 +4160,34 @@ class GameRuntimeLibrary(
             ) { skillId ->
                 fetchDescription("desc_skill.php?whichskill=$skillId&self=true")
             }
+            CoinmasterResponseSync.apply(
+                url = url,
+                html = html,
+                preferences = preferences,
+                inventory = inventoryManager,
+                character = character,
+            )
             preferences?.let { prefs ->
                 val state = visitState
                 val ascension = state?.ascensionNumber ?: 0
                 NpcShopSync.applyShopVisit(html, url, prefs, ascension)
             }
+            StillRequestHub.parseResponse(url, html, preferences)
+            InterestingCoinRequestHub.parseResponse(url, html, preferences)
+            ShadowForgeRequest.parseResponse(url, html, preferences)
+        }
+        if (url != null && url.contains("gamestore.php", ignoreCase = true)) {
+            GameShoppeRequest.parseResponse(url, html, preferences)
+            FreeSnackRequest.registerRequest(url, sessionLogger)
+        }
+        if (url != null && url.contains("whichitem=5683")) {
+            BURTRequest.parseResponse(url, html, preferences)
+        }
+        if (url != null && url.contains("bone_altar.php", ignoreCase = true)) {
+            AltarOfBonesRequest.parseResponse(url, html, preferences)
+        }
+        if (url != null && url.contains("traveler.php", ignoreCase = true)) {
+            TravelingTraderRequest.parseResponse(url, html, preferences)
         }
         if (url != null && url.contains("store.php", ignoreCase = true)) {
             preferences?.let { prefs ->
@@ -4160,6 +4216,29 @@ class GameRuntimeLibrary(
                 inventory = inventoryManager,
             )
             ShadowRiftSync.applyIngressFromUrl(url, preferences)
+            // Phase 6047+: Untinker inventory + quest sync on visit_url.
+            if (url.contains("fv_untinker", ignoreCase = true)) {
+                val itemId = Regex("""(?:^|[?&])whichitem=(\d+)""", RegexOption.IGNORE_CASE)
+                    .find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                if (itemId != null && itemId > 0) {
+                    val before = inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+                    val untinkered = UntinkerRequest.parseResponse(url, html, before)
+                    if (untinkered > 0) {
+                        inventoryManager?.consumeItemLocally(itemId, untinkered)
+                    }
+                }
+                UntinkerRequest.syncQuestFromResponse(
+                    urlString = url,
+                    responseText = html,
+                    inventoryHasScrewdriver =
+                        (inventoryManager?.state?.value?.items
+                            ?.get(UntinkerRequest.RUSTY_SCREWDRIVER)?.quantity ?: 0) > 0,
+                    questDatabase = questDatabase,
+                    onScrewdriverRemoved = {
+                        inventoryManager?.consumeItemLocally(UntinkerRequest.RUSTY_SCREWDRIVER, 1)
+                    },
+                )
+            }
             if (url.contains("whichplace=arcade", ignoreCase = true)) {
                 preferences?.let { prefs ->
                     ArcadeRequest.parseResponse(url, html, prefs, ResultProcessor)
@@ -4739,6 +4818,44 @@ class GameRuntimeLibrary(
                 isMysticalityClass = cls?.isMysticality == true,
                 isMoxieClass = cls?.isMoxieBased == true,
             )
+            // Phase 6046+: Grandpa story flag prefs from visit_url grandpastory.
+            if (url.contains("action=grandpastory", ignoreCase = true)) {
+                val topic = Regex("""(?:^|[?&])topic=([^&]*)""", RegexOption.IGNORE_CASE)
+                    .find(url)?.groupValues?.getOrNull(1)
+                    ?.replace('+', ' ')
+                    ?.let { encoded ->
+                        buildString {
+                            var i = 0
+                            while (i < encoded.length) {
+                                when {
+                                    encoded[i] == '%' && i + 2 < encoded.length -> {
+                                        val hi = encoded[i + 1].digitToIntOrNull(16)
+                                        val lo = encoded[i + 2].digitToIntOrNull(16)
+                                        if (hi != null && lo != null) {
+                                            append(((hi shl 4) or lo).toChar())
+                                            i += 3
+                                        } else {
+                                            append(encoded[i])
+                                            i++
+                                        }
+                                    }
+                                    else -> {
+                                        append(encoded[i])
+                                        i++
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .orEmpty()
+                if (topic.isNotEmpty()) {
+                    GrandpaRequest.parseResponse(topic, html, preferences, questDatabase)
+                }
+            }
+            // Phase 6086+: Mom Sea Monkee food from visit_url mombuff.
+            if (url.contains("action=mombuff", ignoreCase = true)) {
+                MomRequest.parseResponse(html, preferences, questDatabase)
+            }
         }
         if (url != null && url.contains("whichplace=plains", ignoreCase = true)) {
             PlainsVisitSync.applyFromVisit(
@@ -4785,6 +4902,10 @@ class GameRuntimeLibrary(
                 preferences = preferences,
                 ascensionNumber = character?.state?.value?.ascensionNumber ?: 0,
             )
+            // Desktop QuestManager: only the bare main map (no query) shows twitchtower.
+            if (!url.contains('?')) {
+                preferences?.let { TimeTowerSync.syncFromMainPhp(html, it) }
+            }
         }
         if (url != null && url.contains("fernruin", ignoreCase = true)) {
             FernruinVisitSync.applyFromVisit(url, questDatabase)
@@ -5297,8 +5418,41 @@ class GameRuntimeLibrary(
                 } else 0.0
             } else 0.0
         }
-        // Florist Twin Peak, Clancy lute, Eggman, Ed cat are rare sidekick paths;
-        // providers default to 0.0 and can be wired later when those managers exist.
+        DynamicChoiceSpoilers.floristTwinPeakItemDrop = {
+            if (!net.sourceforge.kolmafia.request.FloristRequest.haveFlorist(preferences)) {
+                0.0
+            } else {
+                DynamicChoiceSpoilers.computeFloristTwinPeakItemDrop(
+                    net.sourceforge.kolmafia.request.FloristRequest.getPlants("Twin Peak"),
+                )
+            }
+        }
+        DynamicChoiceSpoilers.clancyLuteItemDrop = {
+            DynamicChoiceSpoilers.computeClancyLuteItemDrop(
+                preferences?.getString("clancyInstrument", "").orEmpty(),
+                preferences?.getInt("clancyLevel", 1) ?: 1,
+            )
+        }
+        DynamicChoiceSpoilers.eggmanItemDrop = {
+            val companion = preferences?.getString(DynamicChoiceSpoilers.JARLSBERG_COMPANION_PREF, "").orEmpty()
+            if (!companion.equals("Eggman", ignoreCase = true)) {
+                0.0
+            } else {
+                DynamicChoiceSpoilers.computeEggmanItemDrop(
+                    skillManager?.state?.value?.skills?.any {
+                        it.id == DynamicChoiceSpoilers.WORKING_LUNCH_SKILL_ID
+                    } == true,
+                )
+            }
+        }
+        DynamicChoiceSpoilers.edCatServantItemDrop = {
+            val record = edServantManager?.activeServantRecord()
+            if (record == null) {
+                0.0
+            } else {
+                DynamicChoiceSpoilers.computeEdCatServantItemDrop(record.type, record.level)
+            }
+        }
 
         // ── RequestLogger familiar name DI (Group F) ──────────────────────────
         RequestLogger.familiarDisplayById = { famId ->
@@ -7159,6 +7313,10 @@ class GameRuntimeLibrary(
         registerPhase5770(scope)
         registerPhase5830(scope)
         registerPhase5890(scope)
+        registerPhase5950(scope)
+        registerPhase6010(scope)
+        registerPhase6070(scope)
+        registerPhase6130(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->

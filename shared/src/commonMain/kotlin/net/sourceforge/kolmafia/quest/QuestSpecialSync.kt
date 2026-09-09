@@ -10,14 +10,15 @@ import net.sourceforge.kolmafia.preferences.Preferences
  */
 object QuestSpecialSync {
 
-    private data class TelegramStep(
+    data class TelegramStep(
         val signal: String,
         val questName: String,
         val difficulty: Int,
         val step: String,
     )
 
-    private val telegramSteps = listOf(
+    /** Shared catalog for quest-log parsers and mid-adventure AdvanceRules. */
+    internal val telegramSteps = listOf(
         TelegramStep("Ask around the Rough Diamond Saloon", "Missing: Fancy Man", 1, "step1"),
         TelegramStep("Trek across the desert to Jeff's mining claim", "Missing: Fancy Man", 1, "step2"),
         TelegramStep("Delve deeper into Jeff's Fancy Mine", "Missing: Fancy Man", 1, "step3"),
@@ -74,7 +75,8 @@ object QuestSpecialSync {
         PartyFairStep("for Geraldine at the", "food", "step1"),
         PartyFairStep("to Geraldine in the kitchen", "food", "step2"),
         PartyFairStep("Meat for the DJ", "dj", "step1"),
-        PartyFairStep("Remaining bill", "meat", "step1"),
+        // Desktop PARTY_FAIR_MEAT_PATTERN / combat writers key on "dj", not "meat".
+        PartyFairStep("Remaining bill", "dj", "step1"),
         PartyFairStep("Return to the", "woots", "step2"),
     )
 

@@ -8,16 +8,52 @@ import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.session.RequestLogger
+import net.sourceforge.kolmafia.session.SessionLogger
 
 class MallSearchRequest(private val client: HttpClient) {
 
     suspend fun search(itemName: String, limit: Int): List<MallListing> {
-        val results = searchInternal(itemName.trim(), limit)
+        val preflight = MallSearchPreflight.updateSearchString(itemName.trim())
+        if (preflight.skipMallHttp) {
+            return MallSearchOverlay.finalizeList(preflight.searchString, emptyList())
+        }
+        if (preflight.searchString.isEmpty()) {
+            return searchFavorites(limit)
+        }
+        val results = searchInternal(preflight.searchString, limit)
         if (results.isNotEmpty()) return results
         val fuzzy = ItemDatabase.getMatchingNames(itemName.trim()).firstOrNull()
             ?: return results
         if (fuzzy.equals(itemName.trim(), ignoreCase = true)) return results
-        return searchInternal(fuzzy, limit)
+        val fuzzyPreflight = MallSearchPreflight.updateSearchString(fuzzy)
+        if (fuzzyPreflight.skipMallHttp) {
+            return MallSearchOverlay.finalizeList(fuzzyPreflight.searchString, emptyList())
+        }
+        return searchInternal(fuzzyPreflight.searchString, limit)
+    }
+
+    private suspend fun searchFavorites(limit: Int): List<MallListing> {
+        val html = try {
+            client.submitForm(
+                url = "$KOL_BASE_URL/mall.php",
+                formParameters = baseParameters("", 0),
+            ).bodyAsText()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return emptyList()
+        }
+        val storeIds = FAVORITES_PATTERN.findAll(html)
+            .mapNotNull { it.groupValues[1].toIntOrNull() }
+            .toList()
+        if (storeIds.isEmpty()) return emptyList()
+        val results = mutableListOf<MallListing>()
+        for (storeId in storeIds) {
+            if (limit > 0 && results.size >= limit) break
+            results += searchStore(storeId)
+        }
+        return if (limit <= 0) results else results.take(limit)
     }
 
     private suspend fun searchInternal(itemName: String, limit: Int): List<MallListing> {
@@ -196,7 +232,9 @@ class MallSearchRequest(private val client: HttpClient) {
 
     internal fun parseStoreHtml(html: String): List<MallListing> {
         val header = STORE_ID_PATTERN.find(html) ?: return emptyList()
-        val shopName = header.groupValues[1].replace(Regex("""\s+;"""), ";").stripTags()
+        val shopName = MallSearchPreflight.decodeEntities(
+            header.groupValues[1].replace(Regex("""\s+;"""), ";"),
+        ).stripTags()
         val shopId = header.groupValues[2].toInt()
         return STORE_PRICE_PATTERN.findAll(html).mapNotNull { row ->
             val storeString = row.groupValues[1]
@@ -240,6 +278,50 @@ class MallSearchRequest(private val client: HttpClient) {
             RegexOption.DOT_MATCHES_ALL,
         )
         private val STORE_LIMIT_PATTERN = Regex("""Limit ([\d,]+) /""")
+        internal val FAVORITES_PATTERN = Regex("""&action=unfave&whichstore=(\d+)">""")
         private val TIER_NAMES = listOf("crappy", "decent", "good", "awesome", "EPIC")
+
+        /** Desktop MallSearchRequest.registerRequest session-log lines. */
+        fun registerRequest(urlString: String, sessionLogger: SessionLogger?): Boolean {
+            val url = urlString.substringAfterLast('/').substringBefore('#')
+            val full = urlString.substringAfter("://").substringAfter('/').ifEmpty { urlString }
+            val path = if (full.contains("mall")) full else url
+            if (path.startsWith("mallstore.php")) {
+                if (path.contains("buying=1") || path.contains("buying=Yep.")) return false
+                val shopId = MallPurchaseRequest.getStoreId(path)
+                val storeName = if (shopId != -1) "shop #$shopId" else "a PC store"
+                RequestLogger.updateSessionLog("mallsearch $storeName", sessionLogger)
+                return true
+            }
+            if (!path.startsWith("mall.php")) return false
+            val message = buildString {
+                append("mallsearch ")
+                val search = decodeQueryParam(path, "pudnuggler")
+                val category = decodeQueryParam(path, "category").ifEmpty { "allitems" }
+                val start = decodeQueryParam(path, "start")
+                val page = if (start.isEmpty()) 1 else ((start.toIntOrNull() ?: 0) / 30 + 1)
+                if (search.isEmpty()) {
+                    append("category ")
+                    append(category)
+                } else {
+                    append(search)
+                }
+                if (page > 1) {
+                    append(" (page ")
+                    append(page)
+                    append(")")
+                }
+            }
+            RequestLogger.updateSessionLog(message, sessionLogger)
+            return true
+        }
+
+        private fun decodeQueryParam(url: String, key: String): String {
+            val raw = Regex("""(?:^|[?&])$key=([^&]*)""").find(url)?.groupValues?.get(1) ?: return ""
+            return raw.replace("+", " ")
+                .replace(Regex("%([0-9A-Fa-f]{2})")) { m ->
+                    m.groupValues[1].toIntOrNull(16)?.toChar()?.toString() ?: m.value
+                }
+        }
     }
 }

@@ -92,24 +92,25 @@ object ShenSync {
         autoCreateTalisman: () -> Unit = {},
     ): Boolean {
         if (questDatabase == null) return false
+        if (itemId != COPPERHEAD_CHARM &&
+            itemId != COPPERHEAD_CHARM_RAMPANT &&
+            itemId != TALISMAN
+        ) {
+            return false
+        }
         var changed = false
-        when (itemId) {
-            COPPERHEAD_CHARM -> {
-                if (hasItemId(COPPERHEAD_CHARM)) {
-                    questDatabase.setProgress(Quest.SHEN, QuestDatabase.FINISHED)
-                    changed = true
-                }
-            }
-            COPPERHEAD_CHARM_RAMPANT -> {
-                if (hasItemId(COPPERHEAD_CHARM_RAMPANT)) {
-                    questDatabase.setProgress(Quest.RON, QuestDatabase.FINISHED)
-                    changed = true
-                }
-            }
-            TALISMAN -> {
-                questDatabase.setQuestIfBetter(Quest.PALINDOME, QuestDatabase.STARTED)
-                changed = true
-            }
+        // Desktop ResultProcessor checks both charms on either acquire.
+        if (hasItemId(COPPERHEAD_CHARM)) {
+            questDatabase.setProgress(Quest.SHEN, QuestDatabase.FINISHED)
+            changed = true
+        }
+        if (hasItemId(COPPERHEAD_CHARM_RAMPANT)) {
+            questDatabase.setProgress(Quest.RON, QuestDatabase.FINISHED)
+            changed = true
+        }
+        if (itemId == TALISMAN) {
+            questDatabase.setQuestIfBetter(Quest.PALINDOME, QuestDatabase.STARTED)
+            changed = true
         }
         if (hasItemId(COPPERHEAD_CHARM) && hasItemId(COPPERHEAD_CHARM_RAMPANT)) {
             autoCreateTalisman()

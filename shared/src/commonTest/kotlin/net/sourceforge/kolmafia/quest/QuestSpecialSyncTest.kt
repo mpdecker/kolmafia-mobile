@@ -211,7 +211,7 @@ class QuestSpecialSyncTest {
         val db = QuestDatabase(prefs)
         db.setProgress(Quest.PARTY_FAIR, QuestDatabase.STARTED)
         assertTrue(QuestSpecialSync.apply("Remaining bill: 50,000 Meat", db, prefs))
-        assertEquals("meat", prefs.getString("_questPartyFairQuest", ""))
+        assertEquals("dj", prefs.getString("_questPartyFairQuest", ""))
         assertEquals("50000", prefs.getString("_questPartyFairProgress", ""))
     }
 

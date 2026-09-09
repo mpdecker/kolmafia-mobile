@@ -60,6 +60,9 @@ import net.sourceforge.kolmafia.skill.SkillData
 import net.sourceforge.kolmafia.skill.SkillManager
 import net.sourceforge.kolmafia.skill.SkillType
 import net.sourceforge.kolmafia.session.AdventureSpentTracker
+import net.sourceforge.kolmafia.session.DynamicChoiceSpoilers
+import net.sourceforge.kolmafia.session.RequestLogger
+import net.sourceforge.kolmafia.adventure.choice.ItemPool
 import net.sourceforge.kolmafia.session.DreadKissesTracker
 import net.sourceforge.kolmafia.session.WildfireCampManager
 import net.sourceforge.kolmafia.session.PastaThrall
@@ -4983,7 +4986,7 @@ class AshCompatibilityCorpusTest {
     fun corpus_behavioralDeepenX_live() {
         runBlocking { net.sourceforge.kolmafia.data.MonsterDatabase.load() }
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(lib, "print(get_revision());").trim())
         val mapped = outputLib(
             lib,
             """
@@ -5013,7 +5016,7 @@ class AshCompatibilityCorpusTest {
     @Test
     fun corpus_behavioralDeepenXi_live() {
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(lib, "print(get_revision());").trim())
         assertEquals("0", outputLib(lib, "buffer b = visit_url(); print(length(b));").trim())
         assertEquals("hi", outputLib(lib, """dump("hi");""").trim())
         outputLib(lib, """disable("foo"); enable("foo");""")
@@ -5026,7 +5029,7 @@ class AshCompatibilityCorpusTest {
     @Test
     fun corpus_behavioralDeepenXii_live() {
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(lib, "print(get_revision());").trim())
         assertTrue(net.sourceforge.kolmafia.request.CurseRequest.registerRequest("curse.php"))
         assertTrue(net.sourceforge.kolmafia.request.CreateItemRequest.registerRequest("craft.php?mode=cook"))
         assertEquals(
@@ -5060,7 +5063,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.DimemasterRequestHub.registerRequest("shop.php?whichshop=dimemaster"))
         assertTrue(net.sourceforge.kolmafia.request.FiveDPrinterRequestHub.registerRequest("shop.php?whichshop=5dprinter"))
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(lib, "print(get_revision());").trim())
     }
 
     @Test
@@ -5086,7 +5089,7 @@ class AshCompatibilityCorpusTest {
         )
         assertTrue(net.sourceforge.kolmafia.request.TicketCounterRequestHub.registerRequest("shop.php?whichshop=arcade"))
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(lib, "print(get_revision());").trim())
     }
 
     @Test
@@ -5106,7 +5109,7 @@ class AshCompatibilityCorpusTest {
         val lib = GameRuntimeLibrary(preferences = prefs)
         assertEquals("13", outputLib(lib, "print(tavern());").trim())
         assertEquals("0", outputLib(lib, "print(storage_amount(1));").trim())
-        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(lib, "print(get_revision());").trim())
         net.sourceforge.kolmafia.session.ChoiceCombatAshState.reset()
     }
 
@@ -5143,7 +5146,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.SpantRequestHub.registerRequest("shop.php?whichshop=spant"))
         val lib = GameRuntimeLibrary(character = char, preferences = prefs)
         assertEquals("true", outputLib(lib, "print(to_string(can_interact()));").trim())
-        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(lib, "print(get_revision());").trim())
     }
 
     @Test
@@ -5220,7 +5223,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.LtTRequestHub.registerRequest("shop.php?whichshop=ltt"))
         assertTrue(net.sourceforge.kolmafia.request.CindyRequestHub.registerRequest("shop.php?whichshop=cindy"))
         val lib = GameRuntimeLibrary(preferences = prefs)
-        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(lib, "print(get_revision());").trim())
         net.sourceforge.kolmafia.session.ChoiceCombatAshState.reset()
     }
 
@@ -5290,7 +5293,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.DedigitizerRequest.registerRequest("shop.php?whichshop=cyber_dedigitizer"))
         assertTrue(net.sourceforge.kolmafia.request.IsotopeSmitheryRequest.registerRequest("shop.php?whichshop=elvishp1"))
         assertTrue(net.sourceforge.kolmafia.request.AlliedHqRequestHub.registerRequest("shop.php?whichshop=twitch_alliedhq"))
-        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test
@@ -5367,7 +5370,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.BugbearBakeryRequestHub.registerRequest("shop.php?whichshop=bugbear"))
         assertTrue(net.sourceforge.kolmafia.request.ChinatownShopsRequestHub.registerRequest("shop.php?whichshop=chinatown"))
         assertTrue(net.sourceforge.kolmafia.request.TweedleporiumRequestHub.registerRequest("shop.php?whichshop=tweedle"))
-        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test
@@ -5457,7 +5460,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(rl.registerRequest("place.php?whichplace=northpole&action=np_bonfire", null))
         assertTrue(rl.registerRequest("place.php?whichplace=snojo&action=snojo_controller", null))
 
-        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test
@@ -5519,7 +5522,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(rl.registerRequest("place.php?whichplace=wereprof_cottage&action=wereprof_researchbench", null))
         assertTrue(rl.registerRequest("place.php?whichplace=woods&action=woods_hippy", null))
 
-        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test
@@ -5542,7 +5545,7 @@ class AshCompatibilityCorpusTest {
         assertFalse(net.sourceforge.kolmafia.request.ArenaVisitRequestHub.registerRequest("arena.php?action=go"))
         assertTrue(net.sourceforge.kolmafia.request.PeeVPeeRequest.registerRequest("peevpee.php?action=smashstone&confirm=on", null))
 
-        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test
@@ -5576,7 +5579,7 @@ class AshCompatibilityCorpusTest {
         )
         assertTrue(data.isManual)
 
-        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test
@@ -5638,7 +5641,57 @@ class AshCompatibilityCorpusTest {
             ),
         )
 
-        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxxiv_live() {
+        // Overlook sidekick helpers
+        assertEquals(50.0, DynamicChoiceSpoilers.computeEggmanItemDrop(false), 0.001)
+        assertEquals(75.0, DynamicChoiceSpoilers.computeEggmanItemDrop(true), 0.001)
+        assertTrue(DynamicChoiceSpoilers.computeClancyLuteItemDrop("lute", 5) > 0.0)
+        assertEquals(0.0, DynamicChoiceSpoilers.computeEdCatServantItemDrop("Cat", 6), 0.001)
+
+        // Auto-create item constants
+        assertEquals(677, ItemPool.BADASS_BELT)
+        assertEquals(1248, ItemPool.BONERDAGON_NECKLACE)
+        assertEquals(486, ItemPool.TALISMAN)
+
+        // Gift/mail transfer parse + format
+        val prevItemName = RequestLogger.itemNameById
+        RequestLogger.itemNameById = { id -> "i$id" }
+        try {
+            val giftItems = RequestLogger.parseTransferItems(
+                "town_sendgift.php",
+                mapOf("whichitem1" to "11", "howmany1" to "2"),
+            )
+            assertEquals(listOf(11 to 2), giftItems)
+            val giftLine = RequestLogger.formatTransferLog("send a gift", giftItems)
+            assertTrue(giftLine.contains("2 i11"))
+        } finally {
+            RequestLogger.itemNameById = prevItemName
+        }
+
+        // Mall forceUpdate sync prefetch
+        net.sourceforge.kolmafia.mall.MallPriceDatabase.resetForTest()
+        val clock = net.sourceforge.kolmafia.mall.MallPriceManager.TestClock(1_000L)
+        val mall = net.sourceforge.kolmafia.mall.MallPriceManager(clock)
+        mall.mallSearchSync = {
+            listOf(
+                net.sourceforge.kolmafia.mall.MallListing(
+                    shopId = 1,
+                    shopName = "S",
+                    itemId = it,
+                    price = 77L,
+                    quantity = 1,
+                ),
+            )
+        }
+        assertEquals(77L, mall.getMallPrice(321, maxAgeSeconds = 60, forceUpdate = true))
+        mall.mallSearchSync = null
+        net.sourceforge.kolmafia.mall.MallPriceDatabase.resetForTest()
+
+        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     private fun registerCorpusWeapon(id: Int, name: String) {

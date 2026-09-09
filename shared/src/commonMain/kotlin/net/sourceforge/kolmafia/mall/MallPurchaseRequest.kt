@@ -61,7 +61,10 @@ class MallPurchaseRequest(
                 return PurchaseResult(error = "The listing is no longer available.")
         }
         val acquired = ACQUIRE_COUNT.find(html)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
-            ?: if (html.contains("You acquire an item", true) || html.contains("You acquire:", true)) 1
+            ?: if (ACQUIRE_SINGLE.containsMatchIn(html) ||
+                html.contains("You acquire an item", true) ||
+                html.contains("You acquire:", true)
+            ) 1
             else if (html.contains("success", true)) requested else 0
         val spent = MEAT_PATTERN.find(html)?.groupValues?.get(1)?.replace(",", "")?.toLongOrNull()
             ?: if (acquired > 0) unitPrice * acquired else 0L
@@ -86,8 +89,18 @@ class MallPurchaseRequest(
         private val disabledStores = mutableSetOf<Int>()
         private val ignoringStores = mutableSetOf<Int>()
         private val forbiddenStores = mutableSetOf<Int>()
-        private val ACQUIRE_COUNT = Regex("""You acquire(?: an item:)?\s*<b>([\d,]+)\s""", RegexOption.IGNORE_CASE)
-        private val MEAT_PATTERN = Regex("""You spent ([\d,]+) [Mm]eat""", RegexOption.DOT_MATCHES_ALL)
+        private val ACQUIRE_COUNT = Regex(
+            """You acquire(?:\s+an item:)?\s*<b>([\d,]+)""",
+            RegexOption.IGNORE_CASE,
+        )
+        private val ACQUIRE_SINGLE = Regex(
+            """You acquire(?:\s+an item:)?\s*<b>([^<]+)</b>""",
+            RegexOption.IGNORE_CASE,
+        )
+        private val MEAT_PATTERN = Regex(
+            """You (?:spent|lose) ([\d,]+) [Mm]eat""",
+            RegexOption.DOT_MATCHES_ALL,
+        )
 
         fun canPurchase(shopId: Int): Boolean =
             shopId !in disabledStores && shopId !in ignoringStores && shopId !in forbiddenStores

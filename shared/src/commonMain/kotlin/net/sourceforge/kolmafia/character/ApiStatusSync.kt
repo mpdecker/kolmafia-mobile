@@ -15,6 +15,7 @@ import net.sourceforge.kolmafia.effect.EffectData
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.AccountSync
 import net.sourceforge.kolmafia.session.EquipmentManager
 
 /**
@@ -46,6 +47,7 @@ object ApiStatusSync {
         "tunnelofloveiotm" to ("loveTunnelAvailable" to "_loveTunnelToday"),
         "ltt" to ("telegraphOfficeAvailable" to "_telegraphOfficeToday"),
         "floristfriar" to ("ownsFloristFriar" to ""),
+        "interesting" to ("hasInterestingCoin" to ""),
     )
 
     fun parseStatus(
@@ -72,6 +74,8 @@ object ApiStatusSync {
         equipmentManager: EquipmentManager? = null,
         familiarManager: FamiliarManager? = null,
     ): Boolean {
+        // Desktop ApiRequest.parseStatus delegates AccountRequest.parseStatus first.
+        AccountSync.parseStatus(root, character, preferences)
         refreshEffects(root, effectManager)
         parseLastAdventure(root, preferences)
         parseNoncombatForcers(root, preferences)
@@ -293,7 +297,12 @@ object ApiStatusSync {
         preferences.setInt("zootGraftedShoulderRightFamiliar", graftInt("3"))
         preferences.setInt("zootGraftedHandLeftFamiliar", graftInt("4"))
         preferences.setInt("zootGraftedHandRightFamiliar", graftInt("5"))
-        preferences.setInt("zootGraftedFootLeftFamiliar", graftInt("6"))
-        preferences.setInt("zootGraftedFootRightFamiliar", graftInt("7"))
+        // Desktop slots 6–11: nipples, butt cheeks, feet (not feet at 6–7).
+        preferences.setInt("zootGraftedNippleRightFamiliar", graftInt("6"))
+        preferences.setInt("zootGraftedNippleLeftFamiliar", graftInt("7"))
+        preferences.setInt("zootGraftedButtCheekLeftFamiliar", graftInt("8"))
+        preferences.setInt("zootGraftedButtCheekRightFamiliar", graftInt("9"))
+        preferences.setInt("zootGraftedFootLeftFamiliar", graftInt("10"))
+        preferences.setInt("zootGraftedFootRightFamiliar", graftInt("11"))
     }
 }

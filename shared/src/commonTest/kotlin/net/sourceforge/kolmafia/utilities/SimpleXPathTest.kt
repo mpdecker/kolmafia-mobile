@@ -60,4 +60,24 @@ class SimpleXPathTest {
             SimpleXPath.evaluate("<p>", "//p[")
         }
     }
+
+    @Test
+    fun containsPredicate_matchesPartialAttr() {
+        val html = """<div><input name="flag_invimages" checked="checked"><input name="other"></div>"""
+        val results = SimpleXPath.evaluate(html, "//input[contains(@name,'invimages')]@checked")
+        assertEquals(listOf("checked"), results)
+    }
+
+    @Test
+    fun positionPredicate_selectsFirstAndLast() {
+        val html = """<select><option value="1">A</option><option value="2">B</option><option value="3">C</option></select>"""
+        assertEquals(listOf("1"), SimpleXPath.evaluate(html, "//option[1]/@value"))
+        assertEquals(listOf("3"), SimpleXPath.evaluate(html, "//option[last()]/@value"))
+    }
+
+    @Test
+    fun midPathAttributeStep_returnsValues() {
+        val html = """<select name="whichclan"><option value="9">Clan</option></select>"""
+        assertEquals(listOf("9"), SimpleXPath.evaluate(html, """//select[@name="whichclan"]//option/@value"""))
+    }
 }

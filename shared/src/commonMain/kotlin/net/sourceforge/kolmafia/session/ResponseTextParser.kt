@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.AccountSync
+import net.sourceforge.kolmafia.request.ApiRequest
 import net.sourceforge.kolmafia.request.AutosellSync
 import net.sourceforge.kolmafia.request.BasementSync
 import net.sourceforge.kolmafia.request.BountyHunterSync
@@ -142,7 +143,13 @@ object ResponseTextParser {
             "beerpong" -> PirateSpecialSync.parseBeerPong(u, html, preferences)
             "shrine" -> PirateSpecialSync.parseShrine(u, html, preferences)
             "api" -> {
-                // CharacterStatusRefresh / CharacterRequest own api.php; mark only.
+                ApiRequest.parseResponse(
+                    url = u,
+                    responseText = html,
+                    character = character,
+                    preferences = preferences,
+                    inventoryManager = inventory,
+                )
                 preferences?.setBoolean("_apiStatusSeen", true)
             }
         }

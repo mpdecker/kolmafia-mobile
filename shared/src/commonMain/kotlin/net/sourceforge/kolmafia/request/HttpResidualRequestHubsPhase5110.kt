@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.request
 
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
 
 /**
@@ -12,6 +13,16 @@ object BURTRequest {
         if (!url.contains("whichitem=5683")) return false
         sessionLogger?.appendRawLine("Using BURT")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!url.contains("whichitem=5683")) return
+        val prefs = preferences ?: return
+        if (html.contains("You acquire", ignoreCase = true) ||
+            html.contains("BURT", ignoreCase = true)
+        ) {
+            prefs.setBoolean("_burtUsed", true)
+        }
     }
 }
 
@@ -34,6 +45,14 @@ object GameShoppeRequest {
         sessionLogger?.appendRawLine("Visiting Game Shoppe")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!url.contains("gamestore.php", ignoreCase = true)) return
+        val prefs = preferences ?: return
+        Regex("""([\d,]+)\s+Game Grid ticket""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { prefs.setInt("availableGameGridTickets", it) }
+    }
 }
 
 object ShadowForgeRequest {
@@ -46,6 +65,18 @@ object ShadowForgeRequest {
         }
         sessionLogger?.appendRawLine("Visiting Shadow Forge")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!url.contains("whichshop=shadow", ignoreCase = true) &&
+            !url.contains("shadowforge", ignoreCase = true)
+        ) {
+            return
+        }
+        val prefs = preferences ?: return
+        Regex("""([\d,]+)\s+shadow (?:coin|token)""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { prefs.setInt("availableShadowCoins", it) }
     }
 }
 
@@ -68,6 +99,14 @@ object AltarOfBonesRequest {
         sessionLogger?.appendRawLine("Visiting Altar of Bones")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!url.contains("bone_altar.php", ignoreCase = true)) return
+        val prefs = preferences ?: return
+        Regex("""([\d,]+)\s+bone\s+chips?""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { prefs.setInt("availableBoneChips", it) }
+    }
 }
 
 object TravelingTraderRequest {
@@ -75,6 +114,14 @@ object TravelingTraderRequest {
         if (!url.contains("traveler.php", ignoreCase = true)) return false
         sessionLogger?.appendRawLine("Visiting Traveling Trader")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!url.contains("traveler.php", ignoreCase = true)) return
+        val prefs = preferences ?: return
+        Regex("""([\d,]+)\s+twinkly\s+wad""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { prefs.setInt("availableTwinklyWads", it) }
     }
 }
 

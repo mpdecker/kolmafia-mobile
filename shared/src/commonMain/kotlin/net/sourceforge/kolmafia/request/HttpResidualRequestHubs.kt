@@ -15,11 +15,6 @@ object SpleenItemRequest {
     fun registerRequest(url: String): Boolean = url.contains("inv_spleen.php", ignoreCase = true)
 }
 
-/** Desktop [net.sourceforge.kolmafia.request.ApiRequest] api.php status hub. */
-object ApiRequest {
-    fun registerRequest(url: String): Boolean = url.contains("api.php", ignoreCase = true)
-}
-
 /** Desktop [net.sourceforge.kolmafia.request.ContactListRequest]. */
 object ContactListRequest {
     fun parseResponse(url: String, html: String) {

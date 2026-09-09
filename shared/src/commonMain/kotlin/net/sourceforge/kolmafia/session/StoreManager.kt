@@ -87,7 +87,7 @@ object StoreManager {
             val itemId = PRICE_INPUT.find(body)?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
             val price = PRICE_INPUT.find(body)?.groupValues?.get(2)?.replace(",", "")?.toLongOrNull() ?: MALL_MAX
             val limit = LIMIT_INPUT.find(body)?.groupValues?.get(2)?.toIntOrNull() ?: 0
-            val quantity = QUANTITY_CELL.find(body)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
+            val quantity = QUANTITY_BEFORE_PRICE.find(body)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
             SoldItem(itemId, quantity, price, limit)
         }.toList()
 
@@ -155,7 +155,10 @@ object StoreManager {
     private val DEETS_ROW = Regex("""<tr class="deets".*?</tr>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     private val PRICE_INPUT = Regex("""name=["']?price\[(\d+)]["']?\s+value=["']?([\d,]+)""", RegexOption.IGNORE_CASE)
     private val LIMIT_INPUT = Regex("""name=["']?limit\[(\d+)]["']?\s+value=["']?(\d*)""", RegexOption.IGNORE_CASE)
-    private val QUANTITY_CELL = Regex(""">([\d,]+)<""")
+    private val QUANTITY_BEFORE_PRICE = Regex(
+        """>([\d,]+)<.*?name=["']?price\[""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
     private val PRICER = Regex(
         """<tr><td><b>(.*?)&nbsp;.*?<td>([\d,]+)</td>.*?["'](\d+)["'] name=price\d+\[(\d+).*?value=["'](\d+)["'].*?<td>([\d,]+)</td>""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),

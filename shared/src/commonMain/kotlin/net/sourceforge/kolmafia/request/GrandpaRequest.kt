@@ -72,10 +72,15 @@ open class GrandpaRequest(private val client: HttpClient) {
 
         fun parseResponse(
             topic: String,
-            @Suppress("UNUSED_PARAMETER") responseText: String,
+            responseText: String,
             preferences: Preferences?,
             questDatabase: QuestDatabase?,
         ) {
+            if (responseText.contains("can't visit the Sea Monkees", ignoreCase = true) ||
+                responseText.contains("without some way of breathing underwater", ignoreCase = true)
+            ) {
+                return
+            }
             val normalized = topic.lowercase().trim()
             when (normalized) {
                 "grandma", "wife" -> questDatabase?.setQuestIfBetter(Quest.SEA_MONKEES, "step6")

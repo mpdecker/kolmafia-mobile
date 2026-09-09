@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.quest
 
+import net.sourceforge.kolmafia.preferences.Preferences
+
 /**
  * Inline quest step bumps from adventure response text (before full questlog sync).
  * High-traffic council/quest signals only — full sync remains the fallback.
@@ -115,8 +117,8 @@ object QuestAdvanceRules {
         Rule(Quest.PARTY_FAIR.prefKey, QuestDatabase.STARTED, "Party Fair"),
         Rule(Quest.PARTY_FAIR.prefKey, "step1", "Neverending Party (1)", requiresStep = QuestDatabase.STARTED),
         Rule(Quest.TELEGRAM.prefKey, QuestDatabase.STARTED, "telegram for you"),
-        Rule(Quest.TELEGRAM.prefKey, "step1", "Ask around the Rough Diamond Saloon", requiresStep = QuestDatabase.STARTED),
-        Rule(Quest.TELEGRAM.prefKey, "step4", "Defeat Jeff the Fancy Skeleton", requiresStep = "step3"),
+        // LT&T 9×4 mid-adventure step texts come from QuestSpecialSync.telegramSteps
+        // (applied in apply() so prefs lttQuestName/difficulty stay in sync).
         Rule(Quest.DOCTOR_BAG.prefKey, QuestDatabase.STARTED, "doctor bag"),
         Rule(Quest.DOCTOR_BAG.prefKey, "step1", "A Pound of Cure", requiresStep = QuestDatabase.STARTED),
         Rule(Quest.PIRATEREALM.prefKey, QuestDatabase.STARTED, "You grab an eyepatch"),
@@ -165,7 +167,11 @@ object QuestAdvanceRules {
     )
 
     /** Apply matching rules; returns true if any quest was advanced. */
-    fun apply(responseText: String, questDatabase: QuestDatabase): Boolean {
+    fun apply(
+        responseText: String,
+        questDatabase: QuestDatabase,
+        preferences: Preferences? = null,
+    ): Boolean {
         var advanced = false
         for (rule in rules) {
             if (rule.requiresStep != null &&
@@ -181,6 +187,32 @@ object QuestAdvanceRules {
                 advanced = true
             }
         }
+        if (applyTelegramSteps(responseText, questDatabase, preferences)) {
+            advanced = true
+        }
         return advanced
+    }
+
+    /**
+     * Mid-adventure LT&T writers for all 9 questlines × 4 steps.
+     * Mirrors desktop QuestDatabase.handleTelegramStatus adventure/quest-log signals.
+     */
+    private fun applyTelegramSteps(
+        responseText: String,
+        questDatabase: QuestDatabase,
+        preferences: Preferences?,
+    ): Boolean {
+        val current = questDatabase.getProgress(Quest.TELEGRAM)
+        if (current == QuestDatabase.UNSTARTED) return false
+        val match = QuestSpecialSync.telegramSteps.firstOrNull {
+            responseText.contains(it.signal, ignoreCase = true)
+        } ?: return false
+        preferences?.setString("lttQuestName", match.questName)
+        preferences?.setInt("lttQuestDifficulty", match.difficulty)
+        if (QuestDatabase.stepOrdinal(match.step) <= QuestDatabase.stepOrdinal(current)) {
+            return false
+        }
+        questDatabase.setProgress(Quest.TELEGRAM, match.step)
+        return true
     }
 }
