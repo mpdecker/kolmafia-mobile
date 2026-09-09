@@ -4,6 +4,7 @@ import com.russhwolf.settings.MapSettings
 import net.sourceforge.kolmafia.preferences.Preferences
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class TrackManagerTest {
@@ -103,5 +104,70 @@ class TrackManagerTest {
             "goblin:Unknown Tracker Foo:10:boss:Make Friends:20",
             prefs.getString(TrackManager.PREF_TRACKED_MONSTERS, ""),
         )
+    }
+
+    // ── Tracker.isEffective ──────────────────────────────────────────────────
+
+    @Test
+    fun isEffective_olfaction_alwaysTrue() {
+        assertTrue(TrackManager.Tracker.OLFACTION.isEffective(-1))
+        assertTrue(TrackManager.Tracker.OLFACTION.isEffective(0))
+        assertTrue(TrackManager.Tracker.OLFACTION.isEffective(173))
+    }
+
+    @Test
+    fun isEffective_nosyNose_requiresFamiliar173() {
+        assertTrue(TrackManager.Tracker.NOSY_NOSE.isEffective(173))
+        assertFalse(TrackManager.Tracker.NOSY_NOSE.isEffective(0))
+        assertFalse(TrackManager.Tracker.NOSY_NOSE.isEffective(275))
+        assertFalse(TrackManager.Tracker.NOSY_NOSE.isEffective(-1))
+    }
+
+    @Test
+    fun isEffective_redSnapper_requiresFamiliar275() {
+        assertTrue(TrackManager.Tracker.RED_SNAPPER.isEffective(275))
+        assertFalse(TrackManager.Tracker.RED_SNAPPER.isEffective(0))
+        assertFalse(TrackManager.Tracker.RED_SNAPPER.isEffective(173))
+        assertFalse(TrackManager.Tracker.RED_SNAPPER.isEffective(-1))
+    }
+
+    // ── countCopies / trackedBy / isQueueIgnored with isEffective ────────────
+
+    @Test
+    fun countCopies_nosyNose_excludedWhenWrongFamiliar() {
+        val prefs = Preferences(MapSettings())
+        TrackManager.track(prefs, "goblin", TrackManager.Tracker.NOSY_NOSE, currentTurn = 10)
+        TrackManager.track(prefs, "goblin", TrackManager.Tracker.OLFACTION, currentTurn = 10)
+
+        // With Nosy Nose active (173): both count
+        val withNose = TrackManager.countCopies(prefs, "goblin", currentTurn = 20, currentFamiliarId = 173)
+        assertEquals(4, withNose) // 1 (nosy) + 3 (olfaction)
+
+        // With wrong familiar: only olfaction counts
+        val withoutNose = TrackManager.countCopies(prefs, "goblin", currentTurn = 20, currentFamiliarId = 0)
+        assertEquals(3, withoutNose) // only olfaction
+    }
+
+    @Test
+    fun trackedBy_nosyNose_excludedWhenWrongFamiliar() {
+        val prefs = Preferences(MapSettings())
+        TrackManager.track(prefs, "goblin", TrackManager.Tracker.NOSY_NOSE, currentTurn = 10)
+        TrackManager.track(prefs, "goblin", TrackManager.Tracker.GALLAPAGOS, currentTurn = 10)
+
+        val with = TrackManager.trackedBy(prefs, "goblin", currentTurn = 20, currentFamiliarId = 173)
+        assertEquals(2, with.size)
+
+        val without = TrackManager.trackedBy(prefs, "goblin", currentTurn = 20, currentFamiliarId = 0)
+        assertEquals(1, without.size)
+        assertEquals("Gallapagosian Mating Call", without.first())
+    }
+
+    @Test
+    fun isQueueIgnored_olfaction_effectiveRegardlessOfFamiliar() {
+        val prefs = Preferences(MapSettings())
+        TrackManager.track(prefs, "goblin", TrackManager.Tracker.OLFACTION, currentTurn = 10)
+
+        assertTrue(TrackManager.isQueueIgnored(prefs, "goblin", currentTurn = 20, currentFamiliarId = 0))
+        assertTrue(TrackManager.isQueueIgnored(prefs, "goblin", currentTurn = 20, currentFamiliarId = 173))
     }
 }

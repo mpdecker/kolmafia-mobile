@@ -18,7 +18,7 @@ object ChoiceAdventures {
     data class Spoilers(
         val choice: Int,
         val name: String,
-        val options: List<ChoiceOption>,
+        val options: List<ChoiceOption?>,
     )
 
     data class Entry(
@@ -63,14 +63,14 @@ object ChoiceAdventures {
         return adventures[choice]?.spoilers() ?: spoilers[choice]?.spoilers()
     }
 
-    fun findOption(options: List<ChoiceOption>, decision: Int): ChoiceOption? {
+    fun findOption(options: List<ChoiceOption?>, decision: Int): ChoiceOption? {
         options.forEachIndexed { index, opt ->
-            if (opt.decision(index + 1) == decision) return opt
+            if (opt != null && opt.decision(index + 1) == decision) return opt
         }
         return null
     }
 
-    fun choiceSpoiler(choice: Int, decision: Int, options: List<ChoiceOption>? = choiceSpoilers(choice)?.options): ChoiceOption? {
+    fun choiceSpoiler(choice: Int, decision: Int, options: List<ChoiceOption?>? = choiceSpoilers(choice)?.options): ChoiceOption? {
         if (choice == 105 && decision == 3) {
             return ChoiceOption("guy made of bees")
         }

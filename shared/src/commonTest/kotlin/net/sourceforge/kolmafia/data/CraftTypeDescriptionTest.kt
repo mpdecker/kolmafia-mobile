@@ -50,6 +50,46 @@ class CraftTypeDescriptionTest {
     }
 
     @Test
+    fun describe_manualSmith() {
+        assertEquals(
+            "Meatsmithing (MANUAL)",
+            CraftTypeDescription.describe(setOf("SMITH", "MANUAL")),
+        )
+    }
+
+    @Test
+    fun describe_manualCombine() {
+        assertEquals(
+            "Meatpasting (not untinkerable) (MANUAL)",
+            CraftTypeDescription.describe(setOf("ACOMBINE", "MANUAL")),
+        )
+    }
+
+    @Test
+    fun describe_manualMix() {
+        assertEquals(
+            "Mixing (MANUAL)",
+            CraftTypeDescription.describe(setOf("MIX", "MANUAL")),
+        )
+    }
+
+    @Test
+    fun describe_sx3_ignored() {
+        assertEquals(
+            "Cooking (fancy) (Advanced Saucecrafting)",
+            CraftTypeDescription.describe(setOf("SAUCE", "SX3")),
+        )
+    }
+
+    @Test
+    fun describe_noDiscovery_ignored() {
+        assertEquals(
+            "Meatpasting",
+            CraftTypeDescription.describe(setOf("COMBINE", "NODISCOVERY")),
+        )
+    }
+
+    @Test
     fun concoctionDataExtension() {
         val c = ConcoctionData(
             result = "bottle of gin",

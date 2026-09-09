@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.character.ConsumptionEligibility
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.EffectDatabase
+import net.sourceforge.kolmafia.data.HolidayNames
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.KolGameHolidayCalendar
 import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
@@ -182,12 +183,12 @@ internal fun GameRuntimeLibrary.cliMoon(rt: AshRuntimeContext) {
         rt.print(prediction)
     }
     rt.print("")
-    val summary = KolGameHolidayCalendar.getHolidaySummary()
+    val summary = HolidayNames.getHolidaySummary()
     if (summary.isNotBlank()) rt.print(summary)
-    for (event in KolGameHolidayCalendar.getEvents()) {
+    for (event in HolidayNames.getEvents()) {
         rt.print(event)
     }
-    rt.print(KolGameHolidayCalendar.getHoliday())
+    rt.print(HolidayNames.getHoliday())
     rt.print(KolGameHolidayCalendar.getMoonEffect())
     rt.print("")
 }

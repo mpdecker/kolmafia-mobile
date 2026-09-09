@@ -191,7 +191,8 @@ internal fun GameRuntimeLibrary.registerAshP8Batch(scope: AshScope) {
         val id = args[0].toLong().toInt()
         val name = gameDatabase?.monster(id)?.name ?: return@regFn AshValue.FALSE
         val turn = character?.state?.value?.currentRun ?: 0
-        AshValue.of(banishManager?.isBanished(name, turn) ?: false)
+        val state = character?.state?.value
+        AshValue.of(banishManager?.isBanished(name, turn, state) ?: false)
     }
 
     regFn(scope, "print", AshType.VOID, listOf("value" to AshType.INT)) { runtime, args ->

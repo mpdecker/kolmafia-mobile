@@ -253,8 +253,12 @@ internal fun GameRuntimeLibrary.registerAshP903Batch(scope: AshScope) {
         val lock = args[0].toBoolean()
         val current = preferences?.getBoolean("familiarEquipmentLocked", false) ?: false
         if (lock != current) {
-            // Desktop FamiliarRequest.lockFamiliarItem → familiar.php?action=lockequip
-            visitKolPage("familiar.php?action=lockequip")
+            val req = familiarRequest
+            if (req != null) {
+                runBlocking { req.lockEquip() }
+            } else {
+                visitKolPage("familiar.php?action=lockequip")
+            }
             preferences?.setBoolean("familiarEquipmentLocked", lock)
         }
         AshValue(AshType.VOID, null)

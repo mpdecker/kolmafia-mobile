@@ -4,6 +4,7 @@ package net.sourceforge.kolmafia.banish
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.MonsterDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 
@@ -100,20 +101,22 @@ class BanishManager(
         }.trimEnd()
     }
 
-    fun isBanished(monsterName: String, currentTurn: Int): Boolean {
+    fun isBanished(monsterName: String, currentTurn: Int, characterState: CharacterState? = null): Boolean {
         if (_state.value.monsters.any { b ->
+                b.banisher.isEffective(characterState) &&
                 b.monsterName.equals(monsterName, ignoreCase = true) && !b.isExpired(currentTurn)
             }
         ) {
             return true
         }
         val phylum = resolvePhylum(monsterName) ?: return false
-        return isBanishedPhylum(phylum, currentTurn)
+        return isBanishedPhylum(phylum, currentTurn, characterState)
     }
 
     /** Desktop [BanishManager.isBanishedPhylum]. */
-    fun isBanishedPhylum(phylum: String, currentTurn: Int): Boolean =
+    fun isBanishedPhylum(phylum: String, currentTurn: Int, characterState: CharacterState? = null): Boolean =
         _state.value.phyla.any { b ->
+            b.banisher.isEffective(characterState) &&
             b.monsterName.equals(phylum, ignoreCase = true) && !b.isExpired(currentTurn)
         }
 
@@ -121,19 +124,25 @@ class BanishManager(
      * Returns a map of monster/phylum name to [Banisher] for all currently active banishes.
      * Used by the ASH `banishers_used()` function.
      */
-    fun getActiveBanishes(currentTurn: Int): Map<String, Banisher> =
+    fun getActiveBanishes(currentTurn: Int, characterState: CharacterState? = null): Map<String, Banisher> =
         allEntries()
-            .filter { !it.isExpired(currentTurn) }
+            .filter { !it.isExpired(currentTurn) && it.banisher.isEffective(characterState) }
             .associate { it.monsterName to it.banisher }
 
     /** Desktop [BanishManager.banishedBy] — active banishers for a monster (incl. phylum). */
-    fun banishedBy(monsterName: String, currentTurn: Int): List<Banisher> {
+    fun banishedBy(monsterName: String, currentTurn: Int, characterState: CharacterState? = null): List<Banisher> {
         val monsterHits = _state.value.monsters
-            .filter { !it.isExpired(currentTurn) && it.monsterName.equals(monsterName, ignoreCase = true) }
+            .filter {
+                it.banisher.isEffective(characterState) &&
+                !it.isExpired(currentTurn) && it.monsterName.equals(monsterName, ignoreCase = true)
+            }
             .map { it.banisher }
         val phylum = resolvePhylum(monsterName) ?: return monsterHits
         val phylumHits = _state.value.phyla
-            .filter { !it.isExpired(currentTurn) && it.monsterName.equals(phylum, ignoreCase = true) }
+            .filter {
+                it.banisher.isEffective(characterState) &&
+                !it.isExpired(currentTurn) && it.monsterName.equals(phylum, ignoreCase = true)
+            }
             .map { it.banisher }
         return monsterHits + phylumHits
     }

@@ -339,4 +339,58 @@ class GameRuntimeLibraryAshP919TracksEHTest {
         """.trimIndent())
         assertEquals("1\n<body>Hi</body>", result)
     }
+
+    // ──────────────────────────────────────────────────────────────
+    // Track E — file_to_map / map_to_file round-trip
+    // ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun phase921_mapToFile_and_fileToMap_roundTrip() {
+        val lib = GameRuntimeLibrary()
+        val result = outputLib(lib, """
+            string[string] m;
+            m["alpha"] = "one";
+            m["beta"] = "two";
+            m["gamma"] = "three";
+            boolean wrote = map_to_file(m, "test_roundtrip.txt");
+            string[string] loaded;
+            boolean read = file_to_map("test_roundtrip.txt", loaded);
+            print(wrote);
+            print(read);
+            print(count(loaded));
+            print(loaded["alpha"]);
+            print(loaded["beta"]);
+            print(loaded["gamma"]);
+        """.trimIndent())
+        assertEquals("true\ntrue\n3\none\ntwo\nthree", result)
+    }
+
+    @Test
+    fun phase921_fileToMap_intKeys() {
+        val lib = GameRuntimeLibrary()
+        val result = outputLib(lib, """
+            int[int] m;
+            m[1] = 100;
+            m[2] = 200;
+            map_to_file(m, "test_intkeys.txt");
+            int[int] loaded;
+            file_to_map("test_intkeys.txt", loaded);
+            print(count(loaded));
+            print(loaded[1]);
+            print(loaded[2]);
+        """.trimIndent())
+        assertEquals("2\n100\n200", result)
+    }
+
+    @Test
+    fun phase921_fileToMap_missingFile_returnsFalse() {
+        val lib = GameRuntimeLibrary()
+        val result = outputLib(lib, """
+            string[string] m;
+            boolean ok = file_to_map("nonexistent_file_xyz_12345.txt", m);
+            print(ok);
+            print(count(m));
+        """.trimIndent())
+        assertEquals("false\n0", result)
+    }
 }

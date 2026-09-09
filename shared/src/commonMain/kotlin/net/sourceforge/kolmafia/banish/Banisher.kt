@@ -1,6 +1,10 @@
 // shared/src/commonMain/kotlin/net/sourceforge/kolmafia/banish/Banisher.kt
 package net.sourceforge.kolmafia.banish
 
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.data.RestrictedItemType
+import net.sourceforge.kolmafia.request.StandardRequest
+
 /**
  * How a banish is reset. Matches `BanishManager.Reset` in the desktop codebase.
  *
@@ -128,6 +132,18 @@ enum class Banisher(
         if (turns < 0) return turns
         val turnCost = if (isTurnFree) 0 else 1
         return turns - turnCost
+    }
+
+    /**
+     * Desktop [Banisher.isEffective] — whether this banisher is actually functional
+     * given the current game restrictions. ICE_HOUSE requires "ice house" to be
+     * allowed by Standard restrictions; all others are always effective.
+     */
+    fun isEffective(characterState: CharacterState? = null): Boolean {
+        if (this == ICE_HOUSE) {
+            return StandardRequest.isAllowed(RestrictedItemType.ITEMS, "ice house", characterState)
+        }
+        return true
     }
 
     companion object {

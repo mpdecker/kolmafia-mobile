@@ -24,6 +24,7 @@ import net.sourceforge.kolmafia.request.NemesisRequest
 import net.sourceforge.kolmafia.request.TavernRequest
 import net.sourceforge.kolmafia.request.GourdRequest
 import net.sourceforge.kolmafia.request.GuildRequest
+import net.sourceforge.kolmafia.request.DreadsylvaniaRequest
 import net.sourceforge.kolmafia.request.FleaMarketRequest
 import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.session.DvorakManager
@@ -48,6 +49,12 @@ object RequestLogger {
 
     /** Injected round counter (defaults to [ChoiceCombatAshState.currentRound]). */
     var currentRound: () -> Int = { ChoiceCombatAshState.currentRound }
+
+    /** DI: resolve familiar id → display string (race or "name, the race"). Default: id only. */
+    var familiarDisplayById: (Int) -> String? = { null }
+
+    /** DI: resolve item id → item name. Default: ItemDatabase lookup. */
+    var itemNameById: (Int) -> String? = { id -> ItemDatabase.getItemName(id).ifBlank { null } }
 
     fun updateSessionLog(message: String, sessionLogger: SessionLogger?) {
         val trimmed = message.trim()
@@ -251,6 +258,33 @@ object RequestLogger {
             return true
         }
 
+        // Phase 5751–5758: high-traffic visit messages (with or without query string)
+        if (urlString.startsWith("questlog.php", ignoreCase = true)) {
+            updateSessionLog("Visiting the Quest Log", sessionLogger)
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("charsheet.php", ignoreCase = true)) {
+            updateSessionLog("Visiting the Character Sheet", sessionLogger)
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("manageclan.php", ignoreCase = true)) {
+            updateSessionLog("Visiting Clan Management", sessionLogger)
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("clan_hall.php", ignoreCase = true)) {
+            // Redirect target from showclan.php — silently claimed
+            wasLastRequestSimple = false
+            return true
+        }
+        if (urlString.startsWith("standard.php", ignoreCase = true)) {
+            // Standard restriction check — silently claimed (desktop: no session-log)
+            wasLastRequestSimple = false
+            return true
+        }
+
         // No query → skip (except claimed above)
         if (!urlString.contains("?")) {
             return false
@@ -412,29 +446,189 @@ object RequestLogger {
             "airport1_npc3" -> "Talking to Broden"
             else -> null
         }
-        "mountains" -> if (action == "mts_melvin") "Talking to Melvin" else null
+        "airport_spooky" -> if (action == "airport2_radio") "Using the radio on Conspiracy Island" else null
+        "airport_spooky_bunker" -> when (action) {
+            "si_controlpanel" -> "Manipulating the Control Panel in the Conspiracy Island bunker"
+            else -> null
+        }
+        "airport_stench" -> when (action) {
+            "airport3_tunnels" -> "Visiting the Maintenance Tunnels"
+            "airport3_kiosk" -> "Visiting the Employee Assignment Kiosk"
+            else -> null
+        }
+        "canadia" -> when (action) {
+            "lc_mcd" -> "Visiting the Super-Secret Canadian Mind Control Device"
+            "lc_marty" -> "Talking to Marty"
+            else -> null
+        }
+        "crashsite" -> if (action == "crash_ship") "Visiting the Crashed Spaceship" else null
+        "crimbo2016" -> when (action) {
+            "crimbo16_trailer" -> "Visiting Uncle Crimbo's Mobile Home"
+            "crimbo16_tammy" -> "Visiting Tammy's Tent"
+            "crimbo16_guy2" -> "Visiting A Ninja Snowman"
+            "crimbo16_guy2a" -> "Visiting An Elf Boot-Polisher"
+            "crimbo16_guy3" -> "Visiting A Hobo"
+            "crimbo16_guy3a" -> "Visiting An Elf Cook"
+            "crimbo16_guy4" -> "Visiting A Bugbear"
+            "crimbo16_guy4a" -> "Visiting An Elf Reindeerstler"
+            "crimbo16_guy5" -> "Visiting A Hippy"
+            "crimbo16_guy5a" -> "Visiting An Elf Bearddresser"
+            "crimbo16_guy6" -> "Visiting A Frat Boy"
+            "crimbo16_guy6a" -> "Visiting An Elf Haberdasher"
+            else -> null
+        }
+        "crimbo17_silentnight" -> when (action) {
+            "crimbo17_bossfight" -> "Mime-Head Building"
+            "crimbo17_warehouse" -> "The Warehouse"
+            else -> null
+        }
+        "desertbeach" -> when (action) {
+            "db_gnasir" -> "Talking to Gnasir"
+            "db_nukehouse" -> "Visiting the Ruined House"
+            else -> null
+        }
+        "dinorf" -> when (action) {
+            "dinorf_hunter" -> "Visiting the Dino World Game Warden's Shed"
+            "dinorf_chaos" -> "Visiting the Dino World Visitor's Center"
+            "dinorf_owner" -> "Visiting the Dino World Owner's Trailer"
+            else -> null
+        }
+        "dripfacility" -> when (action) {
+            "drip_jeremy" -> "Talking to Jeremy Science"
+            else -> null
+        }
+        "exploathing" -> if (action == "expl_council") "Visiting The Council" else null
+        "exploathing_beach" -> if (action == "expl_gnasir") "Talking to Gnasir" else null
+        "forestvillage" -> when (action) {
+            "fv_scientist" -> "Visiting the Scientist"
+            "fv_mystic" -> "Talking to the Crackpot Mystic"
+            else -> null
+        }
+        "greygoo" -> if (action == "goo_prism") "Visiting a Prism of Goo" else null
+        "highlands" -> if (action == "highlands_dude") "Talking to the Highland Lord" else null
+        "ioty2014_candy" -> if (action == "witch_house") "Visiting the Candy Witch's House" else null
+        "ioty2014_rumple" -> if (action == "workshop") "Visiting Rumplestiltskin's Workshop" else null
+        "manor1" -> if (action == "manor1_ladys") "Talking to Lady Spookyraven" else null
+        "manor2" -> if (action == "manor2_ladys") "Talking to Lady Spookyraven" else null
+        "manor3" -> if (action == "manor3_ladys") "Talking to Lady Spookyraven" else null
+        "manor4" -> when (action) {
+            "manor4_chamber" -> "Visiting the Summoning Chamber"
+            else -> if (action.startsWith("manor4_chamberwall")) "Inspecting the Suspicious Masonry" else null
+        }
+        "mclargehuge" -> when (action) {
+            "trappercabin" -> "Visiting the Trapper"
+            "cloudypeak" -> "Ascending the Mist-Shrouded Peak"
+            else -> null
+        }
+        "monorail" -> when (action) {
+            "monorail_lyle" -> "Visiting Lyle, LyleCo CEO"
+            "monorail_downtown" -> "Train to Downtown"
+            else -> null
+        }
+        "mountains" -> when (action) {
+            "mts_melvin" -> "Talking to Melvign the Gnome"
+            "mts_caveblocked" -> "Entering the Nemesis Cave"
+            else -> null
+        }
+        "nemesiscave" -> when (action) {
+            "nmcave_rubble" -> "Examining the rubble in the Nemesis Cave"
+            "nmcave_boss" -> "Confronting your Nemesis"
+            else -> null
+        }
+        "northpole" -> when (action) {
+            "np_bonfire" -> "Visiting the Bonfire"
+            "np_sauna" -> "Entering the Sauna"
+            "np_foodlab" -> "Entering the Food Lab"
+            "np_boozelab" -> "Entering the Nog Lab"
+            "np_spleenlab" -> "Entering the Chem Lab"
+            "np_toylab" -> "Entering the Gift Fabrication Lab"
+            else -> null
+        }
+        "palindome" -> when (action) {
+            "pal_drlabel", "pal_droffice" -> "Visiting Dr. Awkward's office"
+            "pal_mrlabel", "pal_mroffice" -> "Visiting Mr. Alarm's office"
+            else -> null
+        }
+        "plains" -> when (action) {
+            "garbage_grounds" -> "Inspecting the Giant Pile of Coffee Grounds"
+            else -> null
+        }
+        "pyramid" -> if (action == "pyramid_control") "Visiting the Pyramid Control Room" else null
+        "rabbithole" -> when {
+            action == "rabbithole_teaparty" -> "Visiting the Mad Tea Party"
+            else -> "Visiting Rabbit Hole"
+        }
+        "sea_oldman" -> if (action == "oldman_oldman") "Talking to the Old Man" else null
+        "snojo" -> if (action == "snojo_controller") "Visiting Snojo Control Console" else null
+        "spacegate" -> when (action) {
+            "sg_requisition" -> "Visiting Spacegate Equipment Requisition"
+            "sg_tech" -> "Visiting Spacegate R&D"
+            "sg_Terminal" -> "Visiting the Spacegate Terminal"
+            "sg_vaccinator" -> "Visiting the Spacegate Vaccination Machine"
+            else -> null
+        }
+        "spacegate_portable" -> "Visiting your portable Spacegate"
+        "speakeasy" -> when (action) {
+            "olivers_pooltable" -> "Visiting the Pool Table"
+            "olivers_sot" -> "Talking to the Milky-Eyed Sot"
+            "olivers_sign" -> "Looking at the conspicuous plaque"
+            else -> null
+        }
+        "thesea" -> if (action == "thesea_left2") "Visiting the Swimmy Little Fishes and Such" else null
+        "town" -> if (action == "town_oddjobs") "Visiting the Odd Jobs Board" else null
+        "town_market" -> if (action == "town_bookmobile") "Visiting The Bookmobile" else null
         "town_right" -> when (action) {
             "townright_lrr" -> "Visiting The League of Loathing Radio"
             "townright_vote" -> "Voting Booth"
+            "town_horsery" -> "Visiting The Horsery"
             else -> null
         }
         "town_wrong" -> when (action) {
             "townwrong_precinct" -> "Visiting the 11th Precinct Headquarters"
             "townwrong_tunnel" -> "Entering the Tunnel of L.O.V.E."
+            "townwrong_boxingdaycare" -> "Visiting the Boxing Daycare"
             else -> null
         }
-        "twitch" -> "Visiting Time Twitching Tower"
-        "forestvillage" -> if (action == "fv_scientist") "Visiting the Scientist" else null
-        "manor4" -> if (action == "manor4_chamber") "Visiting the Summoning Chamber" else null
+        "twitch" -> when (action) {
+            "twitch_votingbooth" -> "Visiting the Voting / Phone Booth"
+            "twitch_dancave1" -> "Visiting Caveman Dan's Cave"
+            "twitch_shoerepair" -> "Visiting the Shoe Repair Store"
+            "twitch_colosseum" -> "Visiting the Chariot-Racing Colosseum"
+            "twitch_survivors" -> "Visiting the Post-Apocalyptic Survivor Encampment"
+            "twitch_bank" -> "Visiting the Third Four-Fifths Bank of the West"
+            "twitch_boat2" -> "Visiting The Pinta"
+            "twitch_boat3" -> "Visiting The Santa Claus"
+            "" -> "Visiting Time Twitching Tower"
+            else -> null
+        }
+        "wereprof_cottage" -> when (action) {
+            "wereprof_bookshelf" -> "Read"
+            "wereprof_researchbench" -> "Visiting the Research Bench"
+            "wereprof_sleepfree", "wereprof_sleep" -> "Sleep"
+            else -> null
+        }
+        "wildfire_camp" -> null  // silently claimed — actions logged by WildfireCampRequest
+        "woods" -> when (action) {
+            "woods_smokesignals" -> "Investigating the Smoke Signals"
+            "woods_hippy" -> "Talking to that Hippy"
+            "woods_dakota_anim", "woods_dakota" -> "Talking to Dakota Fanning"
+            else -> null
+        }
         "chateau" -> when {
-            action.contains("rest") -> "rest (chateau)"
-            action.contains("painting") -> "chateau painting"
+            action.startsWith("chateau_desk1") -> "Collecting Meat from Swiss piggy bank"
+            action.startsWith("chateau_desk2") -> "Collecting potions from continental juice bar"
+            action.startsWith("chateau_desk3") -> "Collecting pens from fancy stationery set"
+            action.startsWith("chateau_desk") -> "Collecting swag from the item on your desk"
+            action.startsWith("chateau_rest") || action.startsWith("cheateau_rest") ->
+                "Rest in your bed in the Chateau"
+            action.startsWith("chateau_nightstand") || action.startsWith("chateau_ceiling") -> null
+            action.startsWith("chateau_painting") -> null
             action.isNotEmpty() -> "chateau $action"
             else -> "Visiting Chateau Mantegna"
         }
         "campaway" -> when {
-            action.contains("tent") || action.contains("rest") -> "rest (campaway)"
-            action.contains("cloud") || action.contains("sky") -> "campaway cloud"
+            action == "campaway_sky" -> "Gazing at the Stars"
+            action.startsWith("campaway_tent") -> "Rest in your campaway tent"
             action.isNotEmpty() -> "campaway $action"
             else -> "Visiting Getaway Campsite"
         }
@@ -451,7 +645,12 @@ object RequestLogger {
             action.isNotEmpty() -> "scrapheap $action"
             else -> "Visiting Scrapheap"
         }
-        "rabbithole" -> "Visiting Rabbit Hole"
+        "edbase" -> when (action) {
+            "edbase_book" -> "Visiting The Book of the Undying"
+            "edbase_door" -> "Visiting The Servants' Quarters"
+            "" -> null // bare visit — claimed by fallback
+            else -> null
+        }
         "arcade" -> "Visiting Game Grid Arcade"
         "kgb" -> if (action.isNotEmpty()) "kgb $action" else "Visiting KGB"
         else -> null
@@ -726,36 +925,81 @@ object RequestLogger {
                 return registerCloset(url, sessionLogger)
 
             url.startsWith("storage.php") -> {
-                val action = queryParam(url, "action").orEmpty()
-                when {
-                    action.contains("take", ignoreCase = true) ||
-                        action.contains("pull", ignoreCase = true) ->
-                        updateSessionLog("pull from storage", sessionLogger)
-                    else -> updateSessionLog("Visiting Hagnk's", sessionLogger)
-                }
-                return true
+                return registerStorage(url, sessionLogger)
             }
 
             url.startsWith("familiar.php") -> {
                 val action = queryParam(url, "action").orEmpty()
                 when {
-                    action.contains("newfam") || queryParam(url, "newfam") != null ->
+                    action.contains("newfam") || queryParam(url, "newfam") != null -> {
+                        val famId = (queryParam(url, "whichfam") ?: queryParam(url, "newfam"))
+                            ?.toIntOrNull()
+                        val display = famId?.let { familiarDisplayById(it) }
+                        updateSessionLog("", sessionLogger)
                         updateSessionLog(
-                            "familiar ${queryParam(url, "whichfam") ?: queryParam(url, "newfam")}",
+                            "familiar ${display ?: famId?.toString() ?: "unknown"}",
                             sessionLogger,
                         )
-                    action.contains("putback") ->
-                        updateSessionLog("familiar putback", sessionLogger)
-                    action.contains("unequip") ->
-                        updateSessionLog("familiar unequip", sessionLogger)
-                    action.contains("lockequip") ->
+                    }
+                    action.contains("putback") -> {
+                        updateSessionLog("", sessionLogger)
+                        updateSessionLog("familiar none", sessionLogger)
+                    }
+                    action.contains("unequip") -> {
+                        val famId = (queryParam(url, "famid") ?: queryParam(url, "whichfam"))
+                            ?.toIntOrNull()
+                        val display = famId?.let { familiarDisplayById(it) }
+                        updateSessionLog("", sessionLogger)
+                        updateSessionLog(
+                            "Unequip ${display ?: "familiar"}",
+                            sessionLogger,
+                        )
+                    }
+                    action.contains("lockequip") -> {
+                        updateSessionLog("", sessionLogger)
                         updateSessionLog("familiar lockequip", sessionLogger)
-                    action.contains("hatseat") ->
-                        updateSessionLog("familiar enthrone ${queryParam(url, "famid")}", sessionLogger)
-                    action.contains("backpack") ->
-                        updateSessionLog("familiar bjornify ${queryParam(url, "famid")}", sessionLogger)
-                    action.contains("equip") ->
-                        updateSessionLog("familiar equip", sessionLogger)
+                    }
+                    action.contains("hatseat") -> {
+                        val famId = queryParam(url, "famid")?.toIntOrNull()
+                        updateSessionLog("", sessionLogger)
+                        if (famId == null || famId == 0) {
+                            updateSessionLog("enthrone none", sessionLogger)
+                        } else {
+                            val display = familiarDisplayById(famId)
+                            updateSessionLog(
+                                "enthrone ${display ?: famId.toString()}",
+                                sessionLogger,
+                            )
+                        }
+                    }
+                    action.contains("backpack") -> {
+                        val famId = queryParam(url, "famid")?.toIntOrNull()
+                        updateSessionLog("", sessionLogger)
+                        if (famId == null || famId == 0) {
+                            updateSessionLog("bjornify none", sessionLogger)
+                        } else {
+                            val display = familiarDisplayById(famId)
+                            updateSessionLog(
+                                "bjornify ${display ?: famId.toString()}",
+                                sessionLogger,
+                            )
+                        }
+                    }
+                    action.contains("equip") -> {
+                        val famId = queryParam(url, "whichfam")?.toIntOrNull()
+                        val itemId = queryParam(url, "whichitem")?.toIntOrNull()
+                        val famDisplay = famId?.let { familiarDisplayById(it) }
+                        val itemName = itemId?.let { itemNameById(it) }
+                        updateSessionLog("", sessionLogger)
+                        if (famDisplay != null && itemName != null) {
+                            updateSessionLog(
+                                "Equip $famDisplay with $itemName",
+                                sessionLogger,
+                            )
+                        } else {
+                            updateSessionLog("familiar equip", sessionLogger)
+                        }
+                    }
                     action.contains("steal") ->
                         updateSessionLog("familiar steal", sessionLogger)
                     else -> updateSessionLog("Visiting Terrarium", sessionLogger)
@@ -764,12 +1008,13 @@ object RequestLogger {
             }
 
             url.startsWith("clan_stash.php") -> {
-                updateSessionLog("clan stash", sessionLogger)
-                return true
+                return registerClanStash(url, sessionLogger)
             }
-            url.startsWith("clan_rumpus.php") || url.startsWith("clan_viplounge.php") -> {
-                updateSessionLog("clan lounge", sessionLogger)
-                return true
+            url.startsWith("clan_rumpus.php") -> {
+                return registerClanRumpus(url, sessionLogger)
+            }
+            url.startsWith("clan_viplounge.php") -> {
+                return registerClanLounge(url, sessionLogger)
             }
 
             url.startsWith("town_fleamarket.php") &&
@@ -873,21 +1118,268 @@ object RequestLogger {
             }
 
             url.startsWith("desc_item.php") || url.startsWith("desc_effect.php") ||
-                url.startsWith("desc_skill.php") -> {
+                url.startsWith("desc_skill.php") || url.startsWith("desc_guardian.php") -> {
                 // description fetches — silent
                 return true
             }
+
+            url.startsWith("raffle.php") -> {
+                val qty = queryParam(url, "quantity")?.toIntOrNull()
+                val where = queryParam(url, "where")
+                if (qty != null && qty > 0 && where != null) {
+                    val loc = when (where) { "0" -> "inventory"; "1" -> "storage"; else -> where }
+                    updateSessionLog("raffle $qty $loc", sessionLogger)
+                }
+                return true
+            }
+            url.startsWith("managecollection.php") -> return registerDisplayCase(url, sessionLogger)
+            url.startsWith("spaaace.php") -> return registerSpaaace(url, sessionLogger)
+            url.startsWith("volcanomaze.php") -> return registerVolcanoMaze(url, sessionLogger)
+            url.startsWith("leaflet.php") -> return registerLeaflet(url, sessionLogger)
+            url.startsWith("monkeycastle.php") -> return registerMom(url, sessionLogger)
+            url.startsWith("hermit.php") -> { updateSessionLog("Visiting the Hermit", sessionLogger); return true }
+            url.startsWith("bigisland.php") || url.startsWith("postwarisland.php") -> return registerIsland(url, sessionLogger)
+            url.contains("clan_dreadsylvania.php", ignoreCase = true) -> return DreadsylvaniaRequest.registerRequest(url, sessionLogger, preferences)
+            url.contains("action=changedial") || url.contains("tuneradio") -> return registerMindControl(url, sessionLogger)
         }
         return false
     }
 
     private fun registerCloset(url: String, sessionLogger: SessionLogger?): Boolean {
         when {
-            url.contains("action=closetpull") || url.contains("action=takeclosetitem") ->
-                updateSessionLog("closet pull", sessionLogger)
-            url.contains("action=closetpush") || url.contains("action=putclosetitem") ->
-                updateSessionLog("closet push", sessionLogger)
+            url.contains("action=closetpull") || url.contains("action=takeclosetitem") -> {
+                val items = parseTransferItems(url)
+                updateSessionLog(formatTransferLog("take from closet", items), sessionLogger)
+            }
+            url.contains("action=closetpush") || url.contains("action=putclosetitem") -> {
+                val items = parseTransferItems(url)
+                updateSessionLog(formatTransferLog("add to closet", items), sessionLogger)
+            }
+            url.contains("action=addtakeclosetmeat") -> {
+                val meat = queryParam(url, "quantity")?.toLongOrNull() ?: 0
+                if (meat > 0) {
+                    if (url.contains("addtake=add")) {
+                        updateSessionLog("add to closet: $meat Meat", sessionLogger)
+                    } else if (url.contains("addtake=take")) {
+                        updateSessionLog("take from closet: $meat Meat", sessionLogger)
+                    }
+                }
+            }
             else -> updateSessionLog("Visiting Closet", sessionLogger)
+        }
+        return true
+    }
+
+    // ── Group B: action-specific clan / collection / spaaace / misc session-log ──
+
+    /** Desktop ClanLoungeRequest.registerRequest — action-specific VIP lounge lines. */
+    private fun registerClanLounge(url: String, sessionLogger: SessionLogger?): Boolean {
+        val action = queryParam(url, "action")
+            ?: queryParam(url, "preaction")
+            ?: return true // bare visit — silently claimed
+        val message: String? = when {
+            action.equals("poolgame", ignoreCase = true) -> {
+                val stance = queryParam(url, "stance")?.toIntOrNull()
+                if (stance != null) "pool game (stance $stance)" else "pool game"
+            }
+            action.equals("sendfax", ignoreCase = true) || action.equals("receivefax", ignoreCase = true) -> {
+                val faxCmd = queryParam(url, "fax")
+                if (faxCmd != null) "fax $faxCmd" else "fax ${action.removePrefix("send").removePrefix("receive").ifEmpty { action }}"
+            }
+            action.equals("takeshower", ignoreCase = true) -> {
+                val temp = queryParam(url, "temperature")?.toIntOrNull()
+                if (temp != null) "shower $temp" else "shower"
+            }
+            action.equals("goswimming", ignoreCase = true) -> {
+                val pool = queryParam(url, "subaction")
+                if (pool != null) "swimming pool $pool" else "swimming pool"
+            }
+            action.equals("eathotdog", ignoreCase = true) -> {
+                val dog = queryParam(url, "whichdog")?.toIntOrNull()
+                if (dog != null) "eat hotdog $dog" else "eat hotdog"
+            }
+            action.equals("hotdogsupply", ignoreCase = true) -> {
+                val dog = queryParam(url, "whichdog")
+                val qty = queryParam(url, "quantity") ?: "1"
+                "stock Hot Dog Stand with $qty items (dog $dog)"
+            }
+            action.equals("unlockhotdog", ignoreCase = true) -> {
+                val dog = queryParam(url, "whichdog")
+                "unlock hotdog $dog"
+            }
+            action.equals("speakeasydrink", ignoreCase = true) -> {
+                val drink = queryParam(url, "drink")
+                if (drink != null) "speakeasy drink $drink" else "speakeasy drink"
+            }
+            action.equals("klaw", ignoreCase = true) -> "Deluxe Mr. Klaw"
+            action.equals("lookingglass", ignoreCase = true) -> "looking glass"
+            action.equals("crimbotree", ignoreCase = true) -> "Crimbo tree"
+            else -> null
+        }
+        if (message != null) {
+            updateSessionLog(message, sessionLogger)
+        }
+        return true
+    }
+
+    /** Desktop ClanRumpusRequest.registerRequest — action-specific rumpus room lines. */
+    private fun registerClanRumpus(url: String, sessionLogger: SessionLogger?): Boolean {
+        if (!url.startsWith("clan_rumpus.php")) return false
+        when {
+            url.contains("action=buychips") ->
+                updateSessionLog("Buying chips from the Snack Machine in the clan rumpus room", sessionLogger)
+            url.contains("preaction=ballpit") ->
+                updateSessionLog("Jumping into the Awesome Ball Pit in the clan rumpus room", sessionLogger)
+            url.contains("preaction=jukebox") ->
+                updateSessionLog("Playing a song on the Jukebox in the clan rumpus room", sessionLogger)
+            url.contains("action=click") -> {
+                val spot = queryParam(url, "spot")
+                val furni = queryParam(url, "furession")
+                    ?: queryParam(url, "furniture")
+                updateSessionLog("clan rumpus click spot=$spot furniture=$furni", sessionLogger)
+            }
+            else -> updateSessionLog("Visiting Clan Rumpus Room", sessionLogger)
+        }
+        return true
+    }
+
+    /** Desktop ClanStashRequest.registerRequest — action-specific stash lines. */
+    private fun registerClanStash(url: String, sessionLogger: SessionLogger?): Boolean {
+        when {
+            url.contains("takegoodies") -> {
+                val items = parseTransferItems(url)
+                updateSessionLog(formatTransferLog("remove from stash", items), sessionLogger)
+            }
+            url.contains("addgoodies") -> {
+                val items = parseTransferItems(url)
+                updateSessionLog(formatTransferLog("add to stash", items), sessionLogger)
+            }
+            url.contains("action=contribute") -> {
+                val meat = queryParam(url, "howmuch")?.toLongOrNull() ?: 0
+                if (meat > 0) {
+                    updateSessionLog("add to stash: $meat Meat", sessionLogger)
+                }
+            }
+            else -> updateSessionLog("Visiting Clan Stash", sessionLogger)
+        }
+        return true
+    }
+
+    /** Desktop StorageRequest.registerRequest — action-specific storage lines. */
+    private fun registerStorage(url: String, sessionLogger: SessionLogger?): Boolean {
+        when {
+            url.contains("action=pullall") ->
+                updateSessionLog("Emptying storage", sessionLogger)
+            url.contains("action=tossichor") -> {
+                val qty = queryParam(url, "icession")?.toIntOrNull()
+                    ?: queryParam(url, "qty")?.toIntOrNull()
+                if (qty != null && qty > 0) {
+                    updateSessionLog("Toss $qty eldritch ichor into the fissure", sessionLogger)
+                }
+            }
+            url.contains("action=takemeat") -> {
+                val meat = queryParam(url, "amt")?.toLongOrNull() ?: 0
+                if (meat > 0) {
+                    updateSessionLog("pull: $meat Meat", sessionLogger)
+                }
+            }
+            url.contains("pull") -> {
+                val items = parseTransferItems(url)
+                updateSessionLog(formatTransferLog("pull", items), sessionLogger)
+            }
+            else -> updateSessionLog("Visiting Hagnk's", sessionLogger)
+        }
+        return true
+    }
+
+    /** Desktop DisplayCaseRequest.registerRequest — take/put display case lines. */
+    private fun registerDisplayCase(url: String, sessionLogger: SessionLogger?): Boolean {
+        when {
+            url.contains("action=take") -> {
+                val items = parseTransferItems(url)
+                updateSessionLog(formatTransferLog("remove from display case", items), sessionLogger)
+            }
+            url.contains("action=put") -> {
+                val items = parseTransferItems(url)
+                updateSessionLog(formatTransferLog("put in display case", items), sessionLogger)
+            }
+            else -> updateSessionLog("Visiting Display Case", sessionLogger)
+        }
+        return true
+    }
+
+    /** Desktop SpaaaceRequest.registerRequest. */
+    private fun registerSpaaace(url: String, sessionLogger: SessionLogger?): Boolean {
+        if (url.contains("place=shop", ignoreCase = true)) return false
+        val action = queryParam(url, "action")
+        when {
+            action == null && url.contains("place=porko") ->
+                updateSessionLog("Visiting The Porko Palace", sessionLogger)
+            action.equals("playporko", ignoreCase = true) ->
+                updateSessionLog("Porko Game", sessionLogger)
+            action == null -> {} // bare grimace/arrive — claimed silently
+            else -> return false
+        }
+        return true
+    }
+
+    /** Desktop VolcanoMazeRequest.registerRequest. */
+    private fun registerVolcanoMaze(url: String, sessionLogger: SessionLogger?): Boolean {
+        when {
+            url.contains("jump=1") ->
+                updateSessionLog("Swimming back to shore", sessionLogger)
+            url.contains("move=") -> {
+                val move = queryParam(url, "move") ?: "?"
+                updateSessionLog("Hopping to $move", sessionLogger)
+            }
+            else -> updateSessionLog("Visiting the lava maze", sessionLogger)
+        }
+        return true
+    }
+
+    /** Desktop LeafletRequest.registerRequest. */
+    private fun registerLeaflet(url: String, sessionLogger: SessionLogger?): Boolean {
+        val command = queryParam(url, "command")
+        if (command != null) {
+            updateSessionLog("Leaflet $command", sessionLogger)
+        }
+        return true
+    }
+
+    /** Desktop MomRequest.registerRequest. */
+    private fun registerMom(url: String, sessionLogger: SessionLogger?): Boolean {
+        val id = queryParam(url, "who")
+            ?: queryParam(url, "action")?.let { Regex("""\d+""").find(it)?.value }
+        if (id != null) {
+            updateSessionLog("mom food $id", sessionLogger)
+        }
+        return true
+    }
+
+    /** Desktop MindControlRequest.registerRequest. */
+    private fun registerMindControl(url: String, sessionLogger: SessionLogger?): Boolean {
+        val level = queryParam(url, "level")
+            ?: queryParam(url, "setting")
+            ?: queryParam(url, "tuession")
+        if (level != null) {
+            updateSessionLog("mcd $level", sessionLogger)
+            return true
+        }
+        return false
+    }
+
+    /** Desktop IslandRequest.registerRequest — basic claim. */
+    private fun registerIsland(url: String, sessionLogger: SessionLogger?): Boolean {
+        when {
+            url.contains("whichcamp=1") ->
+                updateSessionLog("Visiting the Dimemaster", sessionLogger)
+            url.contains("whichcamp=2") ->
+                updateSessionLog("Visiting the Quartersmaster", sessionLogger)
+            queryParam(url, "action").equals("bossfight", ignoreCase = true) ->
+                updateSessionLog("Island War Boss Fight", sessionLogger)
+            url.startsWith("postwarisland.php") ->
+                updateSessionLog("Visiting Post-War Island", sessionLogger)
+            else -> updateSessionLog("Visiting the Mysterious Island", sessionLogger)
         }
         return true
     }
@@ -937,7 +1429,55 @@ object RequestLogger {
             ?: 1
 
     private fun itemLabel(itemId: Int, count: Int): String {
-        val name = ItemDatabase.getById(itemId)?.name ?: "item #$itemId"
+        val name = itemNameById(itemId)?.takeIf { it.isNotBlank() }
+            ?: "item #$itemId"
         return if (count <= 1) name else "$count $name"
+    }
+
+    /**
+     * Desktop TransferItemRequest.registerRequest — parse whichitemN / howmanyN
+     * pairs (also single whichitem= / howmany= and qty/quantity fallbacks).
+     * Returns list of (itemId, count) pairs.
+     */
+    internal fun parseTransferItems(url: String): List<Pair<Int, Int>> {
+        val result = mutableListOf<Pair<Int, Int>>()
+        // Try single whichitem= first (desktop single-item transfer)
+        val singleId = queryParam(url, "whichitem")?.toIntOrNull()
+        if (singleId != null && singleId > 0) {
+            val qty = queryParam(url, "howmany")?.toIntOrNull()
+                ?: queryParam(url, "qty")?.toIntOrNull()
+                ?: queryParam(url, "quantity")?.toIntOrNull()
+                ?: 1
+            result.add(singleId to qty.coerceAtLeast(1))
+            return result
+        }
+        // Multi-item: whichitem1= / howmany1=, whichitem2= / howmany2= …
+        for (i in 1..100) {
+            val itemId = queryParam(url, "whichitem$i")?.toIntOrNull() ?: break
+            if (itemId <= 0) continue
+            val qty = queryParam(url, "howmany$i")?.toIntOrNull()
+                ?: queryParam(url, "qty$i")?.toIntOrNull()
+                ?: queryParam(url, "quantity$i")?.toIntOrNull()
+                ?: 1
+            result.add(itemId to qty.coerceAtLeast(1))
+        }
+        return result
+    }
+
+    /**
+     * Desktop TransferItemRequest.transferList — builds `"command: item1, N item2"`.
+     * When no items are parsed falls back to plain command.
+     */
+    internal fun formatTransferLog(
+        command: String,
+        items: List<Pair<Int, Int>>,
+        meat: Long = 0,
+    ): String {
+        val parts = mutableListOf<String>()
+        for ((itemId, count) in items) {
+            parts.add(itemLabel(itemId, count))
+        }
+        if (meat > 0) parts.add("$meat Meat")
+        return if (parts.isEmpty()) command else "$command: ${parts.joinToString(", ")}"
     }
 }

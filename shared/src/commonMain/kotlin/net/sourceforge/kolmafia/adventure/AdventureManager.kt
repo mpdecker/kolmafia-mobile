@@ -499,9 +499,10 @@ open class AdventureManager(
                     val zoneData = combatDatabase?.getByLocation(location.name)
                     if (bm != null && zoneData != null) {
                         val currentTurn = character.state.value.currentRun
+                        val charState = character.state.value
                         val positiveWeightMonsters = zoneData.monsters.filter { it.weight > 0 }
                         if (positiveWeightMonsters.isNotEmpty() &&
-                            positiveWeightMonsters.all { bm.isBanished(it.name, currentTurn) }) {
+                            positiveWeightMonsters.all { bm.isBanished(it.name, currentTurn, charState) }) {
                             eventBus.emit(GameEvent.AdventureLoopStopped(StopReason.AllMonstersBanished))
                             return@launch
                         }
@@ -760,6 +761,7 @@ open class AdventureManager(
                         preferences.setBoolean("_liberateKingNeedsSkillRefresh", false)
                         kotlinx.coroutines.runBlocking { skills?.fetchSkills() }
                     }
+                    KoLCharacter.clearLiberateKingDeferredFlags(preferences)
                 },
             )
         }

@@ -31,9 +31,9 @@ class ChoiceAdventuresCatalogMegaTest {
         assertEquals("choiceAdventure4", entry.property)
         val spoilers = ChoiceAdventures.choiceSpoilers(4)
         assertNotNull(spoilers)
-        assertEquals("try for poultrygeist", spoilers.options[1].name)
-        assertEquals(listOf("poultrygeist"), spoilers.options[1].itemNames)
-        assertEquals("skip adventure", spoilers.options[2].name)
+        assertEquals("try for poultrygeist", spoilers.options[1]?.name)
+        assertEquals(listOf("poultrygeist"), spoilers.options[1]?.itemNames)
+        assertEquals("skip adventure", spoilers.options[2]?.name)
     }
 
     @Test
@@ -123,7 +123,7 @@ class ChoiceAdventuresCatalogMegaTest {
     fun sealClubberSpoiler_className() {
         val footprints = ChoiceAdventures.choiceSpoilers(27)
         assertNotNull(footprints)
-        assertEquals("Seal Clubber", footprints.options[0].name)
-        assertEquals("Turtle Tamer", footprints.options[1].name)
+        assertEquals("Seal Clubber", footprints.options[0]?.name)
+        assertEquals("Turtle Tamer", footprints.options[1]?.name)
     }
 }

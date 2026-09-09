@@ -137,7 +137,14 @@ object PeeVPeeRequest {
         val place = queryField(url, "place")
         val action = queryField(url, "action")
         if (place == null && action == null) return true
-        if (place == null) return false
+        if (place == null) {
+            // Desktop: action=smashstone falls through to raw URL log; we claim it.
+            if (action.equals("smashstone", ignoreCase = true)) {
+                sessionLogger?.appendRawLine("Smashing the Hippy Stone")
+                return true
+            }
+            return false
+        }
         if (place.equals("rules", ignoreCase = true) ||
             place.equals("boards", ignoreCase = true) ||
             place.equals("logs", ignoreCase = true)

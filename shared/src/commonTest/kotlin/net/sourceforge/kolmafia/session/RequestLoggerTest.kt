@@ -256,4 +256,101 @@ class RequestLoggerTest {
         assertTrue(RequestLogger.registerRequest("familiar.php?action=newfam&newfam=1", logger, prefs))
         assertTrue(logger.recentLines().any { it.startsWith("familiar ") })
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Group F — FamiliarRequest session-log deepen (Behavioral Deepen XXXIII)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    @Test
+    fun familiarNewFam_logsDisplayName() {
+        RequestLogger.familiarDisplayById = { id ->
+            if (id == 42) "Fido, the Hovering Sombrero" else null
+        }
+        assertTrue(RequestLogger.registerRequest("familiar.php?action=newfam&whichfam=42", logger, prefs))
+        assertTrue(logger.recentLines().any { it == "familiar Fido, the Hovering Sombrero" })
+        RequestLogger.familiarDisplayById = { null }
+    }
+
+    @Test
+    fun familiarNewFam_fallsBackToId() {
+        RequestLogger.familiarDisplayById = { null }
+        assertTrue(RequestLogger.registerRequest("familiar.php?action=newfam&whichfam=99", logger, prefs))
+        assertTrue(logger.recentLines().any { it == "familiar 99" })
+    }
+
+    @Test
+    fun familiarPutback_logsNone() {
+        assertTrue(RequestLogger.registerRequest("familiar.php?action=putback", logger, prefs))
+        assertTrue(logger.recentLines().any { it == "familiar none" })
+    }
+
+    @Test
+    fun familiarEnthrone_logsDisplayName() {
+        RequestLogger.familiarDisplayById = { id ->
+            if (id == 7) "Buddy, the Baby Gravy Fairy" else null
+        }
+        assertTrue(RequestLogger.registerRequest("familiar.php?action=hatseat&famid=7&ajax=1", logger, prefs))
+        assertTrue(logger.recentLines().any { it == "enthrone Buddy, the Baby Gravy Fairy" })
+        RequestLogger.familiarDisplayById = { null }
+    }
+
+    @Test
+    fun familiarEnthrone_zeroLogsNone() {
+        assertTrue(RequestLogger.registerRequest("familiar.php?action=hatseat&famid=0&ajax=1", logger, prefs))
+        assertTrue(logger.recentLines().any { it == "enthrone none" })
+    }
+
+    @Test
+    fun familiarBjornify_logsDisplayName() {
+        RequestLogger.familiarDisplayById = { id ->
+            if (id == 3) "Rex, the Leprechaun" else null
+        }
+        assertTrue(RequestLogger.registerRequest("familiar.php?action=backpack&famid=3&ajax=1", logger, prefs))
+        assertTrue(logger.recentLines().any { it == "bjornify Rex, the Leprechaun" })
+        RequestLogger.familiarDisplayById = { null }
+    }
+
+    @Test
+    fun familiarBjornify_zeroLogsNone() {
+        assertTrue(RequestLogger.registerRequest("familiar.php?action=backpack&famid=0&ajax=1", logger, prefs))
+        assertTrue(logger.recentLines().any { it == "bjornify none" })
+    }
+
+    @Test
+    fun familiarUnequip_logsRace() {
+        RequestLogger.familiarDisplayById = { id ->
+            if (id == 5) "Rex, the Leprechaun" else null
+        }
+        assertTrue(RequestLogger.registerRequest("familiar.php?action=unequip&famid=5", logger, prefs))
+        assertTrue(logger.recentLines().any { it == "Unequip Rex, the Leprechaun" })
+        RequestLogger.familiarDisplayById = { null }
+    }
+
+    @Test
+    fun familiarEquip_logsRaceAndItem() {
+        RequestLogger.familiarDisplayById = { id ->
+            if (id == 10) "Fido, the Hovering Sombrero" else null
+        }
+        RequestLogger.itemNameById = { id ->
+            if (id == 123) "lead necklace" else null
+        }
+        assertTrue(
+            RequestLogger.registerRequest(
+                "familiar.php?action=equip&whichfam=10&whichitem=123",
+                logger,
+                prefs,
+            ),
+        )
+        assertTrue(logger.recentLines().any { it == "Equip Fido, the Hovering Sombrero with lead necklace" })
+        RequestLogger.familiarDisplayById = { null }
+        RequestLogger.itemNameById = { id ->
+            net.sourceforge.kolmafia.data.ItemDatabase.getItemName(id).ifBlank { null }
+        }
+    }
+
+    @Test
+    fun familiarLockEquip_logsFamiliarLockEquip() {
+        assertTrue(RequestLogger.registerRequest("familiar.php?action=lockequip", logger, prefs))
+        assertTrue(logger.recentLines().any { it == "familiar lockequip" })
+    }
 }

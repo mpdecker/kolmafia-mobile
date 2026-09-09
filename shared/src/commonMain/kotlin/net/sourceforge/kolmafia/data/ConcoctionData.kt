@@ -14,4 +14,13 @@ data class ConcoctionData(
     val isSmithing get() = methods.any { it.contains("SMITH") }
     val isCombining get() = "COMBINE" in methods
     val isSingleUse get() = "SUSE" in methods   // use one item to get another
+
+    /** Desktop CraftingMisc.MANUAL — recipe should never be used automatically. */
+    val isManual get() = "MANUAL" in methods
+
+    /** Desktop CraftingMisc.TRIPLE_SAUCE — Saucerors make 3 of this item at a time. */
+    val isTripleSauce get() = "SX3" in methods
+
+    /** Desktop CraftingMisc.NODISCOVERY — recipe does not appear in Discoveries. */
+    val isNoDiscovery get() = "NODISCOVERY" in methods
 }

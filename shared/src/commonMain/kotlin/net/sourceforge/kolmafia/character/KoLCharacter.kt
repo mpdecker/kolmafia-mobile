@@ -7,8 +7,12 @@ import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.inventory.CollectionCacheSync
+import net.sourceforge.kolmafia.request.FloristRequest
+import net.sourceforge.kolmafia.session.BadMoonManager
 import net.sourceforge.kolmafia.maximizer.MaximizerSubSlotItems
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.QuantumTerrariumSync
+import net.sourceforge.kolmafia.session.TurnCounter
 
 class KoLCharacter {
     private val _state = MutableStateFlow(CharacterState())
@@ -21,6 +25,38 @@ class KoLCharacter {
         fun calculateBasePoints(subpoints: Long): Int {
             val safe = if (subpoints < 0L) 0L else subpoints
             return minOf(MAX_BASEPOINTS, kotlin.math.sqrt(safe.toDouble()).toInt())
+        }
+
+        /**
+         * Clear Phase 5710+ deferred liberateKing refresh flags.
+         * Desktop fires inline HTTP for bookshelf/telescope/campground/familiar/clan/hermit/florist;
+         * headless mobile marks the prefs in [liberateKing] and clears them here
+         * so downstream consumers know the refresh intent was acknowledged.
+         */
+        fun clearLiberateKingDeferredFlags(preferences: Preferences?) {
+            val prefs = preferences ?: return
+            if (prefs.getBoolean("_liberateKingNeedsBookshelf", false)) {
+                prefs.setBoolean("_liberateKingNeedsBookshelf", false)
+            }
+            if (prefs.getBoolean("_liberateKingNeedsTelescope", false)) {
+                prefs.setBoolean("_liberateKingNeedsTelescope", false)
+            }
+            if (prefs.getBoolean("_liberateKingNeedsCampgroundInspect", false)) {
+                prefs.setBoolean("_liberateKingNeedsCampgroundInspect", false)
+            }
+            if (prefs.getBoolean("_liberateKingNeedsFamiliarRefresh", false)) {
+                prefs.setBoolean("_liberateKingNeedsFamiliarRefresh", false)
+            }
+            if (prefs.getBoolean("_liberateKingNeedsClanRefresh", false)) {
+                prefs.setBoolean("_liberateKingNeedsClanRefresh", false)
+            }
+            if (prefs.getBoolean("_liberateKingNeedsHermitInit", false)) {
+                prefs.setBoolean("_liberateKingNeedsHermitInit", false)
+            }
+            if (prefs.getBoolean("_liberateKingNeedsFloristRefresh", false)) {
+                prefs.setBoolean("_liberateKingNeedsFloristRefresh", false)
+                FloristRequest.reset()
+            }
         }
     }
 
@@ -275,6 +311,88 @@ class KoLCharacter {
         ) {
             preferences?.setBoolean("_liberateKingNeedsPostRefresh", true)
         }
+
+        // Desktop liberateKing TurnCounter window stops.
+        if (preferences != null) {
+            when (oldPath) {
+                AscensionPath.BEES_HATE_YOU -> {
+                    TurnCounter.stopCounting(preferences, "Bee window begin")
+                    TurnCounter.stopCounting(preferences, "Bee window end")
+                }
+                AscensionPath.HEAVY_RAINS -> {
+                    TurnCounter.stopCounting(preferences, "Rain Monster window begin")
+                    TurnCounter.stopCounting(preferences, "Rain Monster window end")
+                }
+                AscensionPath.AVATAR_OF_WEST_OF_LOATHING -> {
+                    TurnCounter.stopCounting(preferences, "WoL Monster window begin")
+                    TurnCounter.stopCounting(preferences, "WoL Monster window end")
+                }
+                AscensionPath.QUANTUM_TERRARIUM -> {
+                    TurnCounter.stopCounting(preferences, QuantumTerrariumSync.FAMILIAR_COUNTER)
+                    TurnCounter.stopCounting(preferences, QuantumTerrariumSync.COOLDOWN_COUNTER)
+                }
+                else -> Unit
+            }
+        }
+
+        // Phase 5710+: additional desktop liberateKing deepen pref flags.
+        // Desktop does inline HTTP; headless mobile marks prefs for consumer clearing.
+        val restricted = prev.isRestricted
+        val inBadMoon = BadMoonManager.inBadMoon(prev)
+
+        // Bookshelf: desktop fetches campground bookshelf after Bad Moon
+        // or any restricted path (restricted || restricted-bookshelf paths).
+        if (inBadMoon || restricted) {
+            preferences?.setBoolean("_liberateKingNeedsBookshelf", true)
+        }
+
+        // Telescope: desktop calls checkTelescope() after Bad Moon
+        // or restricted / Nuclear / You Robot / Small paths.
+        if (inBadMoon || restricted ||
+            oldPath == AscensionPath.NUCLEAR_AUTUMN ||
+            oldPath == AscensionPath.NUCLEAR ||
+            oldPath == AscensionPath.YOU_ROBOT ||
+            oldPath == AscensionPath.SMALL
+        ) {
+            preferences?.setBoolean("_liberateKingNeedsTelescope", true)
+        }
+
+        // Campground inspect: desktop visits dwelling/kitchen/workshed for
+        // restricted / Nuclear / You Robot / Small.
+        if (restricted ||
+            oldPath == AscensionPath.NUCLEAR_AUTUMN ||
+            oldPath == AscensionPath.NUCLEAR ||
+            oldPath == AscensionPath.YOU_ROBOT ||
+            oldPath == AscensionPath.SMALL
+        ) {
+            preferences?.setBoolean("_liberateKingNeedsCampgroundInspect", true)
+        }
+
+        // Familiar refresh: desktop re-fetches familiars for restricted or
+        // Trendy / Heavy Rains / Nuclear / You Robot / Quantum / LoL paths.
+        if (restricted ||
+            oldPath == AscensionPath.TRENDY ||
+            oldPath == AscensionPath.HEAVY_RAINS ||
+            oldPath == AscensionPath.NUCLEAR_AUTUMN ||
+            oldPath == AscensionPath.NUCLEAR ||
+            oldPath == AscensionPath.YOU_ROBOT ||
+            oldPath == AscensionPath.QUANTUM_TERRARIUM ||
+            oldPath == AscensionPath.LICENSE_TO_ADVENTURE ||
+            oldPath == AscensionPath.LEGACY_OF_LOATHING
+        ) {
+            preferences?.setBoolean("_liberateKingNeedsFamiliarRefresh", true)
+        }
+
+        // Clan refresh: desktop updates clan lounge when restricted.
+        if (restricted) {
+            preferences?.setBoolean("_liberateKingNeedsClanRefresh", true)
+        }
+
+        // Hermit init: desktop always calls HermitRequest.initialize().
+        preferences?.setBoolean("_liberateKingNeedsHermitInit", true)
+
+        // Florist refresh: desktop always resets + refetches the Florist.
+        preferences?.setBoolean("_liberateKingNeedsFloristRefresh", true)
     }
 
     fun setCanInteract(interact: Boolean) {

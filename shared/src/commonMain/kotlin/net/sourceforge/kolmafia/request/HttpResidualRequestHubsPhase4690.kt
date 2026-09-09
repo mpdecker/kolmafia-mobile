@@ -120,43 +120,7 @@ object AltarOfLiteracyRequest {
         url.contains("town_altar.php", ignoreCase = true)
 }
 
-/** Desktop [net.sourceforge.kolmafia.request.DreadsylvaniaRequest] clan_dreadsylvania.php. */
-object DreadsylvaniaRequest {
-    private val SHORTCUTS = listOf(
-        "ghostPencil1", "ghostPencil2", "ghostPencil3",
-        "ghostPencil4", "ghostPencil5", "ghostPencil6",
-        "ghostPencil7", "ghostPencil8", "ghostPencil9",
-    )
-
-    fun parseResponse(url: String, html: String, preferences: Preferences?) {
-        if (preferences == null) return
-        if (!url.contains("clan_dreadsylvania.php", ignoreCase = true)) return
-        SHORTCUTS.forEachIndexed { index, pref ->
-            val image = "shortcut${index + 1}.gif"
-            if (html.contains(image, ignoreCase = true)) {
-                preferences.setBoolean(pref, true)
-            }
-        }
-        if (url.contains("whichbooze=", ignoreCase = true) &&
-            html.contains("You acquire", ignoreCase = true)
-        ) {
-            val itemId = Regex("""whichbooze=(\d+)""", RegexOption.IGNORE_CASE)
-                .find(url)?.groupValues?.get(1)?.toIntOrNull()
-            val qty = Regex("""boozequantity=(\d+)""", RegexOption.IGNORE_CASE)
-                .find(url)?.groupValues?.get(1)?.toIntOrNull() ?: 1
-            if (itemId != null) preferences.setInt("_dreadLastBooze", itemId)
-            preferences.setInt("_dreadLastBoozeQty", qty)
-        }
-    }
-
-    fun registerRequest(url: String): Boolean =
-        url.contains("clan_dreadsylvania.php", ignoreCase = true)
-
-    fun getAdventuresUsed(url: String): Int =
-        if (url.contains("action=adventure", ignoreCase = true) ||
-            Regex("""loc=\d+""", RegexOption.IGNORE_CASE).containsMatchIn(url)
-        ) 1 else 0
-}
+// DreadsylvaniaRequest moved to dedicated DreadsylvaniaRequest.kt (Phase 5771–5782).
 
 /** Desktop [net.sourceforge.kolmafia.request.PantogramRequest] choice 1270 hub. */
 object PantogramRequest {

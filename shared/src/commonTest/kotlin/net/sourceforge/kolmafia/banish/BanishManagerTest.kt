@@ -5,6 +5,9 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.test.assertEquals
+import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.data.RestrictedItemType
+import net.sourceforge.kolmafia.request.StandardRequest
 
 class BanishManagerTest {
 
@@ -255,4 +258,113 @@ class BanishManagerTest {
 
     private fun prefs(): net.sourceforge.kolmafia.preferences.Preferences =
         net.sourceforge.kolmafia.preferences.Preferences(com.russhwolf.settings.MapSettings())
+
+    // ── Banisher.isEffective ────────────────────────────────────────────────
+
+    @Test fun isEffective_nonIceHouse_alwaysTrue() {
+        assertTrue(Banisher.SNOKEBOMB.isEffective())
+        assertTrue(Banisher.SNOKEBOMB.isEffective(null))
+        assertTrue(Banisher.SNOKEBOMB.isEffective(CharacterState()))
+        assertTrue(Banisher.SABER_FORCE.isEffective(CharacterState(isHardcore = true)))
+    }
+
+    @Test fun isEffective_iceHouse_noCharacterState_returnsTrue() {
+        // With null state, StandardRequest.isAllowed returns true
+        assertTrue(Banisher.ICE_HOUSE.isEffective(null))
+        assertTrue(Banisher.ICE_HOUSE.isEffective())
+    }
+
+    @Test fun isEffective_iceHouse_restrictedAndItemBanned_returnsFalse() {
+        StandardRequest.resetForTest()
+        try {
+            // Parse a restricted items list that includes "ice house"
+            // Format: <b>TYPE</b><p>BODY<p> — two <p> tags required by RestrictedItemsParse
+            StandardRequest.parseResponse(
+                "<b>Items</b><p><span class=\"i\">ice house</span><p>"
+            )
+            // Hardcore character → isRestricted == true
+            val state = CharacterState(isHardcore = true, roninLeft = 0)
+            assertFalse(Banisher.ICE_HOUSE.isEffective(state))
+        } finally {
+            StandardRequest.resetForTest()
+        }
+    }
+
+    @Test fun isEffective_iceHouse_restrictedButItemAllowed_returnsTrue() {
+        StandardRequest.resetForTest()
+        try {
+            // Parse a list that does NOT contain "ice house"
+            StandardRequest.parseResponse(
+                "<b>Items</b><p><span class=\"i\">some other item</span><p>"
+            )
+            val state = CharacterState(isHardcore = true, roninLeft = 0)
+            assertTrue(Banisher.ICE_HOUSE.isEffective(state))
+        } finally {
+            StandardRequest.resetForTest()
+        }
+    }
+
+    // ── BanishManager filtering by isEffective ──────────────────────────────
+
+    @Test fun isBanished_iceHouseRestricted_ignoresIceHouseBanish() {
+        StandardRequest.resetForTest()
+        try {
+            StandardRequest.parseResponse(
+                "<b>Items</b><p><span class=\"i\">ice house</span><p>"
+            )
+            val state = CharacterState(isHardcore = true, roninLeft = 0)
+            val manager = BanishManager(prefs())
+            manager.banishMonster("Ninja Snowman", Banisher.ICE_HOUSE, currentTurn = 1)
+            // Without characterState, banish is visible
+            assertTrue(manager.isBanished("Ninja Snowman", currentTurn = 5))
+            // With restrictive state, ICE_HOUSE banish is ineffective
+            assertFalse(manager.isBanished("Ninja Snowman", currentTurn = 5, characterState = state))
+        } finally {
+            StandardRequest.resetForTest()
+        }
+    }
+
+    @Test fun banishedBy_iceHouseRestricted_excludesIceHouse() {
+        StandardRequest.resetForTest()
+        try {
+            StandardRequest.parseResponse(
+                "<b>Items</b><p><span class=\"i\">ice house</span><p>"
+            )
+            val state = CharacterState(isHardcore = true, roninLeft = 0)
+            val manager = BanishManager(prefs())
+            manager.banishMonster("Foo", Banisher.ICE_HOUSE, currentTurn = 1)
+            manager.banishMonster("Foo", Banisher.SNOKEBOMB, currentTurn = 2)
+
+            val all = manager.banishedBy("Foo", currentTurn = 5)
+            assertEquals(2, all.size)
+
+            val effective = manager.banishedBy("Foo", currentTurn = 5, characterState = state)
+            assertEquals(1, effective.size)
+            assertEquals(Banisher.SNOKEBOMB, effective.first())
+        } finally {
+            StandardRequest.resetForTest()
+        }
+    }
+
+    @Test fun getActiveBanishes_iceHouseRestricted_excludesIceHouse() {
+        StandardRequest.resetForTest()
+        try {
+            StandardRequest.parseResponse(
+                "<b>Items</b><p><span class=\"i\">ice house</span><p>"
+            )
+            val state = CharacterState(isHardcore = true, roninLeft = 0)
+            val manager = BanishManager(prefs())
+            manager.banishMonster("Foo", Banisher.ICE_HOUSE, currentTurn = 1)
+            manager.banishMonster("Bar", Banisher.SNOKEBOMB, currentTurn = 2)
+
+            val all = manager.getActiveBanishes(currentTurn = 5)
+            assertEquals(2, all.size)
+
+            val effective = manager.getActiveBanishes(currentTurn = 5, characterState = state)
+            assertEquals(1, effective.size)
+            assertTrue(effective.containsKey("Bar"))
+        } finally {
+            StandardRequest.resetForTest()
+        }
+    }
 }

@@ -9,8 +9,10 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.TorsoAwareness
+import net.sourceforge.kolmafia.data.WeaponType
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.modifiers.BooleanModifier
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.EquipmentDiscard
 import net.sourceforge.kolmafia.session.YouRobotManager
 import net.sourceforge.kolmafia.skill.SkillManager
@@ -247,7 +249,181 @@ class EquipmentManager(
         return null
     }
 
+    // ── Weapon / offhand query helpers (Group A phases 5831–5845) ───────────
+
+    /** Alias for [usingTwoWeapons]. */
+    fun isDualWielding(): Boolean = usingTwoWeapons()
+
+    /** Desktop [EquipmentManager.holsteredSixgun] — HOLSTER slot non-empty. */
+    fun holsteredSixgun(): Boolean = getEquipmentId(EquipmentSlot.HOLSTER) > 0
+
+    /** Desktop [EquipmentManager.usingShield] — offhand is a shield. */
+    fun usingShield(): Boolean =
+        EquipmentDatabase.isShield(getEquipmentId(EquipmentSlot.OFFHAND))
+
+    /** Desktop [EquipmentManager.usingCanOfBeans] — offhand item type is "can of beans". */
+    fun usingCanOfBeans(): Boolean {
+        val offId = getEquipmentId(EquipmentSlot.OFFHAND)
+        return offId > 0 && EquipmentDatabase.getItemType(offId).equals("can of beans", ignoreCase = true)
+    }
+
+    /**
+     * Desktop [EquipmentManager.wieldingClub] — weapon type "club", or "sword" with Iron Palms
+     * when [includeEffect] is true. Uses [hasEffect] callback for effect presence check.
+     */
+    fun wieldingClub(includeEffect: Boolean = true): Boolean {
+        val weaponId = getEquipmentId(EquipmentSlot.WEAPON)
+        val ironPalms = includeEffect && hasEffect(IRON_PALMS_EFFECT)
+        return EquipmentDatabase.isClub(weaponId, ironPalms)
+    }
+
+    /** Desktop [EquipmentManager.wieldingKnife]. */
+    fun wieldingKnife(): Boolean =
+        EquipmentDatabase.isKnife(getEquipmentId(EquipmentSlot.WEAPON))
+
+    /** Desktop [EquipmentManager.wieldingAccordion]. */
+    fun wieldingAccordion(): Boolean =
+        EquipmentDatabase.isAccordion(getEquipmentId(EquipmentSlot.WEAPON))
+
+    /**
+     * Desktop [EquipmentManager.wieldingSword] — true if weapon is a sword *and*
+     * (when [includeEffect]) Iron Palms is NOT active (since that turns swords into clubs).
+     */
+    fun wieldingSword(includeEffect: Boolean = true): Boolean {
+        val id = getEquipmentId(EquipmentSlot.WEAPON)
+        val sword = EquipmentDatabase.isSword(id)
+        return sword && (!includeEffect || !hasEffect(IRON_PALMS_EFFECT))
+    }
+
+    /** Desktop [EquipmentManager.wieldingGun] — gun, pistol, or rifle. */
+    fun wieldingGun(): Boolean {
+        val id = getEquipmentId(EquipmentSlot.WEAPON)
+        return EquipmentDatabase.isGun(id) ||
+            EquipmentDatabase.isPistol(id) ||
+            EquipmentDatabase.isRifle(id)
+    }
+
+    /** Desktop [EquipmentManager.getWeaponType]. */
+    fun getWeaponType(): WeaponType =
+        EquipmentDatabase.getWeaponType(getEquipmentId(EquipmentSlot.WEAPON))
+
+    /**
+     * Desktop [EquipmentManager.getHitStatType].
+     * Returns "Muscle", "Mysticality", or "Moxie" matching the stat used for hit chance.
+     */
+    fun getHitStatType(): String {
+        val state = character.state.value
+        if (getWeaponType() == WeaponType.RANGED) return "Moxie"
+        // Tricky Knifework: knife + moxie ≥ muscle + skill 5029
+        if (wieldingKnife() &&
+            state.buffedMoxie >= state.buffedMusc &&
+            hasSkillId(SKILL_TRICKY_KNIFEWORK)
+        ) {
+            return "Moxie"
+        }
+        // Fourth of May Cosplay Saber: highest buffed stat
+        val weaponId = getEquipmentId(EquipmentSlot.WEAPON)
+        if (weaponId == FOURTH_SABER || weaponId == REPLICA_FOURTH_SABER) {
+            val mus = state.buffedMusc
+            val mys = state.buffedMyst
+            val mox = state.buffedMoxie
+            if (mox >= mus && mox >= mys) return "Moxie"
+            if (mys >= mus && mys >= mox) return "Mysticality"
+        }
+        return "Muscle"
+    }
+
+    /**
+     * Desktop [EquipmentManager.getAdjustedHitStat].
+     * Returns the buffed stat value used for hit chance (Muscle, Mysticality, or Moxie).
+     */
+    fun getAdjustedHitStat(): Int {
+        val state = character.state.value
+        if (hasBooleanModifier(BooleanModifier.ATTACKS_CANT_MISS)) return Int.MAX_VALUE
+        return when (getHitStatType()) {
+            "Moxie" -> {
+                var hit = state.buffedMoxie
+                if (wieldingAccordion() && hasSkillId(SKILL_CRAB_CLAW_TECHNIQUE)) {
+                    hit += 50
+                }
+                hit
+            }
+            "Mysticality" -> state.buffedMyst
+            else -> {
+                var hit = state.buffedMusc
+                if (state.isUnarmed && hasSkillId(SKILL_MASTER_OF_SURPRISING_FIST)) {
+                    hit += 20
+                }
+                hit
+            }
+        }
+    }
+
+    /** Desktop [EquipmentManager.powerfulGloveAvailableBatteryPower]. */
+    fun powerfulGloveAvailableBatteryPower(preferences: Preferences): Int =
+        100 - preferences.getInt("_powerfulGloveBatteryPowerUsed", 0)
+
+    /** Desktop [EquipmentManager.powerfulGloveUsableBatteryPower] — 0 if not equipped. */
+    fun powerfulGloveUsableBatteryPower(preferences: Preferences): Int {
+        val equipped = hasEquipped(POWERFUL_GLOVE) ||
+            (character.state.value.inLegacyOfLoathing && hasEquipped(REPLICA_POWERFUL_GLOVE))
+        return if (equipped) powerfulGloveAvailableBatteryPower(preferences) else 0
+    }
+
+    /** Desktop [EquipmentManager.fireExtinguisherAvailableFoam]. */
+    fun fireExtinguisherAvailableFoam(preferences: Preferences): Int =
+        preferences.getInt("_fireExtinguisherCharge", 0)
+
+    /** Desktop [EquipmentManager.hasOutfit] — all piece names are equipped. */
+    fun hasOutfit(pieceNames: Collection<String>): Boolean {
+        if (pieceNames.isEmpty()) return false
+        val eq = character.state.value.equipment
+        return pieceNames.all { piece ->
+            eq.values.any { worn -> worn.equals(piece, ignoreCase = true) }
+        }
+    }
+
+    /** Desktop [EquipmentManager.isWearingOutfit] — synonym for [hasOutfit]. */
+    fun isWearingOutfit(pieceNames: Collection<String>): Boolean = hasOutfit(pieceNames)
+
+    /** Count how many equipment slots currently have [itemId] equipped. */
+    fun equippedCount(itemId: Int): Int {
+        val name = ItemDatabase.getItemName(itemId)
+        if (name.isBlank()) return 0
+        return character.state.value.equipment.values.count { it.equals(name, ignoreCase = true) }
+    }
+
+    // ── DI callbacks for effect / skill / modifier queries ───────────────────
+
+    /**
+     * Callback to check whether the character has a given active effect name.
+     * Default returns false; wire via constructor or property injection.
+     */
+    var hasEffect: (String) -> Boolean = { false }
+
+    /**
+     * Callback to check whether the character has a given skill by id.
+     * Default returns false; wire via constructor or property injection.
+     */
+    var hasSkillId: (Int) -> Boolean = { false }
+
+    /**
+     * Callback to check a boolean modifier on currently equipped items / effects.
+     * Default returns false.
+     */
+    var hasBooleanModifier: (BooleanModifier) -> Boolean = { false }
+
     companion object {
         const val TRUSTY = 5756
+        const val IRON_PALMS_EFFECT = "Iron Palms"
+        const val POWERFUL_GLOVE = 10438
+        const val REPLICA_POWERFUL_GLOVE = 11244
+        const val INDUSTRIAL_FIRE_EXTINGUISHER = 10797
+        const val REPLICA_INDUSTRIAL_FIRE_EXTINGUISHER = 11246
+        const val FOURTH_SABER = 10251
+        const val REPLICA_FOURTH_SABER = 11240
+        const val SKILL_TRICKY_KNIFEWORK = 5029
+        const val SKILL_MASTER_OF_SURPRISING_FIST = 74
+        const val SKILL_CRAB_CLAW_TECHNIQUE = 6031
     }
 }

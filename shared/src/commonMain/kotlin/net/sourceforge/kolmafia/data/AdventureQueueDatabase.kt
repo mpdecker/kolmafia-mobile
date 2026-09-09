@@ -88,6 +88,7 @@ object AdventureQueueDatabase {
         turnsPlayed: Int = 0,
         areaCombatPercent: Double = 100.0,
         crystalBallEquipped: Boolean = false,
+        currentFamiliarId: Int = -1,
     ): Double {
         // Desktop saber force: 100% forced monster / 0% others
         if (EncounterManager.isSaberForceZone(locationName, preferences)) {
@@ -119,12 +120,12 @@ object AdventureQueueDatabase {
         for (mon in zoneQueue.toSet()) {
             val w = weightOf(mon)
             val olfacted = preferences?.let {
-                TrackManager.isQueueIgnored(it, mon, turnsPlayed)
+                TrackManager.isQueueIgnored(it, mon, turnsPlayed, currentFamiliarId)
             } == true
             if (w > 0 && !olfacted) queueWeight += w
         }
         val olfacted = preferences?.let {
-            TrackManager.isQueueIgnored(it, monsterName, turnsPlayed)
+            TrackManager.isQueueIgnored(it, monsterName, turnsPlayed, currentFamiliarId)
         } == true
         val inQueue = zoneSet.contains(monsterName.lowercase()) && !olfacted
         val newNumerator = numerator * (if (inQueue) 1.0 else 4.0)

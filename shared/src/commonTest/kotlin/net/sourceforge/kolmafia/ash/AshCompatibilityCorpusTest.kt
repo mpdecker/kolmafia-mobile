@@ -67,6 +67,7 @@ import net.sourceforge.kolmafia.thrall.PastaThrallManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class AshCompatibilityCorpusTest {
@@ -2026,6 +2027,28 @@ class AshCompatibilityCorpusTest {
         assertEquals(
             "Nash Crosby's Still",
             outputLib(lib, """print(craft_type(to_item("bottle of Definit")));""").trim(),
+        )
+        ConcoctionDatabase.resetForTest()
+    }
+
+    @Test
+    fun corpus_craftType_manual_appendsQualifier() {
+        ConcoctionDatabase.resetForTest()
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "Belt of Loathing",
+                resultQuantity = 1,
+                methods = setOf("SMITH", "MANUAL"),
+                ingredients = listOf(
+                    ConcoctionIngredient("Girdle of Hatred", 1),
+                    ConcoctionIngredient("Novelty Belt Buckle of Violence", 1),
+                ),
+            ),
+        )
+        val lib = GameRuntimeLibrary()
+        assertEquals(
+            "Meatsmithing (MANUAL)",
+            outputLib(lib, """print(craft_type(to_item("Belt of Loathing")));""").trim(),
         )
         ConcoctionDatabase.resetForTest()
     }
@@ -4960,7 +4983,7 @@ class AshCompatibilityCorpusTest {
     fun corpus_behavioralDeepenX_live() {
         runBlocking { net.sourceforge.kolmafia.data.MonsterDatabase.load() }
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
         val mapped = outputLib(
             lib,
             """
@@ -4990,7 +5013,7 @@ class AshCompatibilityCorpusTest {
     @Test
     fun corpus_behavioralDeepenXi_live() {
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
         assertEquals("0", outputLib(lib, "buffer b = visit_url(); print(length(b));").trim())
         assertEquals("hi", outputLib(lib, """dump("hi");""").trim())
         outputLib(lib, """disable("foo"); enable("foo");""")
@@ -5003,7 +5026,7 @@ class AshCompatibilityCorpusTest {
     @Test
     fun corpus_behavioralDeepenXii_live() {
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
         assertTrue(net.sourceforge.kolmafia.request.CurseRequest.registerRequest("curse.php"))
         assertTrue(net.sourceforge.kolmafia.request.CreateItemRequest.registerRequest("craft.php?mode=cook"))
         assertEquals(
@@ -5037,7 +5060,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.DimemasterRequestHub.registerRequest("shop.php?whichshop=dimemaster"))
         assertTrue(net.sourceforge.kolmafia.request.FiveDPrinterRequestHub.registerRequest("shop.php?whichshop=5dprinter"))
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
     }
 
     @Test
@@ -5063,7 +5086,7 @@ class AshCompatibilityCorpusTest {
         )
         assertTrue(net.sourceforge.kolmafia.request.TicketCounterRequestHub.registerRequest("shop.php?whichshop=arcade"))
         val lib = GameRuntimeLibrary(preferences = Preferences(MapSettings()))
-        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
     }
 
     @Test
@@ -5083,7 +5106,7 @@ class AshCompatibilityCorpusTest {
         val lib = GameRuntimeLibrary(preferences = prefs)
         assertEquals("13", outputLib(lib, "print(tavern());").trim())
         assertEquals("0", outputLib(lib, "print(storage_amount(1));").trim())
-        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
         net.sourceforge.kolmafia.session.ChoiceCombatAshState.reset()
     }
 
@@ -5120,7 +5143,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.SpantRequestHub.registerRequest("shop.php?whichshop=spant"))
         val lib = GameRuntimeLibrary(character = char, preferences = prefs)
         assertEquals("true", outputLib(lib, "print(to_string(can_interact()));").trim())
-        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
     }
 
     @Test
@@ -5152,6 +5175,33 @@ class AshCompatibilityCorpusTest {
         char.liberateKing(prefs)
         assertEquals("false", prefs.getString("replicaChateauAvailable", "true"))
         assertTrue(prefs.getBoolean("_liberateKingNeedsSkillRefresh", false))
+        // Phase 5710+ deferred flags — LoL exits from non-HC (ronin=0) → restricted=false.
+        assertTrue(prefs.getBoolean("_liberateKingNeedsFamiliarRefresh", false))
+        assertTrue(prefs.getBoolean("_liberateKingNeedsHermitInit", false))
+        assertTrue(prefs.getBoolean("_liberateKingNeedsFloristRefresh", false))
+
+        // Now test a HC restricted path (Nuclear Autumn) for bookshelf/telescope/campground/clan.
+        val prefs2 = Preferences(MapSettings())
+        val char2 = net.sourceforge.kolmafia.character.KoLCharacter()
+        char2.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(
+                kingliberated = "0",
+                path = "Nuclear Autumn",
+                hardcore = "1",
+            ),
+        )
+        char2.liberateKing(prefs2)
+        assertTrue(prefs2.getBoolean("_liberateKingNeedsBookshelf", false))
+        assertTrue(prefs2.getBoolean("_liberateKingNeedsTelescope", false))
+        assertTrue(prefs2.getBoolean("_liberateKingNeedsCampgroundInspect", false))
+        assertTrue(prefs2.getBoolean("_liberateKingNeedsFamiliarRefresh", false))
+        assertTrue(prefs2.getBoolean("_liberateKingNeedsClanRefresh", false))
+        assertTrue(prefs2.getBoolean("_liberateKingNeedsHermitInit", false))
+        assertTrue(prefs2.getBoolean("_liberateKingNeedsFloristRefresh", false))
+        net.sourceforge.kolmafia.character.KoLCharacter.clearLiberateKingDeferredFlags(prefs2)
+        assertFalse(prefs2.getBoolean("_liberateKingNeedsBookshelf", false))
+        assertFalse(prefs2.getBoolean("_liberateKingNeedsClanRefresh", false))
+
         assertTrue(net.sourceforge.kolmafia.request.PixelRequestHub.registerRequest("shop.php?whichshop=mystic"))
         assertTrue(net.sourceforge.kolmafia.request.GuzzlrRequestHub.registerRequest("shop.php?whichshop=guzzlr"))
         assertTrue(net.sourceforge.kolmafia.request.GrandmaRequestHub.registerRequest("shop.php?whichshop=grandma"))
@@ -5170,7 +5220,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.LtTRequestHub.registerRequest("shop.php?whichshop=ltt"))
         assertTrue(net.sourceforge.kolmafia.request.CindyRequestHub.registerRequest("shop.php?whichshop=cindy"))
         val lib = GameRuntimeLibrary(preferences = prefs)
-        assertEquals("phase5590", outputLib(lib, "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(lib, "print(get_revision());").trim())
         net.sourceforge.kolmafia.session.ChoiceCombatAshState.reset()
     }
 
@@ -5191,7 +5241,7 @@ class AshCompatibilityCorpusTest {
         """.trimIndent()
         val monorail = net.sourceforge.kolmafia.quest.MonorailChoiceSync.choiceSpoilers(1308, monorailHtml)
         assertEquals("On a Downtown Train", monorail?.name)
-        assertEquals("blueberry muffin", monorail?.options?.find { it.option == 3 }?.name)
+        assertEquals("blueberry muffin", monorail?.options?.find { it?.option == 3 }?.name)
         assertEquals(
             "On a Downtown Train",
             net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(1308, monorailHtml)?.name,
@@ -5240,7 +5290,7 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.DedigitizerRequest.registerRequest("shop.php?whichshop=cyber_dedigitizer"))
         assertTrue(net.sourceforge.kolmafia.request.IsotopeSmitheryRequest.registerRequest("shop.php?whichshop=elvishp1"))
         assertTrue(net.sourceforge.kolmafia.request.AlliedHqRequestHub.registerRequest("shop.php?whichshop=twitch_alliedhq"))
-        assertEquals("phase5590", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test
@@ -5264,7 +5314,7 @@ class AshCompatibilityCorpusTest {
 
         val rabbit = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(442)
         assertEquals("Rabbit Hole", rabbit?.name)
-        assertTrue(rabbit?.options?.any { it.name.contains("hookah") } == true)
+        assertTrue(rabbit?.options?.any { it?.name?.contains("hookah") == true } == true)
 
         val temple = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(579)
         assertEquals("Such Great Heights", temple?.name)
@@ -5282,6 +5332,18 @@ class AshCompatibilityCorpusTest {
         )
         char.liberateKing(prefs)
         assertTrue(prefs.getBoolean("_liberateKingNeedsPostRefresh", false))
+        // Phase 5710+ deferred flags — Heavy Rains is not restricted but has familiar/skill refresh.
+        assertTrue(prefs.getBoolean("_liberateKingNeedsFamiliarRefresh", false))
+        assertTrue(prefs.getBoolean("_liberateKingNeedsHermitInit", false))
+        assertTrue(prefs.getBoolean("_liberateKingNeedsFloristRefresh", false))
+        // Heavy Rains without HC/ronin → NOT restricted → no bookshelf/campground/clan.
+        assertFalse(prefs.getBoolean("_liberateKingNeedsBookshelf", false))
+        assertFalse(prefs.getBoolean("_liberateKingNeedsClanRefresh", false))
+        // Clear the flags and verify.
+        net.sourceforge.kolmafia.character.KoLCharacter.clearLiberateKingDeferredFlags(prefs)
+        assertFalse(prefs.getBoolean("_liberateKingNeedsFamiliarRefresh", false))
+        assertFalse(prefs.getBoolean("_liberateKingNeedsHermitInit", false))
+        assertFalse(prefs.getBoolean("_liberateKingNeedsFloristRefresh", false))
 
         assertTrue(net.sourceforge.kolmafia.request.ShadowForgeRequest.registerRequest("shop.php?whichshop=shadowforge"))
         assertTrue(net.sourceforge.kolmafia.request.Crimbo14Request.registerRequest("shop.php?whichshop=crimbo14turnin"))
@@ -5305,7 +5367,278 @@ class AshCompatibilityCorpusTest {
         assertTrue(net.sourceforge.kolmafia.request.BugbearBakeryRequestHub.registerRequest("shop.php?whichshop=bugbear"))
         assertTrue(net.sourceforge.kolmafia.request.ChinatownShopsRequestHub.registerRequest("shop.php?whichshop=chinatown"))
         assertTrue(net.sourceforge.kolmafia.request.TweedleporiumRequestHub.registerRequest("shop.php?whichshop=tweedle"))
-        assertEquals("phase5590", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxix_live() {
+        val prefs = Preferences(MapSettings())
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.preferences = prefs
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.questDatabase =
+            net.sourceforge.kolmafia.quest.QuestDatabase(prefs)
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.itemCount = { id ->
+            if (id == net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.VALUABLE_TRINKET) 2 else 0
+        }
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.characterClass = {
+            net.sourceforge.kolmafia.character.CharacterClass.SEAL_CLUBBER
+        }
+
+        val chatter = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(191)
+        assertEquals("Chatterboxing", chatter?.name)
+        assertTrue(chatter?.options?.any { it?.name?.contains("valuable trinket") == true } == true)
+
+        val tree = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(725)
+        assertTrue(tree?.name?.contains("Tree") == true)
+
+        val village = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(737)
+        assertNotNull(village)
+        val dungeon = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(753)
+        assertNotNull(dungeon)
+        val court = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(760)
+        assertNotNull(court)
+
+        val bees = Preferences(MapSettings())
+        net.sourceforge.kolmafia.session.TurnCounter.startCounting(
+            bees, currentRun = 0, turns = 10, "Bee window begin", "bee.gif",
+        )
+        net.sourceforge.kolmafia.session.TurnCounter.startCounting(
+            bees, currentRun = 0, turns = 20, "Bee window end", "bee.gif",
+        )
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(
+                kingliberated = "0",
+                path = "Bees Hate You",
+                hardcore = "0",
+            ),
+        )
+        char.liberateKing(bees)
+        assertTrue(char.state.value.kingLiberated)
+        assertFalse(
+            net.sourceforge.kolmafia.session.TurnCounter.isCounting(bees, "Bee window begin", 0),
+        )
+        assertFalse(
+            net.sourceforge.kolmafia.session.TurnCounter.isCounting(bees, "Bee window end", 0),
+        )
+
+        assertTrue(net.sourceforge.kolmafia.request.UnclePAntiquesRequestHub.registerRequest("shop.php?whichshop=unclep"))
+        assertTrue(net.sourceforge.kolmafia.request.GnoMartRequestHub.registerRequest("shop.php?whichshop=gnomart"))
+        assertTrue(net.sourceforge.kolmafia.request.GuildStore1RequestHub.registerRequest("shop.php?whichshop=guildstore1"))
+        assertTrue(net.sourceforge.kolmafia.request.GuildStore2RequestHub.registerRequest("shop.php?whichshop=guildstore2"))
+        assertTrue(net.sourceforge.kolmafia.request.GuildStore3RequestHub.registerRequest("shop.php?whichshop=guildstore3"))
+        assertTrue(net.sourceforge.kolmafia.request.LittleCanadiaJewelersRequestHub.registerRequest("shop.php?whichshop=jewelers"))
+        assertTrue(net.sourceforge.kolmafia.request.MadelineBakingSupplyRequestHub.registerRequest("shop.php?whichshop=madeline"))
+        assertTrue(net.sourceforge.kolmafia.request.NervewreckersStoreRequestHub.registerRequest("shop.php?whichshop=nerve"))
+        assertTrue(net.sourceforge.kolmafia.request.HugglerSnackBarRequestHub.registerRequest("shop.php?whichshop=snackbar"))
+        assertTrue(net.sourceforge.kolmafia.request.CyberHackMarketRequestHub.registerRequest("shop.php?whichshop=cyber_hackmarket"))
+        assertTrue(net.sourceforge.kolmafia.request.TownGiftShopRequestHub.registerRequest("town_giftshop.php"))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo18CafeRequestHub.registerRequest("shop.php?whichshop=crimbo18"))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo18GiftOMatRequestHub.registerRequest("shop.php?whichshop=crimbo18giftomat"))
+        assertFalse(net.sourceforge.kolmafia.request.Crimbo18CafeRequestHub.registerRequest("shop.php?whichshop=crimbo18giftomat"))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo19CafeRequestHub.registerRequest("shop.php?whichshop=crimbo19"))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo20BlackMarketRequestHub.registerRequest("shop.php?whichshop=crimbo20blackmarket"))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo20CafeRequestHub.registerRequest("shop.php?whichshop=crimbo20cafe"))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo21CafeRequestHub.registerRequest("shop.php?whichshop=crimbo21cafe"))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo21OrnamentsRequestHub.registerRequest("shop.php?whichshop=crimbo21ornaments"))
+        assertTrue(net.sourceforge.kolmafia.request.Crimbo25CafeRequestHub.registerRequest("shop.php?whichshop=crimbo25_cafe"))
+
+        // Phase 5710+ place.php session-log coverage:
+        val rl = net.sourceforge.kolmafia.session.RequestLogger
+        assertTrue(rl.registerRequest("place.php?whichplace=airport_spooky&action=airport2_radio", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=canadia&action=lc_mcd", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=highlands&action=highlands_dude", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=spacegate&action=sg_Terminal", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=woods&action=woods_hippy", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=wereprof_cottage&action=wereprof_researchbench", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=desertbeach&action=db_gnasir", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=exploathing&action=expl_council", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=palindome&action=pal_droffice", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=nemesiscave&action=nmcave_boss", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=northpole&action=np_bonfire", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=snojo&action=snojo_controller", null))
+
+        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxx_live() {
+        val prefs = Preferences(MapSettings())
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.preferences = prefs
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.questDatabase =
+            net.sourceforge.kolmafia.quest.QuestDatabase(prefs)
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.itemCount = { 0 }
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.hasEquipped = { false }
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.characterClass = {
+            net.sourceforge.kolmafia.character.CharacterClass.SEAL_CLUBBER
+        }
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.inebriety = { 0 }
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.buffedMuscle = { 40 }
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.buffedMyst = { 40 }
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.buffedMoxie = { 40 }
+
+        val rock = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(5)
+        assertTrue(rock?.options?.any { it?.name?.contains("glowing rock") == true } == true)
+
+        val glove = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(7)
+        assertTrue(glove?.options?.any { it?.name?.contains("spooky glove") == true } == true)
+
+        val door = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(692)
+        assertNotNull(door)
+
+        val baseball = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(1598)
+        assertNotNull(baseball)
+
+        val mystic = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(641)
+        assertNotNull(mystic)
+
+        val temple = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(580)
+        assertNotNull(temple)
+
+        val cyber = net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures.choiceSpoilers(1545)
+        assertNotNull(cyber)
+
+        val hr = Preferences(MapSettings())
+        val char = net.sourceforge.kolmafia.character.KoLCharacter()
+        char.updateFromApiResponse(
+            net.sourceforge.kolmafia.character.CharacterApiResponse(
+                kingliberated = "0",
+                path = "Heavy Rains",
+                hardcore = "0",
+            ),
+        )
+        char.liberateKing(hr)
+        assertTrue(hr.getBoolean("_liberateKingNeedsHermitInit", false))
+        assertTrue(hr.getBoolean("_liberateKingNeedsFloristRefresh", false))
+        assertTrue(hr.getBoolean("_liberateKingNeedsFamiliarRefresh", false))
+        net.sourceforge.kolmafia.character.KoLCharacter.clearLiberateKingDeferredFlags(hr)
+        assertFalse(hr.getBoolean("_liberateKingNeedsHermitInit", true))
+        assertFalse(hr.getBoolean("_liberateKingNeedsFloristRefresh", true))
+
+        val rl = net.sourceforge.kolmafia.session.RequestLogger
+        assertTrue(rl.registerRequest("place.php?whichplace=airport_spooky&action=airport2_radio", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=wereprof_cottage&action=wereprof_researchbench", null))
+        assertTrue(rl.registerRequest("place.php?whichplace=woods&action=woods_hippy", null))
+
+        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxxi_live() {
+        assertTrue(net.sourceforge.kolmafia.banish.Banisher.BANISHING_SHOUT.isEffective(null))
+        assertTrue(net.sourceforge.kolmafia.banish.Banisher.ICE_HOUSE.isEffective(null))
+
+        assertFalse(net.sourceforge.kolmafia.track.TrackManager.Tracker.NOSY_NOSE.isEffective(-1))
+        assertTrue(net.sourceforge.kolmafia.track.TrackManager.Tracker.NOSY_NOSE.isEffective(173))
+        assertFalse(net.sourceforge.kolmafia.track.TrackManager.Tracker.RED_SNAPPER.isEffective(-1))
+        assertTrue(net.sourceforge.kolmafia.track.TrackManager.Tracker.RED_SNAPPER.isEffective(275))
+
+        val rl = net.sourceforge.kolmafia.session.RequestLogger
+        assertTrue(rl.registerRequest("questlog.php", null))
+        assertTrue(rl.registerRequest("charsheet.php", null))
+        assertTrue(rl.registerRequest("manageclan.php", null))
+
+        assertTrue(net.sourceforge.kolmafia.request.ClanHallRequestHub.registerRequest("clan_hall.php"))
+        assertTrue(net.sourceforge.kolmafia.request.ArenaVisitRequestHub.registerRequest("arena.php"))
+        assertFalse(net.sourceforge.kolmafia.request.ArenaVisitRequestHub.registerRequest("arena.php?action=go"))
+        assertTrue(net.sourceforge.kolmafia.request.PeeVPeeRequest.registerRequest("peevpee.php?action=smashstone&confirm=on", null))
+
+        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxxii_live() {
+        assertTrue(
+            net.sourceforge.kolmafia.request.DreadsylvaniaRequest.registerRequest(
+                "clan_dreadsylvania.php?action=feedbooze&whichbooze=1&boozequantity=2",
+                null,
+                null,
+            ),
+        )
+        assertTrue(
+            net.sourceforge.kolmafia.request.DreadsylvaniaRequest.registerRequest(
+                "clan_dreadsylvania.php?action=forceloc&loc=1",
+                null,
+                Preferences(MapSettings()),
+            ),
+        )
+
+        val winHtml = "You win the fight! WINWINWIN You find a wrinkly heap on the ground."
+        assertEquals(
+            "hobo skin",
+            net.sourceforge.kolmafia.session.HobopolisManager.parseTownSquareWin(winHtml),
+        )
+
+        val data = net.sourceforge.kolmafia.data.ConcoctionData(
+            result = "test manual",
+            resultQuantity = 1,
+            methods = setOf("SMITH", "MANUAL"),
+            ingredients = emptyList(),
+        )
+        assertTrue(data.isManual)
+
+        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+    }
+
+    @Test
+    fun corpus_behavioralDeepenXxxiii_live() {
+        val prefs = Preferences(MapSettings())
+
+        // Equipment weapon queries
+        val character = KoLCharacter()
+        val equip = net.sourceforge.kolmafia.session.EquipmentManager(character)
+        assertFalse(equip.holsteredSixgun())
+        assertFalse(equip.usingShield())
+        assertEquals(equip.usingTwoWeapons(), equip.isDualWielding())
+
+        // TurnCounter temporary + expired
+        net.sourceforge.kolmafia.session.TurnCounter.startCountingTemporary(
+            prefs, 5, "Temp Window", "clock.gif",
+        )
+        assertTrue(prefs.getString("_tempRelayCounters", "").contains("Temp Window"))
+        net.sourceforge.kolmafia.session.TurnCounter.handleTemporaryCounters(
+            preferences = prefs,
+            currentRun = 100,
+            type = "Noncombat",
+            encounter = "something",
+            lastLocationHasWanderers = true,
+        )
+        assertTrue(
+            net.sourceforge.kolmafia.session.TurnCounter.isCounting(prefs, "Temp Window", 100),
+        )
+
+        // RequestLogger transfer item names
+        val msg = net.sourceforge.kolmafia.session.RequestLogger.formatTransferLog(
+            "pull",
+            listOf(123 to 2, 456 to 1),
+        )
+        assertTrue(msg.startsWith("pull: "))
+        assertTrue(msg.contains(", "))
+        val parsed = net.sourceforge.kolmafia.session.RequestLogger.parseTransferItems(
+            "storage.php?action=pull&whichitem1=123&howmany1=2&whichitem2=456&howmany2=1",
+        )
+        assertEquals(listOf(123 to 2, 456 to 1), parsed)
+
+        // Mall age-gated price
+        val clock = net.sourceforge.kolmafia.mall.MallPriceManager.TestClock(1_000L)
+        val mall = net.sourceforge.kolmafia.mall.MallPriceManager(clock)
+        mall.cachePrice(999, 500L, 10, 1)
+        assertEquals(500L, mall.getMallPrice(999, maxAgeSeconds = 60))
+        clock.nowSeconds = 1_100L
+        assertEquals(0L, mall.getMallPrice(999, maxAgeSeconds = 60))
+        assertEquals(500L, mall.getMallPrice(999, maxAgeSeconds = 60, forceUpdate = true))
+
+        // Tomb class answer
+        net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.characterClass = {
+            net.sourceforge.kolmafia.character.CharacterClass.SEAL_CLUBBER
+        }
+        assertEquals(
+            2,
+            net.sourceforge.kolmafia.session.DynamicChoiceSpoilers.tombDecision(
+                mapOf(1 to "Music.", 2 to "Boredom.", 3 to "Power."),
+            ),
+        )
+
+        assertEquals("phase5890", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     private fun registerCorpusWeapon(id: Int, name: String) {

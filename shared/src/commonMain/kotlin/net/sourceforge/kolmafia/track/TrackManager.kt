@@ -74,8 +74,25 @@ object TrackManager {
         ;
 
         companion object {
+            /** Desktop [FamiliarPool.NOSY_NOSE]. */
+            private const val NOSY_NOSE_FAMILIAR_ID = 173
+
+            /** Desktop [FamiliarPool.RED_SNAPPER]. */
+            private const val RED_SNAPPER_FAMILIAR_ID = 275
+
             fun find(name: String): Tracker? =
                 entries.firstOrNull { it.displayName.equals(name, ignoreCase = true) }
+        }
+
+        /**
+         * Desktop [Tracker.isEffective] — whether this tracker is actually functional.
+         * NOSY_NOSE requires the Nosy Nose familiar to be active;
+         * RED_SNAPPER requires the Red-Nosed Snapper familiar to be active.
+         */
+        fun isEffective(currentFamiliarId: Int = -1): Boolean = when (this) {
+            NOSY_NOSE -> currentFamiliarId == NOSY_NOSE_FAMILIAR_ID
+            RED_SNAPPER -> currentFamiliarId == RED_SNAPPER_FAMILIAR_ID
+            else -> true
         }
     }
 
@@ -143,11 +160,13 @@ object TrackManager {
         preferences: Preferences,
         monsterName: String,
         currentTurn: Int = 0,
+        currentFamiliarId: Int = -1,
     ): Int {
         val monsterCopies = loadEntries(preferences, PREF_TRACKED_MONSTERS)
             .filter {
                 it.tracked.equals(monsterName, ignoreCase = true) &&
-                    !it.isExpired(currentTurn)
+                    !it.isExpired(currentTurn) &&
+                    it.tracker.isEffective(currentFamiliarId)
             }
             .sumOf { it.tracker.copies }
         val phylum = MonsterDatabase.getByName(monsterName)?.phylum?.takeIf { it.isNotBlank() }
@@ -155,7 +174,8 @@ object TrackManager {
         val phylaCopies = loadEntries(preferences, PREF_TRACKED_PHYLA)
             .filter {
                 it.tracked.equals(phylum, ignoreCase = true) &&
-                    !it.isExpired(currentTurn)
+                    !it.isExpired(currentTurn) &&
+                    it.tracker.isEffective(currentFamiliarId)
             }
             .sumOf { it.tracker.copies }
         return monsterCopies + phylaCopies
@@ -165,11 +185,13 @@ object TrackManager {
         preferences: Preferences,
         monsterName: String,
         currentTurn: Int = 0,
+        currentFamiliarId: Int = -1,
     ): Boolean =
         loadEntries(preferences, PREF_TRACKED_MONSTERS).any {
             it.tracked.equals(monsterName, ignoreCase = true) &&
                 it.tracker.ignoreQueue &&
-                !it.isExpired(currentTurn)
+                !it.isExpired(currentTurn) &&
+                it.tracker.isEffective(currentFamiliarId)
         }
 
     /** Desktop [TrackManager.trackedBy] — tracker display names for a monster (+ phylum). */
@@ -177,11 +199,13 @@ object TrackManager {
         preferences: Preferences,
         monsterName: String,
         currentTurn: Int = 0,
+        currentFamiliarId: Int = -1,
     ): List<String> {
         val monsterHits = loadEntries(preferences, PREF_TRACKED_MONSTERS)
             .filter {
                 it.tracked.equals(monsterName, ignoreCase = true) &&
-                    !it.isExpired(currentTurn)
+                    !it.isExpired(currentTurn) &&
+                    it.tracker.isEffective(currentFamiliarId)
             }
             .map { it.tracker.displayName }
         val phylum = MonsterDatabase.getByName(monsterName)?.phylum?.takeIf { it.isNotBlank() }
@@ -189,7 +213,8 @@ object TrackManager {
         val phylumHits = loadEntries(preferences, PREF_TRACKED_PHYLA)
             .filter {
                 it.tracked.equals(phylum, ignoreCase = true) &&
-                    !it.isExpired(currentTurn)
+                    !it.isExpired(currentTurn) &&
+                    it.tracker.isEffective(currentFamiliarId)
             }
             .map { it.tracker.displayName }
         return monsterHits + phylumHits
