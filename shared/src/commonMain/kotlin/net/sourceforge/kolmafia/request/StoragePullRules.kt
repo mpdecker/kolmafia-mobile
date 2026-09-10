@@ -22,6 +22,8 @@ object StoragePullRules {
     data class StorageContents(
         val storage: Map<Int, Int>,
         val freepulls: Map<Int, Int>,
+        /** Desktop [KoLConstants.nopulls] — NOPULL-modifier items while !canInteract. */
+        val nopulls: Map<Int, Int> = emptyMap(),
     )
 
     /** Desktop [CharPaneRequest.checkInteraction] via [CharpaneInteraction]. */
@@ -36,18 +38,19 @@ object StoragePullRules {
         prefs: Preferences? = null,
     ): StorageContents {
         if (canInteract(characterState)) {
-            return StorageContents(storage = raw, freepulls = emptyMap())
+            return StorageContents(storage = raw, freepulls = emptyMap(), nopulls = emptyMap())
         }
         val storage = mutableMapOf<Int, Int>()
         val freepulls = mutableMapOf<Int, Int>()
+        val nopulls = mutableMapOf<Int, Int>()
         for ((itemId, qty) in raw) {
             when {
-                isNoPull(itemId) -> Unit
+                isNoPull(itemId) -> nopulls[itemId] = qty
                 isFreePull(itemId, characterState, prefs) -> freepulls[itemId] = qty
                 else -> storage[itemId] = qty
             }
         }
-        return StorageContents(storage, freepulls)
+        return StorageContents(storage, freepulls, nopulls)
     }
 
     fun isFreePull(

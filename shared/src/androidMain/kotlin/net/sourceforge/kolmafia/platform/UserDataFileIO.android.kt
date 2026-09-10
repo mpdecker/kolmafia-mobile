@@ -18,3 +18,10 @@ actual fun writeUserDataText(relativePath: String, text: String) {
     file.parentFile?.mkdirs()
     file.writeText(text)
 }
+
+actual fun listUserDataNames(relativeDir: String): List<String> {
+    val base = userDataBase() ?: return emptyList()
+    val dir = File(base, relativeDir)
+    if (!dir.isDirectory) return emptyList()
+    return dir.list()?.toList().orEmpty()
+}

@@ -131,7 +131,11 @@ internal fun GameRuntimeLibrary.registerAshP975TrackOBatch(scope: AshScope) {
     regFn(scope, "form_field", AshType.STRING, listOf("key" to AshType.STRING)) { _, args ->
         val key = args[0].toString()
         val fields = net.sourceforge.kolmafia.session.ChoiceCombatAshState.lastFormFields
-        AshValue.of(fields[key].orEmpty())
+        fields[key]?.let { return@regFn AshValue.of(it) }
+        // Fall back to last visit URL query (desktop relay form_field parity for GET)
+        val parsed = AggregateValue(AggregateType(AshType.STRING, AshType.STRING))
+        parseQueryFormFields(lastVisitPath, parsed)
+        AshValue.of(parsed.map[AshValue.of(key)]?.toString().orEmpty())
     }
 
     val stringToString = AggregateType(AshType.STRING, AshType.STRING)

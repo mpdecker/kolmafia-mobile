@@ -5,8 +5,10 @@ internal fun GameRuntimeLibrary.registerEnvironmentQueries(scope: AshScope) {
         AshValue.of(GameRuntimeLibrary.VERSION)
     }
 
-    regFn(scope, "get_revision", AshType.STRING, emptyList()) { _, _ ->
-        AshValue.of(GameRuntimeLibrary.REVISION)
+    // Desktop get_revision → INT via StaticEntity.getRevision(). Mobile REVISION remains the
+    // phaseNN string constant; ASH returns the numeric phase digits (desktop-shaped INT).
+    regFn(scope, "get_revision", AshType.INT, emptyList()) { _, _ ->
+        AshValue.of(GameRuntimeLibrary.revisionNumber().toLong())
     }
 
     regFn(scope, "write", AshType.VOID, listOf("msg" to AshType.STRING)) { runtime, args ->

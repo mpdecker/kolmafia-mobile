@@ -10,11 +10,21 @@ object CombatSkillDropdownParser {
     private val AVAILABLE_COMBAT_SKILL = Regex(
         """<option[^>]*?value="(\d+)[^>]*?>((.*?) \((\d+)[^<]*)</option>""",
     )
-    private val WIN_PATTERN = Regex("""You win the fight""")
+    private val WIN_PATTERN = Regex("""You win the fight""", RegexOption.IGNORE_CASE)
+
+    fun hasWhichSkillSelect(html: String): Boolean = WHICH_SKILL_SELECT.containsMatchIn(html)
+
+    fun isFightWon(html: String): Boolean = WIN_PATTERN.containsMatchIn(html)
+
+    /** Strip trailing ` (N MP)` / cost suffix from an option label. */
+    fun skillNameFromLabel(label: String): String {
+        val paren = label.lastIndexOf(" (")
+        return if (paren > 0) label.substring(0, paren).trim() else label.trim()
+    }
 
     fun parseAvailableCombatSkills(html: String): List<Pair<Int, String>> {
-        if (!WHICH_SKILL_SELECT.containsMatchIn(html)) return emptyList()
-        if (WIN_PATTERN.containsMatchIn(html)) return emptyList()
+        if (!hasWhichSkillSelect(html)) return emptyList()
+        if (isFightWon(html)) return emptyList()
 
         val result = mutableListOf<Pair<Int, String>>()
         for (match in AVAILABLE_COMBAT_SKILL.findAll(html)) {

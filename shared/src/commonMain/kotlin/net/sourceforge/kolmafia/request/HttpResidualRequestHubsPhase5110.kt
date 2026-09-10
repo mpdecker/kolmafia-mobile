@@ -46,16 +46,16 @@ object FreeSnackRequest {
 object GameShoppeRequest {
     fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
         if (!url.contains("gamestore.php", ignoreCase = true)) return false
-        sessionLogger?.appendRawLine("Visiting Game Shoppe")
+        if (url.contains("place=cashier", ignoreCase = true)) {
+            sessionLogger?.appendRawLine("Visiting Game Shoppe Cashier")
+        } else {
+            sessionLogger?.appendRawLine("Visiting Game Shoppe")
+        }
         return true
     }
 
     fun parseResponse(url: String, html: String, preferences: Preferences?) {
-        if (!url.contains("gamestore.php", ignoreCase = true)) return
-        val prefs = preferences ?: return
-        Regex("""([\d,]+)\s+Game Grid ticket""", RegexOption.IGNORE_CASE)
-            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
-            ?.let { prefs.setInt("availableGameGridTickets", it) }
+        XliiHttpResidualParse.parseResponse(url, html, preferences)
     }
 }
 

@@ -83,6 +83,8 @@ internal fun GameRuntimeLibrary.registerShopFunctions(scope: AshScope) {
     // Desktop refresh_shop posts ManageStoreRequest (sold-item fetch)
     regFn(scope, "refresh_shop", AshType.BOOLEAN, emptyList()) { _, _ ->
         val req = manageStoreRequest ?: return@regFn AshValue.of(false)
+        // Force re-fetch even when already retrieved (desktop always posts ManageStoreRequest).
+        StoreManager.clearCache()
         AshValue.of(kotlinx.coroutines.runBlocking {
             req.fetchSoldItems().isSuccess
         })

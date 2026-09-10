@@ -1,11 +1,19 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
+import net.sourceforge.kolmafia.combat.RandomModifierStats
+import net.sourceforge.kolmafia.data.MonsterDefinition
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * AshP46 — will_usually_miss / will_usually_dodge / buffed_hit_stat / current_hit_stat.
- * Desktop-lite: last monster + ML-adjusted atk/def; mid-combat delevel modifiers = 0.
+ *
+ * Phase 6431–6440: desktop [MonsterStatusTracker] mid-combat atk/def modifiers +
+ * [EquipmentManager.getAdjustedHitStat] buffed-hit parity (saber / knife / accordion).
+ *
+ * Phase 6611–6630 (XLVI Track A): RandomModifierStats (OCRS) atk/def overlay +
+ * ATTACKS_CANT_MISS miss short-circuit via [CombatAdjustment.willUsuallyMiss].
  */
 internal fun GameRuntimeLibrary.registerAshP46Batch(scope: AshScope) {
     fun currentMl(): Int =
@@ -15,18 +23,32 @@ internal fun GameRuntimeLibrary.registerAshP46Batch(scope: AshScope) {
             lastLocationName(),
         )
 
+    fun effectiveMonster(raw: MonsterDefinition?): MonsterDefinition? {
+        if (raw == null) return null
+        return RandomModifierStats.apply(raw, raw.randomModifiers, buildMonsterExpressionContext())
+    }
+
     fun lastMonster() =
-        resolveMonsterDefinition(preferences?.getString(Preferences.LAST_MONSTER, "") ?: "")
+        effectiveMonster(
+            MonsterStatusTracker.getLastMonster()
+                ?: resolveMonsterDefinition(preferences?.getString(Preferences.LAST_MONSTER, "") ?: ""),
+        )
 
     fun weaponName(): String? =
         character?.state?.value?.equippedItem(EquipmentSlot.WEAPON)
 
-    fun hitStat(): Int =
-        CombatAdjustment.buffedHitStat(
+    fun hitStat(): Int {
+        val em = equipmentManager
+        if (em != null) {
+            // Prefer desktop EquipmentManager hit-stat stack when wired.
+            return em.getAdjustedHitStat()
+        }
+        return CombatAdjustment.buffedHitStat(
             character = character?.state?.value,
             modifiers = buildCurrentModifiers(),
             weaponName = weaponName(),
         )
+    }
 
     fun buffedMoxie(): Int {
         val mods = buildCurrentModifiers()
@@ -41,6 +63,7 @@ internal fun GameRuntimeLibrary.registerAshP46Batch(scope: AshScope) {
                 monster = lastMonster(),
                 buffedMoxie = buffedMoxie(),
                 ml = currentMl(),
+                offenseModifier = MonsterStatusTracker.getMonsterAttackModifier(),
                 expressionContext = buildMonsterExpressionContext(),
             ),
         )
@@ -53,6 +76,7 @@ internal fun GameRuntimeLibrary.registerAshP46Batch(scope: AshScope) {
                 monster = lastMonster(),
                 hitStat = hitStat(),
                 ml = currentMl(),
+                defenseModifier = MonsterStatusTracker.getMonsterDefenseModifier(),
                 expressionContext = buildMonsterExpressionContext(),
                 reduceEnemyDefensePercent = CombatAdjustment.reduceEnemyDefensePercent(mods),
             ),
@@ -64,6 +88,12 @@ internal fun GameRuntimeLibrary.registerAshP46Batch(scope: AshScope) {
     }
 
     regFn(scope, "current_hit_stat", AshType.STAT, emptyList()) { _, _ ->
-        AshValue(AshType.STAT, CombatAdjustment.currentHitStatName(weaponName()))
+        val em = equipmentManager
+        val name = if (em != null) {
+            em.getHitStatType()
+        } else {
+            CombatAdjustment.currentHitStatName(weaponName())
+        }
+        AshValue(AshType.STAT, name)
     }
 }

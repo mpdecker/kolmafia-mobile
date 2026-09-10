@@ -489,4 +489,68 @@ class AdventurePrepTest {
             AdventurePrepareActions.needsFilthwormGland("The Filthworm Queen's Chamber"),
         )
     }
+
+    @Test
+    fun canAdventureAtZone_rabbitHoleNeedsEffectOrPotion() {
+        AdventurePrep.resetForTest()
+        val cs = CharacterState(adventuresLeft = 5)
+        val zone = AdventureZone(
+            zoneName = "Rabbit Hole",
+            urlParams = "adventure=450",
+            locationName = "The Rabbit Hole",
+            environment = "indoor",
+            diffLevel = "low",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        assertFalse(AdventurePrep.canAdventureAtZone("The Rabbit Hole", cs, zone, prefs()))
+        AdventurePrep.hasEffect = { it.equals("Down the Rabbit Hole", ignoreCase = true) }
+        assertTrue(AdventurePrep.canAdventureAtZone("The Rabbit Hole", cs, zone, prefs()))
+        AdventurePrep.resetForTest()
+        val withItem = AdventureGateContext(
+            character = cs,
+            inventoryCount = { id -> if (id == ItemIds.DRINK_ME_POTION) 1 else 0 },
+        )
+        assertTrue(
+            net.sourceforge.kolmafia.adventure.prep.AdventureZoneGates.canAdventureZone(
+                "The Rabbit Hole",
+                zone,
+                withItem,
+            ),
+        )
+    }
+
+    @Test
+    fun canAdventureAtZone_portalNeedsEnergyOrTrapezoid() {
+        AdventurePrep.resetForTest()
+        val cs = CharacterState(adventuresLeft = 5)
+        val zone = AdventureZone(
+            zoneName = "Portal",
+            urlParams = "adventure=355",
+            locationName = "El Vibrato Island",
+            environment = "outdoor",
+            diffLevel = "high",
+            statRequirement = 0,
+            goals = emptyList(),
+            isOverdrunk = false,
+            noWander = false,
+        )
+        assertFalse(AdventurePrep.canAdventureAtZone("El Vibrato Island", cs, zone, prefs()))
+        val withEnergy = prefs { putInt("currentPortalEnergy", 3) }
+        assertTrue(AdventurePrep.canAdventureAtZone("El Vibrato Island", cs, zone, withEnergy))
+        AdventurePrep.resetForTest()
+    }
+
+    @Test
+    fun adventuresUsedOverride_effectiveDefaults() {
+        AdventureManager.adventuresUsedOverride = -1
+        assertEquals(1, AdventureManager.effectiveAdventuresUsed(1))
+        AdventureManager.adventuresUsedOverride = 0
+        assertEquals(0, AdventureManager.effectiveAdventuresUsed(1))
+        AdventureManager.adventuresUsedOverride = 3
+        assertEquals(3, AdventureManager.effectiveAdventuresUsed(1))
+        AdventureManager.adventuresUsedOverride = -1
+    }
 }

@@ -226,7 +226,8 @@ class GameRuntimeLibraryCharacterTest {
     }
 
     @Test
-    fun adv1_unknownLocation_returnsFalse() {
+    fun adv1_unknownLocation_returnsContinueValue() {
+        // Desktop adv1(null) → continueValue() (true when permitsContinue)
         val client = HttpClient(MockEngine { respond("") })
         val mgr = net.sourceforge.kolmafia.adventure.AdventureManager(
             adventureRequest = net.sourceforge.kolmafia.adventure.AdventureRequest(client),
@@ -238,7 +239,7 @@ class GameRuntimeLibraryCharacterTest {
             eventBus = net.sourceforge.kolmafia.event.GameEventBus(),
         )
         val lib = GameRuntimeLibrary(adventureManager = mgr)
-        assertEquals("false", outputLib(lib, """print(to_string(adv1(to_location("Totally Fake Zone Name"), 1)));"""))
+        assertEquals("true", outputLib(lib, """print(to_string(adv1(to_location("Totally Fake Zone Name"), 1)));"""))
     }
 
     @Test

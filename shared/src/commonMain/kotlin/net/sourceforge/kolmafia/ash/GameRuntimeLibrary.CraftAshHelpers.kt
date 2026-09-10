@@ -107,6 +107,7 @@ internal fun GameRuntimeLibrary.creatableTurnsFor(
     count: Int,
     considerFreeCrafting: Boolean = false,
 ): Long {
+    ConcoctionDatabase.ensureRefreshed()
     val initial = inventoryItemCount(itemId)
     return CreatableTurns.adventuresNeeded(
         itemId = itemId,
@@ -128,6 +129,7 @@ internal fun GameRuntimeLibrary.concoctionPriceForConcoction(concoction: Concoct
         val mallPrice = kotlinx.coroutines.runBlocking {
             mallManager?.cheapestPrice(ingredient.name) ?: -1L
         }
+        // Validate: unknown mall price uses Integer.MAX_VALUE sentinel (desktop MallPriceManager).
         val unitPrice = if (mallPrice < 0) Int.MAX_VALUE.toLong() else mallPrice
         cost += unitPrice * ingredient.quantity
     }
@@ -136,12 +138,14 @@ internal fun GameRuntimeLibrary.concoctionPriceForConcoction(concoction: Concoct
 }
 
 internal fun GameRuntimeLibrary.concoctionPriceForItem(itemId: Int): Long {
+    ConcoctionDatabase.ensureRefreshed()
     val itemName = ItemDatabase.getById(itemId)?.name ?: return 0L
     val concoction = ConcoctionDatabase.getByResult(itemName) ?: return 0L
     return concoctionPriceForConcoction(concoction)
 }
 
 internal fun GameRuntimeLibrary.concoctionPriceForVykea(vykeaString: String): Long {
+    ConcoctionDatabase.ensureRefreshed()
     val companion = VykeaCompanionData.companionFor(vykeaString) ?: return 0L
     val resultName = VykeaCompanionData.concoctionResultName(companion)
     val concoction = ConcoctionDatabase.getByResult(resultName) ?: return 0L

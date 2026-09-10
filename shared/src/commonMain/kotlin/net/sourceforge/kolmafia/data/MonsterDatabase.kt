@@ -24,6 +24,8 @@ enum class BlueVsRedTeam(val teamName: String) {
 @OptIn(ExperimentalResourceApi::class)
 object MonsterDatabase {
 
+    private val MULTI_DROP_COUNT = Regex("""\d+(?:-\d+)?""")
+
     private val _byId = mutableMapOf<Int, MonsterDefinition>()
     private val _byName = mutableMapOf<String, MonsterDefinition>()
     private val _byLeetName = mutableMapOf<String, MonsterDefinition>()
@@ -580,12 +582,25 @@ object MonsterDatabase {
     private fun parseDrop(raw: String): MonsterDrop? {
         val parenIdx = raw.lastIndexOf('(')
         if (parenIdx < 0) return null
-        val itemName = raw.substring(0, parenIdx).trim()
+        var itemName = raw.substring(0, parenIdx).trim()
         if (itemName.isEmpty()) return null
         val rateStr = raw.substring(parenIdx + 1).trimEnd(')')
         val prefix = if (rateStr.firstOrNull()?.isLetter() == true) rateStr[0] else null
-        val rate = (if (prefix != null) rateStr.drop(1) else rateStr).toIntOrNull() ?: 0
-        return MonsterDrop(itemName, rate, prefix)
+        // Desktop parseDouble — fractional conditional rates (c0.1) stay fractional.
+        val rate = (if (prefix != null) rateStr.drop(1) else rateStr).toDoubleOrNull() ?: 0.0
+        var itemCount = ""
+        // Desktop MultiDrop: "(\d+(?:-\d+)?) (.+)" strips count from the item name.
+        if (prefix == 'm') {
+            val space = itemName.indexOf(' ')
+            if (space > 0) {
+                val maybeCount = itemName.substring(0, space)
+                if (MULTI_DROP_COUNT.matches(maybeCount)) {
+                    itemCount = maybeCount
+                    itemName = itemName.substring(space + 1)
+                }
+            }
+        }
+        return MonsterDrop(itemName, rate, prefix, itemCount)
     }
 
     private fun parse(text: String) {

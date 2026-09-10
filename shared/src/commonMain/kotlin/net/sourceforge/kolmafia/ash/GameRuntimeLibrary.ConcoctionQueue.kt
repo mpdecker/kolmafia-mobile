@@ -34,17 +34,29 @@ internal suspend fun GameRuntimeLibrary.drainCreateQueues(): Boolean {
 
 internal suspend fun GameRuntimeLibrary.createItem(itemId: Int, count: Int): Boolean {
     if (count <= 0) return true
+    ConcoctionDatabase.ensureRefreshed()
     val name = gameDatabase?.item(itemId)?.name
         ?: ItemDatabase.getById(itemId)?.name
         ?: return false
     val concoction = ConcoctionDatabase.getByResult(name)
+    // Create router residual: prefer typed CreateItemRequest path when supported.
     if (concoction?.isCreateSupported() == true) {
-        return concoctionCreateRequest?.create(
+        val created = concoctionCreateRequest?.create(
             name,
             count,
             state = character?.state?.value,
             preferences = preferences,
-        )?.isSuccess == true
+        )
+        if (created != null) {
+            if (created.isSuccess) {
+                ConcoctionDatabase.markRefreshNeeded()
+                return true
+            }
+            return false
+        }
     }
-    return (retrieveItemService?.retrieve(itemId, count) ?: 0) >= count
+    // Fallback retrieve (includes nested craft) when no typed create hub is wired.
+    val retrieved = (retrieveItemService?.retrieve(itemId, count) ?: 0) >= count
+    if (retrieved) ConcoctionDatabase.markRefreshNeeded()
+    return retrieved
 }

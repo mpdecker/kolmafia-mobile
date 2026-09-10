@@ -83,4 +83,25 @@ class MacrofierTest {
         assertNotNull(macro)
         assertTrue(macro!!.contains("if hasskill saucegeyser"))
     }
+
+    @Test
+    fun hulkingConstructSpecialMacro() {
+        val macro = Macrofier.macrofy("hulking construct", prefs)
+        assertNotNull(macro)
+        assertContains(macro!!, "3146")
+        assertContains(macro, "3155")
+        assertContains(macro, "runaway")
+    }
+
+    @Test
+    fun rampagingAddingMachineDeclinesMacro() {
+        assertEquals(null, Macrofier.macrofy("rampaging adding machine", prefs))
+    }
+
+    @Test
+    fun bareAshFilterNameDeclinesMacrofication() {
+        assertEquals(null, Macrofier.macrofy(filterOverride = "my_combat_filter"))
+        assertEquals("abort \"x\"", Macrofier.macrofy(filterOverride = "abort \"x\""))
+        assertEquals("skill 1; attack", Macrofier.macrofy(filterOverride = "skill 1; attack"))
+    }
 }

@@ -293,6 +293,7 @@ object CoinmasterDatabase {
             KiwiShopSync.SHOP_ID -> data.copy(visitShop = KiwiShopSync::applyVisitShop)
             MysticShopSync.SHOP_ID -> data.copy(visitShop = MysticShopSync::applyVisitShop)
             ShoreShopSync.SHOP_ID -> data.copy(visitShop = ShoreShopSync::applyVisitShop)
+            InterestingCoinShopSync.SHOP_ID -> data.copy(visitShop = InterestingCoinShopSync::applyVisitShop)
             FiveDPrinterShopSync.SHOP_ID -> data.copy(visitShop = FiveDPrinterShopSync::applyVisitShop)
             ReplicaMrStoreSync.SHOP_ID -> data.copy(visitShop = ReplicaMrStoreSync::applyVisitShop)
             BlackMarketShopSync.SHOP_ID -> data.copy(visitShop = BlackMarketShopSync::applyVisitShop)

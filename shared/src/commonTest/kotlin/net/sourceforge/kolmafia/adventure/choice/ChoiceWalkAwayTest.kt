@@ -13,6 +13,8 @@ class ChoiceWalkAwayTest {
         assertTrue(ChoiceWalkAway.canWalkFromChoice(1217)) // Sweet Synthesis
         assertTrue(ChoiceWalkAway.canWalkFromChoice(1510)) // Burning Leaves
         assertTrue(ChoiceWalkAway.canWalkFromChoice(1596)) // Dig at Zone
+        assertTrue(ChoiceWalkAway.canWalkFromChoice(1543)) // Parachute into a Fight
+        assertTrue(ChoiceWalkAway.canWalkFromChoice(1601)) // Cup of 13s
     }
 
     @Test

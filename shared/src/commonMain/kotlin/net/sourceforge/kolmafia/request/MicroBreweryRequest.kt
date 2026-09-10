@@ -8,8 +8,17 @@ import net.sourceforge.kolmafia.preferences.Preferences
 
 open class MicroBreweryRequest(
     private val hellKitchenRequest: HellKitchenRequest,
+    private val cafeRequest: CafeRequest? = null,
 ) {
     fun onMenu(name: String): Boolean = MicroBreweryDatabase.isOnMenu(name)
+
+    /** Desktop [MicroBreweryRequest.getDailySpecial] — visit menu when pref empty. */
+    open suspend fun ensureDailySpecial(state: CharacterState?, prefs: Preferences?): String? {
+        if (!CafeAccessibility.isMicroBreweryAvailable(state, prefs)) return null
+        CafeDailySpecialSync.currentSpecialName(prefs)?.let { return it }
+        cafeRequest?.visitMenu("2", prefs)
+        return CafeDailySpecialSync.currentSpecialName(prefs)
+    }
 
     open suspend fun purchase(
         name: String,

@@ -1314,7 +1314,7 @@ class GameRuntimeLibraryCliTest {
     @Test
     fun getRevision_returnsMobileRevision() {
         val lib = GameRuntimeLibrary.forTesting()
-        assertEquals(GameRuntimeLibrary.REVISION, outputLib(lib, "print(get_revision());"))
+        assertEquals(GameRuntimeLibrary.revisionNumber().toString(), outputLib(lib, "print(get_revision());"))
     }
 
     @Test
@@ -1730,6 +1730,8 @@ class GameRuntimeLibraryCliTest {
             override suspend fun speculate(
                 goalText: String,
                 filters: Set<net.sourceforge.kolmafia.maximizer.MaximizerFilterType>,
+                maxPriceOverride: Int?,
+                priceLevelOverride: net.sourceforge.kolmafia.maximizer.MaximizerPriceLevel?,
             ): List<String> =
                 listOf("Hat: myst hat (5.0)", "Score: 0.0 -> 5.0")
         }

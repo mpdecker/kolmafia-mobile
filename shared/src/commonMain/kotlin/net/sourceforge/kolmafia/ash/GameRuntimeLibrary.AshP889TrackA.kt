@@ -4,12 +4,12 @@ import net.sourceforge.kolmafia.adventure.AdventureManager
 import net.sourceforge.kolmafia.adventure.choice.ChoiceAdventures
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.character.CharacterClass
+import net.sourceforge.kolmafia.combat.Macrofier
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.AvailableCombatSkills
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 import net.sourceforge.kolmafia.session.FightCombatModeSync
-import net.sourceforge.kolmafia.skill.SkillType
 import net.sourceforge.kolmafia.track.TrackManager
 
 /**
@@ -90,7 +90,11 @@ internal fun GameRuntimeLibrary.registerAshP892Batch(scope: AshScope) {
         ) {
             return ChoiceCombatAshState.lastChoiceResponseText
         }
-        if (option < 0) {
+        // Desktop: option == -1 → ChoiceManager.gotoGoal(); other negatives ignored
+        if (option < -1) {
+            return ChoiceCombatAshState.lastChoiceResponseText
+        }
+        if (option == -1) {
             val pref = preferences?.getInt("choiceAdventure$choiceId", 0) ?: 0
             val picked = ChoiceAdventures.pickGoalChoice(
                 choiceId,
@@ -114,7 +118,7 @@ internal fun GameRuntimeLibrary.registerAshP892Batch(scope: AshScope) {
         } else {
             ChoiceCombatAshState.handlingChoice = false
             ChoiceCombatAshState.lastChoiceResponseText = response
-            // When custom=true and a fight follows, allow a single combat step (desktop CHOICE_HANDLER).
+            // Desktop: custom=true uses CHOICE_HANDLER (auto-combat); custom=false submits only
             if (handleFights && (
                     ChoiceCombatAshState.fightFollowsChoice ||
                         adventureManager?.fightFollowsChoice == true ||
@@ -210,33 +214,37 @@ internal fun GameRuntimeLibrary.registerAshP893Batch(scope: AshScope) {
     }
 
     regFn(scope, "run_combat", AshType.BUFFER, emptyList()) { _, _ ->
-        ChoiceCombatAshState.combatFilterOverride = null
+        Macrofier.resetMacroOverride()
         bufferResult(runCombatOnce())
     }
-    regFn(scope, "run_combat", AshType.BUFFER, listOf("filter_function" to AshType.STRING)) { _, args ->
-        ChoiceCombatAshState.combatFilterOverride = args[0].toString().ifBlank { null }
+    regFn(scope, "run_combat", AshType.BUFFER, listOf("filter_function" to AshType.STRING)) { rt, args ->
+        val inFight = ChoiceCombatAshState.currentRound > 0 ||
+            ChoiceCombatAshState.inMultiFight ||
+            adventureManager?.inMultiFight == true
+        // Desktop filter overload returns empty buffer when not mid-fight
+        if (!inFight) return@regFn bufferResult("")
+        val filter = args[0].toString()
+        // XLVI-C: always set Macrofier override (blank clears), matching desktop setMacroOverride
+        Macrofier.setMacroOverride(filter, rt as? AshRuntime)
+        Macrofier.combatFilterThatDidNothing = null
         try {
             bufferResult(runCombatOnce())
         } finally {
-            ChoiceCombatAshState.combatFilterOverride = null
+            Macrofier.resetMacroOverride()
         }
     }
 }
 
 internal fun GameRuntimeLibrary.registerAshP894Batch(scope: AshScope) {
     fun bufferResult(text: String) = AshValue(AshType.BUFFER, StringBuilder(text))
-    fun fightGet(query: String): String {
-        val response = visitKolPage("fight.php?$query") ?: ""
-        if (response.isNotBlank()) ChoiceCombatAshState.noteFightRound(response)
-        return response.ifBlank { ChoiceCombatAshState.lastFightResponseText }
-    }
 
+    // Phase 6631–6650: runaway shares offline-vs-live BUFFER path with attack/steal/twiddle.
     regFn(scope, "runaway", AshType.BUFFER, emptyList()) { _, _ ->
-        bufferResult(fightGet("action=runaway"))
+        fightActionBuffer("runaway")
     }
     regFn(scope, "throw_item", AshType.BUFFER, listOf("item" to AshType.ITEM)) { _, args ->
         val id = itemIdFromAsh(args[0])
-        bufferResult(fightGet("action=useitem&whichitem=$id"))
+        bufferResult(fightActionQuery("action=useitem&whichitem=$id"))
     }
     regFn(
         scope,
@@ -246,7 +254,7 @@ internal fun GameRuntimeLibrary.registerAshP894Batch(scope: AshScope) {
     ) { _, args ->
         val id1 = itemIdFromAsh(args[0])
         val id2 = itemIdFromAsh(args[1])
-        bufferResult(fightGet("action=useitem&whichitem=$id1&whichitem2=$id2"))
+        bufferResult(fightActionQuery("action=useitem&whichitem=$id1&whichitem2=$id2"))
     }
 }
 
@@ -319,12 +327,14 @@ internal fun GameRuntimeLibrary.registerAshP895Batch(scope: AshScope) {
 }
 
 internal fun GameRuntimeLibrary.registerAshP896Batch(scope: AshScope) {
+    // Desktop KoLCharacter.hasCombatSkill — fight-dropdown set only (no learned-skill fallback).
     regFn(scope, "combat_skill_available", AshType.BOOLEAN, listOf("skill" to AshType.SKILL)) { _, args ->
         val skillName = args[0].toString()
-        if (AvailableCombatSkills.hasName(skillName)) return@regFn AshValue.of(true)
-        val skills = skillManager?.state?.value?.skills.orEmpty()
-        val found = skills.find { it.name.equals(skillName, ignoreCase = true) }
-        AshValue.of(found != null && found.type == SkillType.COMBAT)
+        val skillId = net.sourceforge.kolmafia.data.SkillDefinitionDatabase.getByName(skillName)?.id
+            ?: skillName.toIntOrNull()
+            ?: 0
+        if (skillId > 0 && AvailableCombatSkills.has(skillId)) return@regFn AshValue.of(true)
+        AshValue.of(AvailableCombatSkills.hasName(skillName))
     }
     regFn(scope, "stun_skill", AshType.SKILL, emptyList()) { _, _ ->
         val cls = character?.state?.value?.characterClassEnum ?: CharacterClass.UNKNOWN

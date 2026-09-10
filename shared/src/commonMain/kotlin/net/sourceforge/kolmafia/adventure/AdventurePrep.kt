@@ -10,13 +10,14 @@ import net.sourceforge.kolmafia.data.AdventureZone
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.UseItemRequest
 
 /**
- * Zone unlock gates + prep before adventuring (Phases 14/18/20/22 + 1851–1910).
+ * Zone unlock gates + prep before adventuring (Phases 14/18/20/22 + 1851–1910 + 6551–6570).
  *
  * Preference overrides:
  * - `zoneOutfit_<location>` → outfit name
@@ -36,6 +37,8 @@ object AdventurePrep {
     var hasEffect: (String) -> Boolean = { false }
     var stenchResistanceLevels: (() -> Int)? = null
     var preferFamiliar: (suspend (String) -> Boolean)? = null
+    /** True when the character owns / can use the named familiar race (Deep Machine, etc.). */
+    var canUseFamiliar: (String) -> Boolean = { false }
 
     fun resetForTest() {
         questDatabaseProvider = null
@@ -48,6 +51,7 @@ object AdventurePrep {
         hasEffect = { false }
         stenchResistanceLevels = null
         preferFamiliar = null
+        canUseFamiliar = { false }
     }
 
     fun buildContext(
@@ -63,6 +67,11 @@ object AdventurePrep {
             inventoryCount = { id -> inv?.state?.value?.items?.get(id)?.quantity ?: 0 },
             hasEquipped = hasEquipped,
             hasCampground = hasCampground(),
+            hasEffect = hasEffect,
+            hasFamiliar = { race ->
+                canUseFamiliar(race) ||
+                    character?.familiarName?.equals(race, ignoreCase = true) == true
+            },
         )
     }
 
@@ -74,13 +83,14 @@ object AdventurePrep {
         preferences: Preferences? = null,
         questDatabase: QuestDatabase? = null,
     ): Boolean {
+        if (isNoneLocation(locationName)) return false
         if ((character?.adventuresLeft ?: 0) <= 0) return false
         return canAdventureAtZone(locationName, character, zone, preferences, questDatabase)
     }
 
     /**
-     * Zone-only gates (drunk, preValidate, core/IoTM unlocks, stat, limit mode)
-     * — ignores adventures remaining.
+     * Zone-only gates (drunk, preValidate, core/IoTM unlocks, stat, limit mode, Removed)
+     * — ignores adventures remaining. Desktop [KoLAdventure.canAdventure] parity (XLV-A).
      */
     fun canAdventureAtZone(
         locationName: String,
@@ -89,13 +99,31 @@ object AdventurePrep {
         preferences: Preferences? = null,
         questDatabase: QuestDatabase? = null,
     ): Boolean {
+        if (isNoneLocation(locationName)) return false
         val cs = character ?: return true
         val z = zone ?: return true
         val ctx = buildContext(cs, preferences, questDatabase)
 
+        // Desktop: rootZone == "Removed" → cannot adventure (past Crimbo / event zones)
+        if (LimitModeGates.getRootZone(z.zoneName).equals("Removed", ignoreCase = true)) {
+            return false
+        }
+
         if (AdventureZoneGates.tooDrunkToAdventure(locationName, z, ctx)) return false
 
         if (z.isOverdrunk && cs.inebriety <= 0) return false
+
+        // Desktop LimitMode.limitAdventure astral trip / snarfblat gate (XLV-A)
+        if (cs.limitMode.contains("astral", ignoreCase = true) &&
+            LimitModeGates.limitAdventure(
+                zone = z.zoneName,
+                limitMode = cs.limitMode,
+                adventureId = z.snarfblat ?: z.adventureId,
+                currentAstralTrip = preferences?.getString("currentAstralTrip", "").orEmpty(),
+            )
+        ) {
+            return false
+        }
 
         if (cs.isInLimitMode) {
             val mode = cs.limitMode.lowercase()
@@ -121,6 +149,9 @@ object AdventurePrep {
 
         return AdventureZoneGates.canAdventureZone(locationName, z, ctx)
     }
+
+    fun isNoneLocation(locationName: String): Boolean =
+        locationName.isBlank() || locationName.equals("none", ignoreCase = true)
 
     fun canAdventureAtPirateRealm(
         locationName: String,
@@ -173,6 +204,7 @@ object AdventurePrep {
         character: CharacterState? = null,
         questDatabase: QuestDatabase? = null,
     ): Boolean {
+        if (isNoneLocation(locationName)) return false
         if (!canAdventureAtZone(locationName, character, preferences = preferences, questDatabase = questDatabase)) {
             return false
         }

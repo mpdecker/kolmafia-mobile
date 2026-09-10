@@ -17,6 +17,7 @@ object TimeTowerSync {
         "shoeshop",
         "twitchsoup",
         "twitch_alliedhq",
+        "twitch_jousting",
     )
 
     private const val SHOP_GONE_MARKER = "That store isn't there anymore."

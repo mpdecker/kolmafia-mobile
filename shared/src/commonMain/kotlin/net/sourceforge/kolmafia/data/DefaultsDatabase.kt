@@ -51,6 +51,9 @@ object DefaultsDatabase {
 
     fun has(name: String): Boolean = name in entries
 
+    /** Desktop [Preferences.isGlobalProperty] via defaults.txt scope. */
+    fun isGlobal(name: String): Boolean = entries[name]?.scope == Scope.GLOBAL
+
     fun resetOnAscension(): Set<String> = resetOnAscensionInternal.toSet()
 
     fun resetOnFight(): Set<String> = resetOnFightInternal.toSet()

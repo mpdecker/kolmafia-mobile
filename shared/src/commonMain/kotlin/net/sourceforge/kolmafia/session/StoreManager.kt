@@ -35,6 +35,11 @@ object StoreManager {
         potentialEarnings = 0
     }
 
+    /** Mark sold-item list seeded (put_shop / partial update paths). */
+    fun markSoldItemsRetrieved() {
+        soldItemsRetrieved = true
+    }
+
     fun getSoldItemList(): List<SoldItem> =
         soldItems.values.sortedWith(compareBy<SoldItem> { it.price == MALL_MAX }.thenBy { it.price })
 

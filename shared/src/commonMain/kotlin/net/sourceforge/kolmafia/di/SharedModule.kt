@@ -569,10 +569,10 @@ val sharedModule = module {
         HellKitchenRequest(cafeRequest = get())
     }
     single {
-        ChezSnooteeRequest(hellKitchenRequest = get())
+        ChezSnooteeRequest(hellKitchenRequest = get(), cafeRequest = get())
     }
     single {
-        MicroBreweryRequest(hellKitchenRequest = get())
+        MicroBreweryRequest(hellKitchenRequest = get(), cafeRequest = get())
     }
     single {
         CrimboCafeRequest(cafeRequest = get())
@@ -1099,6 +1099,7 @@ val sharedModule = module {
             drinkBoozeRequest = get(),
             chewRequest      = get(),
             cafePurchaseRequest = get(),
+            cafeRequest = get(),
             stillSuitRequest = get(),
             actionBarRequest = get(),
             autosellRequest  = get(),

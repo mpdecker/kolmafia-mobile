@@ -82,6 +82,8 @@ class GameRuntimeLibraryScriptTest {
             override suspend fun maximize(
                 goalText: String,
                 filters: Set<net.sourceforge.kolmafia.maximizer.MaximizerFilterType>,
+                maxPriceOverride: Int?,
+                priceLevelOverride: net.sourceforge.kolmafia.maximizer.MaximizerPriceLevel?,
             ) = net.sourceforge.kolmafia.maximizer.MaximizeResult(true, goalText, 1.0, 5.0)
         }
         val lib = GameRuntimeLibrary(maximizerManager = mgr)

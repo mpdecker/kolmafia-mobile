@@ -2,8 +2,9 @@ package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.data.ConcoctionConsumptionType
 import net.sourceforge.kolmafia.data.ItemDatabase
-import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.inventory.CollectionCacheSync
 import net.sourceforge.kolmafia.session.ConcoctionQueueRunner
+import net.sourceforge.kolmafia.session.StoreManager
 
 internal suspend fun GameRuntimeLibrary.familiarFeedItem(
     itemId: Int,
@@ -38,8 +39,9 @@ internal suspend fun GameRuntimeLibrary.familiarFeedItem(
 
 internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
 
-    // helper: resolve item name → game ID (Int), null if unknown
-    fun resolveItemId(itemName: String): Int? = gameDatabase?.item(itemName)?.id
+    // helper: resolve item name â†’ game ID (Int), null if unknown
+    fun resolveItemId(itemName: String): Int? =
+        gameDatabase?.item(itemName)?.id ?: ItemDatabase.getByName(itemName)?.id
 
     fun registerFamiliarFeedAsh(
         name: String,
@@ -154,6 +156,10 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         AshValue.of(kotlinx.coroutines.runBlocking { req.chew(itemId, 1) }.isSuccess)
     }
 
+    /**
+     * Desktop autosell/sell â€” batch coalesce under `sell` with pilcrow params so
+     * batch_close flushes a multi-item comma list (`sell 1 Â¶a, 2 Â¶b`).
+     */
     fun autosellOrBatch(rt: AshRuntimeContext, itemId: Int, qty: Int): AshValue {
         if (qty <= 0) return AshValue.TRUE
         if (isBatching(rt)) {
@@ -168,11 +174,13 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         if (qty <= 0) return AshValue.TRUE
         if (isBatching(rt)) {
             batchCommand(rt, "closet", "put", pilcrowItemParams(qty, itemId))
+            // Optimistic cache write-back so mid-batch *_amount reads match desktop list mutations after flush intent.
+            preferences?.let { CollectionCacheSync.adjustCloset(it, itemId, qty) }
             return AshValue.TRUE
         }
         val req = closetRequest ?: return AshValue.of(false)
         val ok = kotlinx.coroutines.runBlocking { req.putIn(itemId, qty) }.isSuccess
-        if (ok) preferences?.let { CollectionCache.adjust(it, Preferences.CACHED_CLOSET, itemId, qty) }
+        if (ok) preferences?.let { CollectionCacheSync.adjustCloset(it, itemId, qty) }
         return AshValue.of(ok)
     }
 
@@ -180,11 +188,12 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         if (qty <= 0) return AshValue.TRUE
         if (isBatching(rt)) {
             batchCommand(rt, "closet", "take", pilcrowItemParams(qty, itemId))
+            preferences?.let { CollectionCacheSync.adjustCloset(it, itemId, -qty) }
             return AshValue.TRUE
         }
         val req = closetRequest ?: return AshValue.of(false)
         val ok = kotlinx.coroutines.runBlocking { req.takeOut(itemId, qty) }.isSuccess
-        if (ok) preferences?.let { CollectionCache.adjust(it, Preferences.CACHED_CLOSET, itemId, -qty) }
+        if (ok) preferences?.let { CollectionCacheSync.adjustCloset(it, itemId, -qty) }
         return AshValue.of(ok)
     }
 
@@ -197,8 +206,17 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         }
         val req = manageStoreRequest ?: return AshValue.of(false)
         return AshValue.of(kotlinx.coroutines.runBlocking {
+            // Couple put_shop to the same ManageStore sold-item seed as get_shop / refresh_shop.
             ensureSoldItemsRetrieved()
-            req.addItem(itemId, price, limit, quantity = qty, fromStorage = usingStorage).isSuccess
+            val ok = req.addItem(itemId, price, limit, quantity = qty, fromStorage = usingStorage).isSuccess
+            if (ok) {
+                // Ensure local store cache reflects the put even if HTML STOCKED parse missed.
+                if (StoreManager.shopAmount(itemId) <= 0) {
+                    StoreManager.addItem(itemId, qty, price.toLong(), limit)
+                }
+                StoreManager.markSoldItemsRetrieved()
+            }
+            ok
         })
     }
 
@@ -210,7 +228,7 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         }
         val req = storageRequest ?: return AshValue.of(false)
         val ok = kotlinx.coroutines.runBlocking { req.withdraw(itemId, qty) }.isSuccess
-        if (ok) preferences?.let { CollectionCache.adjust(it, Preferences.CACHED_STORAGE, itemId, -qty) }
+        if (ok) preferences?.let { CollectionCacheSync.adjustStorage(it, itemId, -qty) }
         return AshValue.of(ok)
     }
 
@@ -241,7 +259,7 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         autosellOrBatch(rt, itemId, args[1].toLong().toInt())
     }
 
-    // 6. put_closet — meat (int) / item / qty+item
+    // 6. put_closet â€” meat (int) / item / qty+item
     regFn(scope, "put_closet", AshType.BOOLEAN, listOf("meat" to AshType.INT)) { rt, args ->
         val meat = args[0].toLong()
         if (meat <= 0) return@regFn AshValue.TRUE
@@ -267,7 +285,7 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         putClosetItem(rt, itemId, 1)
     }
 
-    // 7. take_closet — meat / item / qty+item
+    // 7. take_closet â€” meat / item / qty+item
     regFn(scope, "take_closet", AshType.BOOLEAN, listOf("meat" to AshType.INT)) { rt, args ->
         val meat = args[0].toLong()
         if (meat <= 0) return@regFn AshValue.TRUE
@@ -293,7 +311,7 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         takeClosetItem(rt, itemId, 1)
     }
 
-    // 8. put_shop — 3-arg uses full inventory count; 4-arg explicit qty
+    // 8. put_shop â€” 3-arg uses full inventory count; 4-arg explicit qty
     regFn(scope, "put_shop", AshType.BOOLEAN,
         listOf("price" to AshType.INT, "limit" to AshType.INT, "it" to AshType.ITEM)) { rt, args ->
         val itemId = resolveItemId(args[2].toString()) ?: return@regFn AshValue.of(false)
@@ -324,7 +342,7 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         takeStorageItem(rt, itemId, 1)
     }
 
-    // 10. eatsilent(qty, it) — Same as eat()
+    // 10. eatsilent(qty, it) â€” Same as eat()
     regFn(scope, "eatsilent", AshType.BOOLEAN,
         listOf("qty" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
         val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
@@ -366,49 +384,55 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         AshValue.of(kotlinx.coroutines.runBlocking { req.drink(itemId, 1) }.isSuccess)
     }
 
-    // 13–16. display/stash qty-first + item-first + 1-arg
+    // 13â€“16. display/stash qty-first + item-first + 1-arg (+ batch cache edges)
     fun putDisplay(rt: AshRuntimeContext, itemId: Int, qty: Int): AshValue {
         if (qty <= 0) return AshValue.TRUE
+        if (character?.state?.value?.hasDisplayCase == false) return AshValue.FALSE
         if (isBatching(rt)) {
             batchCommand(rt, "display", "put", pilcrowItemParams(qty, itemId))
+            preferences?.let { CollectionCacheSync.adjustDisplay(it, itemId, qty) }
             return AshValue.TRUE
         }
         val req = displayCaseRequest ?: return AshValue.of(false)
         val ok = kotlinx.coroutines.runBlocking { req.putIn(itemId, qty) }.isSuccess
-        if (ok) preferences?.let { CollectionCache.adjust(it, Preferences.CACHED_DISPLAY, itemId, qty) }
+        if (ok) preferences?.let { CollectionCacheSync.adjustDisplay(it, itemId, qty) }
         return AshValue.of(ok)
     }
     fun takeDisplay(rt: AshRuntimeContext, itemId: Int, qty: Int): AshValue {
         if (qty <= 0) return AshValue.TRUE
+        if (character?.state?.value?.hasDisplayCase == false) return AshValue.FALSE
         if (isBatching(rt)) {
             batchCommand(rt, "display", "take", pilcrowItemParams(qty, itemId))
+            preferences?.let { CollectionCacheSync.adjustDisplay(it, itemId, -qty) }
             return AshValue.TRUE
         }
         val req = displayCaseRequest ?: return AshValue.of(false)
         val ok = kotlinx.coroutines.runBlocking { req.takeOut(itemId, qty) }.isSuccess
-        if (ok) preferences?.let { CollectionCache.adjust(it, Preferences.CACHED_DISPLAY, itemId, -qty) }
+        if (ok) preferences?.let { CollectionCacheSync.adjustDisplay(it, itemId, -qty) }
         return AshValue.of(ok)
     }
     fun putStash(rt: AshRuntimeContext, itemId: Int, qty: Int): AshValue {
         if (qty <= 0) return AshValue.TRUE
         if (isBatching(rt)) {
             batchCommand(rt, "stash", "put", pilcrowItemParams(qty, itemId))
+            preferences?.let { CollectionCacheSync.adjustStash(it, itemId, qty) }
             return AshValue.TRUE
         }
         val req = clanStashRequest ?: return AshValue.of(false)
         val ok = kotlinx.coroutines.runBlocking { req.putIn(itemId, qty) }.isSuccess
-        if (ok) preferences?.let { CollectionCache.adjust(it, Preferences.CACHED_STASH, itemId, qty) }
+        if (ok) preferences?.let { CollectionCacheSync.adjustStash(it, itemId, qty) }
         return AshValue.of(ok)
     }
     fun takeStash(rt: AshRuntimeContext, itemId: Int, qty: Int): AshValue {
         if (qty <= 0) return AshValue.TRUE
         if (isBatching(rt)) {
             batchCommand(rt, "stash", "take", pilcrowItemParams(qty, itemId))
+            preferences?.let { CollectionCacheSync.adjustStash(it, itemId, -qty) }
             return AshValue.TRUE
         }
         val req = clanStashRequest ?: return AshValue.of(false)
         val ok = kotlinx.coroutines.runBlocking { req.takeOut(itemId, qty) }.isSuccess
-        if (ok) preferences?.let { CollectionCache.adjust(it, Preferences.CACHED_STASH, itemId, -qty) }
+        if (ok) preferences?.let { CollectionCacheSync.adjustStash(it, itemId, -qty) }
         return AshValue.of(ok)
     }
 
@@ -472,7 +496,7 @@ internal fun GameRuntimeLibrary.registerItemActions(scope: AshScope) {
         takeStash(rt, itemId, 1)
     }
 
-    // 17. empty_closet() → boolean — take all items from closet
+    // 17. empty_closet() â†’ boolean â€” take all items from closet
     regFn(scope, "empty_closet", AshType.BOOLEAN, emptyList()) { rt, _ ->
         if (isBatching(rt)) {
             batchCommand(rt, "closet", null, "empty")

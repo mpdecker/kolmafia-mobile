@@ -21,6 +21,14 @@ class PHPLCG(seed: Long) {
         return z.toInt()
     }
 
+    /** Desktop [PHPRandom.nextInt(min, max)] inclusive range via LCG. */
+    fun rand(min: Int, max: Int): Int {
+        if (min >= max) return min
+        val span = (max.toLong() - min.toLong() + 1L)
+        val raw = rand().toLong() and 0x7fff_ffffL
+        return (min + (raw % span)).toInt()
+    }
+
     companion object {
         private const val MOD1 = 2_147_483_563L
         private const val MOD2 = 2_147_483_399L

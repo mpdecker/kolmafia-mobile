@@ -1,7 +1,7 @@
 package net.sourceforge.kolmafia.adventure.choice
 
 /**
- * Desktop [ChoiceControl.canWalkFromChoice] allow-list (Phases 1111–1120).
+ * Desktop [ChoiceControl.canWalkFromChoice] allow-list (Phases 1111–1120 + 6461–6470).
  * Choice IDs not in this set cannot be walked away from for item-use / adventure exits.
  */
 object ChoiceWalkAway {
@@ -16,8 +16,8 @@ object ChoiceWalkAway {
         1407, 1408, 1420, 1437, 1438, 1439, 1445, 1447, 1448, 1449, 1451, 1452, 1453,
         1454, 1455, 1457, 1458, 1459, 1460, 1463, 1466, 1476, 1481, 1483, 1484, 1485,
         1490, 1493, 1494, 1495, 1501, 1509, 1510, 1516, 1517, 1518, 1523, 1526, 1527,
-        1533, 1534, 1535, 1536, 1537, 1544, 1551, 1553, 1555, 1556, 1558, 1561, 1563,
-        1567, 1588, 1592, 1593, 1596,
+        1533, 1534, 1535, 1536, 1537, 1543, 1544, 1551, 1553, 1555, 1556, 1558, 1561, 1563,
+        1567, 1588, 1592, 1593, 1596, 1601,
     )
 
     fun canWalkFromChoice(choiceId: Int): Boolean = choiceId in WALKABLE

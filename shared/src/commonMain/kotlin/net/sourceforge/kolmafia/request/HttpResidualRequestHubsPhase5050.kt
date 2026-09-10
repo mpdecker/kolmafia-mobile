@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.request
 
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
+import net.sourceforge.kolmafia.shop.InterestingCoinShopSync
 
 /**
  * Phases 5036–5050 — thin HTTP residual registerRequest hubs (Behavioral Deepen XIX).
@@ -150,6 +151,7 @@ object InterestingCoinRequestHub {
                 prefs.setInt("availableInterestingCoins", it)
                 prefs.setBoolean("hasInterestingCoin", it > 0)
             }
+        InterestingCoinShopSync.syncFromShopHtml(html, prefs)
     }
 }
 

@@ -8,7 +8,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * Desktop [InventoryManager.cheaperToBuy] / [priceToMake] / [priceToAcquire] / [itemValue]
- * subset (Phases 2541–2555).
+ * subset (Phases 2541–2555 + XLIV Track B accessible/canCreate deepen).
  */
 object RetrievePricing {
 
@@ -23,8 +23,28 @@ object RetrievePricing {
             if (name.isBlank()) 0L else NpcStoreDatabase.npcPrice(name).toLong()
         },
         val prefs: Preferences? = null,
+        /** Desktop create gate — false skips priceToMake for that id. */
         val canCreate: (Int) -> Boolean = { true },
     )
+
+    /**
+     * Desktop [InventoryManager.getAccessibleCount] for priceToAcquire on-hand:
+     * physical accessible minus concoction pull-queue reservations.
+     */
+    fun accessibleOnHandCount(
+        itemId: Int,
+        inventoryCount: (Int) -> Int,
+        physicalAccessible: ((Int) -> Int)? = null,
+    ): Int {
+        val raw = physicalAccessible?.invoke(itemId) ?: inventoryCount(itemId)
+        val name = ItemDatabase.getItemName(itemId)
+        val queuedPulls = if (name.isNotBlank()) {
+            ConcoctionDatabase.getRuntime(name)?.queuedPulls ?: 0
+        } else {
+            0
+        }
+        return (raw - queuedPulls).coerceAtLeast(0)
+    }
 
     fun itemValue(itemId: Int, exact: Boolean, ctx: PriceContext): Long {
         val factor = ctx.prefs?.getFloat("valueOfInventory", 1.8f) ?: 1.8f

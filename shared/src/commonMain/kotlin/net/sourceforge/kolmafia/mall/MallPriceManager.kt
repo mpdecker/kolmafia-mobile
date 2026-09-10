@@ -126,6 +126,37 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
         return clock.nowSeconds - entry.cachedAt
     }
 
+    /**
+     * Desktop MallPriceDatabase.getAge — fractional days since price was recorded.
+     * Returns [Double.POSITIVE_INFINITY] when unknown (ASH `historical_age` parity).
+     */
+    fun getHistoricalAgeDays(itemId: Int): Double {
+        MallPriceDatabase.getAgeSeconds(itemId, clock.nowSeconds)?.let {
+            return it / 86_400.0
+        }
+        val entry = cache[itemId] ?: return Double.POSITIVE_INFINITY
+        if (clock.nowSeconds - entry.cachedAt >= TTL_SECONDS) return Double.POSITIVE_INFINITY
+        return (clock.nowSeconds - entry.cachedAt) / 86_400.0
+    }
+
+    /**
+     * Desktop MallPriceManager.getMallPrice(itemId, maxAge) where [maxAgeDays] is
+     * fractional days. Stale DB/cache prices are flushed; forceUpdate refill via
+     * [mallSearchSync] or last-known DB when no live search is wired.
+     */
+    fun getMallPriceDays(itemId: Int, maxAgeDays: Double): Long {
+        if (maxAgeDays < 0) return getMallPrice(itemId)
+        val ageDays = getHistoricalAgeDays(itemId)
+        if (ageDays.isFinite() && ageDays <= maxAgeDays) {
+            val price = getHistoricalPrice(itemId)
+            if (price > 0) return price
+        }
+        if (ageDays.isFinite() && ageDays > maxAgeDays) {
+            flushCache(itemId)
+        }
+        return getMallPrice(itemId, maxAgeSeconds = -1, forceUpdate = true)
+    }
+
     internal fun cachedAtForTest(itemId: Int): Long? = cache[itemId]?.cachedAt
 
     fun filterMallSearch(results: List<MallListing>): List<MallListing> =

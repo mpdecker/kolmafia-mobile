@@ -20,7 +20,56 @@ object CombatActionManager {
         return script.ifBlank { "default" }
     }
 
-    fun getAvailableLookups(): Set<String> = availableLookups.toSet()
+    /**
+     * Desktop [CombatActionManager.getAvailableLookups] — rescan `ccs/` then ensure `default`.
+     */
+    fun getAvailableLookups(): Set<String> {
+        for (entry in UserDataFileIO.listNames("ccs")) {
+            if (!entry.endsWith(".ccs", ignoreCase = true)) continue
+            val name = entry.dropLast(4)
+            if (isSafeCcsName(name)) availableLookups.add(name)
+        }
+        availableLookups.add("default")
+        return availableLookups.toSet()
+    }
+
+    /**
+     * Desktop [FightRequest.getCurrentKey] — encounter key for the current fight monster,
+     * or `"default"` when no monster is set.
+     */
+    fun getCurrentKey(): String {
+        val monster = MonsterStatusTracker.getLastMonsterName()
+        return if (monster.isBlank()) "default" else encounterKey(monster)
+    }
+
+    /**
+     * Desktop [CcsFileManager] path safety — forbid `..` and folder separators.
+     */
+    fun isSafeCcsName(name: String): Boolean =
+        name.isNotBlank() &&
+            !name.contains("..") &&
+            !name.contains('/') &&
+            !name.contains('\\')
+
+    /**
+     * Desktop [CombatActionManager.getAvailableLookups] case-insensitive match after directory
+     * refresh, plus single-file probe when the name is not yet registered.
+     */
+    fun findAvailableLookup(name: String): String? {
+        val trimmed = name.trim().removeSuffixIgnoreCase(".ccs")
+        if (!isSafeCcsName(trimmed)) return null
+        getAvailableLookups()
+        availableLookups.firstOrNull { it.equals(trimmed, ignoreCase = true) }?.let { return it }
+        val text = UserDataFileIO.readText("ccs/$trimmed.ccs")
+        if (text != null) {
+            availableLookups.add(trimmed)
+            return trimmed
+        }
+        return null
+    }
+
+    private fun String.removeSuffixIgnoreCase(suffix: String): String =
+        if (endsWith(suffix, ignoreCase = true)) dropLast(suffix.length) else this
 
     fun encounterKey(line: String, changeCase: Boolean = true): String {
         var trimmed = line.trim().replace(Regex(" {2,}"), " ")
@@ -164,6 +213,7 @@ object CombatActionManager {
     fun loadStrategyLookup(name: String?, preferences: Preferences?): Boolean {
         var n = name?.trim().orEmpty().ifBlank { "default" }
         if (n.endsWith(".ccs", ignoreCase = true)) n = n.dropLast(4)
+        if (!isSafeCcsName(n) && n != "default") return false
         availableLookups.add(n)
 
         val path = "ccs/$n.ccs"
@@ -178,9 +228,7 @@ object CombatActionManager {
         }
         strategyLookup.load(text)
         preferences?.setString("customCombatScript", n)
-        if (preferences?.getString("battleAction", "").orEmpty().isBlank()) {
-            preferences?.setString("battleAction", "custom combat script")
-        }
+        preferences?.setString("battleAction", "custom combat script")
         return true
     }
 
@@ -188,6 +236,37 @@ object CombatActionManager {
         availableLookups.add(name)
         strategyLookup.load(text)
         preferences?.setString("customCombatScript", name)
+    }
+
+    /**
+     * Desktop [CcsFileManager.printBytes] + active-script reload when [name] matches
+     * the loaded customCombatScript.
+     */
+    fun writeCcs(name: String, data: String, preferences: Preferences?): Boolean {
+        val trimmed = name.trim().removeSuffixIgnoreCase(".ccs")
+        if (!isSafeCcsName(trimmed)) return false
+        return try {
+            UserDataFileIO.writeText("ccs/$trimmed.ccs", data)
+            availableLookups.add(trimmed)
+            // XLVI-C: reload CustomCombatLookup when writing the active script (desktop parity)
+            val active = getStrategyLookupName(preferences)
+            if (active.equals(trimmed, ignoreCase = true)) {
+                loadFromText(data, trimmed, preferences)
+            } else {
+                // Ensure newly written scripts appear on the next set_ccs / getAvailableLookups
+                getAvailableLookups()
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** Desktop [CcsFileManager.getBytes] — empty string when missing / unsafe. */
+    fun readCcs(name: String): String {
+        val trimmed = name.trim().removeSuffixIgnoreCase(".ccs")
+        if (!isSafeCcsName(trimmed)) return ""
+        return UserDataFileIO.readText("ccs/$trimmed.ccs") ?: ""
     }
 
     fun getBestEncounterKey(encounter: String, preferences: Preferences?): String =

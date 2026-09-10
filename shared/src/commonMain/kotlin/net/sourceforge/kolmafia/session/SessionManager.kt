@@ -258,7 +258,14 @@ open class SessionManager(
         } else {
             emptyMap()
         }
-        CollectionCacheSync.saveFromSources(preferences, closet, storage, freepulls, stash)
+        CollectionCacheSync.saveFromSources(
+            preferences,
+            closet,
+            storage,
+            freepulls,
+            stash,
+            classified?.nopulls ?: emptyMap(),
+        )
         CollectionCacheSync.saveDisplay(preferences, display)
         return ConcoctionIngredientSources(
             inventory = inventory,

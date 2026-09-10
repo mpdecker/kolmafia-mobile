@@ -109,40 +109,60 @@ internal fun GameRuntimeLibrary.registerAshP919TrackEBatch(scope: AshScope) {
         aggregate
     }
 
-    // ── Phase 921: file_to_map / map_to_file ───────────────────────
-    regFn(scope, "file_to_map", AshType.BOOLEAN,
-        listOf("filename" to AshType.STRING, "result" to AshType.AGGREGATE)) { _, args ->
-        val filename = args[0].toString()
-        val agg = args[1] as? AggregateValue ?: return@regFn AshValue.FALSE
-        val text = UserDataFileIO.readText(filename) ?: return@regFn AshValue.FALSE
+    // ── Phase 921 / 6481–6490: file_to_map / map_to_file ─────────────
+    // Desktop 2-arg defaults compact=true; 3-arg toggles nested compact layout.
+    fun loadFileToMap(filename: String, agg: AggregateValue, compact: Boolean): AshValue {
+        val text = UserDataFileIO.readText(filename) ?: return AshValue.FALSE
+        agg.map.clear()
         val aggType = agg.type
-        text.lineSequence().filter { it.isNotBlank() }.forEach { line ->
-            val parts = line.split('\t', limit = 2)
-            val key = AshValue(aggType.indexType, coerceFileValue(parts[0], aggType.indexType))
-            val value = if (parts.size > 1)
-                AshValue(aggType.dataType, coerceFileValue(parts[1], aggType.dataType))
-            else aggType.dataType.defaultValue()
-            agg[key] = value
+        text.lineSequence().forEachIndexed { lineIndex, rawLine ->
+            val line = rawLine.trimEnd('\r')
+            if (line.isBlank() || line.startsWith('#')) return@forEachIndexed
+            val parts = line.split('\t')
+            if (parts.size <= 1 && !compact) return@forEachIndexed
+            try {
+                writeCompactPath(agg, aggType, parts, compact)
+            } catch (e: Exception) {
+                throw ScriptException(
+                    "Invalid line in data file \"$filename\" line ${lineIndex + 1}: \"$line\"" +
+                        (e.message?.let { " ($it)" } ?: ""),
+                )
+            }
         }
-        AshValue.TRUE
+        return AshValue.TRUE
     }
 
-    regFn(scope, "map_to_file", AshType.BOOLEAN,
-        listOf("map" to AshType.AGGREGATE, "filename" to AshType.STRING)) { _, args ->
-        val agg = args[0] as? AggregateValue ?: return@regFn AshValue.FALSE
-        val filename = args[1].toString()
+    fun dumpMapToFile(agg: AggregateValue, filename: String, compact: Boolean): AshValue {
         val sb = StringBuilder()
-        for ((k, v) in agg.map) {
-            sb.append(k.toString())
-            sb.append('\t')
-            sb.appendLine(v.toString())
-        }
-        try {
+        dumpAggregate(agg, sb, compact, depth = 0)
+        return try {
             UserDataFileIO.writeText(filename, sb.toString())
             AshValue.TRUE
         } catch (_: Exception) {
             AshValue.FALSE
         }
+    }
+
+    regFn(scope, "file_to_map", AshType.BOOLEAN,
+        listOf("filename" to AshType.STRING, "result" to AshType.AGGREGATE)) { _, args ->
+        val agg = args[1] as? AggregateValue ?: return@regFn AshValue.FALSE
+        loadFileToMap(args[0].toString(), agg, compact = true)
+    }
+    regFn(scope, "file_to_map", AshType.BOOLEAN,
+        listOf("filename" to AshType.STRING, "result" to AshType.AGGREGATE, "compact" to AshType.BOOLEAN)) { _, args ->
+        val agg = args[1] as? AggregateValue ?: return@regFn AshValue.FALSE
+        loadFileToMap(args[0].toString(), agg, args[2].toBoolean())
+    }
+
+    regFn(scope, "map_to_file", AshType.BOOLEAN,
+        listOf("map" to AshType.AGGREGATE, "filename" to AshType.STRING)) { _, args ->
+        val agg = args[0] as? AggregateValue ?: return@regFn AshValue.FALSE
+        dumpMapToFile(agg, args[1].toString(), compact = true)
+    }
+    regFn(scope, "map_to_file", AshType.BOOLEAN,
+        listOf("map" to AshType.AGGREGATE, "filename" to AshType.STRING, "compact" to AshType.BOOLEAN)) { _, args ->
+        val agg = args[0] as? AggregateValue ?: return@regFn AshValue.FALSE
+        dumpMapToFile(agg, args[1].toString(), args[2].toBoolean())
     }
 
     // ── Phase 922: url_encode / url_decode ─────────────────────────
@@ -204,6 +224,13 @@ internal fun GameRuntimeLibrary.registerAshP919TrackEBatch(scope: AshScope) {
         val rng = phpLcgRandom ?: PHPLCG(1L).also { phpLcgRandom = it }
         AshValue.of(rng.rand().toLong())
     }
+    regFn(scope, "php_rand", AshType.INT,
+        listOf("min" to AshType.INT, "max" to AshType.INT)) { _, args ->
+        val min = args[0].toLong().toInt()
+        val max = args[1].toLong().toInt()
+        val rng = phpLcgRandom ?: PHPLCG(1L).also { phpLcgRandom = it }
+        AshValue.of(rng.rand(min, max).toLong())
+    }
     regFn(scope, "php_mt_rand", AshType.INT, emptyList()) { _, _ ->
         val rng = phpMtRandom ?: PHPMTRandom(1L).also { phpMtRandom = it }
         AshValue.of(rng.nextInt(0, Int.MAX_VALUE - 1).toLong())
@@ -241,6 +268,88 @@ private fun coerceFileValue(raw: String, type: AshType): Any? = when (type) {
     AshType.FLOAT -> raw.toDoubleOrNull() ?: 0.0
     AshType.BOOLEAN -> raw.equals("true", ignoreCase = true)
     else -> raw
+}
+
+/**
+ * Compact file layout writes tab-separated key paths ending in a leaf value.
+ * Non-compact writes one key per line with nested aggregates indented by tabs.
+ */
+private fun writeCompactPath(
+    root: AggregateValue,
+    rootType: AggregateType,
+    parts: List<String>,
+    compact: Boolean,
+) {
+    if (parts.isEmpty()) return
+    if (!compact) {
+        // Non-compact: key\tvalue only for flat maps
+        val key = AshValue(rootType.indexType, coerceFileValue(parts[0], rootType.indexType))
+        val value = if (parts.size > 1)
+            AshValue(rootType.dataType, coerceFileValue(parts[1], rootType.dataType))
+        else rootType.dataType.defaultValue()
+        root[key] = value
+        return
+    }
+    var current: AggregateValue = root
+    var currentType: AggregateType = rootType
+    var index = 0
+    while (index < parts.size) {
+        val key = AshValue(currentType.indexType, coerceFileValue(parts[index], currentType.indexType))
+        val remaining = parts.size - index - 1
+        val dataType = currentType.dataType
+        if (dataType is AggregateType && remaining > 1) {
+            val nested = current.map[key] as? AggregateValue
+                ?: AggregateValue(dataType).also { current[key] = it }
+            current = nested
+            currentType = dataType
+            index++
+            continue
+        }
+        val valueRaw = if (index + 1 < parts.size) parts[index + 1] else ""
+        current[key] = when (dataType) {
+            is AggregateType -> {
+                // Nested map expecting further keys — store empty aggregate if leaf
+                AggregateValue(dataType)
+            }
+            else -> AshValue(dataType, coerceFileValue(valueRaw, dataType))
+        }
+        return
+    }
+}
+
+private fun dumpAggregate(agg: AggregateValue, sb: StringBuilder, compact: Boolean, depth: Int) {
+    for ((k, v) in agg.map) {
+        if (compact) {
+            dumpCompact(k, v, sb, prefix = "")
+        } else {
+            repeat(depth) { sb.append('\t') }
+            sb.append(k.toString())
+            when (v) {
+                is AggregateValue -> {
+                    sb.appendLine()
+                    dumpAggregate(v, sb, compact = false, depth = depth + 1)
+                }
+                else -> {
+                    sb.append('\t')
+                    sb.appendLine(v.toString())
+                }
+            }
+        }
+    }
+}
+
+private fun dumpCompact(key: AshValue, value: AshValue, sb: StringBuilder, prefix: String) {
+    val path = if (prefix.isEmpty()) key.toString() else "$prefix\t${key}"
+    when (value) {
+        is AggregateValue -> {
+            if (value.map.isEmpty()) {
+                sb.append(path).appendLine()
+            } else {
+                for ((k, v) in value.map) dumpCompact(k, v, sb, path)
+            }
+        }
+        else -> sb.append(path).append('\t').appendLine(value.toString())
+    }
 }
 
 private fun urlEncode(s: String): String = buildString {

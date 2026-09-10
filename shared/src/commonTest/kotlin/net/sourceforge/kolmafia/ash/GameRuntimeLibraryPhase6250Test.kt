@@ -16,7 +16,7 @@ class GameRuntimeLibraryPhase6250Test {
 
     @Test
     fun revision_phase6310() {
-        assertEquals("phase6370", GameRuntimeLibrary.REVISION)
+        assertEquals("phase6670", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -87,7 +87,7 @@ class GameRuntimeLibraryPhase6250Test {
                 scale = 0,
                 cap = 0,
                 floor = 0,
-                drops = listOf(MonsterDrop(itemName = "seal tooth", dropRate = 50, prefix = null)),
+                drops = listOf(MonsterDrop(itemName = "seal tooth", dropRate = 50.0, prefix = null)),
             ),
             emptyList(),
         )

@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.ash
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.data.CafeAccessibility
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.request.CafeDailySpecialSync
 import net.sourceforge.kolmafia.shop.CoinmasterRegistry
 
 /**
@@ -115,10 +116,13 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
         AshValue.of(ok)
     }
 
-    // Desktop well_stocked — mall search only (no own-shop fallback)
+    // Desktop well_stocked — mall purchase listings only (no NPC/coinmaster)
     regFn(scope, "well_stocked", AshType.BOOLEAN,
         listOf("itemName" to AshType.STRING, "quantity" to AshType.INT, "price" to AshType.INT)) { _, args ->
-        val itemId = gameDatabase?.item(args[0].toString())?.id ?: return@regFn AshValue.FALSE
+        val itemId = gameDatabase?.item(args[0].toString())?.id
+            ?: ItemDatabase.getByName(args[0].toString())?.id
+            ?: return@regFn AshValue.FALSE
+        if (itemId < 1) return@regFn AshValue.FALSE
         val quantity = args[1].toLong().toInt()
         val price = args[2].toLong()
         val autosell = ItemDatabase.getById(itemId)?.autosellPrice?.toLong() ?: 0L
@@ -127,23 +131,43 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
         val listings = runBlocking { manager.searchListings(args[0].toString(), 20) }
         var available = 0
         for (listing in listings.sortedBy { it.price }) {
-            if (!listing.canPurchase || listing.price > price) break
-            available += minOf(listing.quantity, listing.limit.coerceAtLeast(0))
+            // Desktop: only MallPurchaseRequest rows
+            if (listing.source != net.sourceforge.kolmafia.mall.MallListingSource.MALL) continue
+            if (listing.shopId <= 0 || !listing.canPurchase) continue
+            if (!net.sourceforge.kolmafia.mall.MallPurchaseRequest.canPurchase(listing.shopId)) continue
+            if (listing.price > price) {
+                return@regFn AshValue.of(available >= quantity)
+            }
+            // limit <= 0 means unrestricted store stock for this listing
+            val canGet = if (listing.limit <= 0) listing.quantity
+            else minOf(listing.quantity, listing.limit)
+            available += canGet
             if (available >= quantity) return@regFn AshValue.TRUE
         }
-        AshValue.FALSE
+        AshValue.of(available >= quantity)
     }
 
-    // Desktop daily_special — gnomads MicroBrewery else Canadia ChezSnootée via _dailySpecial
+    // Desktop daily_special — gnomads MicroBrewery else Canadia ChezSnootée; live cafe visit sync
     regFn(scope, "daily_special", AshType.ITEM, emptyList()) { _, _ ->
         val state = character?.state?.value
         val prefs = preferences
-        val eligible = CafeAccessibility.isMicroBreweryAvailable(state, prefs) ||
-            CafeAccessibility.isChezSnooteeAvailable(state)
-        if (!eligible) return@regFn AshValue.item("none")
-        val special = prefs?.getString("_dailySpecial", "")?.takeIf { it.isNotBlank() }
-            ?: prefs?.getString("dailySpecial", "")?.takeIf { it.isNotBlank() }
-        AshValue.item(special ?: "none")
+        val useMicro = CafeAccessibility.isMicroBreweryAvailable(state, prefs)
+        val useChez = CafeAccessibility.isChezSnooteeAvailable(state)
+        if (!useMicro && !useChez) return@regFn AshValue.item("none")
+        // Desktop: gnomads takes priority when available
+        var special = CafeDailySpecialSync.currentSpecialName(prefs)
+        if (special.isNullOrBlank() && cafeRequest != null) {
+            runBlocking {
+                if (useMicro) cafeRequest.visitMenu("2", prefs)
+                else if (useChez) cafeRequest.visitMenu("1", prefs)
+            }
+            special = CafeDailySpecialSync.currentSpecialName(prefs)
+        }
+        val specialName = special?.takeIf { it.isNotBlank() } ?: return@regFn AshValue.item("none")
+        val resolved = gameDatabase?.item(specialName)?.name
+            ?: ItemDatabase.getByName(specialName)?.name
+            ?: specialName
+        AshValue.item(resolved)
     }
 
     // ── Phase 990: sells_skill (desktop 2-arg only) ─────────────────

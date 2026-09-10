@@ -11,6 +11,8 @@ import net.sourceforge.kolmafia.data.ZoneCombatData
  *
  * Phase 5051–5070: banish/rejection/superlikely-aware rates when
  * `appearance_rates(loc, includeQueue=true)`.
+ * Phases 6631–6650: get_location_monsters includeQueue residual — roster vs
+ * stateful positive-rate filter + AdventureQueueDatabase.checkZones.
  */
 internal fun GameRuntimeLibrary.registerAshP38Batch(scope: AshScope) {
     val monsterIntType = AggregateType(AshType.INT, AshType.MONSTER)
@@ -149,6 +151,10 @@ private fun GameRuntimeLibrary.buildAppearanceRates(
     type: AggregateType,
     includeQueue: Boolean,
 ): AggregateValue {
+    if (includeQueue) {
+        // Ensure zone queue keys exist before stateful weighting (desktop checkZones).
+        net.sourceforge.kolmafia.data.AdventureQueueDatabase.checkZones()
+    }
     val result = AggregateValue(type)
     val rates = ZoneCombatCalculator.appearanceRates(
         locationName = locationName,
@@ -167,15 +173,28 @@ private fun GameRuntimeLibrary.buildLocationMonsters(
     includeQueue: Boolean,
 ): AggregateValue {
     val result = AggregateValue(type)
+    if (!includeQueue) {
+        // Desktop get_location_monsters: zone roster (monsters + superlikely).
+        // Mobile keeps ultra-rare (weight < 0) out of the boolean map; weight 0 stays.
+        val data = CombatDatabase.getByLocation(locationName) ?: return result
+        for (mw in data.monsters) {
+            if (mw.name.isEmpty()) continue
+            if (mw.superlikely || mw.weight >= 0) {
+                result[AshValue(AshType.MONSTER, mw.name)] = AshValue.TRUE
+            }
+        }
+        return result
+    }
+    // includeQueue=true: stateful appearance rates; positive rates only
+    // (banished -3 / impossible -2 / ultra-rare -1 / zeroed conditionals excluded).
+    net.sourceforge.kolmafia.data.AdventureQueueDatabase.checkZones()
     val rates = ZoneCombatCalculator.appearanceRates(
         locationName = locationName,
-        includeQueue = includeQueue,
+        includeQueue = true,
         ctx = zoneCombatContext(),
     )
     for ((monster, rate) in rates) {
         if (monster.isEmpty()) continue
-        // Desktop includes monsters with positive rates; negative sentinels (-1/-3/-4)
-        // are appearance_rates-only and stay out of get_location_monsters.
         if (rate > 0) result[AshValue(AshType.MONSTER, monster)] = AshValue.TRUE
     }
     return result

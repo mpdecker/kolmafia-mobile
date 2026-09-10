@@ -103,6 +103,9 @@ open class MaximizerManager(
     /** Passive skills during maximize/speculate search (Phase 414). */
     private var searchPassiveSkillNames: Set<String> = emptySet()
 
+    /** ASH maxPrice/priceLevel overload override for the current search (Phase 6430). */
+    private var searchPriceLevelOverride: MaximizerPriceLevel? = null
+
     private val equipSlots = listOf(
         EquipmentSlot.HAT,
         EquipmentSlot.WEAPON,
@@ -130,18 +133,33 @@ open class MaximizerManager(
     var lastMaximizeGoal: String? = null
         private set
 
+    /** Desktop Maximizer.boosts — last maximize/speculate boost list for ASH record returns. */
+    @Volatile
+    var lastBoosts: List<MaximizerBoost> = emptyList()
+        private set
+
+    /**
+     * Desktop Maximizer.lastMaximizeSucceeded — best speculation scored and not failed
+     * (independent of whether EQUIP_NOW actually equipped).
+     */
     fun lastMaximizeSucceeded(): Boolean = lastSucceeded
 
     open suspend fun maximize(
         goalText: String,
         filters: Set<MaximizerFilterType> = MaximizerFilters.fromPreferences(preferences),
+        maxPriceOverride: Int? = null,
+        priceLevelOverride: MaximizerPriceLevel? = null,
     ): MaximizeResult {
         lastSucceeded = false
+        lastBoosts = emptyList()
         lastMaximizeGoal = goalText.trim().takeIf { it.isNotEmpty() }
-        val plan = buildMaximizePlan(goalText, filters)
+        val plan = buildMaximizePlan(goalText, filters, maxPriceOverride, priceLevelOverride)
             ?: return MaximizeResult(false, goalText.trim(), 0.0, 0.0)
+        // Desktop: best != null && best.scored && !best.failed
+        lastSucceeded = !plan.spec.evaluator.failed
         writeSpecFromPlan(plan)
         val boosts = buildBoosts(plan, MaximizerEquipScope.EQUIP_NOW)
+        lastBoosts = boostsWithStatus(boosts, plan.searchStatus)
         if (!hasUsefulMaximizeResult(plan, boosts)) {
             return MaximizeResult(false, plan.goal, plan.scoreBefore, plan.scoreBefore)
         }
@@ -242,6 +260,8 @@ open class MaximizerManager(
             return MaximizeResult(false, plan.goal, plan.scoreBefore, plan.scoreBefore)
         }
         if (nonEquipmentFailure) {
+            val statusBoosts = boostsWithStatus(resultBoosts, plan.searchStatus)
+            lastBoosts = statusBoosts
             return MaximizeResult(
                 success = false,
                 goal = plan.goal,
@@ -253,7 +273,7 @@ open class MaximizerManager(
                 bjornifiedSwitched = bjornifiedSwitched,
                 thrallSwitched = thrallSwitched,
                 modeSwitched = modeSwitched,
-                boosts = boostsWithStatus(resultBoosts, plan.searchStatus),
+                boosts = statusBoosts,
             )
         }
 
@@ -278,7 +298,9 @@ open class MaximizerManager(
             modeSwitched = modeSwitched,
             boosts = boostsWithStatus(resultBoosts, plan.searchStatus),
         )
-        lastSucceeded = result.success
+        lastBoosts = result.boosts
+        // Keep desktop lastMaximizeSucceeded semantics (scored/not-failed), not equip success.
+        lastSucceeded = !plan.spec.evaluator.failed
         return result
     }
 
@@ -286,15 +308,17 @@ open class MaximizerManager(
     open suspend fun speculate(
         goalText: String,
         filters: Set<MaximizerFilterType> = MaximizerFilters.fromPreferences(preferences),
+        maxPriceOverride: Int? = null,
+        priceLevelOverride: MaximizerPriceLevel? = null,
     ): List<String> {
         lastSucceeded = false
-        val plan = buildMaximizePlan(goalText, filters)
+        lastBoosts = emptyList()
+        val plan = buildMaximizePlan(goalText, filters, maxPriceOverride, priceLevelOverride)
             ?: return listOf("Invalid goal: ${goalText.trim()}")
-        if (MaximizerFilterType.EQUIP in plan.filters) {
-            lastSucceeded = !plan.spec.evaluator.failed
-        }
+        lastSucceeded = !plan.spec.evaluator.failed
         writeSpecFromPlan(plan)
         val boosts = buildBoosts(plan, MaximizerEquipScope.SPECULATE)
+        lastBoosts = boostsWithStatus(boosts, plan.searchStatus)
         if (!hasUsefulMaximizeResult(plan, boosts)) {
             return listOf("No improvement for ${plan.goal}")
         }
@@ -490,6 +514,8 @@ open class MaximizerManager(
     private suspend fun buildMaximizePlan(
         goalText: String,
         filters: Set<MaximizerFilterType>,
+        maxPriceOverride: Int? = null,
+        priceLevelOverride: MaximizerPriceLevel? = null,
     ): MaximizePlan? {
         MaximizerContinuation.forceContinue()
         MaximizerProgress.reset()
@@ -497,8 +523,12 @@ open class MaximizerManager(
         activeModeSelections = emptyMap()
         searchActiveEffects = emptyList()
         searchPassiveSkillNames = emptySet()
+        searchPriceLevelOverride = priceLevelOverride
         val goal = goalText.trim()
-        val spec = MaximizeGoal.parseSpec(goal) ?: return null
+        var spec = MaximizeGoal.parseSpec(goal) ?: return null
+        if (maxPriceOverride != null && maxPriceOverride > 0) {
+            spec = spec.copy(maxPrice = maxPriceOverride)
+        }
         MaximizerPreSearchRefresh.refresh(
             inventoryManager = inventoryManager,
             effectManager = effectManager,
@@ -1534,7 +1564,8 @@ open class MaximizerManager(
     }
 
     private fun maximizerPriceLevel(): MaximizerPriceLevel =
-        MaximizerPriceLevel.byIndex(preferences?.getInt("maximizerPriceLevel", 0) ?: 0)
+        searchPriceLevelOverride
+            ?: MaximizerPriceLevel.byIndex(preferences?.getInt("maximizerPriceLevel", 0) ?: 0)
 
     private fun passesEmitMallCheck(itemId: Int, itemName: String, spec: MaximizeSpec): Boolean {
         val priceLevel = maximizerPriceLevel()

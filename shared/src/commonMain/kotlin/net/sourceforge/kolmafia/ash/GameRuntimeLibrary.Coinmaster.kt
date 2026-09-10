@@ -30,18 +30,24 @@ internal fun GameRuntimeLibrary.registerCoinmasterFunctions(scope: AshScope) {
         AshValue.of(ok)
     }
 
+    // Desktop coinmaster buy inventory-delta success; XLIV batch coalesce mirrors sell
     regFn(scope, "buy", AshType.BOOLEAN,
-        listOf("master" to AshType.COINMASTER, "count" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
+        listOf("master" to AshType.COINMASTER, "count" to AshType.INT, "it" to AshType.ITEM)) { rt, args ->
         val master = resolveMaster(args[0]) ?: return@regFn AshValue.FALSE
         val count = args[1].toLong().toInt()
         val itemId = resolveItemId(args[2].toString()) ?: return@regFn AshValue.FALSE
         if (count <= 0) return@regFn AshValue.TRUE
+        if (isBatching(rt)) {
+            val nick = master.nickname.ifBlank { master.shopId ?: master.masterName }
+            batchCommand(rt, "coinmaster", "buy $nick", pilcrowItemParams(count, itemId))
+            return@regFn AshValue.TRUE
+        }
         val ok = kotlinx.coroutines.runBlocking {
             val initial = inventoryManager?.getCount(itemId) ?: 0
             val bought = coinmasterManager?.buy(master, itemId, count) ?: 0
             val after = inventoryManager?.getCount(itemId) ?: (initial + bought)
-            // Prefer inventory delta when inventory is wired; else manager qty
-            if (inventoryManager != null) after >= initial + count && bought >= count
+            // Desktop: initial + count == after
+            if (inventoryManager != null) after == initial + count
             else bought >= count
         }
         AshValue.of(ok)

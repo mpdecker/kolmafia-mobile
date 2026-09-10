@@ -255,8 +255,14 @@ open class AdventureManager(
 
     /** Desktop ChoiceManager.canWalkAway — allow-list from ChoiceControl.canWalkFromChoice. */
     fun canWalkAwayFromChoice(): Boolean {
-        if (!_inChoiceResolution) return true
-        val choiceId = preferences.getInt(LAST_CHOICE_ID, 0)
+        // XLVI-C: prefer ChoiceCombatAshState.canWalkAway when mid-choice ASH
+        if (ChoiceCombatAshState.handlingChoice) {
+            return ChoiceCombatAshState.canWalkAway
+        }
+        val choiceId = when {
+            _inChoiceResolution -> preferences.getInt(LAST_CHOICE_ID, 0)
+            else -> return true
+        }
         if (choiceId <= 0) return true
         return ChoiceWalkAway.canWalkFromChoice(choiceId)
     }
@@ -311,6 +317,10 @@ open class AdventureManager(
         }
         AdventurePrep.hasEffect = { name ->
             effects?.state?.value?.effects?.any { it.name.equals(name, ignoreCase = true) } == true
+        }
+        AdventurePrep.canUseFamiliar = { race ->
+            familiarManager?.state?.value?.ownedFamiliars
+                ?.any { it.race.equals(race, ignoreCase = true) } == true
         }
         AdventurePrep.stenchResistanceLevels = {
             CurrentModifiers(
@@ -431,8 +441,11 @@ open class AdventureManager(
     }
 
     private suspend fun emitTurnConsumed(location: AdventureLocation, result: AdventureResult) {
-        adventureSpentTracker?.recordNoncombatIfNeeded(location, result)
-        adventureSpentTracker?.addTurn(location.name)
+        val used = effectiveAdventuresUsed(1)
+        if (used > 0) {
+            adventureSpentTracker?.recordNoncombatIfNeeded(location, result)
+            adventureSpentTracker?.addTurn(location.name)
+        }
         val turns = adventureSpentTracker?.getTurns(location.name) ?: 0
         val charState = character.state.value
         if (JourneyManager.isJourneymanPath(charState.ascensionPath)) {
@@ -858,6 +871,8 @@ open class AdventureManager(
             return null
         }
         fightLifecycle.recordResponse(fightHtml)
+        // Sync desktop FightRequest.choiceFollowsFight for choice_follows_fight() ASH
+        ChoiceCombatAshState.choiceFollowsFight = fightLifecycle.context.choiceFollowsFight
         lastFightHtml = fightHtml
         ChoiceCombatAshState.noteFightRound(fightHtml)
         FightDiscoComboSync.apply(macro, fightHtml)
@@ -1019,10 +1034,14 @@ open class AdventureManager(
             FightDiscoComboSync.initializeFromCharacter(character, preferences, skills)
         }
         if (!_inMultiFight) {
+            // Capture before clear — desktop FightRequest.choiceFollowsFight survives fight end
+            ChoiceCombatAshState.choiceFollowsFight = fightLifecycle.context.choiceFollowsFight
             _fightFollowsChoice = false
             ChoiceCombatAshState.noteFightEnd(fightHtml)
             ChoiceCombatAshState.fightFollowsChoice = false
             fightLifecycle.clear()
+        } else {
+            ChoiceCombatAshState.choiceFollowsFight = fightLifecycle.context.choiceFollowsFight
         }
         ChoiceCombatAshState.inMultiFight = _inMultiFight
         ChoiceCombatAshState.fightFollowsChoice = _fightFollowsChoice
@@ -1752,6 +1771,9 @@ open class AdventureManager(
                 syncCargoPocketFight(currentChoiceId, option, extraFormFields)
                 _fightFollowsChoice = true
                 _inMultiFight = true
+                ChoiceCombatAshState.fightFollowsChoice = true
+                ChoiceCombatAshState.inMultiFight = true
+                ChoiceCombatAshState.handlingChoice = false
                 break
             }
             if (next is AdventureResult.Choice) {
@@ -1833,6 +1855,16 @@ open class AdventureManager(
 
     companion object {
         const val LAST_CHOICE_ID = "_lastChoiceId"
+
+        /**
+         * Desktop [AdventureRequest.overrideAdventuresUsed] for [adv1] arity.
+         * `-1` = default zone cost; `0+` overrides claimed adventures for the next run.
+         */
+        @Volatile
+        var adventuresUsedOverride: Int = -1
+
+        fun effectiveAdventuresUsed(defaultUsed: Int = 1): Int =
+            if (adventuresUsedOverride >= 0) adventuresUsedOverride else defaultUsed
     }
 
     private suspend fun emitItemEvents(items: List<String>) {

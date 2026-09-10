@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.ash
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.data.FamiliarDefinitionDatabase
 import net.sourceforge.kolmafia.data.ItemData
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.familiar.FamiliarData
@@ -127,8 +128,9 @@ internal fun GameRuntimeLibrary.registerAshP900Batch(scope: AshScope) {
     regFn(scope, "can_equip", AshType.BOOLEAN,
         listOf("it" to AshType.ITEM)) { _, args ->
         val itemName = args[0].toString()
-        val db = gameDatabase ?: return@regFn AshValue.of(false)
-        val item = db.item(itemName) ?: return@regFn AshValue.of(false)
+        val item = gameDatabase?.item(itemName)
+            ?: ItemDatabase.getByName(itemName)
+            ?: return@regFn AshValue.of(false)
         if (item.primaryUse !in EQUIPPABLE_USES) return@regFn AshValue.of(false)
         val mgr = equipmentManager
         AshValue.of(mgr?.canEquip(item.id) ?: true)

@@ -80,4 +80,37 @@ class SimpleXPathTest {
         val html = """<select name="whichclan"><option value="9">Clan</option></select>"""
         assertEquals(listOf("9"), SimpleXPath.evaluate(html, """//select[@name="whichclan"]//option/@value"""))
     }
+
+    @Test
+    fun childTextStep_returnsDirectText() {
+        val html = """<select><option value="90485">Bonus Adventures from Hell</option></select>"""
+        assertEquals(
+            listOf("Bonus Adventures from Hell"),
+            SimpleXPath.evaluate(html, "//option/text()"),
+        )
+    }
+
+    @Test
+    fun followingSiblingAxis_selectsLaterSiblings() {
+        val html = """
+            <div>
+              <span id="a">A</span>
+              <span id="b">B</span>
+              <span id="c">C</span>
+            </div>
+        """.trimIndent()
+        val results = SimpleXPath.evaluate(html, """//span[@id='a']/following-sibling::span""")
+        assertEquals(2, results.size)
+        assertTrue(results[0].contains("B"))
+        assertTrue(results[1].contains("C"))
+    }
+
+    @Test
+    fun followingSiblingWildcard_withPosition() {
+        val html = """<p><b>one</b><i>two</i><u>three</u></p>"""
+        assertEquals(
+            listOf("two"),
+            SimpleXPath.evaluate(html, "//b/following-sibling::*[1]/text()").map { it.trim() },
+        )
+    }
 }

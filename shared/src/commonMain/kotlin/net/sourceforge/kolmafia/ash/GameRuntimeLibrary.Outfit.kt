@@ -31,8 +31,12 @@ internal fun GameRuntimeLibrary.registerOutfitFunctions(scope: AshScope) {
     // Desktop: id < 0 || EquipmentManager.hasOutfit(id)
     regFn(scope, "have_outfit", AshType.BOOLEAN, listOf("name" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
-        val manager = outfitManager ?: return@regFn AshValue.FALSE
-        val outfit = manager.getMatchingOutfit(name) ?: return@regFn AshValue.FALSE
+        val manager = outfitManager
+        val outfit = manager?.getMatchingOutfit(name)
+            ?: OutfitDatabase.getByName(name)?.let { ResolvedOutfit(it.id, it.name, it.equipment) }
+            ?: return@regFn AshValue.FALSE
+        if (outfit.id < 0) return@regFn AshValue.TRUE
+        if (manager == null) return@regFn AshValue.FALSE
         val has = kotlinx.coroutines.runBlocking { manager.hasOutfit(outfit.id) }
         AshValue.of(has)
     }
@@ -78,7 +82,25 @@ internal fun GameRuntimeLibrary.registerOutfitFunctions(scope: AshScope) {
         val outfit = resolveOutfit(name)
         val result = AggregateValue(itemFloatMapType)
         if (outfit != null) {
-            for ((treat, chance) in outfitManager?.treatChances(outfit).orEmpty()) {
+            val treats = outfitManager?.treatChances(outfit)
+                ?: OutfitDatabase.getById(outfit.id)?.let { data ->
+                    data.halloweenDrops.mapNotNull { drop ->
+                        val trimmed = drop.trim()
+                        when {
+                            trimmed.equals("none", ignoreCase = true) || trimmed.isEmpty() -> null
+                            else -> {
+                                val paren = Regex("""^(.+?)\s*\(([\d.]+)\)\s*$""").find(trimmed)
+                                if (paren != null) {
+                                    paren.groupValues[1].trim() to
+                                        (paren.groupValues[2].toDoubleOrNull() ?: 1.0)
+                                } else {
+                                    trimmed to 1.0
+                                }
+                            }
+                        }
+                    }
+                }.orEmpty()
+            for ((treat, chance) in treats) {
                 result[AshValue.item(treat)] = AshValue.of(chance)
             }
         }

@@ -39,16 +39,26 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
             canInteract = canInteract(),
         )
 
+    /** Desktop buy boolean: inventory must land exactly at initial+want. */
     fun buySucceeded(itemId: Int, initial: Int, bought: Int, want: Int): Boolean {
         if (bought < want) return false
         // When no inventory manager is wired (unit tests / headless), trust bought count.
         if (inventoryManager == null) return true
-        return invCount(itemId) >= initial + want
+        return invCount(itemId) == initial + want
     }
 
+    /** Desktop buy(count,item,maxPrice) → inventory delta after purchase. */
     fun purchaseDelta(itemId: Int, initial: Int, bought: Int): Int =
         if (inventoryManager == null) bought.coerceAtLeast(0)
         else (invCount(itemId) - initial).coerceAtLeast(0)
+
+    fun queuedPullsFor(itemId: Int, itemName: String): Int {
+        val name = itemName.ifBlank {
+            gameDatabase?.item(itemId)?.name.orEmpty()
+        }
+        if (name.isBlank()) return 0
+        return net.sourceforge.kolmafia.data.ConcoctionDatabase.getRuntime(name)?.queuedPulls ?: 0
+    }
 
     // Desktop: buy(item) → boolean via inventory delta after CLI NPC/mall routing
     regFn(scope, "buy", AshType.BOOLEAN, listOf("it" to AshType.ITEM)) { _, args ->
@@ -192,48 +202,53 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
     }
 
     // retrieve_item(item) / (count, item) / (item, count)
-    regFn(scope, "retrieve_item", AshType.BOOLEAN, listOf("it" to AshType.ITEM)) { _, args ->
-        val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.of(false)
+    // Desktop: count <= 0 → continueValue() (true); already-on-hand short-circuit
+    fun retrieveItemOk(itemId: Int, itemName: String, count: Int): Boolean {
+        if (count <= 0) return true
+        if (invCount(itemId) >= count) return true
         val retrieved = kotlinx.coroutines.runBlocking {
-            retrieveItemService?.retrieve(itemId, 1) ?: 0
+            retrieveItemService?.retrieve(itemId, count) ?: 0
         }
-        AshValue.of(retrieved >= 1)
+        return retrieved >= count || invCount(itemId) >= count
+    }
+
+    regFn(scope, "retrieve_item", AshType.BOOLEAN, listOf("it" to AshType.ITEM)) { _, args ->
+        val itemName = args[0].toString()
+        val itemId = resolveItemId(itemName) ?: return@regFn AshValue.of(false)
+        AshValue.of(retrieveItemOk(itemId, itemName, 1))
     }
     regFn(scope, "retrieve_item", AshType.BOOLEAN,
         listOf("count" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
-        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(false)
         val count = args[0].toLong().toInt()
-        val retrieved = kotlinx.coroutines.runBlocking {
-            retrieveItemService?.retrieve(itemId, count) ?: 0
-        }
-        AshValue.of(retrieved >= count)
+        if (count <= 0) return@regFn AshValue.TRUE
+        val itemName = args[1].toString()
+        val itemId = resolveItemId(itemName) ?: return@regFn AshValue.of(false)
+        AshValue.of(retrieveItemOk(itemId, itemName, count))
     }
     regFn(scope, "retrieve_item", AshType.BOOLEAN,
         listOf("it" to AshType.ITEM, "count" to AshType.INT)) { _, args ->
-        val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.of(false)
         val count = args[1].toLong().toInt()
-        val retrieved = kotlinx.coroutines.runBlocking {
-            retrieveItemService?.retrieve(itemId, count) ?: 0
-        }
-        AshValue.of(retrieved >= count)
+        if (count <= 0) return@regFn AshValue.TRUE
+        val itemName = args[0].toString()
+        val itemId = resolveItemId(itemName) ?: return@regFn AshValue.of(false)
+        AshValue.of(retrieveItemOk(itemId, itemName, count))
     }
 
-    // retrieve_item(count, item, retrieve) — mobile check-only extension
+    // retrieve_item(count, item, retrieve) — check-only uses physicalAccessible − pull queue
     regFn(scope, "retrieve_item", AshType.BOOLEAN,
         listOf("count" to AshType.INT, "it" to AshType.ITEM, "retrieve" to AshType.BOOLEAN)) { _, args ->
+        val count = args[0].toLong().toInt()
+        if (count <= 0) return@regFn AshValue.TRUE
         val itemName = args[1].toString()
         val itemId = resolveItemId(itemName) ?: return@regFn AshValue.of(false)
-        val count = args[0].toLong().toInt()
         val doRetrieve = args[2].toBoolean()
         if (!doRetrieve) {
             val accessible = kotlinx.coroutines.runBlocking {
-                physicalAccessibleCount(itemId, itemName)
+                (physicalAccessibleCount(itemId, itemName) - queuedPullsFor(itemId, itemName))
+                    .coerceAtLeast(0)
             }
             return@regFn AshValue.of(accessible >= count)
         }
-        val retrieved = kotlinx.coroutines.runBlocking {
-            retrieveItemService?.retrieve(itemId, count) ?: 0
-        }
-        AshValue.of(retrieved >= count)
+        AshValue.of(retrieveItemOk(itemId, itemName, count))
     }
 }

@@ -29,6 +29,7 @@ internal object CombatAdjustment {
     data class ScaleParams(val scale: Int, val cap: Int, val floor: Int)
 
     fun elementalResistanceByLevel(levels: Int, mystBonus: Boolean, isMystClass: Boolean): Double {
+        // Desktop KoLCharacter.elementalResistanceByLevel — no clamp; callers max(0, levels).
         val value = if (levels > 4) {
             90.0 - 50.0 * (5.0 / 6.0).pow(levels - 4)
         } else {
@@ -99,12 +100,26 @@ internal object CombatAdjustment {
         attackModifier: Int = 0,
         ml: Int = 0,
         expressionContext: ExpressionContext? = null,
+        usingShield: Boolean = false,
+        hasHeroOfTheHalfShell: Boolean = false,
+        /**
+         * When non-null, use this absolute attack (desktop `monster.getAttack()+modifier`
+         * already resolved) instead of recomputing from [monster]/[ml].
+         */
+        resolvedAttack: Int? = null,
     ): Int {
         if (monster == null) return 0
-        val attack = monsterAttack(monster, ml, expressionContext) + attackModifier
-        val defenseStat = character?.buffedMoxie ?: 0
+        val attack = resolvedAttack
+            ?: (monsterAttack(monster, ml, expressionContext) + attackModifier)
+        var defenseStat = resolveBuffedMoxie(character, modifiers)
+        // Desktop Hero of the Half-Shell + shield: defend with muscle when higher than moxie.
+        if (hasHeroOfTheHalfShell && usingShield) {
+            val muscle = resolveBuffedMuscle(character, modifiers)
+            if (muscle > defenseStat) defenseStat = muscle
+        }
         val da = modifiers.values.get(DoubleModifier.DAMAGE_ABSORPTION).toInt()
         val dr = modifiers.values.get(DoubleModifier.DAMAGE_REDUCTION).toInt()
+        // Desktop wiki formula: (sqrt(min(1000,DA)/10)-1)/10 absorption fraction.
         val damageAbsorb =
             1.0 - (sqrt(min(1000, da) / 10.0) - 1.0) / 10.0
 
@@ -118,8 +133,12 @@ internal object CombatAdjustment {
             elementAbsorb =
                 1.0 - elementalResistanceByLevel(modifiedRes, mystBonus = true, isMyst) / 100.0
         } else {
+            // Desktop: max(0, atk-def) + atk/4 - DR (integer division).
             baseValue = max(0, attack - defenseStat) + attack / 4 - dr
-            val elemPct = elementalResistancePercent(modifiers, monster.attackElement, character)
+            val attackElem = monster.attackElement.ifBlank {
+                net.sourceforge.kolmafia.data.primaryAttackElement(monster.attackElements)
+            }
+            val elemPct = elementalResistancePercent(modifiers, attackElem, character)
             elementAbsorb = 1.0 - elemPct / 100.0
         }
         return ceil(baseValue * damageAbsorb * elementAbsorb).toInt()
@@ -712,6 +731,7 @@ internal object CombatAdjustment {
      * [initMl] feeds initPenalty; [attackMl] feeds attack (desktop quirk: overload ml
      * only affects initiative, while attack uses current character ML).
      * Missing Init: → −1. Overclocked +200 vs Source Agent.
+     * OCRS / RandomModifierStats should already be applied on [monster] by callers.
      */
     fun jumpChance(
         monster: MonsterDefinition?,
@@ -724,6 +744,7 @@ internal object CombatAdjustment {
     ): Int {
         if (monster == null) return 0
         if (!monster.hasInitiative) return -1
+        // initPenalty uses the passed initMl (not MLMult); attack uses attackMl + MLMult.
         val monsterInit = monsterInitiativeWithMl(monster, initMl, expressionContext)
         if (monsterInit == 10000) return 0
         if (monsterInit == -10000) return 100
@@ -805,7 +826,7 @@ internal object CombatAdjustment {
             HitStatKind.MUSCLE -> StatNames.MUSCLE
         }
 
-    /** Desktop [MonsterData.willUsuallyDodge] with offenseModifier (ASH uses 0). */
+    /** Desktop [MonsterData.willUsuallyDodge] with offenseModifier (ASH uses tracker delevel). */
     fun willUsuallyDodge(
         monster: MonsterDefinition?,
         buffedMoxie: Int,
@@ -815,10 +836,11 @@ internal object CombatAdjustment {
     ): Boolean {
         if (monster == null) return false
         val attack = monsterAttack(monster, ml, expressionContext)
+        // Desktop: adjustedMoxie - (attack + offenseModifier) - 6 > 0
         return buffedMoxie - (attack + offenseModifier) - 6 > 0
     }
 
-    /** Desktop [MonsterData.willUsuallyMiss] with defenseModifier (ASH uses 0). */
+    /** Desktop [MonsterData.willUsuallyMiss] with defenseModifier (ASH uses tracker delevel). */
     fun willUsuallyMiss(
         monster: MonsterDefinition?,
         hitStat: Int,
@@ -828,6 +850,8 @@ internal object CombatAdjustment {
         reduceEnemyDefensePercent: Double = 0.0,
     ): Boolean {
         if (monster == null) return false
+        // Desktop ATTACKS_CANT_MISS → Integer.MAX_VALUE hit stat → never "usually miss".
+        if (hitStat == Int.MAX_VALUE) return false
         val defense = monsterDefense(monster, ml, expressionContext, reduceEnemyDefensePercent)
         return hitPercent(hitStat - defenseModifier, defense) <= 50.0
     }

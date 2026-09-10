@@ -85,6 +85,6 @@ class GameRuntimeLibraryAshP950TrackITest {
         ChoiceCombatAshState.lastFightResponseText = "fight-html"
         val lib = GameRuntimeLibrary(preferences = prefs())
         assertEquals("fight-html", outputLib(lib, """print(run_combat("abort"));"""))
-        assertEquals("phase6370", GameRuntimeLibrary.REVISION)
+        assertEquals("phase6670", GameRuntimeLibrary.REVISION)
     }
 }

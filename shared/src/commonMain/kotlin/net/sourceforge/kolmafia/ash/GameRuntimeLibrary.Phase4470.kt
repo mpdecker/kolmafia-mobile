@@ -24,8 +24,23 @@ import net.sourceforge.kolmafia.utilities.leetify
  */
 internal fun GameRuntimeLibrary.registerPhase4470(scope: AshScope) {
     // ── 4461: can_walk_from_choice ────────────────────────────────
+    // Desktop ChoiceManager.canWalkAway — synced on choice visit (XLVI-C),
+    // AdventureManager allow-list, ChoiceCombatAshState lastChoice fallback.
     regFn(scope, "can_walk_from_choice", AshType.BOOLEAN, emptyList()) { _, _ ->
-        AshValue.of(adventureManager?.canWalkAwayFromChoice() ?: true)
+        if (net.sourceforge.kolmafia.session.ChoiceCombatAshState.handlingChoice) {
+            return@regFn AshValue.of(net.sourceforge.kolmafia.session.ChoiceCombatAshState.canWalkAway)
+        }
+        val fromManager = adventureManager?.canWalkAwayFromChoice()
+        if (fromManager != null) {
+            return@regFn AshValue.of(fromManager)
+        }
+        val choiceId = net.sourceforge.kolmafia.session.ChoiceCombatAshState.lastChoice
+        if (choiceId <= 0) {
+            return@regFn AshValue.of(true)
+        }
+        AshValue.of(
+            net.sourceforge.kolmafia.adventure.choice.ChoiceWalkAway.canWalkFromChoice(choiceId),
+        )
     }
 
     // ── 4462: reverse_numberology ─────────────────────────────────
@@ -50,7 +65,8 @@ internal fun GameRuntimeLibrary.registerPhase4470(scope: AshScope) {
         reverseNumberologyMap(args[0].toLong().toInt(), args[1].toLong().toInt())
     }
 
-    // ── 4463: monster_factoids_available ──────────────────────────
+    // ── 4463 / 6591–6610: monster_factoids_available ──────────────
+    // Desktop registers only (monster, cachedOnly). 1-arg convenience defaults to fetch.
     fun monsterFactoidsAvailable(monsterArg: AshValue, cachedOnly: Boolean): AshValue {
         val id = when (val c = monsterArg.content) {
             is Long -> c.toInt()
@@ -126,7 +142,7 @@ internal fun GameRuntimeLibrary.registerPhase4470(scope: AshScope) {
     // ── 4468: pre_validate_adventure ──────────────────────────────
     regFn(scope, "pre_validate_adventure", AshType.BOOLEAN, listOf("loc" to AshType.LOCATION)) { _, args ->
         val locationName = args[0].toString()
-        if (locationName.isBlank() || locationName.equals("none", ignoreCase = true)) {
+        if (AdventurePrep.isNoneLocation(locationName)) {
             return@regFn AshValue.FALSE
         }
         val zone = AdventureDatabase.getByName(locationName)
