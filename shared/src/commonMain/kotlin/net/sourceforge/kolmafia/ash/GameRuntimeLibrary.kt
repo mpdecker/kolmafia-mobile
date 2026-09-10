@@ -448,6 +448,10 @@ import net.sourceforge.kolmafia.request.IsotopeSmitheryRequest
 import net.sourceforge.kolmafia.request.AltarOfBonesRequest
 import net.sourceforge.kolmafia.request.TravelingTraderRequest
 import net.sourceforge.kolmafia.request.CrimboCartelRequest
+import net.sourceforge.kolmafia.request.CrimboHubResponseParse
+import net.sourceforge.kolmafia.request.CraftThinHubResponseParse
+import net.sourceforge.kolmafia.request.LegacyCoinmasterResponseParse
+import net.sourceforge.kolmafia.request.MiscShopTokenResponseParse
 import net.sourceforge.kolmafia.request.BigBrotherRequest
 import net.sourceforge.kolmafia.request.FudgeWandRequest
 import net.sourceforge.kolmafia.request.SkeletonOfCrimboPastRequest
@@ -799,7 +803,7 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase6130"
+        const val REVISION = "phase6370"
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -3310,12 +3314,16 @@ class GameRuntimeLibrary(
             CombineMeatRequest.registerRequest(url, sessionLogger)
             Crimbo12Request.registerRequest(url, sessionLogger)
             WaxGlobRequest.registerRequest(url, sessionLogger)
+            WaxGlobRequest.parseResponse(url, html, preferences)
             HeyDezeRequest.parseResponse(url, html, preferences)
             HeyDezeRequest.registerRequest(url, sessionLogger)
             UpdateSuppressedRequest.shouldSuppress(url) // headless ajax/api marker available to callers
             BurningNewspaperRequest.registerRequest(url, sessionLogger)
+            BurningNewspaperRequest.parseResponse(url, html, preferences)
             MeteoroidRequest.registerRequest(url, sessionLogger)
+            MeteoroidRequest.parseResponse(url, html, preferences)
             GrubbyWoolRequest.registerRequest(url, sessionLogger)
+            GrubbyWoolRequest.parseResponse(url, html, preferences)
             Crimbo05Request.registerRequest(url, sessionLogger)
             Crimbo06Request.registerRequest(url, sessionLogger)
             Crimbo07Request.registerRequest(url, sessionLogger)
@@ -3326,11 +3334,16 @@ class GameRuntimeLibrary(
             Crimbo17Request.registerRequest(url, sessionLogger)
             StillRequestHub.registerRequest(url, sessionLogger)
             SugarSheetRequestHub.registerRequest(url, sessionLogger)
+            SugarSheetRequestHub.parseResponse(url, html, preferences)
             StarChartRequestHub.registerRequest(url, sessionLogger)
+            StarChartRequestHub.parseResponse(url, html, preferences)
             InterestingCoinRequestHub.registerRequest(url, sessionLogger)
             NuggletCraftingRequestHub.registerRequest(url, sessionLogger)
+            NuggletCraftingRequestHub.parseResponse(url, html, preferences)
             SewerRequestHub.registerRequest(url, sessionLogger)
+            SewerRequestHub.parseResponse(url, html, preferences)
             ClipArtRequestHub.registerRequest(url, sessionLogger)
+            ClipArtRequestHub.parseResponse(url, html, preferences)
             GnomeTinkerRequestHub.registerRequest(url, sessionLogger)
             PhineasRequestHub.registerRequest(url, sessionLogger)
             TerminalExtrudeRequestHub.registerRequest(url, sessionLogger)
@@ -4175,10 +4188,70 @@ class GameRuntimeLibrary(
             StillRequestHub.parseResponse(url, html, preferences)
             InterestingCoinRequestHub.parseResponse(url, html, preferences)
             ShadowForgeRequest.parseResponse(url, html, preferences)
+            CrimboHubResponseParse.parseResponse(url, html, preferences)
+            CraftThinHubResponseParse.parseResponse(url, html, preferences)
+            LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+            MiscShopTokenResponseParse.parseResponse(url, html, preferences)
+        }
+        if (url != null && (
+                url.contains("crimbo", ignoreCase = true) ||
+                    url.contains("talktosocp", ignoreCase = true)
+            )
+        ) {
+            CrimboHubResponseParse.parseResponse(url, html, preferences)
+        }
+        if (url != null && (
+                url.contains("gnomes.php", ignoreCase = true) ||
+                    url.contains("volcanoisland.php", ignoreCase = true) ||
+                    url.contains("guild.php", ignoreCase = true) ||
+                    url.contains("sellstuff", ignoreCase = true) ||
+                    url.contains("freesnack", ignoreCase = true) ||
+                    url.contains("whichchoice=1191", ignoreCase = true) ||
+                    url.contains("whichchoice=1233", ignoreCase = true) ||
+                    url.contains("whichchoice=1510", ignoreCase = true) ||
+                    url.contains("whichchoice=1480", ignoreCase = true)
+            )
+        ) {
+            CraftThinHubResponseParse.parseResponse(url, html, preferences)
+        }
+        if (url != null && (
+                url.contains("mrstore.php", ignoreCase = true) ||
+                    url.contains("monkeycastle.php", ignoreCase = true) ||
+                    url.contains("whichchoice=562", ignoreCase = true) ||
+                    url.contains("whichitem=5441", ignoreCase = true) ||
+                    url.contains("whichshop=isotope", ignoreCase = true) ||
+                    url.contains("whichshop=elvishp", ignoreCase = true) ||
+                    url.contains("whichshop=awol", ignoreCase = true) ||
+                    url.contains("whichitem=5116", ignoreCase = true) ||
+                    url.contains("whichshop=cyber_dedigitizer", ignoreCase = true) ||
+                    url.contains("whichshop=dedigitizer", ignoreCase = true) ||
+                    url.contains("whichshop=batman", ignoreCase = true) ||
+                    url.contains("whichshop=cgold", ignoreCase = true) ||
+                    url.contains("whichshop=infernodisco", ignoreCase = true) ||
+                    url.contains("friars.php", ignoreCase = true)
+            )
+        ) {
+            LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+        }
+        if (url != null && (
+                url.contains("whichshop=arcade", ignoreCase = true) ||
+                    url.contains("gamestore.php", ignoreCase = true) ||
+                    url.contains("whichshop=fdkol", ignoreCase = true) ||
+                    url.contains("whichitem=5707", ignoreCase = true) ||
+                    url.contains("whichshop=fantasyrealm", ignoreCase = true) ||
+                    url.contains("whichshop=sbb_brogurt", ignoreCase = true) ||
+                    url.contains("whichshop=brogurt", ignoreCase = true) ||
+                    url.contains("whichshop=landfillstore", ignoreCase = true) ||
+                    url.contains("whichshop=walmart", ignoreCase = true) ||
+                    url.contains("whichshop=glaciest", ignoreCase = true)
+            )
+        ) {
+            MiscShopTokenResponseParse.parseResponse(url, html, preferences)
         }
         if (url != null && url.contains("gamestore.php", ignoreCase = true)) {
             GameShoppeRequest.parseResponse(url, html, preferences)
             FreeSnackRequest.registerRequest(url, sessionLogger)
+            CraftThinHubResponseParse.parseResponse(url, html, preferences)
         }
         if (url != null && url.contains("whichitem=5683")) {
             BURTRequest.parseResponse(url, html, preferences)
@@ -4202,6 +4275,7 @@ class GameRuntimeLibrary(
                 preferences?.let {
                     SwaggerShopSync.applyVisitShop(html, url, it, sessionLogger, character?.state?.value)
                 }
+                LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
             }
         }
         if (url != null && url.contains("showplayer.php", ignoreCase = true)) {
@@ -6608,7 +6682,7 @@ class GameRuntimeLibrary(
         uneffectByName(parameter)
     }
 
-    internal fun uneffectByName(name: String) {
+    internal fun uneffectByName(name: String): Boolean {
         val active = effectManager?.state?.value?.effects.orEmpty()
         val explicitId = Regex("""^\[(\d+)]$""").matchEntire(name)?.groupValues?.get(1)?.toIntOrNull()
         val matches = active.filter {
@@ -6626,12 +6700,12 @@ class GameRuntimeLibrary(
                     sessionLogger?.appendRawLine(
                         "Ambiguous effect name: $name (${matches.joinToString { it.name }})",
                     )
-                    return
+                    return false
                 }
             }
-            else -> return
+            else -> return false
         }
-        val prefs = preferences ?: return
+        val prefs = preferences ?: return false
         val charState = character?.state?.value
         val inv = inventoryManager?.state?.value
         val hasItemId: (Int) -> Boolean = { id ->
@@ -6690,9 +6764,10 @@ class GameRuntimeLibrary(
             sessionLogger?.appendRawLine(
                 "${effect.name} can be removed only with hot Dreadsylvanian cocoa.",
             )
-            return
+            return false
         }
         executeUneffectAction(action, effect.id)
+        return true
     }
 
     private fun executeUneffectAction(action: UneffectAction, effectId: Int) {
@@ -7317,6 +7392,10 @@ class GameRuntimeLibrary(
         registerPhase6010(scope)
         registerPhase6070(scope)
         registerPhase6130(scope)
+        registerPhase6190(scope)
+        registerPhase6250(scope)
+        registerPhase6310(scope)
+        registerPhase6370(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->

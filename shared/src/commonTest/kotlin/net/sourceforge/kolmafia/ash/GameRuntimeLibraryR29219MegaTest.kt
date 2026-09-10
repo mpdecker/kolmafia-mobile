@@ -27,7 +27,7 @@ class GameRuntimeLibraryR29219MegaTest {
 
     @Test
     fun revision_isPhase4430() {
-        assertEquals("phase5950", GameRuntimeLibrary.REVISION)
+        assertEquals("phase6370", GameRuntimeLibrary.REVISION)
     }
 
     @Test

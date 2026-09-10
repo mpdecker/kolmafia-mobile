@@ -52,8 +52,8 @@ internal fun GameRuntimeLibrary.registerAshP39Batch(scope: AshScope) {
     }
 
     regFn(scope, "elemental_resistance", AshType.FLOAT, emptyList()) { _, _ ->
-        val monsterName = preferences?.getString(Preferences.LAST_MONSTER, "") ?: ""
-        val monster = resolveMonsterDefinition(monsterName)
+        val monster = net.sourceforge.kolmafia.combat.MonsterStatusTracker.getLastMonster()
+            ?: resolveMonsterDefinition(preferences?.getString(Preferences.LAST_MONSTER, "").orEmpty())
         AshValue.of(
             CombatAdjustment.elementalResistancePercent(
                 buildCurrentModifiers(),
@@ -85,13 +85,14 @@ internal fun GameRuntimeLibrary.registerAshP39Batch(scope: AshScope) {
     }
 
     regFn(scope, "expected_damage", AshType.INT, emptyList()) { _, _ ->
-        val monsterName = preferences?.getString(Preferences.LAST_MONSTER, "") ?: ""
+        val monster = net.sourceforge.kolmafia.combat.MonsterStatusTracker.getLastMonster()
+            ?: resolveMonsterDefinition(preferences?.getString(Preferences.LAST_MONSTER, "").orEmpty())
         val mods = buildCurrentModifiers()
         val state = character?.state?.value
         val ml = CombatAdjustment.monsterLevelAdjustment(mods, state, lastLocationName())
         AshValue.of(
             CombatAdjustment.expectedDamage(
-                resolveMonsterDefinition(monsterName),
+                monster,
                 state,
                 mods,
                 ml = ml,

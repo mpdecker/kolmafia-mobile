@@ -276,6 +276,8 @@ internal fun GameRuntimeLibrary.registerAshP918Batch(scope: AshScope) {
     regFn(scope, "total_free_rests", AshType.INT, emptyList()) { _, _ ->
         val mods = buildCurrentModifiers()
         val freeRests = mods.values.get(DoubleModifier.FREE_RESTS).toInt()
+        // Keep freeRestsAvailable pref in sync for CampgroundSync.freeRestsRemaining.
+        preferences?.setInt("freeRestsAvailable", freeRests)
         AshValue.of(freeRests.toLong())
     }
 }

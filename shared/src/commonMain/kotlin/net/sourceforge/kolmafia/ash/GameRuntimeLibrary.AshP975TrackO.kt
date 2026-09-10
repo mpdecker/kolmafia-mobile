@@ -137,17 +137,7 @@ internal fun GameRuntimeLibrary.registerAshP975TrackOBatch(scope: AshScope) {
     val stringToString = AggregateType(AshType.STRING, AshType.STRING)
     regFn(scope, "form_fields", stringToString, listOf("url" to AshType.STRING)) { _, args ->
         val result = AggregateValue(stringToString)
-        val url = args[0].toString()
-        val q = url.indexOf('?')
-        if (q >= 0) {
-            val query = url.substring(q + 1)
-            for (pair in query.split('&')) {
-                val eq = pair.indexOf('=')
-                if (eq > 0) {
-                    result[AshValue.of(pair.substring(0, eq))] = AshValue.of(pair.substring(eq + 1))
-                }
-            }
-        }
+        parseQueryFormFields(args[0].toString(), result)
         result
     }
 

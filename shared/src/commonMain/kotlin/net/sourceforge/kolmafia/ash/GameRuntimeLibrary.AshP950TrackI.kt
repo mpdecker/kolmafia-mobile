@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import io.ktor.http.decodeURLQueryComponent
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
@@ -67,20 +68,26 @@ internal fun GameRuntimeLibrary.registerAshP950TrackIBatch(scope: AshScope) {
             }
             return@regFn result
         }
-        val q = lastVisitPath.indexOf('?')
-        if (q >= 0) {
-            lastVisitPath.substring(q + 1).split('&').forEach { pair ->
-                val eq = pair.indexOf('=')
-                if (eq > 0) {
-                    result[AshValue.of(pair.substring(0, eq))] = AshValue.of(pair.substring(eq + 1))
-                }
-            }
-        }
+        parseQueryFormFields(lastVisitPath, result)
         result
     }
 
     // ── Phase 953: choice_follows_fight ─────────────────────────────
     regFn(scope, "choice_follows_fight", AshType.BOOLEAN, emptyList()) { _, _ ->
         AshValue.of(ChoiceCombatAshState.choiceFollowsFight)
+    }
+}
+
+/** Desktop GenericRequest.decodeField parity for form_fields query parsing. */
+internal fun parseQueryFormFields(url: String, into: AggregateValue) {
+    val q = url.indexOf('?')
+    if (q < 0) return
+    url.substring(q + 1).split('&').forEach { pair ->
+        val eq = pair.indexOf('=')
+        if (eq > 0) {
+            val key = pair.substring(0, eq).decodeURLQueryComponent()
+            val value = pair.substring(eq + 1).decodeURLQueryComponent()
+            into[AshValue.of(key)] = AshValue.of(value)
+        }
     }
 }

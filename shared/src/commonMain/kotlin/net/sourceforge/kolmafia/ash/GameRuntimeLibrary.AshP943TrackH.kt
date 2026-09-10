@@ -23,13 +23,18 @@ import net.sourceforge.kolmafia.session.NumberologyManager
 internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
     // ── Phase 943: auto_attack ──────────────────────────────────────
     regFn(scope, "get_auto_attack", AshType.INT, emptyList()) { _, _ ->
-        val action = character?.state?.value?.autoAttackAction ?: 0
+        val action = character?.state?.value?.autoAttackAction
+            ?.takeIf { it != 0 }
+            ?: preferences?.getInt("defaultAutoAttack", 0)
+            ?: 0
         AshValue.of(action.toLong())
     }
 
     regFn(scope, "set_auto_attack", AshType.VOID, listOf("attackValue" to AshType.INT)) { rt, args ->
         val value = args[0].toLong().toInt()
         character?.setAutoAttackAction(value)
+        preferences?.setInt("defaultAutoAttack", value)
+        dispatchCli("autoattack $value", rt)
         AshValue.VOID
     }
 
@@ -81,18 +86,28 @@ internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
     // ── Phase 945: eudora / eudora_item ────────────────────────────
     regFn(scope, "eudora", AshType.STRING, emptyList()) { _, _ ->
         val current = preferences?.getString("currentEudora", "").orEmpty()
+            .ifBlank { preferences?.getString("eudora", "").orEmpty() }
         val name = LongTailCli.Correspondent.findByName(current).name
         AshValue.of(if (name == "Pen Pal") "Penpal" else name)
     }
 
     regFn(scope, "eudora", AshType.BOOLEAN, listOf("newEudora" to AshType.STRING)) { rt, args ->
         val arg = args[0].toString()
+        val target = LongTailCli.Correspondent.find(arg) ?: return@regFn AshValue.FALSE
+        val before = preferences?.getString("eudora", "").orEmpty()
+            .ifBlank { preferences?.getString("currentEudora", "").orEmpty() }
         dispatchCli("eudora $arg", rt)
-        AshValue.TRUE
+        val after = preferences?.getString("eudora", "").orEmpty()
+            .ifBlank { preferences?.getString("currentEudora", "").orEmpty() }
+        AshValue.of(
+            after.equals(target.name, ignoreCase = true) ||
+                (before.isNotBlank() && after != before),
+        )
     }
 
     regFn(scope, "eudora_item", AshType.ITEM, emptyList()) { _, _ ->
         val current = preferences?.getString("currentEudora", "").orEmpty()
+            .ifBlank { preferences?.getString("eudora", "").orEmpty() }
         val correspondent = LongTailCli.Correspondent.findByName(current)
         val itemName = when (correspondent.id) {
             1 -> "envelope from your pen pal"

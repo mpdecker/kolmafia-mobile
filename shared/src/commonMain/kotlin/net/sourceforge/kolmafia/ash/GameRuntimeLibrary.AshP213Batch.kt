@@ -57,4 +57,25 @@ internal fun GameRuntimeLibrary.registerAshP213Batch(scope: AshScope) {
             ),
         )
     }
+
+    regFn(
+        scope,
+        "is_coinmaster_skill",
+        AshType.BOOLEAN,
+        listOf("sk" to AshType.SKILL, "validate" to AshType.BOOLEAN),
+    ) { _, args ->
+        val id = skillId(args[0]) ?: return@regFn AshValue.FALSE
+        val validate = args[1].toBoolean()
+        AshValue.of(
+            CoinmasterDatabase.containsBuySkill(
+                skillId = id,
+                validate = validate,
+                state = craftCharacterState(),
+                prefs = preferences,
+                accessibleCount = { itemId -> craftAccessibleCount(itemId) },
+                hasSkill = { skillId -> craftSkills().any { it.id == skillId } },
+                hasEffect = { effectId -> hasActiveEffect(effectId) },
+            ),
+        )
+    }
 }

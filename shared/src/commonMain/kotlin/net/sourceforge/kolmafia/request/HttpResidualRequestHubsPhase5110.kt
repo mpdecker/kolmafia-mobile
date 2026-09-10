@@ -37,6 +37,10 @@ object FreeSnackRequest {
         sessionLogger?.appendRawLine("Buying free snack")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        MiscShopTokenResponseParse.parseResponse(url, html, preferences)
+    }
 }
 
 object GameShoppeRequest {
@@ -91,6 +95,10 @@ object IsotopeSmitheryRequest {
         sessionLogger?.appendRawLine("Visiting Isotope Smithery")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+    }
 }
 
 object AltarOfBonesRequest {
@@ -143,6 +151,10 @@ object BigBrotherRequest {
         sessionLogger?.appendRawLine("Visiting Big Brother")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+    }
 }
 
 object FudgeWandRequest {
@@ -160,6 +172,10 @@ object FudgeWandRequest {
             return true
         }
         return false
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
     }
 }
 
@@ -185,6 +201,10 @@ object AWOLQuartermasterRequest {
         sessionLogger?.appendRawLine("Visiting A.W.O.L. Quartermaster")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+    }
 }
 
 object MrStoreRequest {
@@ -192,6 +212,10 @@ object MrStoreRequest {
         if (!url.contains("mrstore.php", ignoreCase = true)) return false
         sessionLogger?.appendRawLine("Visiting Mr. Store")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
     }
 }
 

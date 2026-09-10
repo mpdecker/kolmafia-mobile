@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.data.MonsterDefinition
 import net.sourceforge.kolmafia.data.MonsterDrop
+import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
@@ -13,7 +14,8 @@ internal fun GameRuntimeLibrary.registerAshP45Batch(scope: AshScope) {
     val itemDropArrayType = AggregateType(AshType.INT, ITEM_DROP_REC)
 
     fun lastMonster() =
-        resolveMonsterDefinition(preferences?.getString(Preferences.LAST_MONSTER, "") ?: "")
+        MonsterStatusTracker.getLastMonster()
+            ?: resolveMonsterDefinition(preferences?.getString(Preferences.LAST_MONSTER, "") ?: "")
 
     fun meatDropValue(monster: MonsterDefinition?): AshValue =
         if (monster == null) AshValue.of(-1L) else AshValue.of(monster.meatDrop.toLong())

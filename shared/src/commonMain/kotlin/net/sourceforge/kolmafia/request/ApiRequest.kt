@@ -9,6 +9,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.sourceforge.kolmafia.character.ApiStatusSync
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.CollectionCacheSync
@@ -18,16 +19,20 @@ import net.sourceforge.kolmafia.session.EquipmentManager
 
 /**
  * Desktop [net.sourceforge.kolmafia.request.ApiRequest] — visit_url / refresh router for
- * `api.php?what=status|inventory|closet|storage` (Phases 6071–6085).
+ * `api.php?what=status|inventory|closet|storage|item` (Phases 6071–6085 + 6131).
  */
 object ApiRequest {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val WHAT = Regex("""(?:^|[?&])what=([^&]*)""", RegexOption.IGNORE_CASE)
+    private val ID = Regex("""(?:^|[?&])id=([^&]*)""", RegexOption.IGNORE_CASE)
 
     fun registerRequest(url: String): Boolean = url.contains("api.php", ignoreCase = true)
 
     fun whatFromUrl(url: String): String =
         WHAT.find(url)?.groupValues?.getOrNull(1)?.lowercase().orEmpty()
+
+    fun idFromUrl(url: String): Int =
+        ID.find(url)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
 
     /**
      * Strip leading non-JSON noise (desktop [ApiRequest.getJSONString]).
@@ -78,8 +83,27 @@ object ApiRequest {
             "inventory" -> parseInventory(responseText, inventoryManager, preferences)
             "closet" -> parseCloset(responseText, preferences)
             "storage" -> parseStorage(responseText, character, preferences)
+            "item" -> parseItem(responseText, idFromUrl(url))
             else -> false
         }
+    }
+
+    /**
+     * Desktop [ItemDatabase.registerItem(itemId)] — api.php?what=item&id=N JSON
+     * (name/descid/plural) for owned items. Not a parseResponse switch case on desktop;
+     * wired here so visit_url scripts learn items the same way.
+     */
+    fun parseItem(responseText: String, itemId: Int): Boolean {
+        if (itemId <= 0) return false
+        val root = jsonObjectFromResponse(responseText) ?: return false
+        fun str(key: String): String =
+            (root[key] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val name = str("name")
+        if (name.isBlank()) return false
+        val descId = str("descid")
+        val plural = str("plural").takeIf { it.isNotBlank() }
+        ItemDatabase.registerItem(itemId, name, descId, plural)
+        return true
     }
 
     fun parseStatus(

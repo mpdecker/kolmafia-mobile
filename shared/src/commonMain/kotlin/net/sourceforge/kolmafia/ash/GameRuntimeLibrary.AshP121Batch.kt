@@ -35,6 +35,11 @@ internal fun GameRuntimeLibrary.registerAshP121Batch(scope: AshScope) {
         AshValue.of(ItemDatabase.getPluralName(id))
     }
 
+    regFn(scope, "to_plural", AshType.STRING, listOf("id" to AshType.INT)) { _, args ->
+        val id = args[0].toLong().toInt()
+        AshValue.of(ItemDatabase.getPluralName(id))
+    }
+
     regFn(scope, "get_power", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
         val id = itemId(args[0]) ?: return@regFn AshValue.ZERO
         AshValue.of(EquipmentDatabase.getPower(id).toLong())

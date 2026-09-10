@@ -145,11 +145,21 @@ object ItemDatabase {
 
     fun getItemName(itemId: Int): String = getById(itemId)?.name ?: ""
 
-    /** Desktop [ItemDatabase.registerItem] — visit-learned swagger shop names. */
-    fun registerItem(itemId: Int, name: String, descId: String) {
+    /** Desktop [ItemDatabase.registerItem] — visit-learned swagger / api.php?what=item. */
+    fun registerItem(
+        itemId: Int,
+        name: String,
+        descId: String,
+        plural: String? = null,
+    ) {
         if (itemId <= 0 || name.isBlank()) return
         val existing = byId[itemId]
-        if (existing != null && existing.name == name) return
+        if (existing != null &&
+            existing.name == name &&
+            (plural == null || existing.plural == plural)
+        ) {
+            return
+        }
         val item = ItemData(
             id = itemId,
             name = name,
@@ -159,11 +169,12 @@ object ItemDatabase {
             secondaryUses = existing?.secondaryUses ?: emptySet(),
             access = existing?.access ?: emptySet(),
             autosellPrice = existing?.autosellPrice ?: 0,
-            plural = existing?.plural,
+            plural = plural ?: existing?.plural,
         )
         byId[itemId] = item
         byName[name.lowercase()] = item
         if (item.descId.isNotEmpty()) byDescId[item.descId] = item
+        item.plural?.takeIf { it.isNotBlank() }?.let { byPlural[it.lowercase()] = item }
     }
 
     /** Desktop ItemDatabase.unusableInBeecore — beeosity gate with explicit usable exceptions. */

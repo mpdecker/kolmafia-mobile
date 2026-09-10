@@ -20,8 +20,9 @@ import net.sourceforge.kolmafia.request.MomRequest
 class GameRuntimeLibraryPhase6130Test {
 
     @Test
-    fun revision_phase6130() {
-        assertEquals("phase6130", GameRuntimeLibrary.REVISION)
+    fun revision_phase6310() {
+        // Superseded by XXXVIII; current runtime revision is phase6310.
+        assertEquals("phase6370", GameRuntimeLibrary.REVISION)
     }
 
     @Test
