@@ -9,6 +9,9 @@ internal data class HtmlNode(
     val children: MutableList<HtmlNode> = mutableListOf(),
     var text: String = "",
 ) {
+    /** Set by [HtmlTreeParser] for sibling-axis xpath steps. */
+    var parent: HtmlNode? = null
+
     val isTextNode: Boolean get() = tag == null
 
     fun serialize(): String = when {
@@ -33,6 +36,11 @@ internal data class HtmlNode(
 
     private fun escapeAttribute(value: String): String =
         value.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;")
+
+    fun attach(child: HtmlNode) {
+        child.parent = this
+        children += child
+    }
 }
 
 internal object HtmlTreeParser {
@@ -78,7 +86,7 @@ internal object HtmlTreeParser {
             if (tagText.endsWith('/')) {
                 val selfClosing = tagText.removeSuffix("/").trim()
                 val (tag, attrs) = parseTag(selfClosing)
-                if (tag != null) parent.children += HtmlNode(tag, attrs)
+                if (tag != null) parent.attach(HtmlNode(tag, attrs))
                 index = gt + 1
                 continue
             }
@@ -88,7 +96,7 @@ internal object HtmlTreeParser {
                 continue
             }
             val node = HtmlNode(tag, attrs)
-            parent.children += node
+            parent.attach(node)
             index = gt + 1
             if (tag.lowercase() in VOID_TAGS) continue
             parseInto(node, html.substring(index))
@@ -104,7 +112,7 @@ internal object HtmlTreeParser {
         if (parent.children.lastOrNull()?.isTextNode == true) {
             parent.children.last().text += decoded
         } else {
-            parent.children += HtmlNode(tag = null, text = decoded)
+            parent.attach(HtmlNode(tag = null, text = decoded))
         }
     }
 

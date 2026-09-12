@@ -66,6 +66,7 @@ open class RetrieveItemService(
     private val familiarManager: FamiliarManager? = null,
     private val untinkerRequest: UntinkerRequest? = null,
     private val buyScriptRunner: ((String, List<String>) -> Boolean)? = null,
+    private val mallPriceManager: net.sourceforge.kolmafia.mall.MallPriceManager? = null,
 ) {
     companion object {
         const val ABRIDGED_DICTIONARY = 534
@@ -150,10 +151,18 @@ open class RetrieveItemService(
         }
 
         if (!isRestricted && remaining > 0 && canStorage && storageRequest != null) {
-            remaining -= withdrawFromSource(itemId, remaining, CollectionBucket.STORAGE) { q ->
-                storageRequest.withdraw(itemId, q)
+            val queued = ConcoctionDatabase.getRuntime(itemName)?.queuedPulls ?: 0
+            val available = (storageAvailable(itemId) - queued).coerceAtLeast(0)
+            if (available > 0) {
+                remaining -= withdrawFromSource(
+                    itemId,
+                    minOf(remaining, available),
+                    CollectionBucket.STORAGE,
+                ) { q ->
+                    storageRequest.withdraw(itemId, q)
+                }
+                if (remaining <= 0) return qty
             }
-            if (remaining <= 0) return qty
         }
 
         if (remaining > 0 && canDisplay && displayCaseRequest != null) {
@@ -242,7 +251,15 @@ open class RetrieveItemService(
     private fun buildPriceContext(): RetrievePricing.PriceContext =
         RetrievePricing.PriceContext(
             inventoryCount = { inventoryCount(it) },
-            mallPrice = { -1L }, // live mall lookup is async; ASH retrieve_price uses MallManager
+            mallPrice = { id ->
+                mallPriceManager?.getMallPrice(id)?.takeIf { it > 0 }
+                    ?: mallPriceManager?.getCachedPrice(id)?.price?.takeIf { it > 0 }
+                    ?: -1L
+            },
+            historicalMallPrice = { id ->
+                mallPriceManager?.getHistoricalPrice(id)?.takeIf { it > 0 }
+                    ?: net.sourceforge.kolmafia.mall.MallPriceDatabase.getPrice(id)
+            },
             npcPrice = { id ->
                 val name = ItemDatabase.getItemName(id)
                 if (name.isBlank()) 0L else NpcStoreDatabase.npcPrice(name).toLong()
@@ -324,6 +341,13 @@ open class RetrieveItemService(
         return withdrawFromSource(itemId, minOf(qty, available), CollectionBucket.STORAGE) { q ->
             storage.withdraw(itemId, q)
         }
+    }
+
+    /** Storage copies not already reserved by the concoction pull queue. */
+    private suspend fun storageAvailable(itemId: Int): Int {
+        val storage = storageRequest ?: return 0
+        val classified = storage.fetchClassifiedContents(character?.state?.value, preferences)
+        return classified.storage[itemId] ?: 0
     }
 
     private suspend fun withdrawFromHermit(itemId: Int, qty: Int): Int {

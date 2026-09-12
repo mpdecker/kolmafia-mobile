@@ -231,6 +231,10 @@ object FriarRequestHub {
         }
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+    }
 }
 
 object FamiliarRequestHub {
@@ -293,6 +297,10 @@ object DedigitizerRequest {
         sessionLogger?.appendRawLine("Visiting Dedigitizer")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+    }
 }
 
 object BatFabricatorRequest {
@@ -306,6 +314,10 @@ object BatFabricatorRequest {
         sessionLogger?.appendRawLine("Visiting Bat Fabricator")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+    }
 }
 
 object DiscoGiftCoRequest {
@@ -318,6 +330,10 @@ object DiscoGiftCoRequest {
         }
         sessionLogger?.appendRawLine("Visiting Disco GiftCo")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
     }
 }
 

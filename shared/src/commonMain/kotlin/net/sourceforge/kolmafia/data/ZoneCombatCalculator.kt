@@ -21,6 +21,8 @@ import net.sourceforge.kolmafia.track.TrackManager
  * Oil Peak/Island War/NS contests/Nemesis/Slime/Post-Mall) + monsterLevel context.
  * Phases 5231–5260 (XXIII): Telegram/Gingerbread/Shadow Rift/Crimbo23/Fitzsimmons
  * residual weighting + Context familiar/outfit/multi-pass.
+ * Phases 6631–6650 (XLVI-B): appearance_rates ASH checkZones + get_location_monsters
+ * roster/includeQueue split; conditional weighting remains the AreaCombatData matrix.
  */
 object ZoneCombatCalculator {
     data class Context(

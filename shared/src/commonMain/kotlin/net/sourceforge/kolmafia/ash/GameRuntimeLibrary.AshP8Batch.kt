@@ -1,11 +1,12 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.modifiers.StatNames
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 
 /**
- * ASH-P8 overload batch — raises registered function count toward desktop parity floor (≥450).
+ * ASH-P8 overload batch â€” raises registered function count toward desktop parity floor (â‰¥450).
  */
 internal fun GameRuntimeLibrary.registerAshP8Batch(scope: AshScope) {
     val extraKeyTypes = listOf(
@@ -157,7 +158,14 @@ internal fun GameRuntimeLibrary.registerAshP8Batch(scope: AshScope) {
     }
     regFn(scope, "available_amount", AshType.INT, listOf("id" to AshType.INT)) { _, args ->
         val id = args[0].toLong().toInt()
-        val name = gameDatabase?.item(id)?.name ?: id.toString()
+        if (id <= 0) return@regFn AshValue.of(0L)
+        val fromDb = gameDatabase?.item(id)?.name
+        val fromItems = ItemDatabase.getItemName(id)
+        val name = when {
+            !fromDb.isNullOrBlank() -> fromDb
+            fromItems.isNotBlank() -> fromItems
+            else -> return@regFn AshValue.of(0L)
+        }
         val count = kotlinx.coroutines.runBlocking {
             physicalAccessibleCount(id, name)
         }
@@ -187,13 +195,7 @@ internal fun GameRuntimeLibrary.registerAshP8Batch(scope: AshScope) {
         AshValue.of((skill?.dailyLimit ?: 0).toLong())
     }
 
-    regFn(scope, "is_banished", AshType.BOOLEAN, listOf("id" to AshType.INT)) { _, args ->
-        val id = args[0].toLong().toInt()
-        val name = gameDatabase?.monster(id)?.name ?: return@regFn AshValue.FALSE
-        val turn = character?.state?.value?.currentRun ?: 0
-        val state = character?.state?.value
-        AshValue.of(banishManager?.isBanished(name, turn, state) ?: false)
-    }
+    // is_banished(INT) removed â€” desktop only registers MONSTER/PHYLUM (live in GameRuntimeLibrary).
 
     regFn(scope, "print", AshType.VOID, listOf("value" to AshType.INT)) { runtime, args ->
         runtime.print(args[0].toString())

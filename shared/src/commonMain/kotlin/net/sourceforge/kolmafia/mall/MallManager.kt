@@ -40,8 +40,14 @@ open class MallManager(
     open suspend fun cheapestPrice(itemName: String): Long {
         val itemId = gameDatabase?.item(itemName)?.id
         val offers = searchRequest.search("\"$itemName\"", limit = 0)
-        if (itemId != null) cachePrice(itemId, offers)
-        return offers.minOfOrNull { it.price } ?: -1L
+        if (itemId != null) {
+            cachePrice(itemId, offers)
+            // Desktop anti-mallbot: fifth-cheapest, not absolute min.
+            priceManager?.nthCheapestPrice(results = offers)?.takeIf { it > 0 }?.let { return it }
+        }
+        return priceManager?.nthCheapestPrice(results = offers)?.takeIf { it > 0 }
+            ?: offers.minOfOrNull { it.price }
+            ?: -1L
     }
 
     /** Desktop [MallPriceManager.searchMall] listing rows for CLI `searchmall`. */

@@ -84,6 +84,9 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     regFn(scope, "can_adventure", AshType.BOOLEAN,
         listOf("loc" to AshType.LOCATION)) { _, args ->
         val locationName = args[0].toString()
+        if (AdventurePrep.isNoneLocation(locationName)) {
+            return@regFn AshValue.FALSE
+        }
         AshValue.of(
             AdventurePrep.canAdventureAt(locationName, character?.state?.value, preferences = preferences)
         )
@@ -92,7 +95,7 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     // prepare_for_adventure() → boolean (uses last location when known)
     regFn(scope, "prepare_for_adventure", AshType.BOOLEAN, emptyList()) { _, _ ->
         val locationName = preferences?.getString(Preferences.LAST_LOCATION, "").orEmpty()
-        if (locationName.isBlank()) return@regFn AshValue.of(true)
+        if (AdventurePrep.isNoneLocation(locationName)) return@regFn AshValue.of(true)
         val ok = kotlinx.coroutines.runBlocking {
             AdventurePrep.prepareForAdventure(
                 locationName,
@@ -112,6 +115,9 @@ internal fun GameRuntimeLibrary.registerCharacterExtensions(scope: AshScope) {
     regFn(scope, "prepare_for_adventure", AshType.BOOLEAN,
         listOf("loc" to AshType.LOCATION)) { _, args ->
         val locationName = args[0].toString()
+        if (AdventurePrep.isNoneLocation(locationName)) {
+            return@regFn AshValue.FALSE
+        }
         val ok = kotlinx.coroutines.runBlocking {
             AdventurePrep.prepareForAdventure(
                 locationName,

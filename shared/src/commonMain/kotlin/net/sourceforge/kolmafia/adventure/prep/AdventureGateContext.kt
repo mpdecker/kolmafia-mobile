@@ -6,7 +6,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 
-/** Shared context for AdventurePrep gates and prepare actions (Phases 1851–1910). */
+/** Shared context for AdventurePrep gates and prepare actions (Phases 1851–1910 + 6451–6460). */
 data class AdventureGateContext(
     val character: CharacterState? = null,
     val preferences: Preferences? = null,
@@ -14,12 +14,16 @@ data class AdventureGateContext(
     val inventoryCount: (Int) -> Int = { 0 },
     val hasEquipped: (Int) -> Boolean = { false },
     val hasCampground: Boolean = true,
+    val hasEffect: (String) -> Boolean = { false },
+    val hasFamiliar: (String) -> Boolean = { false },
 ) {
     val quests: QuestDatabase?
         get() = questDatabase ?: preferences?.let { QuestDatabase(it) }
 
     fun hasItem(itemId: Int, atLeast: Int = 1): Boolean =
         inventoryCount(itemId) >= atLeast
+
+    fun hasNamedEffect(name: String): Boolean = hasEffect(name)
 
     fun isQuestStarted(quest: Quest): Boolean =
         quests?.isQuestStarted(quest) == true
@@ -138,6 +142,7 @@ object ItemIds {
     const val DRIP_HARNESS = 10441
     const val EMPTY_AGUA_DE_VIDA_BOTTLE = 4130
     const val TRAPEZOID = 3198
+    const val GAMEPRO_WALKTHRU = 6175
 }
 
 fun AdventureZone.hasSnarfblat(): Boolean =

@@ -20,6 +20,10 @@ internal fun GameRuntimeLibrary.registerAshP928TrackFBatch(scope: AshScope) {
             ?: ItemDatabase.getByName(args[0].toString())?.id ?: 0
         val id2 = gameDatabase?.item(args[1].toString())?.id
             ?: ItemDatabase.getByName(args[1].toString())?.id ?: 0
+        // Desktop: non-candy → false before HTTP
+        if (!ItemDatabase.isCandyItem(id1) || !ItemDatabase.isCandyItem(id2)) {
+            return@regFn AshValue.FALSE
+        }
         AshValue.of(runSweetSynthesisPair(id1, id2, 1))
     }
 
@@ -64,6 +68,9 @@ internal fun GameRuntimeLibrary.registerAshP928TrackFBatch(scope: AshScope) {
             ?: ItemDatabase.getByName(args[1].toString())?.id ?: 0
         val id2 = gameDatabase?.item(args[2].toString())?.id
             ?: ItemDatabase.getByName(args[2].toString())?.id ?: 0
+        if (!ItemDatabase.isCandyItem(id1) || !ItemDatabase.isCandyItem(id2)) {
+            return@regFn AshValue.FALSE
+        }
         AshValue.of(runSweetSynthesisPair(id1, id2, args[0].toLong().toInt()))
     }
 

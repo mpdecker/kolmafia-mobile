@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import io.ktor.http.decodeURLQueryComponent
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
@@ -57,30 +58,58 @@ internal fun GameRuntimeLibrary.registerAshP950TrackIBatch(scope: AshScope) {
         result
     }
 
-    // ── Phase 952: form_fields ──────────────────────────────────────
+    // ── Phase 952 / 6481–6490 / 6591–6610: form_fields ─────────────
     regFn(scope, "form_fields", stringToString, emptyList()) { _, _ ->
         val result = AggregateValue(stringToString)
         val fields = ChoiceCombatAshState.lastFormFields
         if (fields.isNotEmpty()) {
             for ((k, v) in fields) {
-                result[AshValue.of(k)] = AshValue.of(v)
+                putFormField(result, k, v)
             }
             return@regFn result
         }
-        val q = lastVisitPath.indexOf('?')
-        if (q >= 0) {
-            lastVisitPath.substring(q + 1).split('&').forEach { pair ->
-                val eq = pair.indexOf('=')
-                if (eq > 0) {
-                    result[AshValue.of(pair.substring(0, eq))] = AshValue.of(pair.substring(eq + 1))
-                }
-            }
-        }
+        // Desktop last-visit GET query decode (GenericRequest.decodeField).
+        parseQueryFormFields(lastVisitPath, result)
         result
     }
 
     // ── Phase 953: choice_follows_fight ─────────────────────────────
+    // XLIV/XLV: ChoiceCombatAshState post-fight flag (AdventureManager syncs from fight HTML)
     regFn(scope, "choice_follows_fight", AshType.BOOLEAN, emptyList()) { _, _ ->
         AshValue.of(ChoiceCombatAshState.choiceFollowsFight)
     }
+}
+
+/** Desktop GenericRequest.decodeField parity for form_fields query parsing. */
+internal fun parseQueryFormFields(url: String, into: AggregateValue) {
+    val q = url.indexOf('?')
+    if (q < 0) return
+    url.substring(q + 1).split('&').forEach { pair ->
+        if (pair.isEmpty()) return@forEach
+        val eq = pair.indexOf('=')
+        val rawKey: String
+        val rawValue: String
+        if (eq < 0) {
+            // Bare key with no '=' → empty value (desktop form field parity)
+            rawKey = pair
+            rawValue = ""
+        } else if (eq == 0) {
+            return@forEach
+        } else {
+            rawKey = pair.substring(0, eq)
+            rawValue = pair.substring(eq + 1)
+        }
+        val key = rawKey.decodeURLQueryComponent()
+        val value = rawValue.decodeURLQueryComponent()
+        putFormField(into, key, value)
+    }
+}
+
+/** Desktop duplicate-key policy: append `_` until the key is unique. */
+internal fun putFormField(into: AggregateValue, key: String, value: String) {
+    var unique = key
+    while (into.map.containsKey(AshValue.of(unique))) {
+        unique += "_"
+    }
+    into[AshValue.of(unique)] = AshValue.of(value)
 }

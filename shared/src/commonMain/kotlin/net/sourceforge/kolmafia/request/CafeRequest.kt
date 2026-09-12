@@ -6,9 +6,29 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import io.ktor.http.parameters
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.preferences.Preferences
 
-/** Desktop CafeRequest purchase HTTP — cafe.php CONSUME! */
+/** Desktop CafeRequest purchase HTTP — cafe.php CONSUME! / menu visit. */
 open class CafeRequest(private val client: HttpClient) {
+
+    /** Desktop cafe.php?cafeid=N visit — seeds Today's Special via [CafeDailySpecialSync]. */
+    open suspend fun visitMenu(cafeId: String, preferences: Preferences?): Result<String> = try {
+        val response = client.submitForm(
+            url = "$KOL_BASE_URL/cafe.php",
+            formParameters = parameters {
+                append("cafeid", cafeId)
+            },
+        )
+        if (!response.status.isSuccess()) {
+            Result.failure(Exception("HTTP ${response.status.value}"))
+        } else {
+            val html = response.bodyAsText()
+            CafeDailySpecialSync.parseResponse("cafe.php?cafeid=$cafeId", html, preferences)
+            Result.success(html)
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 
     open suspend fun consume(cafeId: String, whichItem: Int): Result<String> = try {
         val response = client.submitForm(

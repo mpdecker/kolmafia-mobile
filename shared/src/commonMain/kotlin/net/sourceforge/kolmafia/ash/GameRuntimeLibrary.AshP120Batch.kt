@@ -31,6 +31,8 @@ internal fun GameRuntimeLibrary.registerAshP120Batch(scope: AshScope) {
     }
 
     regFn(scope, "spleen_limit", AshType.INT, emptyList()) { _, _ ->
-        AshValue.of(ConsumptionEligibility.spleenCapacity(state()).toLong())
+        AshValue.of(
+            ConsumptionEligibility.spleenCapacity(state(), buildCurrentModifiers()).toLong(),
+        )
     }
 }

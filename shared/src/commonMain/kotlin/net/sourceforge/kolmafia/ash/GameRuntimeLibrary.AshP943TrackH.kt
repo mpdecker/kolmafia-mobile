@@ -2,8 +2,8 @@ package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.data.EffectDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.combat.CombatActionManager
 import net.sourceforge.kolmafia.maximizer.MaximizerContinuation
-import net.sourceforge.kolmafia.platform.UserDataFileIO
 import net.sourceforge.kolmafia.session.NumberologyManager
 
 /**
@@ -22,77 +22,92 @@ import net.sourceforge.kolmafia.session.NumberologyManager
  */
 internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
     // ── Phase 943: auto_attack ──────────────────────────────────────
+    // XLVI-C: character state + defaultAutoAttack pref account sync
     regFn(scope, "get_auto_attack", AshType.INT, emptyList()) { _, _ ->
-        val action = character?.state?.value?.autoAttackAction ?: 0
+        val fromChar = character?.state?.value?.autoAttackAction
+        val action = when {
+            fromChar != null -> fromChar
+            else -> preferences?.getInt("defaultAutoAttack", 0) ?: 0
+        }
         AshValue.of(action.toLong())
     }
 
     regFn(scope, "set_auto_attack", AshType.VOID, listOf("attackValue" to AshType.INT)) { rt, args ->
         val value = args[0].toLong().toInt()
         character?.setAutoAttackAction(value)
+        preferences?.setInt("defaultAutoAttack", value)
+        dispatchCli("autoattack $value", rt)
         AshValue.VOID
     }
 
     regFn(scope, "set_auto_attack", AshType.VOID, listOf("attackValue" to AshType.STRING)) { rt, args ->
         val arg = args[0].toString()
         dispatchCli("autoattack $arg", rt)
+        // Offline / headless: still sync character + pref like account.php autoattack
+        val resolved = LongTailCli.resolveAutoAttack(arg) { raw ->
+            raw.toIntOrNull()
+                ?: skillManager?.state?.value?.skills?.firstOrNull {
+                    it.name.equals(raw, ignoreCase = true)
+                }?.id
+                ?: net.sourceforge.kolmafia.data.SkillDefinitionDatabase.getByName(raw)?.id
+        }
+        if (resolved != null) {
+            character?.setAutoAttackAction(resolved)
+            preferences?.setInt("defaultAutoAttack", resolved)
+        }
         AshValue.VOID
     }
 
     // ── Phase 944: CCS (Combat Command Script) ─────────────────────
+    // XLIV Track A: CcsFileManager-style lookup + active reload on write
     regFn(scope, "set_ccs", AshType.BOOLEAN, listOf("name" to AshType.STRING)) { _, args ->
         val name = args[0].toString().trim()
-        val path = "ccs/$name.ccs"
-        val text = UserDataFileIO.readText(path)
-        if (text == null) {
-            AshValue.FALSE
-        } else {
-            net.sourceforge.kolmafia.combat.CombatActionManager.loadFromText(text, name, preferences)
-            preferences?.setString("battleAction", "custom combat script")
-            AshValue.TRUE
-        }
+        val matched = CombatActionManager.findAvailableLookup(name)
+            ?: return@regFn AshValue.FALSE
+        AshValue.of(CombatActionManager.loadStrategyLookup(matched, preferences))
     }
 
     regFn(scope, "read_ccs", AshType.BUFFER, listOf("name" to AshType.STRING)) { _, args ->
-        val name = args[0].toString()
-        val path = "ccs/$name.ccs"
-        val text = UserDataFileIO.readText(path) ?: ""
+        val text = CombatActionManager.readCcs(args[0].toString())
         AshValue(AshType.BUFFER, StringBuilder(text))
     }
 
     regFn(scope, "write_ccs", AshType.BOOLEAN,
         listOf("data" to AshType.BUFFER, "name" to AshType.STRING)) { _, args ->
-        val data = args[0].toString()
-        val name = args[1].toString()
-        val path = "ccs/$name.ccs"
-        try {
-            UserDataFileIO.writeText(path, data)
-            // Keep in-memory lookup in sync when writing the active CCS
-            val active = preferences?.getString("customCombatScript", "").orEmpty()
-            if (active.equals(name, ignoreCase = true) || active.isBlank()) {
-                net.sourceforge.kolmafia.combat.CombatActionManager.loadFromText(data, name, preferences)
-            }
-            AshValue.TRUE
-        } catch (_: Exception) {
-            AshValue.FALSE
-        }
+        AshValue.of(
+            CombatActionManager.writeCcs(args[1].toString(), args[0].toString(), preferences),
+        )
     }
 
     // ── Phase 945: eudora / eudora_item ────────────────────────────
     regFn(scope, "eudora", AshType.STRING, emptyList()) { _, _ ->
         val current = preferences?.getString("currentEudora", "").orEmpty()
+            .ifBlank { preferences?.getString("eudora", "").orEmpty() }
         val name = LongTailCli.Correspondent.findByName(current).name
         AshValue.of(if (name == "Pen Pal") "Penpal" else name)
     }
 
     regFn(scope, "eudora", AshType.BOOLEAN, listOf("newEudora" to AshType.STRING)) { rt, args ->
         val arg = args[0].toString()
+        val target = LongTailCli.Correspondent.find(arg) ?: return@regFn AshValue.FALSE
+        val before = preferences?.getString("eudora", "").orEmpty()
+            .ifBlank { preferences?.getString("currentEudora", "").orEmpty() }
         dispatchCli("eudora $arg", rt)
-        AshValue.TRUE
+        // Desktop whichpenpal follows with ApiRequest.updateStatus — refresh when flagged.
+        if (preferences?.getBoolean("_eudoraNeedsStatusRefresh", false) == true) {
+            kotlinx.coroutines.runBlocking { refreshCharacterStates() }
+        }
+        val after = preferences?.getString("eudora", "").orEmpty()
+            .ifBlank { preferences?.getString("currentEudora", "").orEmpty() }
+        AshValue.of(
+            after.equals(target.name, ignoreCase = true) ||
+                (before.isNotBlank() && after != before),
+        )
     }
 
     regFn(scope, "eudora_item", AshType.ITEM, emptyList()) { _, _ ->
         val current = preferences?.getString("currentEudora", "").orEmpty()
+            .ifBlank { preferences?.getString("eudora", "").orEmpty() }
         val correspondent = LongTailCli.Correspondent.findByName(current)
         val itemName = when (correspondent.id) {
             1 -> "envelope from your pen pal"

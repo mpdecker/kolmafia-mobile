@@ -6,6 +6,8 @@ import net.sourceforge.kolmafia.shop.CoinmasterDatabase
  * ASH-P138 behavioral batch — NPC shop sync + coinmaster validate v2.
  */
 internal fun GameRuntimeLibrary.registerAshP138Batch(scope: AshScope) {
+    fun itemId(arg: AshValue): Int? = resolveAshItemId(arg)
+
     regFn(scope, "is_coinmaster_item", AshType.BOOLEAN, listOf("id" to AshType.INT)) { _, args ->
         val id = args[0].toLong().toInt()
         AshValue.of(
@@ -21,6 +23,27 @@ internal fun GameRuntimeLibrary.registerAshP138Batch(scope: AshScope) {
 
     regFn(scope, "is_coinmaster_item", AshType.BOOLEAN, listOf("id" to AshType.INT, "validate" to AshType.BOOLEAN)) { _, args ->
         val id = args[0].toLong().toInt()
+        val validate = args[1].toBoolean()
+        AshValue.of(
+            CoinmasterDatabase.containsBuyItem(
+                id,
+                validate = validate,
+                state = craftCharacterState(),
+                prefs = preferences,
+                accessibleCount = { itemId -> craftAccessibleCount(itemId) },
+                hasSkill = { skillId -> craftSkills().any { it.id == skillId } },
+                hasEffect = { effectId -> hasActiveEffect(effectId) },
+            ),
+        )
+    }
+
+    regFn(
+        scope,
+        "is_coinmaster_item",
+        AshType.BOOLEAN,
+        listOf("it" to AshType.ITEM, "validate" to AshType.BOOLEAN),
+    ) { _, args ->
+        val id = itemId(args[0]) ?: return@regFn AshValue.FALSE
         val validate = args[1].toBoolean()
         AshValue.of(
             CoinmasterDatabase.containsBuyItem(

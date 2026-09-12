@@ -18,9 +18,9 @@ import net.sourceforge.kolmafia.session.TavernManager
 class GameRuntimeLibraryPhase5350Test {
 
     @Test
-    fun revision_phase5950() {
-        assertEquals("phase5950", GameRuntimeLibrary.REVISION)
-        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
+    fun revision_phase6310() {
+        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
+        assertEquals("6850", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
     }
 
     @Test

@@ -99,11 +99,7 @@ object CoinmasterAccessibility {
             }
         }
         "piraterealm", "piraterealmfunalog" -> { _ ->
-            if (accessibleCount(FunALogUnlockPrefs.PIRATE_REALM_FUN_LOG) <= 0) {
-                "Need PirateRealm fun-a-log"
-            } else {
-                null
-            }
+            QuestShopAccessibility.funALogInaccessible(accessibleCount)
         }
         in TimeTowerSync.CHRONER_SHOP_IDS -> { _ ->
             TimeTowerAccessibility.inaccessibleReason(nickname, prefs)
@@ -141,6 +137,158 @@ object CoinmasterAccessibility {
         }
         "sbb_brogurt", "brogurt", "sbb_taco", "taco_dan", "sbb_jimmy", "buffjimmy" -> { _ ->
             SpringBreakBeachAccessibility.inaccessibleReason(prefs, limitMode)
+        }
+        // Phase 6731–6750 — elemental airport shops (Behavioral Deepen XLVIII Track A).
+        "infernodisco", "discogiftco" -> { _ ->
+            AirportShopAccessibility.hotInaccessible(prefs, limitMode)
+        }
+        "glaciest", "walmart", "wal-mart" -> { _ ->
+            AirportShopAccessibility.coldInaccessible(prefs, limitMode)
+        }
+        "landfillstore", "dinseystore" -> { _ ->
+            AirportShopAccessibility.stenchInaccessible(prefs, limitMode)
+        }
+        "airport" -> { _ ->
+            AirportShopAccessibility.dutyFreeInaccessible(prefs)
+        }
+        "si_shop1", "shawarma" -> { _ ->
+            AirportShopAccessibility.shawarmaInaccessible(prefs, limitMode)
+        }
+        "si_shop2", "canteen" -> { _ ->
+            AirportShopAccessibility.canteenInaccessible(prefs, limitMode)
+        }
+        // si_shop3 / thearmory only — Armory & Leggery uses shopId "armory"; do not match bare "armory".
+        "si_shop3", "thearmory" -> { _ ->
+            AirportShopAccessibility.spacegateArmoryInaccessible(prefs, limitMode)
+        }
+        // Phase 6751–6770 — inventory-token shops (Behavioral Deepen XLVIII Track B).
+        "toxic", "toxicchemistry",
+        "fishbones", "fishbonery",
+        "guzzlr",
+        "warbear", "warbearbox",
+        "showerthoughts",
+        "fdkol",
+        -> { _ ->
+            InventoryTokenShopAccessibility.inaccessibleReason(nickname, accessibleCount)
+        }
+        // Phase 6771–6790 — KOLHS + Batfellow shops (Behavioral Deepen XLVIII Track C).
+        "kolhs_art" -> { cs ->
+            KolhsShopAccessibility.inaccessibleReason(
+                cs,
+                prefs,
+                unlockPref = "lastKOLHSArtClassUnlockAdventure",
+                classLabel = "Art Class",
+            )
+        }
+        "kolhs_chem" -> { cs ->
+            KolhsShopAccessibility.inaccessibleReason(
+                cs,
+                prefs,
+                unlockPref = "lastKOLHSChemClassUnlockAdventure",
+                classLabel = "Chemistry Class",
+            )
+        }
+        "kolhs_shop" -> { cs ->
+            KolhsShopAccessibility.inaccessibleReason(
+                cs,
+                prefs,
+                unlockPref = "lastKOLHSShopClassUnlockAdventure",
+                classLabel = "Shop Class",
+            )
+        }
+        "batman_chemicorp" -> { cs ->
+            BatCoinmasterAccessibility.downtownInaccessibleReason(
+                cs.limitMode,
+                BatCoinmasterAccessibility.CHEMICORP,
+            )
+        }
+        "batman_orphanage" -> { cs ->
+            BatCoinmasterAccessibility.downtownInaccessibleReason(
+                cs.limitMode,
+                BatCoinmasterAccessibility.ORPHANAGE,
+            )
+        }
+        "batman_pd" -> { cs ->
+            BatCoinmasterAccessibility.downtownInaccessibleReason(
+                cs.limitMode,
+                BatCoinmasterAccessibility.PD,
+            )
+        }
+        // Phase 6791–6810 — path/pref shops (Behavioral Deepen XLIX Track A).
+        "olivers", "speakeasy", "fancydan" -> { _ ->
+            PathShopAccessibility.fancyDanInaccessible(prefs)
+        }
+        "exploathing", "cosmicraysbazaar" -> { cs ->
+            PathShopAccessibility.cosmicRaysInaccessible(cs)
+        }
+        "pokefam", "pokemporium" -> { cs ->
+            PathShopAccessibility.pokemporiumInaccessible(cs)
+        }
+        "mutate", "geneticfiddling" -> { cs ->
+            PathShopAccessibility.geneticFiddlingInaccessible(cs)
+        }
+        "mariogear", "marioitems", "plumbergear", "plumberitem" -> { cs ->
+            PathShopAccessibility.plumberInaccessible(cs)
+        }
+        "edunder_shopshop", "edshop" -> { cs ->
+            PathShopAccessibility.edShopInaccessible(cs)
+        }
+        "detective", "precinct" -> { _ ->
+            PathShopAccessibility.precinctInaccessible(prefs)
+        }
+        "rumple" -> { _ ->
+            PathShopAccessibility.rumpleInaccessible(prefs)
+        }
+        "spacegate" -> { _ ->
+            PathShopAccessibility.spacegateInaccessible(prefs)
+        }
+        "campfire" -> { cs ->
+            PathShopAccessibility.campfireInaccessible(cs, prefs)
+        }
+        "cindy", "boutique" -> { _ ->
+            PathShopAccessibility.boutiqueInaccessible(accessibleCount)
+        }
+        // Phase 6811–6830 — quest / Bat fabricator (XLIX Track B).
+        "grandma" -> { _ ->
+            QuestShopAccessibility.grandmaInaccessible(prefs)
+        }
+        "blackmarket" -> { cs ->
+            QuestShopAccessibility.blackMarketInaccessible(cs, prefs)
+        }
+        "batman_cave" -> { cs ->
+            BatCoinmasterAccessibility.fabricatorInaccessibleReason(cs.limitMode)
+        }
+        // Phase 6851–6870 — specialty IoTM / zone shops (HTTP Residual L Track A).
+        "shadowforge" -> { cs ->
+            SpecialtyShopAccessibility.shadowForgeInaccessible(cs, prefs)
+        }
+        "fantasyrealm", "rubee" -> { _ ->
+            SpecialtyShopAccessibility.fantasyRealmInaccessible(prefs)
+        }
+        "cyber_dedigitizer", "dedigitizer" -> { _ ->
+            SpecialtyShopAccessibility.dedigitizerInaccessible(prefs)
+        }
+        "sandpenny", "wetcrap" -> { cs ->
+            SpecialtyShopAccessibility.sandPennyInaccessible(cs)
+        }
+        "topiary", "nugglet", "nuggletcrafting" -> { _ ->
+            SpecialtyShopAccessibility.topiaryInaccessible(accessibleCount)
+        }
+        // Phase 6871–6890 — legacy token + Mr Store 2002 (HTTP Residual L Track B).
+        "mrstore2002" -> { cs ->
+            LegacyCoinmasterAccessibility.mrStore2002Inaccessible(cs, accessibleCount)
+        }
+        "burt" -> { _ ->
+            LegacyCoinmasterAccessibility.burtInaccessible(accessibleCount)
+        }
+        "fudge", "fudgewand" -> { _ ->
+            LegacyCoinmasterAccessibility.fudgeWandInaccessible(accessibleCount)
+        }
+        "hermit" -> { cs ->
+            LegacyCoinmasterAccessibility.hermitInaccessible(cs)
+        }
+        "gameshoppe", "gamestore" -> { cs ->
+            LegacyCoinmasterAccessibility.gameShoppeInaccessible(cs)
         }
         "damachine", "vendingmachine" -> { cs ->
             if (cs.isKingdomOfExploathing) {

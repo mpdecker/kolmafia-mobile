@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.request
 
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
 
 /**
@@ -79,6 +80,13 @@ object WaxGlobRequest {
         if (option != null && option in 1..5) {
             sessionLogger?.appendRawLine("Creating ${optionToName(option)} from wax glob")
         }
+        return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean {
+        if (!url.contains("whichchoice=$CHOICE")) return false
+        if (!html.contains("You acquire", ignoreCase = true)) return false
+        preferences?.setBoolean("_waxGlobCrafted", true)
         return true
     }
 }

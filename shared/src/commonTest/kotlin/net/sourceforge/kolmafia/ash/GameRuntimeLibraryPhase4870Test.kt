@@ -17,7 +17,7 @@ class GameRuntimeLibraryPhase4870Test {
         // Historical XVI coverage; live revision advances with later megas.
         assertTrue(GameRuntimeLibrary.REVISION.startsWith("phase"))
         assertEquals(
-            GameRuntimeLibrary.REVISION,
+            GameRuntimeLibrary.revisionNumber().toString(),
             outputLib(GameRuntimeLibrary(), "print(get_revision());"),
         )
     }
@@ -33,7 +33,7 @@ class GameRuntimeLibraryPhase4870Test {
 
     @Test
     fun put_display_itemFirst_overloadExists() {
-        // Missing displayCaseRequest → false, but overload must compile
+        // Missing displayCaseRequest â†’ false, but overload must compile
         assertEquals(
             "false",
             outputLib(

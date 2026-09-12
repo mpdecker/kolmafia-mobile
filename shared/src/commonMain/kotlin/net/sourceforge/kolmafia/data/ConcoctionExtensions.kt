@@ -9,6 +9,7 @@ fun ConcoctionData.craftMode(): CraftMode? = when {
     methods.any { it.contains("COOK") || it.contains("PASTA") || it.contains("SAUCE") } -> CraftMode.COOK
     methods.any { it.contains("MIX") || it.contains("COCK") || it == "STILL" } -> CraftMode.COCKTAIL
     methods.any { it.contains("SMITH") } -> CraftMode.SMITH
+    methods.any { it == "JEWEL" || it == "JEWELRY" || it == "EJEWEL" } -> CraftMode.JEWELRY
     else -> null
 }
 

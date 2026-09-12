@@ -84,22 +84,37 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
 
     // ── Phase 1007: current_maximizer_score ─────────────────────────
     regFn(scope, "current_maximizer_score", AshType.FLOAT, emptyList()) { _, _ ->
-        val goal = preferences?.getString("maximizerList", "")?.takeIf { it.isNotBlank() }
-            ?: maximizerManager?.lastMaximizeGoal?.takeIf { it.isNotBlank() }
+        val goal = maximizerManager?.lastMaximizeGoal?.takeIf { it.isNotBlank() }
+            ?: preferences?.getString("maximizerList", "")?.takeIf { it.isNotBlank() }
             ?: ""
         AshValue.of(
             if (goal.isBlank()) {
                 0.0
             } else {
-                net.sourceforge.kolmafia.maximizer.Evaluator(goal)
-                    .getScore(buildCurrentModifiers())
+                try {
+                    net.sourceforge.kolmafia.maximizer.Evaluator(goal)
+                        .getScore(buildCurrentModifiers())
+                } catch (_: Exception) {
+                    0.0
+                }
             },
         )
     }
     regFn(scope, "current_maximizer_score", AshType.FLOAT,
         listOf("evaluationString" to AshType.STRING)) { _, args ->
-        AshValue.of(net.sourceforge.kolmafia.maximizer.Evaluator(args[0].toString())
-            .getScore(buildCurrentModifiers()))
+        val goal = args[0].toString()
+        AshValue.of(
+            if (goal.isBlank()) {
+                0.0
+            } else {
+                try {
+                    net.sourceforge.kolmafia.maximizer.Evaluator(goal)
+                        .getScore(buildCurrentModifiers())
+                } catch (_: Exception) {
+                    0.0
+                }
+            },
+        )
     }
     regFn(scope, "last_maximizer_succeeded", AshType.BOOLEAN, emptyList()) { _, _ ->
         AshValue.of(maximizerManager?.lastMaximizeSucceeded() ?: false)
@@ -127,8 +142,10 @@ internal fun GameRuntimeLibrary.registerAshP1004TrackTBatch(scope: AshScope) {
             goal.equals("fight", ignoreCase = true) -> TavernManager.FIGHT_BARON
             goal.equals("explore", ignoreCase = true) -> TavernManager.EXPLORE
             goal.equals("faucet", ignoreCase = true) -> TavernManager.FAUCET
-            else -> TavernManager.FAUCET
+            // Desktop unknown goal → -1 (not faucet fallback)
+            else -> -1
         }
+        if (code < 0) return@regFn AshValue.of(-1L)
         AshValue.of(runTavernGoal(code).toLong())
     }
 
@@ -213,13 +230,15 @@ private fun GameRuntimeLibrary.runTavernGoal(goal: Int): Int {
         adventureManager = adventureManager,
         visitUrl = { path -> visitKolPage(path, applyQuestHooks = true) },
     )
-    return when (goal) {
+    val result = when (goal) {
         TavernManager.FAUCET -> TavernManager.locateTavernFaucet(deps)
         TavernManager.BARON -> TavernManager.locateBaron(deps)
         TavernManager.FIGHT_BARON -> TavernManager.fightBaron(deps)
         TavernManager.EXPLORE -> TavernManager.exploreAll(deps)
-        else -> TavernManager.locateTavernFaucet(deps)
+        else -> -1
     }
+    // Desktop: KoLmafia.permitsContinue() ? result : -1
+    return if (net.sourceforge.kolmafia.maximizer.MaximizerContinuation.permitsContinue()) result else -1
 }
 
 private fun moonLight(ronald: Int, grimace: Int): Int {

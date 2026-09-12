@@ -162,6 +162,21 @@ object ConcoctionDatabase {
         refreshNeeded = true
     }
 
+    /** True when [markRefreshNeeded] was called since the last refresh. */
+    fun isRefreshNeeded(): Boolean = refreshNeeded
+
+    /**
+     * Desktop CreateItemRequest / ASH creatable_* preflight — refresh when dirty using the last
+     * [ConcoctionRefreshContext] (no-op when already current).
+     */
+    fun ensureRefreshed() {
+        if (!refreshNeeded) return
+        refreshConcoctionsNowFromLastContext()
+    }
+
+    /** Desktop CreateItemRequest.getQuantityPossible — post-refresh creatable snapshot. */
+    fun quantityPossible(resultName: String): Int = creatableCount(resultName)
+
     /** Desktop ConcoctionDatabase.refreshConcoctions — effect names + initial counts; full creatable cache deferred. */
     fun refreshConcoctions(
         force: Boolean = true,

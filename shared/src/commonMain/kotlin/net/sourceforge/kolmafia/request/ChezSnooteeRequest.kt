@@ -2,15 +2,23 @@ package net.sourceforge.kolmafia.request
 
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.data.CafeAccessibility
-import net.sourceforge.kolmafia.data.CafeMenuEntry
 import net.sourceforge.kolmafia.data.ChezSnooteeDatabase
 import net.sourceforge.kolmafia.data.ConcoctionConsumptionType
 import net.sourceforge.kolmafia.preferences.Preferences
 
 open class ChezSnooteeRequest(
     private val hellKitchenRequest: HellKitchenRequest,
+    private val cafeRequest: CafeRequest? = null,
 ) {
     fun onMenu(name: String): Boolean = ChezSnooteeDatabase.isOnMenu(name)
+
+    /** Desktop [ChezSnooteeRequest.getDailySpecial] — visit menu when pref empty. */
+    open suspend fun ensureDailySpecial(state: CharacterState?, prefs: Preferences?): String? {
+        if (!CafeAccessibility.isChezSnooteeAvailable(state)) return null
+        CafeDailySpecialSync.currentSpecialName(prefs)?.let { return it }
+        cafeRequest?.visitMenu("1", prefs)
+        return CafeDailySpecialSync.currentSpecialName(prefs)
+    }
 
     open suspend fun purchase(
         name: String,

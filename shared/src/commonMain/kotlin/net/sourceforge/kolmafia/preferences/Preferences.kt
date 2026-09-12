@@ -6,6 +6,9 @@ import net.sourceforge.kolmafia.data.DefaultsDatabase
 
 class Preferences(private val settings: Settings) {
 
+    /** Desktop [Preferences.globalValues] — in-memory global scope for ASH get/set/remove. */
+    private val globalValues = mutableMapOf<String, String>()
+
     fun hasKey(key: String): Boolean = settings.hasKey(key)
 
     fun removeKey(key: String) {
@@ -18,8 +21,64 @@ class Preferences(private val settings: Settings) {
     fun getString(key: String, default: String? = null): String =
         settings.getString(key, default ?: DefaultsDatabase.getString(key))
 
+    /**
+     * Desktop [Preferences.getString(name, global)] — scope-restricted lookup.
+     * Missing keys in the requested scope return `""` (not the default).
+     */
+    fun getString(key: String, global: Boolean): String {
+        if (global) {
+            globalValues[key]?.let { return it }
+            if (DefaultsDatabase.isGlobal(key) && settings.hasKey(key)) {
+                return settings.getString(key, "")
+            }
+            return ""
+        }
+        if (!settings.hasKey(key)) return ""
+        return settings.getString(key, "")
+    }
+
+    fun propertyExists(key: String, global: Boolean): Boolean =
+        if (global) {
+            key in globalValues || (DefaultsDatabase.isGlobal(key) && settings.hasKey(key))
+        } else {
+            settings.hasKey(key)
+        }
+
     fun setString(key: String, value: String) =
         settings.putString(key, value)
+
+    fun setString(key: String, value: String, global: Boolean) {
+        if (global) {
+            globalValues[key] = value
+            if (DefaultsDatabase.isGlobal(key)) {
+                settings.putString(key, value)
+            }
+        } else {
+            settings.putString(key, value)
+        }
+    }
+
+    /** Desktop [Preferences.removeProperty] scope-aware remove; returns prior value. */
+    fun removeProperty(key: String, global: Boolean): String {
+        val old = getString(key, global)
+        if (global) {
+            globalValues.remove(key)
+            if (DefaultsDatabase.isGlobal(key)) {
+                if (DefaultsDatabase.has(key)) {
+                    DefaultsDatabase.resetToDefault(this, key)
+                } else {
+                    settings.remove(key)
+                }
+            }
+        } else {
+            if (DefaultsDatabase.has(key)) {
+                DefaultsDatabase.resetToDefault(this, key)
+            } else {
+                settings.remove(key)
+            }
+        }
+        return old
+    }
 
     fun getBoolean(key: String, default: Boolean? = null): Boolean =
         if (default != null) {
@@ -160,6 +219,8 @@ class Preferences(private val settings: Settings) {
         const val CACHED_CLOSET            = "_cachedCloset"
         const val CACHED_STORAGE           = "_cachedStorage"
         const val CACHED_FREEPULLS         = "_cachedFreepulls"
+        /** Desktop [KoLConstants.nopulls] snapshot (`id:qty|…`). */
+        const val CACHED_NOPULLS           = "_cachedNopulls"
         const val CACHED_STASH             = "_cachedStash"
         const val CACHED_DISPLAY           = "_cachedDisplay"
         const val CACHED_CAMPGROUND        = "_cachedCampground"

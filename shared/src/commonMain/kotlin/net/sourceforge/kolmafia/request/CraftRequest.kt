@@ -54,7 +54,11 @@ open class CraftRequest(
     open suspend fun craft(mode: String, quantity: Int, itemId1: Int, itemId2: Int): Int {
         if (quantity <= 0) return 0
         if (CreateAbortGate.shouldAbort()) return 0
-        val craftMode = mode.lowercase()
+        // Desktop CraftRequest.setMixingMethod — unknown modes are no-ops
+        val craftMode = when (mode.lowercase()) {
+            "combine", "cocktail", "cook", "smith", "jewelry" -> mode.lowercase()
+            else -> return 0
+        }
         return try {
             val response = client.submitForm(
                 url = "$KOL_BASE_URL/craft.php",

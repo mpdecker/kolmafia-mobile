@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.request
 
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
 
 /**
@@ -17,6 +18,13 @@ object BurningNewspaperRequest {
         if (option != null && option in 1..5) {
             sessionLogger?.appendRawLine("Creating burning newspaper gear (option $option)")
         }
+        return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean {
+        if (!url.contains("whichchoice=$CHOICE")) return false
+        if (!html.contains("You acquire", ignoreCase = true)) return false
+        preferences?.setBoolean("_burningNewspaperCrafted", true)
         return true
     }
 }
@@ -38,6 +46,13 @@ object MeteoroidRequest {
         }
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean {
+        if (!url.contains("whichchoice=$CHOICE")) return false
+        if (!html.contains("You acquire", ignoreCase = true)) return false
+        preferences?.setBoolean("_meteoroidCrafted", true)
+        return true
+    }
 }
 
 /**
@@ -55,6 +70,13 @@ object GrubbyWoolRequest {
         if (option != null && option in 1..6) {
             sessionLogger?.appendRawLine("Creating grubby wool gear (option $option)")
         }
+        return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean {
+        if (!url.contains("whichchoice=$CHOICE")) return false
+        if (!html.contains("You acquire", ignoreCase = true)) return false
+        preferences?.setBoolean("_grubbyWoolCrafted", true)
         return true
     }
 }
@@ -113,5 +135,24 @@ object AutoSellRequestHub {
         }
         sessionLogger?.appendRawLine("Autoselling items")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean {
+        if (!url.contains("sellstuff.php", ignoreCase = true) &&
+            !url.contains("sellstuff_ugly.php", ignoreCase = true)
+        ) {
+            return false
+        }
+        val prefs = preferences ?: return html.contains("You sell", ignoreCase = true)
+        Regex("""You gain ([\d,]+) Meat""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { prefs.setInt("_lastAutosellMeat", it) }
+        if (html.contains("You sell", ignoreCase = true) ||
+            html.contains("You gain", ignoreCase = true)
+        ) {
+            prefs.setBoolean("_autosellSucceeded", true)
+            return true
+        }
+        return false
     }
 }

@@ -151,11 +151,12 @@ object CampgroundSync {
         return if (freeRestsRemaining > 0) 0 else 1
     }
 
-    fun freeRestsRemaining(preferences: Preferences?): Int {
-        val used = preferences?.getInt("_freeRestsUsed", 0) ?: 0
-        val available = if (preferences?.getBoolean("_freeRestsAvailable", false) == true) 1 else 0
-        // Desktop tracks freeRestsRemaining more deeply; approximate with unused free rests
-        val totalFree = preferences?.getInt("freeRestsAvailable", available) ?: available
-        return (totalFree - used).coerceAtLeast(0)
+    fun freeRestsRemaining(preferences: Preferences?, freeRestsFromModifiers: Int = -1): Int {
+        val restsUsed = preferences?.getInt("timesRested", 0) ?: 0
+        val restsAvailable = when {
+            freeRestsFromModifiers >= 0 -> freeRestsFromModifiers
+            else -> preferences?.getInt("freeRestsAvailable", 0) ?: 0
+        }
+        return (restsAvailable - restsUsed).coerceAtLeast(0)
     }
 }

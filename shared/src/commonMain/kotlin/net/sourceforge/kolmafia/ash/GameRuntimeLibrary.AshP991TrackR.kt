@@ -9,7 +9,34 @@ package net.sourceforge.kolmafia.ash
  * Phase 994: curse (item,player[,message][,count])
  * Phase 995: pickpocket, runaway
  * Phase 996: monster_level_adjustment (expected_damage is registered by AshP39)
+ *
+ * Phases 6631–6650: fight-action BUFFER offline vs live path shared by
+ * attack / steal / twiddle / runaway / pickpocket.
  */
+
+/**
+ * Desktop RuntimeLibrary.attack/steal/twiddle/runaway → visit_url("fight.php?action=…").
+ * Offline (no httpClient): return the action token as BUFFER so CCS/macros still print.
+ * Live: return fight HTML BUFFER and note the round.
+ */
+internal fun GameRuntimeLibrary.fightActionBuffer(action: String): AshValue {
+    if (httpClient == null) {
+        return AshValue(AshType.BUFFER, StringBuilder(action))
+    }
+    val html = fightActionQuery("action=$action")
+    return AshValue(AshType.BUFFER, StringBuilder(html))
+}
+
+/** Live fight.php GET; empty when offline or failed. */
+internal fun GameRuntimeLibrary.fightActionQuery(query: String): String {
+    if (httpClient == null) return ""
+    val response = visitKolPage("fight.php?$query") ?: ""
+    if (response.isNotBlank()) {
+        net.sourceforge.kolmafia.session.ChoiceCombatAshState.noteFightRound(response)
+    }
+    return response
+}
+
 internal fun GameRuntimeLibrary.registerAshP991TrackRBatch(scope: AshScope) {
     // ── Phase 991: extract_items / extract_meat ─────────────────────
     val itemToInt = AggregateType(AshType.ITEM, AshType.INT)
@@ -43,31 +70,18 @@ internal fun GameRuntimeLibrary.registerAshP991TrackRBatch(scope: AshScope) {
         AshValue.of(preferences?.getString("lastEncounter", "").orEmpty())
     }
 
-    // ── Phase 993: attack / steal / twiddle ─────────────────────────
-    fun fightAction(action: String): AshValue {
-        val html = visitKolPage("fight.php?action=$action")
-        if (httpClient == null) {
-            // Keep the desktop-compatible action buffer useful in offline
-            // runtimes where there is no request abstraction to execute it.
-            return AshValue(AshType.BUFFER, StringBuilder(action))
-        }
-        val result = html.orEmpty()
-        if (result.isNotBlank()) {
-            net.sourceforge.kolmafia.session.ChoiceCombatAshState.noteFightRound(result)
-        }
-        return AshValue(AshType.BUFFER, StringBuilder(result))
-    }
-
+    // ── Phase 993 / 6631–6650: attack / steal / twiddle BUFFER ───────
+    // Offline → action token; live → fight.php HTML (desktop visit_url).
     regFn(scope, "attack", AshType.BUFFER, emptyList()) { _, _ ->
-        fightAction("attack")
+        fightActionBuffer("attack")
     }
 
     regFn(scope, "steal", AshType.BUFFER, emptyList()) { _, _ ->
-        fightAction("steal")
+        fightActionBuffer("steal")
     }
 
     regFn(scope, "twiddle", AshType.BUFFER, emptyList()) { _, _ ->
-        fightAction("twiddle")
+        fightActionBuffer("twiddle")
     }
 
     // ── Phase 994: curse ────────────────────────────────────────────
@@ -98,9 +112,9 @@ internal fun GameRuntimeLibrary.registerAshP991TrackRBatch(scope: AshScope) {
 
     // ── Phase 995 / 4469: pickpocket — CCS/macro string (desktop RuntimeLibrary) ─
     regFn(scope, "pickpocket", AshType.BUFFER, emptyList()) { _, _ ->
-        fightAction("pickpocket")
+        fightActionBuffer("pickpocket")
     }
-    // runaway() already registered in AshP894 (Track A) with live HTTP
+    // runaway() registered in AshP894 — shares fightActionBuffer offline/live path
 
     // ── Phase 996: monster_level_adjustment ─────────────────────────
     // expected_damage is deliberately not duplicated here: AshP39 owns the

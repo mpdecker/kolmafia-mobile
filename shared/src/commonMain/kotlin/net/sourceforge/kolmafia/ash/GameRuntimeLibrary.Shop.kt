@@ -1,10 +1,12 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.session.StoreManager
 
 internal fun GameRuntimeLibrary.registerShopFunctions(scope: AshScope) {
 
-    fun resolveItemId(itemName: String): Int? = gameDatabase?.item(itemName)?.id
+    fun resolveItemId(itemName: String): Int? =
+        gameDatabase?.item(itemName)?.id ?: ItemDatabase.getByName(itemName)?.id
 
     suspend fun ensureShopInventory() {
         val req = manageStoreRequest ?: return
@@ -24,7 +26,17 @@ internal fun GameRuntimeLibrary.registerShopFunctions(scope: AshScope) {
         return AshValue.of(kotlinx.coroutines.runBlocking {
             ensureShopInventory()
             val count = if (takeAll) StoreManager.shopAmount(itemId) else (qty ?: 1)
-            if (count <= 0) true else req.removeItem(itemId, count).isSuccess
+            if (count <= 0) true
+            else {
+                val before = StoreManager.shopAmount(itemId)
+                val ok = req.removeItem(itemId, count).isSuccess
+                // Local cache residual when HTML parse missed the remove.
+                if (ok && before > 0 && StoreManager.shopAmount(itemId) == before) {
+                    StoreManager.removeItem(itemId, count)
+                }
+                if (ok) StoreManager.markSoldItemsRetrieved()
+                ok
+            }
         })
     }
 
@@ -36,7 +48,16 @@ internal fun GameRuntimeLibrary.registerShopFunctions(scope: AshScope) {
         val req = manageStoreRequest ?: return AshValue.of(false)
         return AshValue.of(kotlinx.coroutines.runBlocking {
             ensureShopInventory()
-            req.repriceItem(itemId, price, limit).isSuccess
+            val ok = req.repriceItem(itemId, price, limit).isSuccess
+            if (ok) {
+                // StoreManager residual: seed price/limit when JSON update missed.
+                val qty = StoreManager.shopAmount(itemId)
+                if (qty > 0) {
+                    StoreManager.updateItem(itemId, qty, price.toLong().coerceAtLeast(0), limit)
+                }
+                StoreManager.markSoldItemsRetrieved()
+            }
+            ok
         })
     }
 
@@ -83,6 +104,8 @@ internal fun GameRuntimeLibrary.registerShopFunctions(scope: AshScope) {
     // Desktop refresh_shop posts ManageStoreRequest (sold-item fetch)
     regFn(scope, "refresh_shop", AshType.BOOLEAN, emptyList()) { _, _ ->
         val req = manageStoreRequest ?: return@regFn AshValue.of(false)
+        // Force re-fetch even when already retrieved (desktop always posts ManageStoreRequest).
+        StoreManager.clearCache()
         AshValue.of(kotlinx.coroutines.runBlocking {
             req.fetchSoldItems().isSuccess
         })

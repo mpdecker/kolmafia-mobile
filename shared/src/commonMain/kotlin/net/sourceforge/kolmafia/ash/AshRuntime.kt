@@ -249,6 +249,17 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
 
     fun getCallFrames(): List<CallFrame> = callStack.toList()
 
+    /**
+     * Desktop ScriptRuntime.execute(name, parameters, false) — invoke a user/library
+     * function already registered in [globalScope] without re-running top-level script.
+     * Used by [net.sourceforge.kolmafia.combat.Macrofier] combat filter callbacks.
+     */
+    fun executeUserFunction(name: String, args: List<AshValue>): AshValue? {
+        val types = args.map { it.type }
+        if (globalScope.resolveFunction(name, types) == null) return null
+        return callFunction(name, args, globalScope)
+    }
+
     private fun callFunction(name: String, args: List<AshValue>, scope: AshScope): AshValue {
         val fn = scope.resolveFunction(name, args.map { it.type })
             ?: throw ScriptException(

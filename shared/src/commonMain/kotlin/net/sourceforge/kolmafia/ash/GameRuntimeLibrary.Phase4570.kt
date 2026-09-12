@@ -3,7 +3,6 @@ package net.sourceforge.kolmafia.ash
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.modifiers.SlotNames
-import net.sourceforge.kolmafia.platform.UserDataFileIO
 
 /**
  * Phases 4511–4570 — ASH behavioral deepen XI + HTTP request residual glue.
@@ -117,22 +116,27 @@ internal fun GameRuntimeLibrary.registerPhase4570(scope: AshScope) {
     }
 
     val stringArray = AggregateType(AshType.INT, AshType.STRING)
-    fun sessionLogArray(lines: List<String>): AggregateValue {
-        val result = AggregateValue(stringArray)
-        lines.forEachIndexed { i, line -> result[AshValue.of(i.toLong())] = AshValue.of(line) }
-        return result
-    }
 
     regFn(scope, "session_logs", stringArray,
         listOf("player" to AshType.STRING, "days" to AshType.INT)) { _, args ->
-        val days = args[1].toLong().toInt()
-        val fromLogger = sessionLogger?.recentLines(days.coerceAtLeast(1)).orEmpty()
-        if (fromLogger.isNotEmpty()) return@regFn sessionLogArray(fromLogger)
-        sessionLogArray(readSessionLogFiles(args[0].toString(), days))
+        sessionLogsForDays(args[0].toString(), args[1].toLong().toInt())
     }
     regFn(scope, "session_logs", stringArray,
         listOf("player" to AshType.STRING, "baseDate" to AshType.STRING, "count" to AshType.INT)) { _, args ->
-        sessionLogArray(readSessionLogFiles(args[0].toString(), args[2].toLong().toInt(), args[1].toString()))
+        val player = args[0].toString()
+        val baseDate = args[1].toString()
+        val countVal = args[2].toLong().toInt()
+        val size = kotlin.math.abs(countVal) + 1
+        val result = AggregateValue(stringArray)
+        val safe = player.replace(' ', '_')
+        val baseMillis = parseAshDateTimestamp("yyyyMMdd", baseDate).takeIf { it > 0 }
+            ?: currentTimeMillis()
+        val step = if (countVal >= 0) 1 else -1
+        for (i in 0 until size) {
+            val stamp = formatAshDateTime("yyyyMMdd", baseMillis + i * step * 86_400_000L, null)
+            result[AshValue.of(i.toLong())] = AshValue.of(readSessionLogDay(safe, stamp))
+        }
+        result
     }
 
     // Desktop bare unequip → unequip all
@@ -169,6 +173,7 @@ internal fun GameRuntimeLibrary.registerPhase4570(scope: AshScope) {
             when (item.primaryUse) {
                 net.sourceforge.kolmafia.data.ItemPrimaryUse.HAT -> "hat"
                 net.sourceforge.kolmafia.data.ItemPrimaryUse.WEAPON -> "weapon"
+                net.sourceforge.kolmafia.data.ItemPrimaryUse.SIXGUN -> "holster"
                 net.sourceforge.kolmafia.data.ItemPrimaryUse.OFFHAND -> "off-hand"
                 net.sourceforge.kolmafia.data.ItemPrimaryUse.SHIRT -> "shirt"
                 net.sourceforge.kolmafia.data.ItemPrimaryUse.PANTS -> "pants"
@@ -191,21 +196,3 @@ internal val STACK_TRACE_REC = RecordType(
         RecordField("line", AshType.INT, 2),
     ),
 )
-
-private fun GameRuntimeLibrary.readSessionLogFiles(
-    player: String,
-    count: Int,
-    baseDate: String? = null,
-): List<String> {
-    val safe = player.replace(' ', '_')
-    val n = kotlin.math.abs(count).coerceAtLeast(0)
-    if (n == 0 && baseDate == null) return emptyList()
-    val lines = mutableListOf<String>()
-    if (!baseDate.isNullOrBlank()) {
-        val name = "${safe}_$baseDate.txt"
-        UserDataFileIO.readText("sessions/$name")?.let { lines += it }
-        return lines
-    }
-    sessionLogger?.recentLines(n.coerceAtLeast(1))?.let { lines += it }
-    return lines
-}

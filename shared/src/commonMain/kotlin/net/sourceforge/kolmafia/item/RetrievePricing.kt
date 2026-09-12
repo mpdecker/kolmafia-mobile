@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.item
 
+import net.sourceforge.kolmafia.data.ConcoctionBuyables
 import net.sourceforge.kolmafia.data.ConcoctionCreationCost
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
@@ -8,7 +9,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * Desktop [InventoryManager.cheaperToBuy] / [priceToMake] / [priceToAcquire] / [itemValue]
- * subset (Phases 2541–2555).
+ * subset (Phases 2541–2555 + XLIV Track B accessible/canCreate deepen).
  */
 object RetrievePricing {
 
@@ -23,8 +24,28 @@ object RetrievePricing {
             if (name.isBlank()) 0L else NpcStoreDatabase.npcPrice(name).toLong()
         },
         val prefs: Preferences? = null,
+        /** Desktop create gate — false skips priceToMake for that id. */
         val canCreate: (Int) -> Boolean = { true },
     )
+
+    /**
+     * Desktop [InventoryManager.getAccessibleCount] for priceToAcquire on-hand:
+     * physical accessible minus concoction pull-queue reservations.
+     */
+    fun accessibleOnHandCount(
+        itemId: Int,
+        inventoryCount: (Int) -> Int,
+        physicalAccessible: ((Int) -> Int)? = null,
+    ): Int {
+        val raw = physicalAccessible?.invoke(itemId) ?: inventoryCount(itemId)
+        val name = ItemDatabase.getItemName(itemId)
+        val queuedPulls = if (name.isNotBlank()) {
+            ConcoctionDatabase.getRuntime(name)?.queuedPulls ?: 0
+        } else {
+            0
+        }
+        return (raw - queuedPulls).coerceAtLeast(0)
+    }
 
     fun itemValue(itemId: Int, exact: Boolean, ctx: PriceContext): Long {
         val factor = ctx.prefs?.getFloat("valueOfInventory", 1.8f) ?: 1.8f
@@ -55,6 +76,8 @@ object RetrievePricing {
     fun priceToMake(itemId: Int, qty: Int, exact: Boolean, ctx: PriceContext, depth: Int = 0): Long {
         if (qty <= 0) return 0L
         if (depth > 10) return UNAVAILABLE
+        // Desktop CombineMeatRequest.getCost — meat paste / stacks are buyable, not craft trees.
+        ConcoctionBuyables.buyablePrice(itemId)?.let { return it.toLong() * qty }
         val name = ItemDatabase.getItemName(itemId)
         if (name.isBlank()) return UNAVAILABLE
         val concoction = ConcoctionDatabase.getByResult(name) ?: return UNAVAILABLE
@@ -64,7 +87,11 @@ object RetrievePricing {
         val batches = (qty + yield - 1) / yield
         var price = ConcoctionCreationCost.creationCost(concoction.methods) * batches
         val ingredients = concoction.ingredients
-        if (ingredients.isEmpty()) return UNAVAILABLE
+        // Specialty / no-ingredient creatables (coinmaster, sewer, etc.): creation cost only
+        // when canCreate already approved the method (desktop creatable>0 gate).
+        if (ingredients.isEmpty()) {
+            return if (price >= 0) price else UNAVAILABLE
+        }
         for (ing in ingredients) {
             val ingId = ItemDatabase.getByName(ing.name)?.id ?: continue
             val needed = ing.quantity * batches
@@ -95,6 +122,13 @@ object RetrievePricing {
     ): Long {
         if (qty <= 0) return 0L
         if (depth > 10) return UNAVAILABLE
+        ConcoctionBuyables.buyablePrice(itemId)?.let { unit ->
+            val have = ctx.inventoryCount(itemId)
+            if (have >= qty) return itemValue(itemId, exact, ctx) * qty
+            val need = qty - have
+            val ownedPart = if (have > 0) itemValue(itemId, exact, ctx) * have else 0L
+            return ownedPart + unit.toLong() * need
+        }
         val have = ctx.inventoryCount(itemId)
         if (have >= qty) {
             return itemValue(itemId, exact, ctx) * qty

@@ -8,6 +8,7 @@ import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.CharacterApiResponse
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.session.AvailableCombatSkills
 import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 import net.sourceforge.kolmafia.skill.SkillCastRequest
 import net.sourceforge.kolmafia.skill.SkillData
@@ -122,9 +123,18 @@ class GameRuntimeLibraryAshP889TrackATest {
         val skills = SkillManager(client, SkillCastRequest(client), GameEventBus()).also {
             it.learnLocalSkill(SkillData(10003, "Club Foot", SkillType.COMBAT, 0, 0, 0))
         }
+        AvailableCombatSkills.clear()
+        AvailableCombatSkills.setFromFightHtml(
+            """
+            <select name=whichskill>
+            <option value="10003">Club Foot (0 MP)</option>
+            </select>
+            """.trimIndent(),
+        )
         val lib = GameRuntimeLibrary(preferences = prefs(), character = char, skillManager = skills)
         assertEquals("true", outputLib(lib, """print(combat_skill_available(to_skill("Club Foot")));"""))
         assertEquals("Club Foot", outputLib(lib, "print(stun_skill());"))
+        AvailableCombatSkills.clear()
     }
 
     @Test

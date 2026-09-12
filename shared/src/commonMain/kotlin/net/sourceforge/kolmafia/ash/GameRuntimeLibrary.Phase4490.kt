@@ -14,7 +14,6 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.MonsterDatabase
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.preferences.Preferences
-import net.sourceforge.kolmafia.request.StoragePullRules
 import net.sourceforge.kolmafia.session.StoreManager
 import net.sourceforge.kolmafia.skill.UseSkillSync
 import net.sourceforge.kolmafia.utilities.PHPMTRandom
@@ -69,23 +68,29 @@ internal fun GameRuntimeLibrary.registerPhase4490(scope: AshScope) {
         AshValue.of(eightBitPoints(zone, args[1].toString(), args[2].toDouble()))
     }
 
-    // ── 4483: get_no_pulls ────────────────────────────────────────
+    // ── 4483: get_no_pulls — desktop KoLConstants.nopulls only ────
     val itemToInt = AggregateType(AshType.ITEM, AshType.INT)
     regFn(scope, "get_no_pulls", itemToInt, emptyList()) { _, _ ->
         val result = AggregateValue(itemToInt)
-        inventoryManager?.state?.value?.items?.values?.forEach { item ->
-            if (StoragePullRules.isNoPull(item.itemId)) {
-                result[AshValue.item(item.name)] = AshValue.of(item.quantity.toLong())
+        // Lazy-refresh storage classification when never retrieved (seeds CACHED_NOPULLS).
+        if (!net.sourceforge.kolmafia.inventory.CollectionCacheSync.storageRetrieved) {
+            val prefs = preferences
+            val req = storageRequest
+            if (prefs != null && req != null) {
+                kotlinx.coroutines.runBlocking {
+                    net.sourceforge.kolmafia.inventory.CollectionCacheSync.refreshStorage(
+                        req, character?.state?.value, prefs,
+                    )
+                }
             }
         }
-        // Also include cached storage nopulls when present.
-        preferences?.let { prefs ->
-            for ((itemId, qty) in CollectionCache.load(prefs, Preferences.CACHED_STORAGE)) {
-                if (!StoragePullRules.isNoPull(itemId)) continue
-                val name = ItemDatabase.getById(itemId)?.name ?: continue
-                val existing = result.map[AshValue.item(name)]?.toLong() ?: 0L
-                result[AshValue.item(name)] = AshValue.of(existing + qty)
-            }
+        val prefs = preferences ?: return@regFn result
+        for ((itemId, qty) in CollectionCache.load(prefs, Preferences.CACHED_NOPULLS)) {
+            if (qty <= 0) continue
+            val name = ItemDatabase.getById(itemId)?.name
+                ?: gameDatabase?.item(itemId)?.name
+                ?: continue
+            result[AshValue.item(name)] = AshValue.of(qty.toLong())
         }
         result
     }

@@ -9,7 +9,8 @@ import net.sourceforge.kolmafia.session.GrimstoneManager
 
 /**
  * Desktop [KoLAdventure.preValidateAdventure] + [KoLAdventure.canAdventure] high-traffic
- * zone routers (Phases 1851–1895).
+ * zone routers (Phases 1851–1895 + 6451–6460 XLIII Track C + 6551–6570 XLV Track A
+ * + 6651–6670 XLVI Track C Barroom Brawl).
  */
 object AdventureZoneGates {
 
@@ -117,22 +118,32 @@ object AdventureZoneGates {
     ): Boolean {
         if (!preValidateAdventure(locationName, zone, ctx)) return false
 
+        // Desktop cellar.php / Typical Tavern Cellar — Quest.RAT started (barkeep unlock via prepare)
+        if (zone.formSource.equals("cellar.php", ignoreCase = true) ||
+            locationName.contains("Typical Tavern Cellar", ignoreCase = true)
+        ) {
+            return ctx.isQuestStarted(Quest.RAT)
+        }
+
         // Shadow Rift
         if (zone.zoneName.equals("Shadow Rift", ignoreCase = true)) {
             return canShadowRift(locationName, ctx)
         }
 
-        // Limit modes / astral / mole (path zones)
+        // Limit modes / astral / mole (path zones) — item OR active limit mode (desktop parity)
         if (zone.zoneName.equals("Astral", ignoreCase = true) ||
-            locationName.contains("Astral", ignoreCase = true)
+            locationName.contains("Astral", ignoreCase = true) ||
+            locationName.contains("Incredibly Strange Place", ignoreCase = true)
         ) {
             return ctx.character?.limitMode?.contains("astral", ignoreCase = true) == true ||
-                ctx.prefString("currentAstralTrip").isNotEmpty()
+                ctx.prefString("currentAstralTrip").isNotEmpty() ||
+                ctx.hasItem(ItemIds.ASTRAL_MUSHROOM)
         }
         if (zone.zoneName.contains("Shape of Mole", ignoreCase = true) ||
             locationName.contains("Mt. Molehill", ignoreCase = true)
         ) {
-            return ctx.character?.limitMode?.contains("mole", ignoreCase = true) == true
+            return ctx.character?.limitMode?.contains("mole", ignoreCase = true) == true ||
+                ctx.hasItem(ItemIds.GONG)
         }
 
         // Grimstone / psychoses — can-gate only (prepare must not use the jar/mask)
@@ -141,6 +152,51 @@ object AdventureZoneGates {
         }
         if (zone.zoneName.contains("Psychoses", ignoreCase = true)) {
             return ctx.prefString("currentPsychoses").isNotEmpty()
+        }
+
+        // Consumable-entry / IoTM residual gates (desktop KoLAdventure.canAdventure)
+        when {
+            zone.zoneName.equals("Rabbit Hole", ignoreCase = true) ||
+                locationName.contains("Rabbit Hole", ignoreCase = true) ->
+                return ctx.hasNamedEffect("Down the Rabbit Hole") ||
+                    ctx.hasItem(ItemIds.DRINK_ME_POTION) ||
+                    ctx.prefBool("rabbitHoleAvailable") ||
+                    ctx.prefString("lastRabbitHole").isNotEmpty()
+            zone.zoneName.contains("Suburb", ignoreCase = true) ->
+                return ctx.hasNamedEffect("Dis Abled") || ctx.hasItem(ItemIds.DEVILISH_FOLIO)
+            zone.zoneName.contains("Wormwood", ignoreCase = true) ->
+                return ctx.hasNamedEffect("Absinthe-Minded") || ctx.hasItem(ItemIds.ABSINTHE)
+            zone.zoneName.contains("Spaaace", ignoreCase = true) ->
+                return ctx.hasNamedEffect("Transpondent") ||
+                    ctx.hasItem(ItemIds.TRANSPONDER) ||
+                    SpaaaceRequest.accessible(emptySet(), { id -> ctx.inventoryCount(id) }, ctx.quests) == null
+            zone.zoneName.equals("Portal", ignoreCase = true) ||
+                locationName.contains("El Vibrato", ignoreCase = true) ->
+                return ctx.prefInt("currentPortalEnergy") > 0 || ctx.hasItem(ItemIds.TRAPEZOID)
+            zone.zoneName.equals("Memories", ignoreCase = true) ||
+                locationName.contains("Memory of", ignoreCase = true) ->
+                return ctx.hasItem(ItemIds.EMPTY_AGUA_DE_VIDA_BOTTLE)
+            zone.zoneName.contains("Deep Machine", ignoreCase = true) ||
+                locationName.contains("Deep Machine Tunnels", ignoreCase = true) ->
+                return ctx.hasFamiliar("Machine Elf") ||
+                    ctx.hasNamedEffect("Inside the Snowglobe") ||
+                    ctx.hasNamedEffect("Inside The Snowglobe") ||
+                    ctx.hasItem(ItemIds.MACHINE_SNOWGLOBE) ||
+                    ctx.prefBool("deepMachineTunnelsAvailable") ||
+                    ctx.prefBool("_dmtToday")
+            zone.zoneName.equals("Video Game Dungeon", ignoreCase = true) ||
+                zone.zoneName.contains("Video Game", ignoreCase = true) ||
+                zone.zoneName.contains("GameInformPower", ignoreCase = true) ->
+                return ctx.hasItem(ItemIds.GAMEPRO_WALKTHRU) ||
+                    ctx.prefBool("hasDetectiveSchool") ||
+                    ctx.prefBool("lolCampusAvailable")
+            locationName.contains("Plaintive Telegram", ignoreCase = true) ->
+                return ctx.isQuestStarted(Quest.TELEGRAM) ||
+                    AdventureUnlockHelpers.checkZoneAccess(
+                        "telegraphOfficeAvailable",
+                        "_telegraphOfficeToday",
+                        ctx,
+                    )
         }
 
         // Core kingdom by zone name
@@ -198,19 +254,10 @@ object AdventureZoneGates {
                 ctx.isAtLeast(Quest.NEMESIS, "step20") || ctx.isFinished(Quest.NEMESIS)
             zone.zoneName.contains("Snojo", ignoreCase = true) ->
                 ctx.prefBool("snojoAvailable") || ctx.prefBool("_snojoFreeFights")
-            zone.zoneName.contains("Spaaace", ignoreCase = true) ->
-                SpaaaceRequest.accessible(emptySet(), { id -> ctx.inventoryCount(id) }, ctx.quests) == null
             zone.zoneName.contains("Hole in the Sky", ignoreCase = true) ->
                 ctx.hasItem(ItemIds.TRANSFUNCTIONER) || AdventureUnlockHelpers.woodsOpen(ctx)
-            zone.zoneName.contains("Rabbit Hole", ignoreCase = true) ->
-                ctx.prefBool("rabbitHoleAvailable") || ctx.prefString("lastRabbitHole").isNotEmpty()
-            zone.zoneName.contains("DMT", ignoreCase = true) ||
-                zone.zoneName.contains("Deep Machine Tunnels", ignoreCase = true) ->
-                ctx.prefBool("deepMachineTunnelsAvailable") ||
-                    ctx.prefBool("_dmtToday")
-            zone.zoneName.contains("Video Game", ignoreCase = true) ||
-                zone.zoneName.contains("GameInformPower", ignoreCase = true) ->
-                ctx.prefBool("hasDetectiveSchool") || ctx.prefBool("lolCampusAvailable")
+            zone.zoneName.contains("Casino", ignoreCase = true) ->
+                ctx.hasItem(ItemIds.CASINO_PASS) || ctx.prefBool("hasCasinoPass")
             // Path residuals
             ctx.character?.ascensionPath == AscensionPath.KOLHS &&
                 zone.zoneName.contains("KOLHS", ignoreCase = true) -> true
@@ -265,6 +312,9 @@ object AdventureZoneGates {
     }
 
     private fun canTown(locationName: String, ctx: AdventureGateContext): Boolean = when {
+        // Desktop AdventurePool.BARROOM_BRAWL — Quest.RAT started (barkeep unlock via prepare)
+        locationName.contains("Barroom Brawl", ignoreCase = true) ->
+            ctx.isQuestStarted(Quest.RAT)
         locationName.contains("Sleazy Back Alley", ignoreCase = true) -> true
         locationName.contains("Overgrown Lot", ignoreCase = true) ->
             ctx.prefBool("overgrownLotAvailable") ||

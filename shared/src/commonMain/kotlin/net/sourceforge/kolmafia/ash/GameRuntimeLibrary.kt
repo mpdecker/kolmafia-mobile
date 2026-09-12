@@ -108,6 +108,7 @@ import net.sourceforge.kolmafia.request.ZapRequest
 import net.sourceforge.kolmafia.data.EquipmentDatabase
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.CafePurchaseRequest
+import net.sourceforge.kolmafia.request.CafeRequest
 import net.sourceforge.kolmafia.request.ChewRequest
 import net.sourceforge.kolmafia.request.ClanLoungeRequest
 import net.sourceforge.kolmafia.request.ClanRumpusRequest
@@ -448,6 +449,11 @@ import net.sourceforge.kolmafia.request.IsotopeSmitheryRequest
 import net.sourceforge.kolmafia.request.AltarOfBonesRequest
 import net.sourceforge.kolmafia.request.TravelingTraderRequest
 import net.sourceforge.kolmafia.request.CrimboCartelRequest
+import net.sourceforge.kolmafia.request.CrimboHubResponseParse
+import net.sourceforge.kolmafia.request.CraftThinHubResponseParse
+import net.sourceforge.kolmafia.request.LegacyCoinmasterResponseParse
+import net.sourceforge.kolmafia.request.MiscShopTokenResponseParse
+import net.sourceforge.kolmafia.request.XliiHttpResidualParse
 import net.sourceforge.kolmafia.request.BigBrotherRequest
 import net.sourceforge.kolmafia.request.FudgeWandRequest
 import net.sourceforge.kolmafia.request.SkeletonOfCrimboPastRequest
@@ -525,6 +531,9 @@ import net.sourceforge.kolmafia.request.XOShopRequestHub
 import net.sourceforge.kolmafia.request.SpantRequestHub
 import net.sourceforge.kolmafia.request.GuzzlrRequestHub
 import net.sourceforge.kolmafia.request.GrandmaRequestHub
+import net.sourceforge.kolmafia.request.SushiRequest
+import net.sourceforge.kolmafia.request.TakerSpaceRequest
+import net.sourceforge.kolmafia.request.VYKEARequest
 import net.sourceforge.kolmafia.request.ArmoryAndLeggeryRequestHub
 import net.sourceforge.kolmafia.request.CosmicRaysBazaarRequestHub
 import net.sourceforge.kolmafia.request.GeneticFiddlingRequestHub
@@ -642,6 +651,7 @@ class GameRuntimeLibrary(
     internal val drinkBoozeRequest: DrinkBoozeRequest? = null,
     internal val chewRequest: ChewRequest? = null,
     internal val cafePurchaseRequest: CafePurchaseRequest? = null,
+    internal val cafeRequest: CafeRequest? = null,
     internal val stillSuitRequest: StillSuitRequest? = null,
     internal val actionBarRequest: ActionBarRequest? = null,
     internal val autosellRequest: AutosellRequest? = null,
@@ -799,7 +809,13 @@ class GameRuntimeLibrary(
         fun forTesting() = GameRuntimeLibrary()
 
         const val VERSION = "1.0.0-mobile"
-        const val REVISION = "phase6130"
+        /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
+        const val REVISION = "phase6910"
+
+        /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
+        fun revisionNumber(): Int =
+            REVISION.removePrefix("phase").filter { it.isDigit() }.toIntOrNull() ?: 0
+
         internal const val CLI_ALIASES_PREF = "cliAliases"
         internal var waitMillis: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) }
     }
@@ -823,9 +839,23 @@ class GameRuntimeLibrary(
     internal var elseValid: Boolean = false
 
     fun resolveCombatMacro(zoneId: String): String {
-        net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride
+        val filter = net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride
             ?.takeIf { it.isNotBlank() }
-            ?.let { return net.sourceforge.kolmafia.combat.Macrofier.macrofy(filterOverride = it) ?: it }
+        if (filter != null) {
+            net.sourceforge.kolmafia.combat.Macrofier.macrofy(filterOverride = filter)
+                ?.takeIf { it.isNotBlank() }
+                ?.let { return it }
+            // Bare ASH consult name without interpreter — prefer COMBAT script / CCS line
+            evaluateCombatAction()?.takeIf { it.isNotBlank() }?.let { return it }
+            val ccs = net.sourceforge.kolmafia.combat.CombatActionManager.getCombatAction(
+                net.sourceforge.kolmafia.combat.CombatActionManager.getCurrentKey(),
+                0,
+                allowMacro = true,
+                preferences,
+            )
+            if (ccs.isNotBlank()) return ccs
+            return filter
+        }
         evaluateCombatAction()?.takeIf { it.isNotBlank() }?.let { return it }
         val prefs = preferences ?: return MacroStrategy.SAFE_DEFAULT
         return MacroStrategy.forLocation(zoneId, prefs)
@@ -3310,12 +3340,16 @@ class GameRuntimeLibrary(
             CombineMeatRequest.registerRequest(url, sessionLogger)
             Crimbo12Request.registerRequest(url, sessionLogger)
             WaxGlobRequest.registerRequest(url, sessionLogger)
+            WaxGlobRequest.parseResponse(url, html, preferences)
             HeyDezeRequest.parseResponse(url, html, preferences)
             HeyDezeRequest.registerRequest(url, sessionLogger)
             UpdateSuppressedRequest.shouldSuppress(url) // headless ajax/api marker available to callers
             BurningNewspaperRequest.registerRequest(url, sessionLogger)
+            BurningNewspaperRequest.parseResponse(url, html, preferences)
             MeteoroidRequest.registerRequest(url, sessionLogger)
+            MeteoroidRequest.parseResponse(url, html, preferences)
             GrubbyWoolRequest.registerRequest(url, sessionLogger)
+            GrubbyWoolRequest.parseResponse(url, html, preferences)
             Crimbo05Request.registerRequest(url, sessionLogger)
             Crimbo06Request.registerRequest(url, sessionLogger)
             Crimbo07Request.registerRequest(url, sessionLogger)
@@ -3326,11 +3360,16 @@ class GameRuntimeLibrary(
             Crimbo17Request.registerRequest(url, sessionLogger)
             StillRequestHub.registerRequest(url, sessionLogger)
             SugarSheetRequestHub.registerRequest(url, sessionLogger)
+            SugarSheetRequestHub.parseResponse(url, html, preferences)
             StarChartRequestHub.registerRequest(url, sessionLogger)
+            StarChartRequestHub.parseResponse(url, html, preferences)
             InterestingCoinRequestHub.registerRequest(url, sessionLogger)
             NuggletCraftingRequestHub.registerRequest(url, sessionLogger)
+            NuggletCraftingRequestHub.parseResponse(url, html, preferences)
             SewerRequestHub.registerRequest(url, sessionLogger)
+            SewerRequestHub.parseResponse(url, html, preferences)
             ClipArtRequestHub.registerRequest(url, sessionLogger)
+            ClipArtRequestHub.parseResponse(url, html, preferences)
             GnomeTinkerRequestHub.registerRequest(url, sessionLogger)
             PhineasRequestHub.registerRequest(url, sessionLogger)
             TerminalExtrudeRequestHub.registerRequest(url, sessionLogger)
@@ -3423,6 +3462,11 @@ class GameRuntimeLibrary(
             SpantRequestHub.registerRequest(url, sessionLogger)
             GuzzlrRequestHub.registerRequest(url, sessionLogger)
             GrandmaRequestHub.registerRequest(url, sessionLogger)
+            // XLVIII Track C residual create/visit aliases (shop name aliases not
+            // re-registered — sibling hubs above/below already cover whichshop=).
+            SushiRequest.registerRequest(url, sessionLogger)
+            TakerSpaceRequest.registerRequest(url, sessionLogger)
+            VYKEARequest.registerRequest(url, sessionLogger)
             ArmoryAndLeggeryRequestHub.registerRequest(url, sessionLogger)
             CosmicRaysBazaarRequestHub.registerRequest(url, sessionLogger)
             GeneticFiddlingRequestHub.registerRequest(url, sessionLogger)
@@ -3738,7 +3782,11 @@ class GameRuntimeLibrary(
                     ExpressionContext.from(state, emptyList())
                 } ?: ExpressionContext.EMPTY
                 CombatSkillConsequenceSync.applyFromFightHtml(html, prefs, exprCtx)
-                AvailableCombatSkills.setFromFightHtml(html)
+                AvailableCombatSkills.setFromFightHtml(
+                    html = html,
+                    preferences = prefs,
+                    familiarWeight = character?.state?.value?.familiarWeight ?: 0,
+                )
                 val ramMod = buildCurrentModifiers().values.getInt(DoubleModifier.RAM)
                 if (ChoiceCombatAshState.currentRound <= 1) {
                     FightRamTracker.onFightStart(ramMod)
@@ -4175,10 +4223,80 @@ class GameRuntimeLibrary(
             StillRequestHub.parseResponse(url, html, preferences)
             InterestingCoinRequestHub.parseResponse(url, html, preferences)
             ShadowForgeRequest.parseResponse(url, html, preferences)
+            CrimboHubResponseParse.parseResponse(url, html, preferences)
+            CraftThinHubResponseParse.parseResponse(url, html, preferences)
+            LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+            MiscShopTokenResponseParse.parseResponse(url, html, preferences)
+        }
+        if (url != null && (
+                url.contains("crimbo", ignoreCase = true) ||
+                    url.contains("talktosocp", ignoreCase = true)
+            )
+        ) {
+            CrimboHubResponseParse.parseResponse(url, html, preferences)
+        }
+        if (url != null && (
+                url.contains("gnomes.php", ignoreCase = true) ||
+                    url.contains("volcanoisland.php", ignoreCase = true) ||
+                    url.contains("guild.php", ignoreCase = true) ||
+                    url.contains("sellstuff", ignoreCase = true) ||
+                    url.contains("freesnack", ignoreCase = true) ||
+                    url.contains("whichchoice=1191", ignoreCase = true) ||
+                    url.contains("whichchoice=1233", ignoreCase = true) ||
+                    url.contains("whichchoice=1510", ignoreCase = true) ||
+                    url.contains("whichchoice=1480", ignoreCase = true)
+            )
+        ) {
+            CraftThinHubResponseParse.parseResponse(url, html, preferences)
+        }
+        if (url != null && (
+                url.contains("mrstore.php", ignoreCase = true) ||
+                    url.contains("monkeycastle.php", ignoreCase = true) ||
+                    url.contains("whichchoice=562", ignoreCase = true) ||
+                    url.contains("whichitem=5441", ignoreCase = true) ||
+                    url.contains("whichshop=isotope", ignoreCase = true) ||
+                    url.contains("whichshop=elvishp", ignoreCase = true) ||
+                    url.contains("whichshop=awol", ignoreCase = true) ||
+                    url.contains("whichitem=5116", ignoreCase = true) ||
+                    url.contains("whichshop=cyber_dedigitizer", ignoreCase = true) ||
+                    url.contains("whichshop=dedigitizer", ignoreCase = true) ||
+                    url.contains("whichshop=batman", ignoreCase = true) ||
+                    url.contains("whichshop=cgold", ignoreCase = true) ||
+                    url.contains("whichshop=infernodisco", ignoreCase = true) ||
+                    url.contains("friars.php", ignoreCase = true)
+            )
+        ) {
+            LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+        }
+        if (url != null && (
+                url.contains("whichshop=arcade", ignoreCase = true) ||
+                    url.contains("gamestore.php", ignoreCase = true) ||
+                    url.contains("whichshop=fdkol", ignoreCase = true) ||
+                    url.contains("whichitem=5707", ignoreCase = true) ||
+                    url.contains("whichshop=fantasyrealm", ignoreCase = true) ||
+                    url.contains("whichshop=sbb_brogurt", ignoreCase = true) ||
+                    url.contains("whichshop=brogurt", ignoreCase = true) ||
+                    url.contains("whichshop=landfillstore", ignoreCase = true) ||
+                    url.contains("whichshop=walmart", ignoreCase = true) ||
+                    url.contains("whichshop=glaciest", ignoreCase = true)
+            )
+        ) {
+            MiscShopTokenResponseParse.parseResponse(url, html, preferences)
         }
         if (url != null && url.contains("gamestore.php", ignoreCase = true)) {
             GameShoppeRequest.parseResponse(url, html, preferences)
             FreeSnackRequest.registerRequest(url, sessionLogger)
+            CraftThinHubResponseParse.parseResponse(url, html, preferences)
+            XliiHttpResidualParse.parseResponse(url, html, preferences, inventoryManager, character)
+        }
+        if (url != null && (
+                url.contains("town_sendgift.php", ignoreCase = true) ||
+                    url.contains("raffle.php", ignoreCase = true) ||
+                    url.contains("whichshop=interesting", ignoreCase = true) ||
+                    url.contains("whichshop=twitch_jousting", ignoreCase = true)
+                )
+        ) {
+            XliiHttpResidualParse.parseResponse(url, html, preferences, inventoryManager, character)
         }
         if (url != null && url.contains("whichitem=5683")) {
             BURTRequest.parseResponse(url, html, preferences)
@@ -4202,6 +4320,7 @@ class GameRuntimeLibrary(
                 preferences?.let {
                     SwaggerShopSync.applyVisitShop(html, url, it, sessionLogger, character?.state?.value)
                 }
+                LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
             }
         }
         if (url != null && url.contains("showplayer.php", ignoreCase = true)) {
@@ -6608,7 +6727,7 @@ class GameRuntimeLibrary(
         uneffectByName(parameter)
     }
 
-    internal fun uneffectByName(name: String) {
+    internal fun uneffectByName(name: String): Boolean {
         val active = effectManager?.state?.value?.effects.orEmpty()
         val explicitId = Regex("""^\[(\d+)]$""").matchEntire(name)?.groupValues?.get(1)?.toIntOrNull()
         val matches = active.filter {
@@ -6626,12 +6745,12 @@ class GameRuntimeLibrary(
                     sessionLogger?.appendRawLine(
                         "Ambiguous effect name: $name (${matches.joinToString { it.name }})",
                     )
-                    return
+                    return false
                 }
             }
-            else -> return
+            else -> return false
         }
-        val prefs = preferences ?: return
+        val prefs = preferences ?: return false
         val charState = character?.state?.value
         val inv = inventoryManager?.state?.value
         val hasItemId: (Int) -> Boolean = { id ->
@@ -6690,9 +6809,10 @@ class GameRuntimeLibrary(
             sessionLogger?.appendRawLine(
                 "${effect.name} can be removed only with hot Dreadsylvanian cocoa.",
             )
-            return
+            return false
         }
         executeUneffectAction(action, effect.id)
+        return true
     }
 
     private fun executeUneffectAction(action: UneffectAction, effectId: Int) {
@@ -7317,6 +7437,31 @@ class GameRuntimeLibrary(
         registerPhase6010(scope)
         registerPhase6070(scope)
         registerPhase6130(scope)
+        registerPhase6190(scope)
+        registerPhase6250(scope)
+        registerPhase6310(scope)
+        registerPhase6370(scope)
+        registerPhase6430(scope)
+        registerPhase6470(scope)
+        registerPhase6490(scope)
+        registerPhase6491(scope)
+        registerPhase6551(scope)
+        registerPhase6571(scope)
+        registerPhase6591(scope)
+        registerPhase6611(scope)
+        registerPhase6631(scope)
+        registerPhase6651(scope)
+        registerPhase6671(scope)
+        registerPhase6691(scope)
+        registerPhase6711(scope)
+        registerPhase6731(scope)
+        registerPhase6771(scope)
+        registerPhase6791(scope)
+        registerPhase6811(scope)
+        registerPhase6831(scope)
+        registerPhase6851(scope)
+        registerPhase6871(scope)
+        registerPhase6891(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->
@@ -7721,9 +7866,13 @@ class GameRuntimeLibrary(
             val itemId = gameDatabase?.item(name)?.id
                 ?: inventoryManager?.state?.value?.items?.values
                     ?.find { it.name.equals(name, ignoreCase = true) }?.itemId
-            if (itemId == null) return@register AshValue.of(0L)
+                ?: ItemDatabase.getByName(name)?.id
+            if (itemId == null || itemId <= 0) return@register AshValue.of(0L)
+            val resolvedName = gameDatabase?.item(itemId)?.name
+                ?: ItemDatabase.getItemName(itemId).takeIf { it.isNotBlank() }
+                ?: name
             val count = kotlinx.coroutines.runBlocking {
-                physicalAccessibleCount(itemId, name)
+                physicalAccessibleCount(itemId, resolvedName)
             }
             AshValue.of(count.toLong())
         }
@@ -7840,33 +7989,45 @@ class GameRuntimeLibrary(
 
     private fun registerGameActions(scope: AshScope) {
         register(scope, "adventure", AshType.BOOLEAN,
-            listOf("turns" to AshType.INT, "loc" to AshType.LOCATION)) { _, args ->
-            AshValue.of(runAdventureTurns(args[0].toLong().toInt(), args[1].toString(), null))
+            listOf("turns" to AshType.INT, "loc" to AshType.LOCATION)) { rt, args ->
+            runAdventureTurns(args[0].toLong().toInt(), args[1].toString(), null, runtime = rt)
         }
         register(scope, "adventure", AshType.BOOLEAN,
-            listOf("loc" to AshType.LOCATION, "turns" to AshType.INT)) { _, args ->
-            AshValue.of(runAdventureTurns(args[1].toLong().toInt(), args[0].toString(), null))
+            listOf("loc" to AshType.LOCATION, "turns" to AshType.INT)) { rt, args ->
+            runAdventureTurns(args[1].toLong().toInt(), args[0].toString(), null, runtime = rt)
         }
         register(scope, "adventure", AshType.BOOLEAN,
-            listOf("turns" to AshType.INT, "loc" to AshType.LOCATION, "filter" to AshType.STRING)) { _, args ->
-            AshValue.of(runAdventureTurns(args[0].toLong().toInt(), args[1].toString(), args[2].toString()))
+            listOf("turns" to AshType.INT, "loc" to AshType.LOCATION, "filter" to AshType.STRING)) { rt, args ->
+            runAdventureTurns(args[0].toLong().toInt(), args[1].toString(), args[2].toString(), runtime = rt)
         }
         register(scope, "adventure", AshType.BOOLEAN,
-            listOf("loc" to AshType.LOCATION, "turns" to AshType.INT, "filter" to AshType.STRING)) { _, args ->
-            AshValue.of(runAdventureTurns(args[1].toLong().toInt(), args[0].toString(), args[2].toString()))
+            listOf("loc" to AshType.LOCATION, "turns" to AshType.INT, "filter" to AshType.STRING)) { rt, args ->
+            runAdventureTurns(args[1].toLong().toInt(), args[0].toString(), args[2].toString(), runtime = rt)
         }
 
         register(scope, "adv1", AshType.BOOLEAN,
-            listOf("loc" to AshType.LOCATION)) { _, args ->
-            AshValue.of(runAdventureTurns(1, args[0].toString(), null))
+            listOf("loc" to AshType.LOCATION)) { rt, args ->
+            runAdventureTurns(1, args[0].toString(), null, adventuresUsedOverride = -1, runtime = rt)
         }
         register(scope, "adv1", AshType.BOOLEAN,
-            listOf("loc" to AshType.LOCATION, "adventuresUsed" to AshType.INT)) { _, args ->
-            AshValue.of(runAdventureTurns(1, args[0].toString(), null))
+            listOf("loc" to AshType.LOCATION, "adventuresUsed" to AshType.INT)) { rt, args ->
+            runAdventureTurns(
+                1,
+                args[0].toString(),
+                null,
+                adventuresUsedOverride = args[1].toLong().toInt(),
+                runtime = rt,
+            )
         }
         register(scope, "adv1", AshType.BOOLEAN,
-            listOf("loc" to AshType.LOCATION, "adventuresUsed" to AshType.INT, "filter" to AshType.STRING)) { _, args ->
-            AshValue.of(runAdventureTurns(1, args[0].toString(), args[2].toString()))
+            listOf("loc" to AshType.LOCATION, "adventuresUsed" to AshType.INT, "filter" to AshType.STRING)) { rt, args ->
+            runAdventureTurns(
+                1,
+                args[0].toString(),
+                args[2].toString(),
+                adventuresUsedOverride = args[1].toLong().toInt(),
+                runtime = rt,
+            )
         }
 
         register(scope, "use_skill", AshType.BOOLEAN,
@@ -7877,11 +8038,11 @@ class GameRuntimeLibrary(
             listOf("sk" to AshType.SKILL, "turns" to AshType.INT)) { _, args ->
             AshValue.of(castAshSkill(count = args[1].toLong().toInt(), skillName = args[0].toString()))
         }
-        // Desktop 1-arg use_skill returns STRING (UseSkillRequest.lastUpdate)
-        register(scope, "use_skill", AshType.STRING,
+        // Desktop 1-arg use_skill returns BUFFER (fight HTML in combat, else lastUpdate)
+        register(scope, "use_skill", AshType.BUFFER,
             listOf("sk" to AshType.SKILL)) { _, args ->
-            castAshSkill(count = 1, skillName = args[0].toString())
-            AshValue.of(UseSkillSync.lastUpdate)
+            val result = castAshSkillBuffered(count = 1, skillName = args[0].toString())
+            AshValue(AshType.BUFFER, StringBuilder(result))
         }
         register(scope, "use_skill", AshType.BOOLEAN,
             listOf("turns" to AshType.INT, "sk" to AshType.SKILL, "target" to AshType.STRING)) { _, args ->
@@ -7915,6 +8076,36 @@ class GameRuntimeLibrary(
             AshValue.of(true)
         }
 
+    }
+
+    /**
+     * Desktop RuntimeLibrary.use_skill 1-arg BUFFER: fight HTML when casting in combat,
+     * otherwise UseSkillSync.lastUpdate.
+     */
+    private fun castAshSkillBuffered(count: Int, skillName: String, target: String? = null): String {
+        if (count <= 0) return UseSkillSync.lastUpdate
+        val def = SkillDefinitionDatabase.getByName(skillName)
+            ?: skillManager?.state?.value?.skills?.find { it.name.equals(skillName, ignoreCase = true) }
+                ?.let { SkillDefinitionDatabase.getById(it.id) }
+        val skillId = def?.id
+            ?: skillManager?.state?.value?.skills
+                ?.find { it.name.equals(skillName, ignoreCase = true) }?.id
+            ?: 0
+        val isCombat = def?.isCombat == true ||
+            SkillDefinitionDatabase.getById(skillId)?.isCombat == true
+        if (isCombat && ChoiceCombatAshState.currentRound > 0) {
+            var lastHtml = ""
+            repeat(count) {
+                lastHtml = visitKolPage("fight.php?action=skill&whichskill=$skillId").orEmpty()
+                if (lastHtml.isNotBlank()) {
+                    ChoiceCombatAshState.noteFightRound(lastHtml)
+                }
+            }
+            UseSkillSync.lastUpdate = ""
+            return lastHtml
+        }
+        castAshSkill(count, skillName, target)
+        return UseSkillSync.lastUpdate
     }
 
     /**
@@ -7977,21 +8168,51 @@ class GameRuntimeLibrary(
         return UseSkillSync.lastUpdate.isEmpty()
     }
 
-    private fun runAdventureTurns(turns: Int, locName: String, filter: String?): Boolean {
-        if (turns <= 0) return true
-        val manager = adventureManager ?: return false
-        val location = resolveLocation(locName) ?: return false
-        val previous = net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride
-        if (!filter.isNullOrBlank()) {
-            net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride = filter
+    /**
+     * Desktop [RuntimeLibrary.adventure] / [RuntimeLibrary.adv1] — turns≤0 and unknown location
+     * return continueValue; filter wires [Macrofier.setMacroOverride]; EXIT → VOID.
+     */
+    private fun runAdventureTurns(
+        turns: Int,
+        locName: String,
+        filter: String?,
+        adventuresUsedOverride: Int = -1,
+        runtime: AshRuntimeContext? = null,
+    ): AshValue {
+        fun continueValue(): AshValue =
+            AshValue.of(net.sourceforge.kolmafia.maximizer.MaximizerContinuation.permitsContinue())
+
+        if (turns <= 0) return continueValue()
+        if (net.sourceforge.kolmafia.adventure.AdventurePrep.isNoneLocation(locName)) {
+            return continueValue()
         }
+        val manager = adventureManager ?: return AshValue.FALSE
+        val location = resolveLocation(locName) ?: return continueValue()
+        val ashRt = runtime as? AshRuntime
+        // XLVI-C: non-null filter (incl. blank) mirrors desktop Macrofier.setMacroOverride
+        val hadFilter = filter != null
+        val previousUsed = net.sourceforge.kolmafia.adventure.AdventureManager.adventuresUsedOverride
+        if (hadFilter) {
+            net.sourceforge.kolmafia.combat.Macrofier.setMacroOverride(filter, ashRt)
+            net.sourceforge.kolmafia.combat.Macrofier.combatFilterThatDidNothing = null
+        }
+        // Desktop KoLAdventure.overrideAdventuresUsed — -1 restores default
+        net.sourceforge.kolmafia.adventure.AdventureManager.adventuresUsedOverride =
+            adventuresUsedOverride
         return try {
             kotlinx.coroutines.runBlocking {
                 manager.runAdventures(location, turns, this).join()
             }
-            true
+            if (ashRt?.controlFlow == AshRuntime.ControlFlow.EXIT) {
+                AshValue.VOID
+            } else {
+                continueValue()
+            }
         } finally {
-            net.sourceforge.kolmafia.session.ChoiceCombatAshState.combatFilterOverride = previous
+            if (hadFilter) {
+                net.sourceforge.kolmafia.combat.Macrofier.resetMacroOverride()
+            }
+            net.sourceforge.kolmafia.adventure.AdventureManager.adventuresUsedOverride = previousUsed
         }
     }
 
@@ -8019,9 +8240,9 @@ class GameRuntimeLibrary(
     // ──────────────────────────────────────────────────────────────
 
     private fun registerBanishQueries(scope: AshScope) {
-        // is_banished(monster) → boolean — accepts both monster type and string
+        // is_banished(monster) → boolean — Banisher.isEffective filter via BanishManager
         register(scope, "is_banished", AshType.BOOLEAN, listOf("monster" to AshType.MONSTER)) { _, args ->
-            val name = args[0].toString()
+            val name = args[0].monsterRefName()
             val currentTurn = character?.state?.value?.currentRun ?: 0
             val state = character?.state?.value
             AshValue.of(banishManager?.isBanished(name, currentTurn, state) ?: false)

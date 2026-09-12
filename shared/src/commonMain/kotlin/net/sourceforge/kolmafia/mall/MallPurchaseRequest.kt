@@ -7,13 +7,17 @@ import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.inventory.CollectionCacheSync
 import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.StoragePullRules
 
 class MallPurchaseRequest(
     private val client: HttpClient,
     private val inventoryManager: InventoryManager? = null,
     private val character: KoLCharacter? = null,
     private val priceManager: MallPriceManager? = null,
+    private val preferences: Preferences? = null,
 ) {
 
     suspend fun buy(shopId: Int, itemId: Int, quantity: Int, price: Long): Result<String> {
@@ -68,21 +72,39 @@ class MallPurchaseRequest(
             else if (html.contains("success", true)) requested else 0
         val spent = MEAT_PATTERN.find(html)?.groupValues?.get(1)?.replace(",", "")?.toLongOrNull()
             ?: if (acquired > 0) unitPrice * acquired else 0L
+        val storageBalance = STORAGE_MEAT_LEFT.find(html)?.groupValues?.get(1)
+            ?.replace(",", "")?.toLongOrNull()
+        val toStorage = html.contains("stored in Hagnk", ignoreCase = true) ||
+            (character?.state?.value?.let { !StoragePullRules.canInteract(it) } == true &&
+                html.contains("from Hagnk", ignoreCase = true))
         if (acquired > 0) {
-            inventoryManager?.gainItemLocally(itemId, acquired)
-            character?.let {
-                val state = it.state.value
-                it.updateMeat((state.meat.toLong() - spent).coerceAtLeast(0).toInt(), state.storageMeat)
+            if (toStorage) {
+                preferences?.let { CollectionCacheSync.adjustStorage(it, itemId, acquired) }
+                character?.let {
+                    when {
+                        storageBalance != null -> it.setStorageMeat(storageBalance)
+                        spent > 0 -> it.setStorageMeat(
+                            (it.state.value.storageMeat - spent).coerceAtLeast(0),
+                        )
+                    }
+                }
+            } else {
+                inventoryManager?.gainItemLocally(itemId, acquired)
+                character?.let {
+                    val state = it.state.value
+                    it.updateMeat((state.meat.toLong() - spent).coerceAtLeast(0).toInt(), state.storageMeat)
+                }
             }
             priceManager?.flushCache(itemId, shopId)
         }
-        return PurchaseResult(acquired = acquired, meatSpent = spent)
+        return PurchaseResult(acquired = acquired, meatSpent = spent, toStorage = toStorage)
     }
 
     data class PurchaseResult(
         val acquired: Int = 0,
         val meatSpent: Long = 0,
         val error: String? = null,
+        val toStorage: Boolean = false,
     )
 
     companion object {
@@ -100,6 +122,10 @@ class MallPurchaseRequest(
         private val MEAT_PATTERN = Regex(
             """You (?:spent|lose) ([\d,]+) [Mm]eat""",
             RegexOption.DOT_MATCHES_ALL,
+        )
+        private val STORAGE_MEAT_LEFT = Regex(
+            """from Hagnk's.*?You have ([\d,]+) [Mm]eat left""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
         )
 
         fun canPurchase(shopId: Int): Boolean =

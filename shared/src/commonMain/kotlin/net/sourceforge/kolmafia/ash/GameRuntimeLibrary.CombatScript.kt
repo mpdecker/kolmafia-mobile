@@ -1,7 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
 import net.sourceforge.kolmafia.combat.CombatActionManager
-import net.sourceforge.kolmafia.combat.MonsterStatusTracker
 
 internal fun GameRuntimeLibrary.registerCombatScript(scope: AshScope) {
     // Combat ASH script last action (mobile COMBAT script convenience)
@@ -12,12 +11,16 @@ internal fun GameRuntimeLibrary.registerCombatScript(scope: AshScope) {
         else AshValue.of(runtime.lastCombatAction())
     }
 
-    // Desktop get_ccs_action(index) — resolved CCS / battleAction line for current encounter
+    // Desktop get_ccs_action(index) — FightRequest.getCurrentKey() + CCS / battleAction line
     regFn(scope, "get_ccs_action", AshType.STRING, listOf("index" to AshType.INT)) { _, args ->
         val index = args[0].toLong().toInt()
-        val encounter = MonsterStatusTracker.getLastMonsterName().ifBlank { "default" }
         AshValue.of(
-            CombatActionManager.getCombatAction(encounter, index, allowMacro = true, preferences),
+            CombatActionManager.getCombatAction(
+                CombatActionManager.getCurrentKey(),
+                index,
+                allowMacro = true,
+                preferences,
+            ),
         )
     }
 

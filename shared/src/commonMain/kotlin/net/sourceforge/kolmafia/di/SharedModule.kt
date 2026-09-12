@@ -137,6 +137,7 @@ import net.sourceforge.kolmafia.chat.ChatSender
 import net.sourceforge.kolmafia.item.CreateItemIngredients
 import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.mall.MallManager
+import net.sourceforge.kolmafia.mall.MallPriceDatabase
 import net.sourceforge.kolmafia.mall.MallPriceManager
 import net.sourceforge.kolmafia.mall.MallPurchaseRequest
 import net.sourceforge.kolmafia.mall.MallSearchRequest
@@ -569,10 +570,10 @@ val sharedModule = module {
         HellKitchenRequest(cafeRequest = get())
     }
     single {
-        ChezSnooteeRequest(hellKitchenRequest = get())
+        ChezSnooteeRequest(hellKitchenRequest = get(), cafeRequest = get())
     }
     single {
-        MicroBreweryRequest(hellKitchenRequest = get())
+        MicroBreweryRequest(hellKitchenRequest = get(), cafeRequest = get())
     }
     single {
         CrimboCafeRequest(cafeRequest = get())
@@ -1099,6 +1100,7 @@ val sharedModule = module {
             drinkBoozeRequest = get(),
             chewRequest      = get(),
             cafePurchaseRequest = get(),
+            cafeRequest = get(),
             stillSuitRequest = get(),
             actionBarRequest = get(),
             autosellRequest  = get(),
@@ -1224,6 +1226,21 @@ val sharedModule = module {
     singleOf(::MallPurchaseRequest)
     single {
         MallPriceManager().also { mgr ->
+            val dayOf = { ts: Long -> (ts / 86_400L).toInt() }
+            MallPriceDatabase.onPriceLoaded = { id, price, ts ->
+                mgr.cachePriceIfFromCurrentDay(
+                    itemId = id,
+                    price = price,
+                    quantity = 0,
+                    shopId = 0,
+                    dayNumber = dayOf(ts),
+                    currentDay = dayOf(net.sourceforge.kolmafia.mall.currentEpochSeconds()),
+                )
+            }
+            mgr.seedFromDatabaseIfCurrentDay(
+                currentDay = dayOf(net.sourceforge.kolmafia.mall.currentEpochSeconds()),
+                dayOf = dayOf,
+            )
             mgr.mallSearch = { itemId ->
                 val name = net.sourceforge.kolmafia.data.ItemDatabase.getItemName(itemId)
                 if (name.isBlank()) emptyList()
@@ -1288,6 +1305,7 @@ val sharedModule = module {
             equipmentRequest = get(),
             familiarManager = get(),
             untinkerRequest = get(),
+            mallPriceManager = get(),
         )
     }
     single {

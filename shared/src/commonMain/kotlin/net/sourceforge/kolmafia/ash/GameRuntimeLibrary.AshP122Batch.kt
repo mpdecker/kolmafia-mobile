@@ -9,6 +9,8 @@ import net.sourceforge.kolmafia.item.CreatableAmount
 
 /**
  * ASH-P122 behavioral batch — craft introspection from concoctions database.
+ * Phases 6531–6550 Track C: creatable_amount prefers runtime quantityPossible /
+ * visibleTotal; get_ingredients refreshes dirty concoction cache.
  */
 internal fun GameRuntimeLibrary.registerAshP122Batch(scope: AshScope) {
     val itemIntType = AggregateType(AshType.ITEM, AshType.INT)
@@ -33,6 +35,7 @@ internal fun GameRuntimeLibrary.registerAshP122Batch(scope: AshScope) {
     }
 
     fun ingredientsForItemId(itemId: Int): AggregateValue {
+        ConcoctionDatabase.ensureRefreshed()
         val result = AggregateValue(itemIntType)
         val itemName = ItemDatabase.getById(itemId)?.name ?: return result
         val concoction = ConcoctionDatabase.getByResult(itemName) ?: return result
@@ -62,6 +65,23 @@ internal fun GameRuntimeLibrary.registerAshP122Batch(scope: AshScope) {
         return result
     }
 
+    fun creatableAmountFor(itemId: Int): Long {
+        ConcoctionDatabase.ensureRefreshed()
+        val itemName = ItemDatabase.getById(itemId)?.name ?: return 0L
+        // Desktop CreateItemRequest.getQuantityPossible → post-refresh creatable snapshot.
+        if (ConcoctionDatabase.getRuntime(itemName) != null) {
+            return ConcoctionDatabase.quantityPossible(itemName).toLong()
+        }
+        if (!isPermitted(itemId)) return 0L
+        return CreatableAmount.quantityPossible(
+            itemId,
+            accessibleCount = { ingId, ingName ->
+                kotlinx.coroutines.runBlocking { physicalAccessibleCount(ingId, ingName) }
+            },
+            preferRuntime = true,
+        ).toLong()
+    }
+
     regFn(scope, "get_ingredients", itemIntType, listOf("it" to AshType.ITEM)) { _, args ->
         val itemId = resolveAshItemId(args[0]) ?: return@regFn AggregateValue(itemIntType)
         ingredientsForItemId(itemId)
@@ -74,25 +94,11 @@ internal fun GameRuntimeLibrary.registerAshP122Batch(scope: AshScope) {
 
     regFn(scope, "creatable_amount", AshType.INT, listOf("it" to AshType.ITEM)) { _, args ->
         val itemId = resolveAshItemId(args[0]) ?: return@regFn AshValue.ZERO
-        if (!isPermitted(itemId)) return@regFn AshValue.ZERO
-        val amount = CreatableAmount.quantityPossible(
-            itemId,
-            accessibleCount = { ingId, ingName ->
-                kotlinx.coroutines.runBlocking { physicalAccessibleCount(ingId, ingName) }
-            },
-        )
-        AshValue.of(amount.toLong())
+        AshValue.of(creatableAmountFor(itemId))
     }
 
     regFn(scope, "creatable_amount", AshType.INT, listOf("id" to AshType.INT)) { _, args ->
         val itemId = args[0].toLong().toInt()
-        if (!isPermitted(itemId)) return@regFn AshValue.ZERO
-        val amount = CreatableAmount.quantityPossible(
-            itemId,
-            accessibleCount = { ingId, ingName ->
-                kotlinx.coroutines.runBlocking { physicalAccessibleCount(ingId, ingName) }
-            },
-        )
-        AshValue.of(amount.toLong())
+        AshValue.of(creatableAmountFor(itemId))
     }
 }

@@ -44,6 +44,9 @@ enum class AscensionPath(
         pointsPreference = "borisPoints",
         avatarPath = true,
         allowsFamiliars = false,
+        // Desktop AscensionClass.AVATAR_OF_BORIS organ caps (class overrides path defaults).
+        stomachCapacity = 20,
+        liverCapacity = 4,
     ),
     ZOMBIE_SLAYER(
         "Zombie Slayer",
@@ -52,6 +55,7 @@ enum class AscensionPath(
         pathImage = "tombstone.gif",
         pointsPreference = "zombiePoints",
         avatarPath = true,
+        liverCapacity = 4,
     ),
     AVATAR_OF_JARLSBERG(
         "Avatar of Jarlsberg",
@@ -61,6 +65,8 @@ enum class AscensionPath(
         pointsPreference = "jarlsbergPoints",
         avatarPath = true,
         allowsFamiliars = false,
+        stomachCapacity = 10,
+        liverCapacity = 9,
     ),
     AVATAR_OF_SNEAKY_PETE(
         "Avatar of Sneaky Pete",
@@ -70,6 +76,8 @@ enum class AscensionPath(
         pointsPreference = "sneakyPetePoints",
         avatarPath = true,
         allowsFamiliars = false,
+        stomachCapacity = 5,
+        liverCapacity = 19,
     ),
     ED(
         "Actually Ed the Undying",
@@ -79,6 +87,9 @@ enum class AscensionPath(
         pointsPreference = "edPoints",
         avatarPath = true,
         allowsFamiliars = false,
+        stomachCapacity = 0,
+        liverCapacity = 0,
+        spleenCapacity = 5,
     ),
     HEAVY_RAINS("Heavy Rains", pathId = 19, pathImage = "familiar31.gif"),
     ACTUALLY_ED_THE_UNDYING(
@@ -89,6 +100,9 @@ enum class AscensionPath(
         pointsPreference = "edPoints",
         avatarPath = true,
         allowsFamiliars = false,
+        stomachCapacity = 0,
+        liverCapacity = 0,
+        spleenCapacity = 5,
     ),
     NUCLEAR_AUTUMN(
         "Nuclear Autumn",
@@ -106,12 +120,16 @@ enum class AscensionPath(
         pathImage = "gcube.gif",
         pointsPreference = "noobPoints",
         avatarPath = true,
+        stomachCapacity = 0,
+        liverCapacity = 0,
     ),
     LICENSE_TO_ADVENTURE(
         "License to Adventure",
         pathId = 30,
         pathImage = "briefcase.gif",
         pointsPreference = "bondPoints",
+        // Desktop Path.LICENSE_TO_ADVENTURE: stomach 0, liver 2, spleen 15.
+        stomachCapacity = 0,
         liverCapacity = 2,
     ),
     YOU_ROBOT(
@@ -132,7 +150,14 @@ enum class AscensionPath(
         pathImage = "quantum.gif",
         pointsPreference = "quantumPoints",
     ),
-    PLUMBER("Plumber", canDrink = false, hasPathResources = true),
+    PLUMBER(
+        "Plumber",
+        canDrink = false,
+        hasPathResources = true,
+        stomachCapacity = 20,
+        liverCapacity = 0,
+        spleenCapacity = 5,
+    ),
     GREY_YOU(
         "Grey You",
         hasPathResources = true,
@@ -140,6 +165,10 @@ enum class AscensionPath(
         pathImage = "greygooring.gif",
         pointsPreference = "greyYouPoints",
         avatarPath = true,
+        // Desktop AscensionClass.GREY_GOO organ caps.
+        stomachCapacity = 0,
+        liverCapacity = 0,
+        spleenCapacity = 0,
     ),
     DARK_GYFFTE(
         "Dark Gyffte",
@@ -148,6 +177,9 @@ enum class AscensionPath(
         pointsPreference = "darkGyfftePoints",
         avatarPath = true,
         allowsFamiliars = false,
+        // Desktop AscensionClass.VAMPYRE organ caps.
+        stomachCapacity = 5,
+        liverCapacity = 4,
     ),
     TWO_CRAZY_RANDOM_SUMMER(
         "Two Crazy Random Summer",
@@ -162,6 +194,10 @@ enum class AscensionPath(
         hasPathResources = true,
         pathId = 26,
         pathImage = "badge.gif",
+        // Desktop Cow Puncher / Beanslinger / Snake Oiler class caps.
+        stomachCapacity = 10,
+        liverCapacity = 9,
+        spleenCapacity = 10,
     ),
     THE_SOURCE(
         "The Source",
@@ -182,6 +218,10 @@ enum class AscensionPath(
         pathImage = "mario_mushroom1.gif",
         pointsPreference = "plumberPoints",
         avatarPath = true,
+        // Desktop AscensionClass.PLUMBER organ caps.
+        stomachCapacity = 20,
+        liverCapacity = 0,
+        spleenCapacity = 5,
     ),
     WILDFIRE("Wildfire", hasPathResources = true, pathId = 43, pathImage = "fire.gif"),
     SMALL(
@@ -301,8 +341,15 @@ enum class AscensionPath(
         private val byPathId: Map<Int, AscensionPath> =
             entries.filter { it.pathId > 0 }.associateBy { it.pathId }
 
-        fun fromApiString(s: String): AscensionPath =
-            byApiName[s.lowercase().trim()] ?: UNKNOWN
+        fun fromApiString(s: String): AscensionPath {
+            val key = s.lowercase().trim()
+            // Prefer the entry with a real pathId when aliases share an apiName
+            // (e.g. NUCLEAR vs NUCLEAR_AUTUMN both "Nuclear Autumn").
+            return entries
+                .filter { it.apiName.lowercase() == key }
+                .maxByOrNull { it.pathId }
+                ?: UNKNOWN
+        }
 
         /** Desktop [AscensionPath.idToPath] — api.php `path` integer. */
         fun fromPathId(id: Int): AscensionPath =

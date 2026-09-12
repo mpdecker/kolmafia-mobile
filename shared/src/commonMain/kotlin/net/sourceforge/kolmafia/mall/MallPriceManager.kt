@@ -73,8 +73,23 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
     fun getHistoricalPrice(itemId: Int): Long =
         MallPriceDatabase.getPrice(itemId).takeIf { it > 0 } ?: getCachedPrice(itemId)?.price ?: 0L
 
+    /**
+     * Desktop [MallPriceManager.validMallItem] — tradeable mall goods or validated NPC stock.
+     * Unknown [ItemDatabase] ids are allowed (catalog not loaded / ASH stubs); known
+     * non-tradeable non-NPC ids short-circuit ASH `mall_price` to 0.
+     */
+    fun validMallItem(itemId: Int): Boolean {
+        if (itemId <= 0) return false
+        val item = net.sourceforge.kolmafia.data.ItemDatabase.getById(itemId) ?: return true
+        if (item.isTradeable) return true
+        return net.sourceforge.kolmafia.data.NpcStoreDatabase.containsItem(itemId, validate = true)
+    }
+
     /** Desktop MallPriceManager.getMallPrice — cached mall listing price after prefetch. */
-    fun getMallPrice(itemId: Int): Long = getHistoricalPrice(itemId)
+    fun getMallPrice(itemId: Int): Long {
+        if (!validMallItem(itemId)) return 0L
+        return getHistoricalPrice(itemId)
+    }
 
     /**
      * Desktop MallPriceManager.getMallPrice(itemId, maxAge) — returns cached/historical
@@ -83,10 +98,50 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
      * Returns 0 when the price is stale or unknown.
      */
     fun getMallPrice(itemId: Int, maxAgeSeconds: Long): Long {
+        if (!validMallItem(itemId)) return 0L
         if (maxAgeSeconds < 0) return getMallPrice(itemId)
         val age = getHistoricalAge(itemId)
         if (age < 0 || age > maxAgeSeconds) return 0L
-        return getMallPrice(itemId)
+        return getHistoricalPrice(itemId)
+    }
+
+    /**
+     * Desktop [MallPriceManager.getMallPrice(AdventureResult)] — for [count] ≤ [NTH_CHEAPEST_COUNT]
+     * returns fifth-cheapest × count; larger counts walk a saved search accumulating limits.
+     */
+    fun getMallPriceForQuantity(itemId: Int, count: Int): Long {
+        if (!validMallItem(itemId)) return 0L
+        val qty = count.coerceAtLeast(1)
+        if (qty <= NTH_CHEAPEST_COUNT) {
+            return getMallPrice(itemId) * qty
+        }
+        val results = getSavedSearch(itemId, needed = qty) ?: return getMallPrice(itemId) * qty
+        var needed = qty
+        var found = 0
+        var lastPrice = -1L
+        var total = 0L
+        for (listing in results) {
+            lastPrice = listing.price
+            var available = listing.limit.coerceAtLeast(0)
+            if (found < NTH_CHEAPEST_COUNT) {
+                if (found + available < NTH_CHEAPEST_COUNT) {
+                    found += available
+                    continue
+                }
+                available -= NTH_CHEAPEST_COUNT - found
+                found = NTH_CHEAPEST_COUNT
+                total = lastPrice * NTH_CHEAPEST_COUNT
+                needed -= NTH_CHEAPEST_COUNT
+            }
+            if (available <= 0) continue
+            val used = minOf(available, needed)
+            needed -= used
+            found += used
+            total += lastPrice * used
+            if (needed <= 0) return total
+        }
+        if (needed > 0 && lastPrice > 0) total += lastPrice * needed
+        return total
     }
 
     /**
@@ -97,6 +152,7 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
      * When [forceUpdate] is false behaves like [getMallPrice] with age gate.
      */
     fun getMallPrice(itemId: Int, maxAgeSeconds: Long, forceUpdate: Boolean): Long {
+        if (!validMallItem(itemId)) return 0L
         if (forceUpdate) {
             mallSearchSync?.invoke(itemId)?.let { results ->
                 saveMallSearch(itemId, results)
@@ -124,6 +180,60 @@ class MallPriceManager(private val clock: Clock = SystemClock) {
         val entry = cache[itemId] ?: return -1L
         if (clock.nowSeconds - entry.cachedAt >= TTL_SECONDS) return -1L
         return clock.nowSeconds - entry.cachedAt
+    }
+
+    /**
+     * Desktop MallPriceDatabase.getAge — fractional days since price was recorded.
+     * Returns [Double.POSITIVE_INFINITY] when unknown (ASH `historical_age` parity).
+     */
+    fun getHistoricalAgeDays(itemId: Int): Double {
+        MallPriceDatabase.getAgeSeconds(itemId, clock.nowSeconds)?.let {
+            return it / 86_400.0
+        }
+        val entry = cache[itemId] ?: return Double.POSITIVE_INFINITY
+        if (clock.nowSeconds - entry.cachedAt >= TTL_SECONDS) return Double.POSITIVE_INFINITY
+        return (clock.nowSeconds - entry.cachedAt) / 86_400.0
+    }
+
+    /**
+     * Desktop MallPriceManager.getMallPrice(itemId, maxAge) where [maxAgeDays] is
+     * fractional days. Stale DB/cache prices are flushed; forceUpdate refill via
+     * [mallSearchSync] or last-known DB when no live search is wired.
+     */
+    fun getMallPriceDays(itemId: Int, maxAgeDays: Double): Long {
+        if (!validMallItem(itemId)) return 0L
+        if (maxAgeDays < 0) return getMallPrice(itemId)
+        val ageDays = getHistoricalAgeDays(itemId)
+        if (ageDays.isFinite() && ageDays <= maxAgeDays) {
+            val price = getHistoricalPrice(itemId)
+            if (price > 0) return price
+        }
+        if (ageDays.isFinite() && ageDays > maxAgeDays) {
+            flushCache(itemId)
+            // Desktop: drop stale mallprices.txt age gate then live-search / forceUpdate.
+            MallPriceDatabase.removePrice(itemId)
+        }
+        return getMallPrice(itemId, maxAgeSeconds = -1, forceUpdate = true)
+    }
+
+    /**
+     * Desktop mallprices.txt load seed — only current-rollover-day rows enter the session cache.
+     * [currentDay] / [dayOf] are caller-supplied rollover-day counters.
+     */
+    fun seedFromDatabaseIfCurrentDay(
+        currentDay: Int,
+        dayOf: (timestampSeconds: Long) -> Int = { ts -> (ts / 86_400L).toInt() },
+    ) {
+        for (entry in MallPriceDatabase.allPrices()) {
+            cachePriceIfFromCurrentDay(
+                itemId = entry.itemId,
+                price = entry.price,
+                quantity = 0,
+                shopId = 0,
+                dayNumber = dayOf(entry.timestampSeconds),
+                currentDay = currentDay,
+            )
+        }
     }
 
     internal fun cachedAtForTest(itemId: Int): Long? = cache[itemId]?.cachedAt

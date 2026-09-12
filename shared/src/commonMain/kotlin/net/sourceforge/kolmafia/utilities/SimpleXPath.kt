@@ -8,6 +8,7 @@ import net.sourceforge.kolmafia.ash.ScriptException
  *
  * Phase 6011–6025 (XXXVI): `contains(@attr,'lit')`, numeric position `[n]` /
  * `[last()]`, and mid-path attribute steps `//tag/@attr`.
+ * Phase 6481–6490 (XLIII-F): child `/text()` and `following-sibling::` axes.
  */
 object SimpleXPath {
 
@@ -65,32 +66,43 @@ object SimpleXPath {
                     val end = findStepEnd(remaining, 2)
                     val step = remaining.substring(2, end)
                     remaining = remaining.substring(end)
-                    nodes = when (step) {
-                        "text()" -> return nodes.flatMap { collectTextNodes(it) }
-                        else -> {
-                            if (step.startsWith("@")) {
-                                return nodes.flatMap {
-                                    collectAttributeValues(it, step.removePrefix("@").lowercase())
-                                }
+                    nodes = when {
+                        step == "text()" -> return nodes.flatMap { collectTextNodes(it) }
+                        step.startsWith("@") -> {
+                            return nodes.flatMap {
+                                collectAttributeValues(it, step.removePrefix("@").lowercase())
                             }
-                            evaluateDescendantStep(nodes, step)
                         }
+                        step.startsWith("following-sibling::") ->
+                            evaluateFollowingSiblingStep(nodes, step.removePrefix("following-sibling::"))
+                        else -> evaluateDescendantStep(nodes, step)
                     }
                 }
                 remaining.startsWith("/") -> {
                     val end = findStepEnd(remaining, 1)
                     val step = remaining.substring(1, end)
                     remaining = remaining.substring(end)
-                    if (step.startsWith("@")) {
-                        // Mid-path attribute step: take @attr from the current node set only
-                        // (do not walk descendants — that would duplicate nested attrs).
-                        val attr = step.removePrefix("@").lowercase()
-                        return nodes.mapNotNull { node ->
-                            if (node.isTextNode) null
-                            else node.attributes[attr]?.let { textNode(it) }
+                    when {
+                        step.startsWith("@") -> {
+                            // Mid-path attribute step: take @attr from the current node set only
+                            // (do not walk descendants — that would duplicate nested attrs).
+                            val attr = step.removePrefix("@").lowercase()
+                            return nodes.mapNotNull { node ->
+                                if (node.isTextNode) null
+                                else node.attributes[attr]?.let { textNode(it) }
+                            }
                         }
+                        step == "text()" -> {
+                            nodes = nodes.flatMap { collectDirectTextNodes(it) }
+                        }
+                        step.startsWith("following-sibling::") -> {
+                            nodes = evaluateFollowingSiblingStep(
+                                nodes,
+                                step.removePrefix("following-sibling::"),
+                            )
+                        }
+                        else -> nodes = evaluateChildStep(nodes, step)
                     }
-                    nodes = evaluateChildStep(nodes, step)
                 }
                 else -> throw ScriptException("invalid xpath expression")
             }
@@ -129,10 +141,31 @@ object SimpleXPath {
 
     private fun evaluateChildStep(current: List<HtmlNode>, step: String): List<HtmlNode> {
         val parsed = parseStep(step)
+        if (parsed.tag == null && step == "text()") {
+            return current.flatMap { collectDirectTextNodes(it) }
+        }
         val matched = current.flatMap { node ->
             node.children.filter { !it.isTextNode && matches(it, parsed.tag, parsed.attrPredicates) }
         }
         return applyPosition(matched, parsed.position)
+    }
+
+    private fun evaluateFollowingSiblingStep(current: List<HtmlNode>, step: String): List<HtmlNode> {
+        val parsed = parseStep(step.ifBlank { "*" })
+        val matched = current.flatMap { node ->
+            followingSiblings(node).filter { sibling ->
+                !sibling.isTextNode && matches(sibling, parsed.tag, parsed.attrPredicates)
+            }
+        }
+        return applyPosition(matched, parsed.position)
+    }
+
+    private fun followingSiblings(node: HtmlNode): List<HtmlNode> {
+        val parent = node.parent ?: return emptyList()
+        val siblings = parent.children.filter { !it.isTextNode }
+        val index = siblings.indexOf(node)
+        if (index < 0) return emptyList()
+        return siblings.drop(index + 1)
     }
 
     private fun applyPosition(nodes: List<HtmlNode>, position: PositionPredicate?): List<HtmlNode> {
@@ -241,6 +274,16 @@ object SimpleXPath {
             }
         }
         walk(node)
+        return out
+    }
+
+    /** Direct child text nodes only (xpath `/text()`). */
+    private fun collectDirectTextNodes(node: HtmlNode): List<HtmlNode> {
+        val out = mutableListOf<HtmlNode>()
+        if (node.text.isNotBlank()) out += textNode(node.text)
+        for (child in node.children) {
+            if (child.isTextNode && child.text.isNotBlank()) out += child
+        }
         return out
     }
 

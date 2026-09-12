@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.maximizer
 
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.ConsumptionEligibility
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.campground.CampAwayAvailability
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
@@ -417,8 +418,9 @@ object MaximizerBoostSourceRules {
                 }
             }
             val fullCost = HotDogDatabase.nameToFullness(dogName)
+            val stomachCap = ConsumptionEligibility.stomachCapacity(ctx.charState)
             if (fullCost > 0 &&
-                ctx.charState.fullness + fullCost > ctx.charState.fullnessLimit
+                ctx.charState.fullness + fullCost > stomachCap
             ) {
                 return SourceRuleResult(skip = true)
             }
@@ -460,8 +462,9 @@ object MaximizerBoostSourceRules {
                 }
             }
             val drunkCost = SpeakeasyDatabase.nameToInebriety(drinkName)
+            val liverCap = ConsumptionEligibility.liverCapacity(ctx.charState)
             if (drunkCost > 0 &&
-                ctx.charState.inebriety + drunkCost > ctx.charState.inebrietyLimit
+                ctx.charState.inebriety + drunkCost > liverCap
             ) {
                 return SourceRuleResult(skip = true)
             }
@@ -627,7 +630,7 @@ object MaximizerBoostSourceRules {
             var usesRemaining = 1
             var extraCosts: MaximizerBoostCostSuffix.BoostCosts? = null
             if (freeUsed) {
-                usesRemaining = ctx.charState.spleenRemaining
+                usesRemaining = ConsumptionEligibility.effectiveSpleenRemaining(ctx.charState)
                 if (usesRemaining < 3) cmd = ""
                 extraCosts = MaximizerBoostCostSuffix.BoostCosts(spleen = 3)
             }
@@ -1500,7 +1503,7 @@ object MaximizerBoostSourceRules {
                 }
             }
             CandyDatabase.loadBlacklist(ctx.preferences)
-            val spleenRemaining = ctx.charState.spleenRemaining
+            val spleenRemaining = ConsumptionEligibility.effectiveSpleenRemaining(ctx.charState)
             if (spleenRemaining < 1) cmd = ""
             if (!CandyDatabase.synthesisPair(ctx.effectId, ctx.base.inventoryCount)) cmd = ""
             return SourceRuleResult(

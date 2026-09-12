@@ -199,11 +199,16 @@ open class MoodManager(
         val (name, parentNames) = Mood.parseName(storedName)
         val raw = preferences.getString(Preferences.ACTIVE_MOOD_TRIGGERS)
         val libraryMood = moodLibrary[name]
+        // Inheritance residual: prefer stored "extends" parents, else library parents.
+        val resolvedParents = parentNames.ifEmpty { libraryMood?.parentNames.orEmpty() }
+        val localTriggers = parseTriggers(raw)
         activeMood = Mood(
             name,
-            parseTriggers(raw),
-            parentNames,
-            libraryMood?.removalTriggers ?: emptyList(),
+            localTriggers.ifEmpty { libraryMood?.triggers.orEmpty() },
+            resolvedParents,
+            libraryMood?.removalTriggers
+                ?: libraryMood?.effectiveRemovalTriggers(moodLibrary)
+                ?: emptyList(),
         )
     }
 

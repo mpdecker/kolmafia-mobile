@@ -641,6 +641,8 @@ internal fun GameRuntimeLibrary.runMonstersCli(parameters: String, rt: AshRuntim
 
 internal fun GameRuntimeLibrary.runAutosellCli(parameters: String) {
     val request = autosellRequest ?: return
+    // Desktop AutoSellCommand — qty-optional comma lists, including pilcrow ¶itemId
+    // from ASH batch_close flush (`sell 1 ¶a, 2 ¶b`).
     for (raw in parameters.split(',')) {
         val piece = raw.trim()
         if (piece.isEmpty()) continue
@@ -1076,6 +1078,7 @@ internal fun GameRuntimeLibrary.runAutoAttackCli(parameters: String, rt: AshRunt
             }
         }
         character?.setAutoAttackAction(skillId)
+        preferences?.setInt("defaultAutoAttack", skillId)
     }
     rt.print(LongTailCli.formatAutoAttack(skillId) { id ->
         skillManager?.state?.value?.skills?.firstOrNull { it.id == id }?.name
@@ -1608,6 +1611,9 @@ internal fun GameRuntimeLibrary.runEudoraCli(parameters: String, rt: AshRuntimeC
                 rt.print("Cannot switch to ${correspondent.name}")
             } else {
                 preferences?.setString("eudora", correspondent.name)
+                preferences?.setString("currentEudora", correspondent.name)
+                // Desktop AccountRequest.whichpenpal follows with ApiRequest.updateStatus().
+                preferences?.setBoolean("_eudoraNeedsStatusRefresh", true)
                 rt.print("Switched to ${correspondent.name}")
             }
         } catch (_: Exception) {

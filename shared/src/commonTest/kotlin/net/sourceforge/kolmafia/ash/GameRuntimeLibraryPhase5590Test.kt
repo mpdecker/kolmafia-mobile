@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 class GameRuntimeLibraryPhase5590Test {
     @Test
     fun revision_phase5590() {
-        assertEquals("phase5950", GameRuntimeLibrary.REVISION)
-        assertEquals("phase5950", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
+        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
+        assertEquals("6850", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
     }
 }

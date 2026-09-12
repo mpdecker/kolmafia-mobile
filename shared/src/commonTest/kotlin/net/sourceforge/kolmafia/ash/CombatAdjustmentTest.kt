@@ -66,6 +66,72 @@ class CombatAdjustmentTest {
     }
 
     @Test
+    fun expectedDamage_heroOfTheHalfShellUsesMuscleWithShield() {
+        val monster = MonsterDefinition(
+            name = "test bug",
+            id = 1,
+            image = "",
+            attack = 40,
+            defense = 0,
+            hp = 10,
+            initiative = 0,
+            meatDrop = 0,
+            phylum = "bug",
+            isBoss = false,
+            isGhost = false,
+            isLucky = false,
+            isScaling = false,
+            scale = 0,
+            cap = 0,
+            floor = 0,
+            drops = emptyList(),
+        )
+        // Muscle 30 > Moxie 10 → defend with muscle when Hero + shield.
+        val char = CharacterState(buffedMoxie = 10, buffedMusc = 30, characterClass = 5)
+        val mods = CurrentModifiers(char)
+        val without = CombatAdjustment.expectedDamage(monster, char, mods)
+        val with = CombatAdjustment.expectedDamage(
+            monster,
+            char,
+            mods,
+            usingShield = true,
+            hasHeroOfTheHalfShell = true,
+        )
+        // base without: max(0,40-10)+10=40; with: max(0,40-30)+10=20 → lower damage
+        assertEquals(44, without)
+        assertEquals(22, with)
+        assertTrue(with < without)
+    }
+
+    @Test
+    fun expectedDamage_attackModifierFromDelevel() {
+        val monster = MonsterDefinition(
+            name = "test bug",
+            id = 1,
+            image = "",
+            attack = 40,
+            defense = 0,
+            hp = 10,
+            initiative = 0,
+            meatDrop = 0,
+            phylum = "bug",
+            isBoss = false,
+            isGhost = false,
+            isLucky = false,
+            isScaling = false,
+            scale = 0,
+            cap = 0,
+            floor = 0,
+            drops = emptyList(),
+        )
+        val char = CharacterState(buffedMoxie = 10, characterClass = 5)
+        val mods = CurrentModifiers(char)
+        val full = CombatAdjustment.expectedDamage(monster, char, mods)
+        val delevelled = CombatAdjustment.expectedDamage(monster, char, mods, attackModifier = -20)
+        assertTrue(delevelled < full)
+    }
+
+    @Test
     fun expectedDamage_ninjaSnowmanAssassinSpecialCase() {
         val monster = MonsterDefinition(
             name = "ninja snowman assassin",

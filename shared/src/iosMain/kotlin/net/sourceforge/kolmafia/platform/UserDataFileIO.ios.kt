@@ -37,3 +37,10 @@ actual fun writeUserDataText(relativePath: String, text: String) {
         error = null,
     )
 }
+
+actual fun listUserDataNames(relativeDir: String): List<String> {
+    val fullPath = "${userDataBase()}/$relativeDir"
+    val manager = NSFileManager.defaultManager
+    val contents = manager.contentsOfDirectoryAtPath(fullPath, error = null) ?: return emptyList()
+    return contents.mapNotNull { it as? String }
+}

@@ -284,6 +284,8 @@ class RecoveryManager(
         refreshStates: suspend () -> Triple<CharacterState, InventoryState, SkillState>,
     ): Boolean {
         if (CharpaneValhallaSync.inValhalla) return false
+        // Desktop restore_hp nests RecoveryManager.setRecoveryActive(true) and restores prior flag.
+        val wasRecoveryActive = isRecoveryActive
         isRecoveryActive = true
         var state = charState
         try {
@@ -304,7 +306,7 @@ class RecoveryManager(
             }
             return state.currentHp >= target
         } finally {
-            isRecoveryActive = false
+            isRecoveryActive = wasRecoveryActive
             VoteMonsterManager.checkCounter(preferences, state.turnsPlayed)
         }
     }
@@ -317,6 +319,7 @@ class RecoveryManager(
         refreshStates: suspend () -> Triple<CharacterState, InventoryState, SkillState>,
     ): Boolean {
         if (CharpaneValhallaSync.inValhalla) return false
+        val wasRecoveryActive = isRecoveryActive
         isRecoveryActive = true
         var state = charState
         try {
@@ -337,7 +340,7 @@ class RecoveryManager(
             }
             return state.currentMp >= target
         } finally {
-            isRecoveryActive = false
+            isRecoveryActive = wasRecoveryActive
             VoteMonsterManager.checkCounter(preferences, state.turnsPlayed)
         }
     }

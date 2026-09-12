@@ -4,10 +4,10 @@ import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.session.TurnCounter
 
 /**
- * AshP905–AshP910 — Prefs / counters ASH surface (Track C).
+ * AshP905â€“AshP910 â€” Prefs / counters ASH surface (Track C).
  */
 
-// ── AshP905 — property_exists(name[, global]) ──────────────────────────────
+// â”€â”€ AshP905 â€” property_exists(name[, global]) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 internal fun GameRuntimeLibrary.registerAshP905Batch(scope: AshScope) {
     regFn(scope, "property_exists", AshType.BOOLEAN,
@@ -30,7 +30,7 @@ internal fun GameRuntimeLibrary.registerAshP905Batch(scope: AshScope) {
     }
 }
 
-// ── AshP906 — property_has_default, property_default_value ──────────────────
+// â”€â”€ AshP906 â€” property_has_default, property_default_value â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 internal fun GameRuntimeLibrary.registerAshP906Batch(scope: AshScope) {
     regFn(scope, "property_has_default", AshType.BOOLEAN,
@@ -49,7 +49,7 @@ internal fun GameRuntimeLibrary.registerAshP906Batch(scope: AshScope) {
     }
 }
 
-// ── AshP907 — get_all_properties(filter, global) ───────────────────────────
+// â”€â”€ AshP907 â€” get_all_properties(filter, global) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 internal fun GameRuntimeLibrary.registerAshP907Batch(scope: AshScope) {
     val stringToBool = AggregateType(AshType.STRING, AshType.BOOLEAN)
@@ -69,19 +69,28 @@ internal fun GameRuntimeLibrary.registerAshP907Batch(scope: AshScope) {
     }
 }
 
-// ── AshP908 — remove_property(name[, global]), rename_property(old, new) ────
+// â”€â”€ AshP908 â€” remove_property(name[, global]), rename_property(old, new) â”€â”€â”€â”€
 
 internal fun GameRuntimeLibrary.registerAshP908Batch(scope: AshScope) {
     regFn(scope, "remove_property", AshType.STRING,
         listOf("name" to AshType.STRING)) { _, args ->
         val name = args[0].toString()
-        if (!isUserEditable(name)) return@regFn AshValue.of("")
+        if (!isUserEditableProperty(name) || isPerUserGlobalProperty(name)) {
+            return@regFn AshValue.of("")
+        }
         val prefs = preferences ?: return@regFn AshValue.of("")
-        val oldValue = prefs.getString(name, "")
-        if (DefaultsDatabase.has(name)) {
-            DefaultsDatabase.resetToDefault(prefs, name)
-        } else {
-            prefs.removeKey(name)
+        // Desktop remove_property(name): defaults → reset; else user map; else global map.
+        val oldValue = when {
+            DefaultsDatabase.has(name) -> {
+                val old = prefs.getString(name, "")
+                DefaultsDatabase.resetToDefault(prefs, name)
+                old
+            }
+            prefs.propertyExists(name, global = false) ->
+                prefs.removeProperty(name, global = false)
+            prefs.propertyExists(name, global = true) ->
+                prefs.removeProperty(name, global = true)
+            else -> ""
         }
         AshValue.of(oldValue)
     }
@@ -89,15 +98,11 @@ internal fun GameRuntimeLibrary.registerAshP908Batch(scope: AshScope) {
     regFn(scope, "remove_property", AshType.STRING,
         listOf("name" to AshType.STRING, "global" to AshType.BOOLEAN)) { _, args ->
         val name = args[0].toString()
-        if (!isUserEditable(name)) return@regFn AshValue.of("")
-        val prefs = preferences ?: return@regFn AshValue.of("")
-        val oldValue = prefs.getString(name, "")
-        if (DefaultsDatabase.has(name)) {
-            DefaultsDatabase.resetToDefault(prefs, name)
-        } else {
-            prefs.removeKey(name)
+        if (!isUserEditableProperty(name) || isPerUserGlobalProperty(name)) {
+            return@regFn AshValue.of("")
         }
-        AshValue.of(oldValue)
+        val prefs = preferences ?: return@regFn AshValue.of("")
+        AshValue.of(prefs.removeProperty(name, args[1].toBoolean()))
     }
 
     regFn(scope, "rename_property", AshType.BOOLEAN,
@@ -117,18 +122,22 @@ internal fun GameRuntimeLibrary.registerAshP908Batch(scope: AshScope) {
     }
 }
 
-// ── AshP909 — get_counter(label), get_counters(label, min, max) ─────────────
+// â”€â”€ AshP909 â€” get_counter(label), get_counters(label, min, max) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 internal fun GameRuntimeLibrary.registerAshP909Batch(scope: AshScope) {
+    // Desktop TurnCounter.getCounter â€” empty label skips loc=* exempt counters.
     regFn(scope, "get_counter", AshType.INT,
         listOf("label" to AshType.STRING)) { _, args ->
         val label = args[0].toString()
         val prefs = preferences ?: return@regFn AshValue.of(-1L)
         val currentRun = character?.state?.value?.currentRun ?: 0
         val entry = TurnCounter.findByLabel(prefs, label)
-        AshValue.of(TurnCounter.turnsRemaining(entry, currentRun).toLong())
+        // Desktop returns raw (absoluteTurn - currentRun), not coerced to ≥0.
+        if (entry == null) return@regFn AshValue.of(-1L)
+        AshValue.of((entry.absoluteTurn - currentRun).toLong())
     }
 
+    // Desktop TurnCounter.getCounters â€” empty label skips loc=* exempt.
     regFn(scope, "get_counters", AshType.STRING,
         listOf("label" to AshType.STRING, "min" to AshType.INT, "max" to AshType.INT)) { _, args ->
         val label = args[0].toString()
@@ -141,7 +150,7 @@ internal fun GameRuntimeLibrary.registerAshP909Batch(scope: AshScope) {
     }
 }
 
-// ── AshP910 — stop_counter(label) ───────────────────────────────────────────
+// â”€â”€ AshP910 â€” stop_counter(label) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 internal fun GameRuntimeLibrary.registerAshP910Batch(scope: AshScope) {
     regFn(scope, "stop_counter", AshType.VOID,
@@ -153,13 +162,8 @@ internal fun GameRuntimeLibrary.registerAshP910Batch(scope: AshScope) {
     }
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 private fun isBuiltInProperty(name: String): Boolean =
     name.startsWith("choiceAdventure") || name.startsWith("skillBurn")
 
-private fun isUserEditable(name: String): Boolean {
-    if (name.startsWith("saveState")) return false
-    if (name.startsWith("System.")) return false
-    return true
-}

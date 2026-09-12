@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.request
 
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
+import net.sourceforge.kolmafia.shop.InterestingCoinShopSync
 
 /**
  * Phases 5036–5050 — thin HTTP residual registerRequest hubs (Behavioral Deepen XIX).
@@ -86,6 +87,18 @@ object SugarSheetRequestHub {
         sessionLogger?.appendRawLine("Visiting Sugar Sheets")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!url.contains("sugarsheets", ignoreCase = true) &&
+            !url.contains("whichshop=sugarsheets", ignoreCase = true)
+        ) {
+            return
+        }
+        val prefs = preferences ?: return
+        Regex("""([\d,]+)\s+sugar sheet""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { prefs.setInt("availableSugarSheets", it) }
+    }
 }
 
 object StarChartRequestHub {
@@ -97,6 +110,18 @@ object StarChartRequestHub {
         }
         sessionLogger?.appendRawLine("Visiting Star Chart")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!url.contains("starchart", ignoreCase = true) &&
+            !url.contains("whichshop=starchart", ignoreCase = true)
+        ) {
+            return
+        }
+        val prefs = preferences ?: return
+        Regex("""([\d,]+)\s+star chart""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { prefs.setInt("availableStarCharts", it) }
     }
 }
 
@@ -126,6 +151,7 @@ object InterestingCoinRequestHub {
                 prefs.setInt("availableInterestingCoins", it)
                 prefs.setBoolean("hasInterestingCoin", it > 0)
             }
+        InterestingCoinShopSync.syncFromShopHtml(html, prefs)
     }
 }
 
@@ -138,6 +164,14 @@ object NuggletCraftingRequestHub {
         }
         sessionLogger?.appendRawLine("Visiting Nugglet Crafting (topiary)")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!url.contains("whichshop=topiary", ignoreCase = true)) return
+        val prefs = preferences ?: return
+        Regex("""([\d,]+)\s+nugglet""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { prefs.setInt("availableNugglets", it) }
     }
 }
 
@@ -153,6 +187,16 @@ object SewerRequestHub {
         }
         sessionLogger?.appendRawLine("Using sewer gum")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean {
+        if (!registerRequest(url, null)) return false
+        val prefs = preferences ?: return html.contains("You acquire", ignoreCase = true)
+        if (html.contains("You acquire", ignoreCase = true)) {
+            prefs.setBoolean("_sewerGumUsed", true)
+            return true
+        }
+        return false
     }
 }
 
@@ -170,6 +214,16 @@ object ClipArtRequestHub {
         }
         sessionLogger?.appendRawLine("Summoning clip art")
         return true
+    }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+        if (!registerRequest(url, null)) return
+        val prefs = preferences ?: return
+        if (html.contains("You acquire", ignoreCase = true) ||
+            html.contains("clip art", ignoreCase = true)
+        ) {
+            prefs.increment("_clipartSummons", 1)
+        }
     }
 }
 
