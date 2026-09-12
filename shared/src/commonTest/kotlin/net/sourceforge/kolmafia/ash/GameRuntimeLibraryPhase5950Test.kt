@@ -12,7 +12,7 @@ import net.sourceforge.kolmafia.session.RequestLogger
 class GameRuntimeLibraryPhase5950Test {
     @Test
     fun revisionIsPhase5950() {
-        assertEquals("phase6670", GameRuntimeLibrary.REVISION)
+        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
     }
 
     @Test

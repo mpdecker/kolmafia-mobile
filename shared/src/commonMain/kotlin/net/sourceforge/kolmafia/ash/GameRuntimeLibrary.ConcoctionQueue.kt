@@ -47,13 +47,11 @@ internal suspend fun GameRuntimeLibrary.createItem(itemId: Int, count: Int): Boo
             state = character?.state?.value,
             preferences = preferences,
         )
-        if (created != null) {
-            if (created.isSuccess) {
-                ConcoctionDatabase.markRefreshNeeded()
-                return true
-            }
-            return false
+        if (created?.isSuccess == true) {
+            ConcoctionDatabase.markRefreshNeeded()
+            return true
         }
+        // Specialty residual: fall through to retrieve when typed hub missing/failed
     }
     // Fallback retrieve (includes nested craft) when no typed create hub is wired.
     val retrieved = (retrieveItemService?.retrieve(itemId, count) ?: 0) >= count

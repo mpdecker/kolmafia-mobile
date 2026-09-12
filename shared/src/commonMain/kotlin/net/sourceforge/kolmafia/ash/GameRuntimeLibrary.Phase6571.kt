@@ -11,7 +11,7 @@ package net.sourceforge.kolmafia.ash
  * - daily_special live cafe visit sync
  * - well_stocked mall-only listing depth
  *
- * REVISION stays phase6670 (do not bump).
+ * REVISION stays phase6850 (do not bump).
  */
 internal fun GameRuntimeLibrary.registerPhase6571(scope: AshScope) {
     // Behavioral patches live in Phase4490 / Collections / AccessibleItemCount /

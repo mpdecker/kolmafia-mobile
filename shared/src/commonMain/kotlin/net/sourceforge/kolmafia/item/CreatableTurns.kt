@@ -45,10 +45,11 @@ object CreatableTurns {
         val concoction = ConcoctionDatabase.getByResult(itemName) ?: return 0
 
         val initial = context.inventoryCount(itemId)
-        if (initial > 1) return 0
-
         val create = quantityNeeded - initial
         if (create <= 0) return 0
+
+        // Desktop heuristic/kludge: AdventureResult.getCount() > 1 (multi-yield base recipes)
+        if (concoction.resultQuantity > 1) return 0
 
         var runningTotal = ConcoctionCreationCost.adventureUsage(concoction.methods) * create
         val yield = concoction.resultQuantity.coerceAtLeast(1)
@@ -64,11 +65,10 @@ object CreatableTurns {
                 visited.remove(itemId)
                 return 0
             }
-            val ingInitial = context.inventoryCount(ingId)
-            val ingNeeded = ingInitial + ingredient.quantity * create
+            // Desktop: ingredient.getAdventuresNeeded(create) — parent craft count as target
             runningTotal += adventuresNeeded(
                 itemId = ingId,
-                quantityNeeded = ingNeeded,
+                quantityNeeded = create,
                 context = context,
                 visited = visited,
             )

@@ -9,7 +9,7 @@ package net.sourceforge.kolmafia.ash
  *   lovebug / gladiator / heartstone unlock prefs)
  * - attack / steal / twiddle / runaway / pickpocket — BUFFER offline vs live path
  *
- * REVISION stays phase6670 (do not bump; parent wraps to phase6670).
+ * REVISION stays phase6850 (do not bump; parent wraps to phase6850).
  */
 internal fun GameRuntimeLibrary.registerPhase6631(scope: AshScope) {
     // Behavioral patches live in AshP38Batch / AshP889TrackA / AshP991TrackR /

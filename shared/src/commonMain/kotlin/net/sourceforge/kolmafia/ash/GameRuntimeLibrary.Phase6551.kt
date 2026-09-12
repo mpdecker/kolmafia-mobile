@@ -9,7 +9,7 @@ package net.sourceforge.kolmafia.ash
  * - can_walk_from_choice / choice_follows_fight / fight_follows_choice / in_multi_fight polish
  * - tavern() / tavern(goal) — unknown goal → -1; permitsContinue gate
  *
- * REVISION stays phase6670 until parent wraps to phase6670.
+ * REVISION stays phase6850 until parent wraps to phase6850.
  */
 internal fun GameRuntimeLibrary.registerPhase6551(scope: AshScope) {
     // Behavioral patches live in AdventurePrep / AdventureZoneGates / AdventureManager /

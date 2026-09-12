@@ -24,7 +24,9 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
     fun mapToAggregate(contents: Map<Int, Int>): AggregateValue {
         val result = AggregateValue(itemIntType)
         contents.forEach { (itemId, qty) ->
-            val itemName = gameDatabase?.item(itemId)?.name ?: "Item #$itemId"
+            val itemName = gameDatabase?.item(itemId)?.name
+                ?: ItemDatabase.getById(itemId)?.name
+                ?: "Item #$itemId"
             result[AshValue.item(itemName)] = AshValue.of(qty.toLong())
         }
         return result
@@ -149,20 +151,36 @@ internal fun GameRuntimeLibrary.registerCollectionQueries(scope: AshScope) {
 
     // ── get_free_pulls() → int[item] (live — non-storage bucket from storage.php) ─
     regFn(scope, "get_free_pulls", itemIntType, emptyList()) { _, _ ->
+        // Lazy-refresh when never retrieved (same contract as get_no_pulls).
+        if (!CollectionCacheSync.storageRetrieved) {
+            val prefs = preferences
+            val req = storageRequest
+            if (prefs != null && req != null) {
+                runBlocking {
+                    CollectionCacheSync.refreshStorage(
+                        req, character?.state?.value, prefs,
+                    )
+                }
+            }
+        }
         val classified = runBlocking {
             storageRequest?.fetchClassifiedContents(
                 character?.state?.value,
                 preferences,
             )
         }
-        val contents = classified?.freepulls ?: emptyMap()
+        val contents = classified?.freepulls
+            ?: preferences?.let { CollectionCache.load(it, Preferences.CACHED_FREEPULLS) }
+            ?: emptyMap()
         preferences?.let { prefs ->
-            CollectionCacheSync.saveStorage(
-                prefs,
-                classified?.storage ?: CollectionCache.load(prefs, Preferences.CACHED_STORAGE),
-                contents,
-                classified?.nopulls ?: CollectionCache.load(prefs, Preferences.CACHED_NOPULLS),
-            )
+            if (classified != null) {
+                CollectionCacheSync.saveStorage(
+                    prefs,
+                    classified.storage,
+                    contents,
+                    classified.nopulls,
+                )
+            }
         }
         mapToAggregate(contents)
     }

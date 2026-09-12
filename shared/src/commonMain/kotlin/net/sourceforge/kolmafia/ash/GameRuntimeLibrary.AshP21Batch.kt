@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.ash
 
+import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.ModifierEntry
 
 /**
@@ -33,20 +34,26 @@ internal fun GameRuntimeLibrary.resolveModifierByTypeNameArg(typeNameArg: String
 }
 
 internal fun GameRuntimeLibrary.resolveModifierByTypeName(type: String, name: String): ModifierEntry? {
-    val db = gameDatabase ?: return null
+    val db = gameDatabase
     return when (type.lowercase()) {
-        "item" -> db.itemModifier(name) ?: name.toIntOrNull()?.let { db.itemModifier(it) }
-        "effect" -> db.effectModifier(name)
-        "skill" -> db.skillModifier(name) ?: name.toIntOrNull()?.let { db.skillModifier(it) }
-        "familiar" -> db.familiarModifier(name) ?: name.toIntOrNull()?.let { db.familiarModifier(it) }
-        "loc", "location" -> db.locationModifier(name)
-        "zone" -> db.zoneModifier(name)
-        "path" -> db.pathModifier(name)
-        "thrall" -> db.thrallModifier(name)
-        "outfit" -> db.outfitModifier(name)
-        "sign" -> db.modifier("Sign", name)
-        else -> db.modifier(type, name)
+        "item" -> db?.itemModifier(name) ?: name.toIntOrNull()?.let { db?.itemModifier(it) }
+            ?: ModifierDatabase.getItem(name)
+        "effect" -> db?.effectModifier(name) ?: ModifierDatabase.getEffect(name)
+        "skill" -> db?.skillModifier(name) ?: name.toIntOrNull()?.let { db?.skillModifier(it) }
+            ?: ModifierDatabase.getSkill(name)
+        "familiar" -> db?.familiarModifier(name) ?: name.toIntOrNull()?.let { db?.familiarModifier(it) }
+            ?: ModifierDatabase.getFamiliar(name)
+        "loc", "location" -> db?.locationModifier(name) ?: ModifierDatabase.getLocation(name)
+        "zone" -> db?.zoneModifier(name) ?: ModifierDatabase.get("Zone", name)
+        "path" -> db?.pathModifier(name) ?: ModifierDatabase.get("Path", name)
+        "thrall" -> db?.thrallModifier(name) ?: ModifierDatabase.get("Thrall", name)
+        "outfit" -> db?.outfitModifier(name) ?: ModifierDatabase.get("Outfit", name)
+        "sign" -> db?.modifier("Sign", name) ?: ModifierDatabase.get("Sign", name)
+        "generated" -> ModifierDatabase.get("Generated", name)
+        "monster" -> db?.modifier("Monster", name) ?: ModifierDatabase.get("Monster", name)
+        else -> db?.modifier(type, name)
             ?: type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                .let { normalized -> db.modifier(normalized, name) }
+                .let { normalized -> db?.modifier(normalized, name) ?: ModifierDatabase.get(normalized, name) }
+            ?: ModifierDatabase.get(type, name)
     }
 }

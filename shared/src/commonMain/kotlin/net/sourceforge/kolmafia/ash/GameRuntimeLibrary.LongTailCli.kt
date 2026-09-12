@@ -1611,6 +1611,9 @@ internal fun GameRuntimeLibrary.runEudoraCli(parameters: String, rt: AshRuntimeC
                 rt.print("Cannot switch to ${correspondent.name}")
             } else {
                 preferences?.setString("eudora", correspondent.name)
+                preferences?.setString("currentEudora", correspondent.name)
+                // Desktop AccountRequest.whichpenpal follows with ApiRequest.updateStatus().
+                preferences?.setBoolean("_eudoraNeedsStatusRefresh", true)
                 rt.print("Switched to ${correspondent.name}")
             }
         } catch (_: Exception) {

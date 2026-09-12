@@ -10,7 +10,7 @@ package net.sourceforge.kolmafia.ash
  * - tracked_by / track_copy_count / track_ignore_queue → Tracker.isEffective
  * - choice_follows_fight → ChoiceCombatAshState post-fight sync
  *
- * REVISION stays phase6490 until parent wraps to phase6670.
+ * REVISION stays phase6490 until parent wraps to phase6850.
  */
 internal fun GameRuntimeLibrary.registerPhase6491(scope: AshScope) {
     // Behavioral patches live in CombatScript / AshP889 / AshP943 / AshP950 /

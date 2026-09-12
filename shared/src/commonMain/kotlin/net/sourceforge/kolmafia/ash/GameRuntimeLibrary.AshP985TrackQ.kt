@@ -14,7 +14,8 @@ import net.sourceforge.kolmafia.shop.CoinmasterRegistry
  * Phase 987: get_shop_log
  * Phase 988: put_shop_using_storage / well_stocked
  * Phase 989: daily_special
- * Phase 990: sells_skill (coinmaster placeholder)
+ * Phase 990: sells_skill (coinmaster skillBuyPrice)
+ * Phases 6691–6710: skill cost / cafe / well_stocked residual deepen
  */
 internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
     // ── Phase 985: have_shop / have_display ──────────────────────────
@@ -155,13 +156,21 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
         val useChez = CafeAccessibility.isChezSnooteeAvailable(state)
         if (!useMicro && !useChez) return@regFn AshValue.item("none")
         // Desktop: gnomads takes priority when available
+        var specialId = CafeDailySpecialSync.currentSpecialItemId(prefs)
         var special = CafeDailySpecialSync.currentSpecialName(prefs)
-        if (special.isNullOrBlank() && cafeRequest != null) {
+        if (special.isNullOrBlank() && specialId == null && cafeRequest != null) {
             runBlocking {
                 if (useMicro) cafeRequest.visitMenu("2", prefs)
                 else if (useChez) cafeRequest.visitMenu("1", prefs)
             }
+            specialId = CafeDailySpecialSync.currentSpecialItemId(prefs)
             special = CafeDailySpecialSync.currentSpecialName(prefs)
+        }
+        // Prefer item-id resolution (desktop AdventureResult item id)
+        if (specialId != null && specialId > 0) {
+            val byId = gameDatabase?.item(specialId)?.name
+                ?: ItemDatabase.getById(specialId)?.name
+            if (!byId.isNullOrBlank()) return@regFn AshValue.item(byId)
         }
         val specialName = special?.takeIf { it.isNotBlank() } ?: return@regFn AshValue.item("none")
         val resolved = gameDatabase?.item(specialName)?.name
@@ -170,18 +179,16 @@ internal fun GameRuntimeLibrary.registerAshP985TrackQBatch(scope: AshScope) {
         AshValue.item(resolved)
     }
 
-    // ── Phase 990: sells_skill (desktop 2-arg only) ─────────────────
+    // ── Phase 990 / 6691: sells_skill via desktop skillBuyPrice ──────
     regFn(scope, "sells_skill", AshType.BOOLEAN,
         listOf("cm" to AshType.COINMASTER, "skill" to AshType.SKILL)) { _, args ->
-        val master = CoinmasterRegistry.findByNickname(args[0].toString())
+        val master = coinmasterManager?.resolveMaster(args[0].toString())
+            ?: CoinmasterRegistry.findByNickname(args[0].toString())
             ?: return@regFn AshValue.FALSE
         val skillId = gameDatabase?.skill(args[1].toString())?.id
             ?: args[1].toString().toIntOrNull()
             ?: return@regFn AshValue.FALSE
-        AshValue.of(
-            master.buyItems.any { row ->
-                row.isSkillPurchase && row.item.itemId == skillId
-            },
-        )
+        // Desktop: skillBuyPrice(skillId) != null (single-cost shop-row only)
+        AshValue.of(master.skillBuyPrice(skillId) != null)
     }
 }

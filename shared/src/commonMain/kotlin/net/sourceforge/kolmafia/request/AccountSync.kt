@@ -137,7 +137,9 @@ object AccountSync {
                 val value = Regex("""(?:^|[?&])value=(\d+)""", RegexOption.IGNORE_CASE)
                     .find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
                 if (value != null) {
+                    // Optimistic pref write from URL; desktop then ApiRequest.updateStatus().
                     applyEudora(value, preferences)
+                    preferences.setBoolean("_eudoraNeedsStatusRefresh", true)
                 }
             }
             url.contains("Forsake+Ronin", ignoreCase = true) ||
@@ -193,6 +195,7 @@ object AccountSync {
             preferences?.setInt("defaultAutoAttack", autoAttack)
 
             applyEudora(flagInt(flags, "whichpenpal"), preferences)
+            preferences?.setBoolean("_eudoraNeedsStatusRefresh", false)
         }
 
         val sign = rootString(root, "sign")

@@ -405,7 +405,8 @@ open class BreakfastManager(
     }
 
     private suspend fun collectAprilShowerGlobs(inventoryState: InventoryState) {
-        if (preferences.getBoolean(Preferences.APRIL_SHOWER_GLOBS, false)) return
+        // Avoid getBoolean(key, false) boxed-default path in suspend (Kotlin JVM backend crash).
+        if (preferences.getBoolean(Preferences.APRIL_SHOWER_GLOBS)) return
         if (!inventoryState.items.containsKey(BreakfastItemIds.APRIL_SHOWER_THOUGHTS_SHIELD)) return
         httpGet("inventory.php?action=shower").onSuccess {
             preferences.setBoolean(Preferences.APRIL_SHOWER_GLOBS, true)

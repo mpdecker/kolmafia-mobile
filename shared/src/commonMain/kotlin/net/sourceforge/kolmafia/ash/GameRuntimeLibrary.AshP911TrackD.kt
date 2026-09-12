@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.ash
 import kotlinx.coroutines.runBlocking
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.clan.ClanManager
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.session.StoreManager
 
@@ -81,7 +82,9 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         ensureSoldItemsRetrieved()
         if (StoreManager.soldItemsRetrieved) {
             StoreManager.getSoldItemList().forEach { sold ->
-                val name = gameDatabase?.item(sold.itemId)?.name ?: "item #${sold.itemId}"
+                val name = gameDatabase?.item(sold.itemId)?.name
+                    ?: ItemDatabase.getById(sold.itemId)?.name
+                    ?: "item #${sold.itemId}"
                 result[AshValue.item(name)] = AshValue.of(sold.quantity.toLong())
             }
             return@regFn result
@@ -105,6 +108,7 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         if (!hasStore) return@regFn AshValue.of(0L)
         ensureSoldItemsRetrieved()
         val itemId = gameDatabase?.item(itemName)?.id
+            ?: ItemDatabase.getByName(itemName)?.id
         if (itemId != null && StoreManager.soldItemsRetrieved) {
             return@regFn AshValue.of(StoreManager.shopAmount(itemId).toLong())
         }
@@ -129,6 +133,7 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         if (!hasStore) return@regFn AshValue.of(0L)
         ensureSoldItemsRetrieved()
         val itemId = gameDatabase?.item(itemName)?.id
+            ?: ItemDatabase.getByName(itemName)?.id
         if (itemId != null && StoreManager.soldItemsRetrieved) {
             return@regFn AshValue.of(StoreManager.getPrice(itemId))
         }
@@ -153,6 +158,7 @@ internal fun GameRuntimeLibrary.registerAshP912Batch(scope: AshScope) {
         if (!hasStore) return@regFn AshValue.of(0L)
         ensureSoldItemsRetrieved()
         val itemId = gameDatabase?.item(itemName)?.id
+            ?: ItemDatabase.getByName(itemName)?.id
         if (itemId != null && StoreManager.soldItemsRetrieved) {
             return@regFn AshValue.of(StoreManager.getLimit(itemId).toLong())
         }

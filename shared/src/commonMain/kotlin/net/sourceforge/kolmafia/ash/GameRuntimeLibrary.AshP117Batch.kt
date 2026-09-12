@@ -9,7 +9,10 @@ import net.sourceforge.kolmafia.data.craftTypeDescription
  */
 internal fun GameRuntimeLibrary.registerAshP117Batch(scope: AshScope) {
     fun craftTypeForItemName(name: String): String {
-        val itemName = gameDatabase?.item(name)?.name ?: name
+        ConcoctionDatabase.ensureRefreshed()
+        val itemName = gameDatabase?.item(name)?.name
+            ?: ItemDatabase.getByName(name)?.name
+            ?: name
         return ConcoctionDatabase.getByResult(itemName)?.craftTypeDescription() ?: "none"
     }
 
@@ -19,6 +22,7 @@ internal fun GameRuntimeLibrary.registerAshP117Batch(scope: AshScope) {
 
     regFn(scope, "craft_type", AshType.STRING, listOf("id" to AshType.INT)) { _, args ->
         val id = args[0].toLong().toInt()
+        ConcoctionDatabase.ensureRefreshed()
         val name = ItemDatabase.getById(id)?.name ?: return@regFn AshValue.of("none")
         AshValue.of(craftTypeForItemName(name))
     }

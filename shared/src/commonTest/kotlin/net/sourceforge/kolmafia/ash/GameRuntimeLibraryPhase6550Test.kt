@@ -25,7 +25,7 @@ import net.sourceforge.kolmafia.track.TrackManager
 
 /**
  * Focused XLIV Track A coverage (phases 6491–6510).
- * Revision bump deferred to parent (phase6670).
+ * Revision bump deferred to parent (phase6850).
  */
 class GameRuntimeLibraryPhase6550Test {
 
@@ -193,7 +193,7 @@ class GameRuntimeLibraryPhase6550Test {
             "true",
             outputLib(GameRuntimeLibrary(), "print(choice_follows_fight());").trim(),
         )
-        assertEquals("phase6670", GameRuntimeLibrary.REVISION)
+        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
     }
 
     private fun prefs(): Preferences = Preferences(MapSettings())

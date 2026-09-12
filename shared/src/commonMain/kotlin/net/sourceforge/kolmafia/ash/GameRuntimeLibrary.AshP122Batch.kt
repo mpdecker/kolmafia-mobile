@@ -78,7 +78,7 @@ internal fun GameRuntimeLibrary.registerAshP122Batch(scope: AshScope) {
             accessibleCount = { ingId, ingName ->
                 kotlinx.coroutines.runBlocking { physicalAccessibleCount(ingId, ingName) }
             },
-            preferRuntime = false,
+            preferRuntime = true,
         ).toLong()
     }
 

@@ -16,18 +16,15 @@ import net.sourceforge.kolmafia.modifiers.StringModifier
 internal fun GameRuntimeLibrary.registerPhase3710(scope: AshScope) {
     regFn(scope, "numeric_modifier", AshType.FLOAT,
         listOf("typeName" to AshType.STRING, "modifier" to AshType.MODIFIER)) { _, args ->
-        val (type, name) = parseTypeName(args[0].toString())
-        numericStatic(ModifierDatabase.get(type, name), args[1].toString())
+        numericStatic(resolveModifierByTypeNameArg(args[0].toString()), args[1].toString())
     }
     regFn(scope, "boolean_modifier", AshType.BOOLEAN,
         listOf("typeName" to AshType.STRING, "modifier" to AshType.MODIFIER)) { _, args ->
-        val (type, name) = parseTypeName(args[0].toString())
-        booleanStatic(ModifierDatabase.get(type, name), args[1].toString())
+        booleanStatic(resolveModifierByTypeNameArg(args[0].toString()), args[1].toString())
     }
     regFn(scope, "string_modifier", AshType.STRING,
         listOf("typeName" to AshType.STRING, "modifier" to AshType.MODIFIER)) { _, args ->
-        val (type, name) = parseTypeName(args[0].toString())
-        stringStatic(ModifierDatabase.get(type, name), args[1].toString())
+        stringStatic(resolveModifierByTypeNameArg(args[0].toString()), args[1].toString())
     }
     regFn(scope, "numeric_modifier", AshType.FLOAT,
         listOf("modifier" to AshType.MODIFIER)) { _, args ->

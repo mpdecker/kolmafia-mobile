@@ -27,7 +27,8 @@ internal fun GameRuntimeLibrary.registerPreferenceAccess(scope: AshScope) {
         listOf("key" to AshType.STRING, "global" to AshType.BOOLEAN),
     ) { _, args ->
         val key = args[0].toString()
-        if (!isUserEditableProperty(key) || isPerUserGlobalProperty(key)) {
+        // Desktop get_property(name, global) only gates isUserEditable — not per-user-global.
+        if (!isUserEditableProperty(key)) {
             return@regFn AshValue.of("")
         }
         val global = args[1].toBoolean()

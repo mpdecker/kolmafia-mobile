@@ -4,11 +4,14 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.request.CraftRequest
 import net.sourceforge.kolmafia.shop.CoinmasterData
 import net.sourceforge.kolmafia.shop.CoinmasterManager
+import net.sourceforge.kolmafia.shop.CoinmasterRegistry
 
 internal fun GameRuntimeLibrary.registerCoinmasterFunctions(scope: AshScope) {
 
     fun resolveMaster(value: AshValue): CoinmasterData? =
         coinmasterManager?.resolveMaster(value.toString())
+            ?: CoinmasterRegistry.findByNickname(value.toString())
+            ?: CoinmasterRegistry.findByMasterName(value.toString())
 
     fun resolveItemId(itemName: String): Int? = gameDatabase?.item(itemName)?.id
 
@@ -96,36 +99,32 @@ internal fun GameRuntimeLibrary.registerCoinmasterFunctions(scope: AshScope) {
         listOf("master" to AshType.COINMASTER, "it" to AshType.ITEM)) { _, args ->
         val master = resolveMaster(args[0]) ?: return@regFn AshValue.ZERO
         val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.ZERO
-        AshValue.of((coinmasterManager?.sellPrice(master, itemId) ?: 0).toLong())
+        // Desktop sell_price(item) → itemBuyPrice (token cost to buy from master)
+        val stack = master.itemBuyPrice(itemId)
+        if (stack != null) return@regFn AshValue.of(stack.count.toLong())
+        AshValue.of((coinmasterManager?.buyPrice(master, itemId) ?: 0).toLong())
     }
 
-    // Desktop sell_price(coinmaster, skill) — token cost of skill purchase row
+    // Desktop sell_price(coinmaster, skill) — skillBuyPrice single-cost count
     regFn(scope, "sell_price", AshType.INT,
         listOf("master" to AshType.COINMASTER, "skill" to AshType.SKILL)) { _, args ->
         val master = resolveMaster(args[0]) ?: return@regFn AshValue.ZERO
         val skillId = gameDatabase?.skill(args[1].toString())?.id
             ?: args[1].toString().toIntOrNull()
             ?: return@regFn AshValue.ZERO
-        val row = master.buyItems.firstOrNull { it.isSkillPurchase && it.item.itemId == skillId }
-            ?: return@regFn AshValue.ZERO
-        val price = when {
-            row.price > 0 -> row.price
-            row.costs.isNotEmpty() -> row.costs.first().count
-            else -> 0
-        }
-        AshValue.of(price.toLong())
+        val stack = master.skillBuyPrice(skillId) ?: return@regFn AshValue.ZERO
+        AshValue.of(stack.count.toLong())
     }
 
-    // Phase 4489: sell_cost returns item→int cost map (desktop ITEM_TO_INT), item + skill overloads.
+    // Phase 4489 / 6691: sell_cost returns item→int cost map (desktop ITEM_TO_INT)
     val sellCostType = AggregateType(AshType.ITEM, AshType.INT)
     fun sellCostMap(master: CoinmasterData, thingId: Int, asSkill: Boolean): AggregateValue {
         val result = AggregateValue(sellCostType)
-        val row = if (asSkill) {
-            master.buyItems.firstOrNull { it.isSkillPurchase && it.item.itemId == thingId }
-        } else {
-            master.buyRowFor(thingId) ?: master.sellRowFor(thingId)
-        }
-        if (row != null && row.costs.isNotEmpty()) {
+        // Desktop shop-row path: getShopRow + all costs
+        if (master.hasShopRowInventory()) {
+            val row = master.shopRowFor(thingId) ?: return result
+            if (asSkill && !row.isSkillPurchase) return result
+            if (!asSkill && row.isSkillPurchase) return result
             for (cost in row.costs) {
                 if (cost.isMeat) continue
                 val name = ItemDatabase.getById(cost.itemId)?.name ?: "Item #${cost.itemId}"
@@ -133,9 +132,17 @@ internal fun GameRuntimeLibrary.registerCoinmasterFunctions(scope: AshScope) {
             }
             return result
         }
-        // Legacy single-token sell price for items.
+        val stack = if (asSkill) master.skillBuyPrice(thingId) else master.itemBuyPrice(thingId)
+        if (stack != null && !stack.isMeat) {
+            val name = ItemDatabase.getById(stack.itemId)?.name
+                ?: master.token
+                ?: "Item #${stack.itemId}"
+            result[AshValue.item(name)] = AshValue.of(stack.count.toLong())
+            return result
+        }
+        // Legacy single-token buy price for items (desktop itemBuyPriceInternal).
         if (!asSkill) {
-            val price = coinmasterManager?.sellPrice(master, thingId) ?: 0
+            val price = coinmasterManager?.buyPrice(master, thingId) ?: 0
             if (price > 0) {
                 val tokenName = master.token ?: return result
                 result[AshValue.item(tokenName)] = AshValue.of(price.toLong())
@@ -170,7 +177,12 @@ internal fun GameRuntimeLibrary.registerCraftFunctions(scope: AshScope) {
         if (count <= 0) return@regFn AshValue.ZERO
         val id1 = resolveItemId(args[2].toString()) ?: return@regFn AshValue.ZERO
         val id2 = resolveItemId(args[3].toString()) ?: return@regFn AshValue.ZERO
+        // Desktop CraftRequest: retrieve ingredients up front, then craft
         val created = kotlinx.coroutines.runBlocking {
+            retrieveItemService?.let { retrieve ->
+                if (retrieve.retrieve(id1, count) < count) return@runBlocking 0
+                if (retrieve.retrieve(id2, count) < count) return@runBlocking 0
+            }
             craftRequest?.craft(mode, count, id1, id2) ?: 0
         }
         AshValue.of(created.toLong())
@@ -184,16 +196,17 @@ internal fun GameRuntimeLibrary.registerCraftFunctions(scope: AshScope) {
     regFn(scope, "create", AshType.BOOLEAN,
         listOf("count" to AshType.INT, "it" to AshType.ITEM)) { _, args ->
         val count = args[0].toLong().toInt()
-        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.FALSE
+        // Desktop execute_item_quantity: qty <= 0 → continue (true) before item work
         if (count <= 0) return@regFn AshValue.TRUE
+        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.FALSE
         AshValue.of(kotlinx.coroutines.runBlocking { createItem(itemId, count) })
     }
 
     regFn(scope, "create", AshType.BOOLEAN,
         listOf("it" to AshType.ITEM, "count" to AshType.INT)) { _, args ->
-        val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.FALSE
         val count = args[1].toLong().toInt()
         if (count <= 0) return@regFn AshValue.TRUE
+        val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.FALSE
         AshValue.of(kotlinx.coroutines.runBlocking { createItem(itemId, count) })
     }
 }

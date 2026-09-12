@@ -96,23 +96,43 @@ class CreatableTurnsTest {
     }
 
     @Test
-    fun adventuresNeeded_multiStackInventory_returnsZero() {
+    fun adventuresNeeded_multiYieldRecipe_returnsZero() {
         registerItem(9512, "stacked product")
         ConcoctionDatabase.injectForTest(
             ConcoctionData(
                 result = "stacked product",
-                resultQuantity = 1,
-                methods = setOf("COMBINE"),
+                resultQuantity = 3,
+                methods = setOf("SMITH"),
                 ingredients = emptyList(),
             ),
         )
         val turns = CreatableTurns.adventuresNeeded(
             itemId = 9512,
             quantityNeeded = 3,
-            inventoryCount = { 2 },
+            inventoryCount = { 0 },
             isPermitted = { true },
         )
         assertEquals(0, turns)
+    }
+
+    @Test
+    fun adventuresNeeded_partialInventory_countsRemainingCrafts() {
+        registerItem(9513, "partial smith product")
+        ConcoctionDatabase.injectForTest(
+            ConcoctionData(
+                result = "partial smith product",
+                resultQuantity = 1,
+                methods = setOf("SMITH"),
+                ingredients = emptyList(),
+            ),
+        )
+        val turns = CreatableTurns.adventuresNeeded(
+            itemId = 9513,
+            quantityNeeded = 3,
+            inventoryCount = { 2 },
+            isPermitted = { true },
+        )
+        assertEquals(1, turns)
     }
 
     @Test

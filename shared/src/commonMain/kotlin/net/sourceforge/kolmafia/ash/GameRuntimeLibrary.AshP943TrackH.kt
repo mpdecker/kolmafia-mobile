@@ -93,6 +93,10 @@ internal fun GameRuntimeLibrary.registerAshP943TrackHBatch(scope: AshScope) {
         val before = preferences?.getString("eudora", "").orEmpty()
             .ifBlank { preferences?.getString("currentEudora", "").orEmpty() }
         dispatchCli("eudora $arg", rt)
+        // Desktop whichpenpal follows with ApiRequest.updateStatus — refresh when flagged.
+        if (preferences?.getBoolean("_eudoraNeedsStatusRefresh", false) == true) {
+            kotlinx.coroutines.runBlocking { refreshCharacterStates() }
+        }
         val after = preferences?.getString("eudora", "").orEmpty()
             .ifBlank { preferences?.getString("currentEudora", "").orEmpty() }
         AshValue.of(

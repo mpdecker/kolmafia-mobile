@@ -10,7 +10,7 @@ package net.sourceforge.kolmafia.ash
  * - meat_drop — OCRS broke / solid gold residual (via RandomModifierStats)
  * - jump_chance — OCRS init/attack overlay on all monster overloads
  *
- * REVISION stays phase6670 until parent wraps to phase6670.
+ * REVISION stays phase6850 until parent wraps to phase6850.
  */
 internal fun GameRuntimeLibrary.registerPhase6611(scope: AshScope) {
     // Behavioral patches live in CombatAdjustment / AshP39 / AshP43 / AshP45 / AshP46.

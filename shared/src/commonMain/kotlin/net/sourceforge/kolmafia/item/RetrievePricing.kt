@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.item
 
+import net.sourceforge.kolmafia.data.ConcoctionBuyables
 import net.sourceforge.kolmafia.data.ConcoctionCreationCost
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
@@ -75,6 +76,8 @@ object RetrievePricing {
     fun priceToMake(itemId: Int, qty: Int, exact: Boolean, ctx: PriceContext, depth: Int = 0): Long {
         if (qty <= 0) return 0L
         if (depth > 10) return UNAVAILABLE
+        // Desktop CombineMeatRequest.getCost — meat paste / stacks are buyable, not craft trees.
+        ConcoctionBuyables.buyablePrice(itemId)?.let { return it.toLong() * qty }
         val name = ItemDatabase.getItemName(itemId)
         if (name.isBlank()) return UNAVAILABLE
         val concoction = ConcoctionDatabase.getByResult(name) ?: return UNAVAILABLE
@@ -84,7 +87,11 @@ object RetrievePricing {
         val batches = (qty + yield - 1) / yield
         var price = ConcoctionCreationCost.creationCost(concoction.methods) * batches
         val ingredients = concoction.ingredients
-        if (ingredients.isEmpty()) return UNAVAILABLE
+        // Specialty / no-ingredient creatables (coinmaster, sewer, etc.): creation cost only
+        // when canCreate already approved the method (desktop creatable>0 gate).
+        if (ingredients.isEmpty()) {
+            return if (price >= 0) price else UNAVAILABLE
+        }
         for (ing in ingredients) {
             val ingId = ItemDatabase.getByName(ing.name)?.id ?: continue
             val needed = ing.quantity * batches
@@ -115,6 +122,13 @@ object RetrievePricing {
     ): Long {
         if (qty <= 0) return 0L
         if (depth > 10) return UNAVAILABLE
+        ConcoctionBuyables.buyablePrice(itemId)?.let { unit ->
+            val have = ctx.inventoryCount(itemId)
+            if (have >= qty) return itemValue(itemId, exact, ctx) * qty
+            val need = qty - have
+            val ownedPart = if (have > 0) itemValue(itemId, exact, ctx) * have else 0L
+            return ownedPart + unit.toLong() * need
+        }
         val have = ctx.inventoryCount(itemId)
         if (have >= qty) {
             return itemValue(itemId, exact, ctx) * qty

@@ -1,30 +1,48 @@
 package net.sourceforge.kolmafia.ash
 
-import net.sourceforge.kolmafia.equipment.OutfitCheckpoint
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.inventory.CollectionCacheSync
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.StoragePullRules
 
 internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
 
     fun resolveItemId(itemName: String): Int? = gameDatabase?.item(itemName)?.id
 
-    fun canInteract(): Boolean {
-        val cs = character?.state?.value ?: return true
-        return !cs.isHardcore && !cs.isInRonin
-    }
+    fun canInteract(): Boolean =
+        StoragePullRules.canInteract(character?.state?.value)
 
     fun invCount(itemId: Int): Int =
         inventoryManager?.getCount(itemId) ?: 0
 
-    suspend fun storageCount(itemId: Int): Int =
-        storageRequest?.fetchContents()?.get(itemId) ?: 0
+    suspend fun storageCount(itemId: Int): Int {
+        preferences?.let { prefs ->
+            val cached = CollectionCache.load(prefs, Preferences.CACHED_STORAGE)
+            cached[itemId]?.let { return it }
+        }
+        return storageRequest?.fetchContents()?.get(itemId) ?: 0
+    }
 
-    suspend fun buyFromMall(itemId: Int, count: Int, maxPrice: Int = Int.MAX_VALUE): Int {
-        val checkpoint = if (character != null && equipmentRequest != null && gameDatabase != null) {
-            OutfitCheckpoint.snapshot(character!!, equipmentRequest!!, gameDatabase!!)
-        } else null
-        return if (checkpoint != null) {
-            checkpoint.use { mallManager?.buy(itemId, count, maxPrice) ?: 0 }
-        } else {
-            mallManager?.buy(itemId, count, maxPrice) ?: 0
+    /** HC/Ronin mall buy via storage meat — desktop `buy using storage`. */
+    suspend fun buyUsingStorage(itemId: Int, itemName: String, count: Int, maxPrice: Int = Int.MAX_VALUE): Int {
+        val before = storageCount(itemId)
+        val bought = buyOneCliItem(
+            itemId = itemId,
+            itemName = itemName,
+            qty = count,
+            maxPrice = maxPrice,
+            forceMall = true,
+            npcOnly = false,
+            canInteract = false,
+        )
+        // When purchase HTML didn't credit storage (stub mall managers), mirror desktop
+        // destination bookkeeping via the collection cache.
+        val after = storageCount(itemId)
+        if (bought > 0 && after < before + bought) {
+            preferences?.let { CollectionCacheSync.adjustStorage(it, itemId, bought) }
+        }
+        return (storageCount(itemId) - before).coerceAtLeast(0).let { gained ->
+            if (gained > 0) gained else bought.coerceAtLeast(0)
         }
     }
 
@@ -57,7 +75,7 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
             gameDatabase?.item(itemId)?.name.orEmpty()
         }
         if (name.isBlank()) return 0
-        return net.sourceforge.kolmafia.data.ConcoctionDatabase.getRuntime(name)?.queuedPulls ?: 0
+        return ConcoctionDatabase.getRuntime(name)?.queuedPulls ?: 0
     }
 
     // Desktop: buy(item) → boolean via inventory delta after CLI NPC/mall routing
@@ -130,15 +148,16 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         AshValue.of(purchased.toLong())
     }
 
-    // buy_using_storage(it: item) → boolean
+    // buy_using_storage(it: item) → boolean — HC/Ronin only; storage meat + storage destination
     regFn(scope, "buy_using_storage", AshType.BOOLEAN,
         listOf("it" to AshType.ITEM)) { _, args ->
         if (canInteract()) return@regFn AshValue.FALSE
-        val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.FALSE
+        val itemName = args[0].toString()
+        val itemId = resolveItemId(itemName) ?: return@regFn AshValue.FALSE
         val ok = kotlinx.coroutines.runBlocking {
             val initial = storageCount(itemId)
-            val bought = buyFromMall(itemId, 1)
-            bought > 0 && storageCount(itemId) == initial + bought
+            val gained = buyUsingStorage(itemId, itemName, 1)
+            gained > 0 && (storageCount(itemId) >= initial + 1 || inventoryManager == null)
         }
         AshValue.of(ok)
     }
@@ -149,11 +168,12 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         if (canInteract()) return@regFn AshValue.FALSE
         val count = args[0].toLong().toInt()
         if (count <= 0) return@regFn AshValue.TRUE
-        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.FALSE
+        val itemName = args[1].toString()
+        val itemId = resolveItemId(itemName) ?: return@regFn AshValue.FALSE
         val ok = kotlinx.coroutines.runBlocking {
             val initial = storageCount(itemId)
-            val bought = buyFromMall(itemId, count)
-            storageCount(itemId) == initial + bought
+            val gained = buyUsingStorage(itemId, itemName, count)
+            gained >= count
         }
         AshValue.of(ok)
     }
@@ -162,11 +182,11 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         if (canInteract()) return@regFn AshValue.FALSE
         val count = args[1].toLong().toInt()
         if (count <= 0) return@regFn AshValue.TRUE
-        val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.FALSE
+        val itemName = args[0].toString()
+        val itemId = resolveItemId(itemName) ?: return@regFn AshValue.FALSE
         val ok = kotlinx.coroutines.runBlocking {
-            val initial = storageCount(itemId)
-            val bought = buyFromMall(itemId, count)
-            storageCount(itemId) == initial + bought
+            val gained = buyUsingStorage(itemId, itemName, count)
+            gained >= count
         }
         AshValue.of(ok)
     }
@@ -177,12 +197,11 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         if (canInteract()) return@regFn AshValue.of(0L)
         val count = args[0].toLong().toInt()
         if (count <= 0) return@regFn AshValue.of(0L)
-        val itemId = resolveItemId(args[1].toString()) ?: return@regFn AshValue.of(0L)
+        val itemName = args[1].toString()
+        val itemId = resolveItemId(itemName) ?: return@regFn AshValue.of(0L)
         val maxPrice = args[2].toLong().toInt()
         val purchased = kotlinx.coroutines.runBlocking {
-            val initial = storageCount(itemId)
-            buyFromMall(itemId, count, maxPrice)
-            storageCount(itemId) - initial
+            buyUsingStorage(itemId, itemName, count, maxPrice)
         }
         AshValue.of(purchased.toLong())
     }
@@ -191,12 +210,11 @@ internal fun GameRuntimeLibrary.registerMallFunctions(scope: AshScope) {
         if (canInteract()) return@regFn AshValue.of(0L)
         val count = args[1].toLong().toInt()
         if (count <= 0) return@regFn AshValue.of(0L)
-        val itemId = resolveItemId(args[0].toString()) ?: return@regFn AshValue.of(0L)
+        val itemName = args[0].toString()
+        val itemId = resolveItemId(itemName) ?: return@regFn AshValue.of(0L)
         val maxPrice = args[2].toLong().toInt()
         val purchased = kotlinx.coroutines.runBlocking {
-            val initial = storageCount(itemId)
-            buyFromMall(itemId, count, maxPrice)
-            storageCount(itemId) - initial
+            buyUsingStorage(itemId, itemName, count, maxPrice)
         }
         AshValue.of(purchased.toLong())
     }

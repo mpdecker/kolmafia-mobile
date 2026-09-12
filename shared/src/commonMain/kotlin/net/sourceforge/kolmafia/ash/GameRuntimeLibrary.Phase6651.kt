@@ -11,7 +11,7 @@ package net.sourceforge.kolmafia.ash
  * - available_choice_options / can_walk_from_choice — ChoiceCombatAshState.canWalkAway sync
  * - tavern residual verified; get_auto_attack / set_auto_attack account+pref sync
  *
- * REVISION stays phase6670 until parent wraps to phase6670.
+ * REVISION stays phase6850 until parent wraps to phase6850.
  */
 internal fun GameRuntimeLibrary.registerPhase6651(scope: AshScope) {
     // Behavioral patches live in AdventureZoneGates / AdventurePrep / AdventureManager /

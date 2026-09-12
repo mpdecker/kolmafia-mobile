@@ -34,10 +34,45 @@ data class CoinmasterData(
         get() = (listOf(nickname) + nicknames).distinct()
 
     fun buyRowFor(itemId: Int): ShopRow? =
-        buyItems.firstOrNull { it.item.itemId == itemId }
+        buyItems.firstOrNull { it.item.itemId == itemId && !it.isSkillPurchase }
 
     fun sellRowFor(itemId: Int): ShopRow? =
         sellItems.firstOrNull { it.item.itemId == itemId }
+
+    /** Desktop [CoinmasterData.getShopRow] — item or skill buy row by id. */
+    fun shopRowFor(thingId: Int): ShopRow? =
+        buyItems.firstOrNull { it.item.itemId == thingId }
+            ?: sellItems.firstOrNull { it.item.itemId == thingId }
+
+    /**
+     * Desktop [CoinmasterData.itemBuyPrice] — single-cost token price for an item row,
+     * or legacy token price when the master is not shop-row style.
+     */
+    fun itemBuyPrice(itemId: Int): ItemStack? {
+        if (!hasShopRowInventory()) {
+            val row = buyRowFor(itemId) ?: return null
+            val price = row.price
+            if (price <= 0) return null
+            val tokenId = tokenItemId() ?: return null
+            return ItemStack(itemId = tokenId, count = price)
+        }
+        val row = buyItems.firstOrNull {
+            !it.isSkillPurchase && it.item.itemId == itemId
+        } ?: return null
+        return row.costs.singleOrNull()
+    }
+
+    /**
+     * Desktop [CoinmasterData.skillBuyPrice] — modern shop-row skill purchases only;
+     * returns the sole cost stack when present.
+     */
+    fun skillBuyPrice(skillId: Int): ItemStack? {
+        if (!hasShopRowInventory()) return null
+        val row = buyItems.firstOrNull {
+            it.isSkillPurchase && it.item.itemId == skillId
+        } ?: return null
+        return row.costs.singleOrNull()
+    }
 
     /** Desktop [CoinmasterData.currencies] — token + shop-row buy costs (legacy buy uses token only). */
     fun currencyItemIds(): Set<Int> {

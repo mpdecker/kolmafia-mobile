@@ -79,11 +79,18 @@ internal fun GameRuntimeLibrary.registerAshP908Batch(scope: AshScope) {
             return@regFn AshValue.of("")
         }
         val prefs = preferences ?: return@regFn AshValue.of("")
-        val oldValue = prefs.getString(name, "")
-        if (DefaultsDatabase.has(name)) {
-            DefaultsDatabase.resetToDefault(prefs, name)
-        } else {
-            prefs.removeKey(name)
+        // Desktop remove_property(name): defaults → reset; else user map; else global map.
+        val oldValue = when {
+            DefaultsDatabase.has(name) -> {
+                val old = prefs.getString(name, "")
+                DefaultsDatabase.resetToDefault(prefs, name)
+                old
+            }
+            prefs.propertyExists(name, global = false) ->
+                prefs.removeProperty(name, global = false)
+            prefs.propertyExists(name, global = true) ->
+                prefs.removeProperty(name, global = true)
+            else -> ""
         }
         AshValue.of(oldValue)
     }

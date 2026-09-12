@@ -17,7 +17,7 @@ import net.sourceforge.kolmafia.session.TurnCounter
 
 /**
  * Focused XLV Track C coverage (phases 6591–6610).
- * REVISION not bumped (stays phase6670); get_revision ASH is INT.
+ * REVISION not bumped (stays phase6850); get_revision ASH is INT.
  */
 class GameRuntimeLibraryPhase6591Test {
 
@@ -33,11 +33,11 @@ class GameRuntimeLibraryPhase6591Test {
 
     @Test
     fun get_revision_returnsIntPhaseDigits() {
-        assertEquals("phase6670", GameRuntimeLibrary.REVISION)
-        assertEquals(6670, GameRuntimeLibrary.revisionNumber())
-        assertEquals("6670", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
+        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
+        assertEquals(6730, GameRuntimeLibrary.revisionNumber())
+        assertEquals("6850", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
         assertEquals(
-            "6670",
+            "6850",
             outputLib(GameRuntimeLibrary(), "int r = get_revision(); print(r);"),
         )
     }

@@ -12,16 +12,14 @@ internal fun GameRuntimeLibrary.registerModifierQueries(scope: AshScope) {
     // ── numeric_modifier(type, string) → float ────────────────────────────────
     regFn(scope, "numeric_modifier", AshType.FLOAT,
         listOf("typeName" to AshType.STRING, "modifier" to AshType.STRING)) { _, args ->
-        val (type, name) = parseTypeName(args[0].toString())
-        val entry = gameDatabase?.modifier(type, name) ?: ModifierDatabase.get(type, name)
+        val entry = resolveModifierByTypeNameArg(args[0].toString())
         AshValue.of(numericFromEntry(entry, args[1].toString()))
     }
 
     // ── boolean_modifier(type, string) → boolean ──────────────────────────────
     regFn(scope, "boolean_modifier", AshType.BOOLEAN,
         listOf("typeName" to AshType.STRING, "modifier" to AshType.STRING)) { _, args ->
-        val (type, name) = parseTypeName(args[0].toString())
-        val entry = gameDatabase?.modifier(type, name) ?: ModifierDatabase.get(type, name)
+        val entry = resolveModifierByTypeNameArg(args[0].toString())
         AshValue.of(booleanFromEntry(entry, args[1].toString()))
     }
 

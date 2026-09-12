@@ -42,9 +42,21 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
             val npc = NpcStoreDatabase.npcPrice(item?.name ?: itemName).takeIf { it > 0 }
                 ?: gameDatabase?.npcPrice(item?.name ?: itemName)?.takeIf { it > 0 }
             if (npc != null && npc > 0) return@regFn AshValue.of(npc.toLong())
-        } else {
-            // Soft fallback when validate gates are unavailable (headless / no state):
-            // still honor static NPC catalog prices without accessibility checks.
+        }
+        // Speakeasy residual: lounge-visit availability (item id or canonical name).
+        val speakName = item?.name ?: itemName
+        val speakeasyOk = when {
+            itemId != null && itemId > 0 && SpeakeasyAvailability.isAvailableItemId(itemId) -> true
+            SpeakeasyAvailability.isAvailable(speakName) -> true
+            else -> false
+        }
+        if (speakeasyOk) {
+            val cost = SpeakeasyDatabase.nameToCost(speakName)
+            if (cost > 0) return@regFn AshValue.of(cost.toLong())
+        }
+        // Soft fallback when validate gates are unavailable (headless / no character):
+        // still honor static NPC catalog prices without accessibility checks.
+        if (character == null) {
             val npc = when {
                 item != null && NpcStoreDatabase.containsItem(item.id) ->
                     NpcStoreDatabase.npcPrice(item.name).takeIf { it > 0 }
@@ -52,14 +64,7 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
                 else -> gameDatabase?.npcPrice(itemName)?.takeIf { it > 0 }
                     ?: NpcStoreDatabase.npcPrice(itemName).takeIf { it > 0 }
             }
-            if (npc != null && npc > 0 && character == null) {
-                return@regFn AshValue.of(npc.toLong())
-            }
-        }
-        val speakName = item?.name ?: itemName
-        if (SpeakeasyAvailability.isAvailable(speakName)) {
-            val cost = SpeakeasyDatabase.nameToCost(speakName)
-            if (cost > 0) return@regFn AshValue.of(cost.toLong())
+            if (npc != null && npc > 0) return@regFn AshValue.of(npc.toLong())
         }
         AshValue.ZERO
     }
@@ -72,9 +77,11 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
         listOf("it" to AshType.ITEM)) { _, args ->
         val itemName = args[0].toString()
         val itemId = resolveMallItemId(itemName) ?: return@regFn AshValue.ZERO
+        val mpm = mallPriceManager
+        if (mpm != null && !mpm.validMallItem(itemId)) return@regFn AshValue.ZERO
         val price = kotlinx.coroutines.runBlocking {
-            mallPriceManager?.getMallPrice(itemId)?.takeIf { it > 0 }
-                ?: mallPriceManager?.prefetchMallPrice(itemId)?.takeIf { it > 0 }
+            mpm?.getMallPrice(itemId)?.takeIf { it > 0 }
+                ?: mpm?.prefetchMallPrice(itemId)?.takeIf { it > 0 }
                 ?: mallManager?.getMallPrice(itemId)?.takeIf { it > 0 }
                 ?: mallManager?.cheapestPrice(itemName)?.takeIf { it > 0 }
                 ?: 0L
@@ -87,8 +94,9 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
         listOf("it" to AshType.ITEM, "maxAge" to AshType.FLOAT)) { _, args ->
         val itemId = resolveMallItemId(args[0].toString()) ?: return@regFn AshValue.ZERO
         val maxAgeDays = args[1].toDouble()
+        val mpm = mallPriceManager
+        if (mpm != null && !mpm.validMallItem(itemId)) return@regFn AshValue.ZERO
         val price = kotlinx.coroutines.runBlocking {
-            val mpm = mallPriceManager
             if (mpm != null) {
                 val ageDays = mpm.getHistoricalAgeDays(itemId)
                 val fresh = ageDays.isFinite() && ageDays <= maxAgeDays
@@ -151,7 +159,10 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
             canCreate = { id ->
                 val name = gameDatabase?.item(id)?.name ?: ItemDatabase.getItemName(id)
                 if (name.isBlank()) false
-                else ConcoctionDatabase.getByResult(name)?.isCreateSupported() == true
+                else {
+                    val conc = ConcoctionDatabase.getByResult(name)
+                    conc?.isCreateSupported() == true
+                }
             },
         )
     }
@@ -207,21 +218,19 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
         retrievePriceValue(itemId, itemName, qty, args[2].toBoolean())
     }
 
-    // Desktop historical_price → MallPriceDatabase.getPrice (session cache fallback)
+    // Desktop historical_price → MallPriceDatabase.getPrice only (no session-cache fallback)
     regFn(scope, "historical_price", AshType.INT,
         listOf("it" to AshType.ITEM)) { _, args ->
         val itemId = resolveMallItemId(args[0].toString()) ?: return@regFn AshValue.ZERO
-        val fromDb = MallPriceDatabase.getPrice(itemId)
-        if (fromDb > 0) return@regFn AshValue.of(fromDb)
-        AshValue.of(mallPriceManager?.getHistoricalPrice(itemId) ?: 0L)
+        AshValue.of(MallPriceDatabase.getPrice(itemId).coerceAtLeast(0L))
     }
 
-    // Desktop historical_age → FLOAT fractional days (Infinity when unknown / no DB row)
+    // Desktop historical_age → FLOAT fractional days (Infinity when unknown / no DB row);
+    // session cache age only when mallprices.txt has no row (day-gate polish residual).
     regFn(scope, "historical_age", AshType.FLOAT,
         listOf("it" to AshType.ITEM)) { _, args ->
         val itemId = resolveMallItemId(args[0].toString())
             ?: return@regFn AshValue.of(Double.POSITIVE_INFINITY)
-        // Prefer durable DB age; session cache only when DB has no row.
         val dbAge = MallPriceDatabase.getAgeDays(itemId)
         if (dbAge.isFinite()) return@regFn AshValue.of(dbAge)
         val age = mallPriceManager?.getHistoricalAgeDays(itemId)

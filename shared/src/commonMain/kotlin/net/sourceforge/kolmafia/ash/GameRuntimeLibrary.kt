@@ -531,6 +531,9 @@ import net.sourceforge.kolmafia.request.XOShopRequestHub
 import net.sourceforge.kolmafia.request.SpantRequestHub
 import net.sourceforge.kolmafia.request.GuzzlrRequestHub
 import net.sourceforge.kolmafia.request.GrandmaRequestHub
+import net.sourceforge.kolmafia.request.SushiRequest
+import net.sourceforge.kolmafia.request.TakerSpaceRequest
+import net.sourceforge.kolmafia.request.VYKEARequest
 import net.sourceforge.kolmafia.request.ArmoryAndLeggeryRequestHub
 import net.sourceforge.kolmafia.request.CosmicRaysBazaarRequestHub
 import net.sourceforge.kolmafia.request.GeneticFiddlingRequestHub
@@ -807,7 +810,7 @@ class GameRuntimeLibrary(
 
         const val VERSION = "1.0.0-mobile"
         /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
-        const val REVISION = "phase6670"
+        const val REVISION = "phase6910"
 
         /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
         fun revisionNumber(): Int =
@@ -3459,6 +3462,11 @@ class GameRuntimeLibrary(
             SpantRequestHub.registerRequest(url, sessionLogger)
             GuzzlrRequestHub.registerRequest(url, sessionLogger)
             GrandmaRequestHub.registerRequest(url, sessionLogger)
+            // XLVIII Track C residual create/visit aliases (shop name aliases not
+            // re-registered — sibling hubs above/below already cover whichshop=).
+            SushiRequest.registerRequest(url, sessionLogger)
+            TakerSpaceRequest.registerRequest(url, sessionLogger)
+            VYKEARequest.registerRequest(url, sessionLogger)
             ArmoryAndLeggeryRequestHub.registerRequest(url, sessionLogger)
             CosmicRaysBazaarRequestHub.registerRequest(url, sessionLogger)
             GeneticFiddlingRequestHub.registerRequest(url, sessionLogger)
@@ -7443,6 +7451,17 @@ class GameRuntimeLibrary(
         registerPhase6611(scope)
         registerPhase6631(scope)
         registerPhase6651(scope)
+        registerPhase6671(scope)
+        registerPhase6691(scope)
+        registerPhase6711(scope)
+        registerPhase6731(scope)
+        registerPhase6771(scope)
+        registerPhase6791(scope)
+        registerPhase6811(scope)
+        registerPhase6831(scope)
+        registerPhase6851(scope)
+        registerPhase6871(scope)
+        registerPhase6891(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->

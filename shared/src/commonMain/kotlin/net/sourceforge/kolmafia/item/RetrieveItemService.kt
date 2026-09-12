@@ -66,6 +66,7 @@ open class RetrieveItemService(
     private val familiarManager: FamiliarManager? = null,
     private val untinkerRequest: UntinkerRequest? = null,
     private val buyScriptRunner: ((String, List<String>) -> Boolean)? = null,
+    private val mallPriceManager: net.sourceforge.kolmafia.mall.MallPriceManager? = null,
 ) {
     companion object {
         const val ABRIDGED_DICTIONARY = 534
@@ -250,7 +251,15 @@ open class RetrieveItemService(
     private fun buildPriceContext(): RetrievePricing.PriceContext =
         RetrievePricing.PriceContext(
             inventoryCount = { inventoryCount(it) },
-            mallPrice = { -1L }, // live mall lookup is async; ASH retrieve_price uses MallManager
+            mallPrice = { id ->
+                mallPriceManager?.getMallPrice(id)?.takeIf { it > 0 }
+                    ?: mallPriceManager?.getCachedPrice(id)?.price?.takeIf { it > 0 }
+                    ?: -1L
+            },
+            historicalMallPrice = { id ->
+                mallPriceManager?.getHistoricalPrice(id)?.takeIf { it > 0 }
+                    ?: net.sourceforge.kolmafia.mall.MallPriceDatabase.getPrice(id)
+            },
             npcPrice = { id ->
                 val name = ItemDatabase.getItemName(id)
                 if (name.isBlank()) 0L else NpcStoreDatabase.npcPrice(name).toLong()

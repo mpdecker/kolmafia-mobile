@@ -424,7 +424,9 @@ object ModifierDatabase {
     }
 
     fun get(type: String, name: String): ModifierEntry? {
-        val map = _byTypeAndName[type] ?: return null
+        val map = _byTypeAndName[type]
+            ?: _byTypeAndName.entries.firstOrNull { it.key.equals(type.trim(), ignoreCase = true) }?.value
+            ?: return null
         return map[name] ?: map.entries.firstOrNull {
             it.key.equals(name.trim(), ignoreCase = true)
         }?.value

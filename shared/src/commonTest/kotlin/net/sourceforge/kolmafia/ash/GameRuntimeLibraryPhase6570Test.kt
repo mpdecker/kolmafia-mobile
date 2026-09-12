@@ -26,7 +26,7 @@ import net.sourceforge.kolmafia.session.TavernManager
 
 /**
  * Focused XLV Track A coverage (phases 6551–6570).
- * Revision bump deferred to parent (phase6670); stays phase6670.
+ * Revision bump deferred to parent (phase6850); stays phase6850.
  */
 class GameRuntimeLibraryPhase6570Test {
 
@@ -49,8 +49,8 @@ class GameRuntimeLibraryPhase6570Test {
 
     @Test
     fun revisionStaysPhase6550() {
-        assertEquals("phase6670", GameRuntimeLibrary.REVISION)
-        assertEquals("6670", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
+        assertEquals("6910", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test

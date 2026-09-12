@@ -22,7 +22,7 @@ import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 
 /**
  * Focused XLVI Track B coverage (phases 6631–6650).
- * Revision bump deferred to parent (phase6670); stays phase6670.
+ * Revision bump deferred to parent (phase6850); stays phase6850.
  */
 class GameRuntimeLibraryPhase6650Test {
 
@@ -44,8 +44,8 @@ class GameRuntimeLibraryPhase6650Test {
 
     @Test
     fun revision_staysPhase6610() {
-        assertEquals("phase6670", GameRuntimeLibrary.REVISION)
-        assertEquals("6670", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
+        assertEquals("6910", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test

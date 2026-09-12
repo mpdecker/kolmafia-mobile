@@ -16,14 +16,14 @@ import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
  * Focused XLVI Track A coverage (phases 6611–6630 combat prediction).
- * Revision bump deferred to parent (phase6670); stays phase6670.
+ * Revision bump deferred to parent (phase6850); stays phase6850.
  */
 class GameRuntimeLibraryPhase6630Test {
 
     @Test
     fun revision_staysPhase6610() {
-        assertEquals("phase6670", GameRuntimeLibrary.REVISION)
-        assertEquals(6670, GameRuntimeLibrary.revisionNumber())
+        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
+        assertEquals(6730, GameRuntimeLibrary.revisionNumber())
     }
 
     @Test

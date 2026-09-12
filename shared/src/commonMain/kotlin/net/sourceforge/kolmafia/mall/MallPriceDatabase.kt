@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.mall
 
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.platform.UserDataFileIO
 
 /** Local `mallprices.txt` history shared by historical_price() and mall_price(maxAge). */
@@ -12,6 +13,12 @@ object MallPriceDatabase {
 
     private val prices = sortedMapOf<Int, Price>()
     private var loaded = false
+
+    /**
+     * Optional listener invoked for each accepted mallprices.txt row (desktop seeds
+     * [MallPriceManager] session cache only for the current rollover day).
+     */
+    var onPriceLoaded: ((itemId: Int, price: Long, timestampSeconds: Long) -> Unit)? = null
 
     fun load(text: String? = UserDataFileIO.readText(FILE)): Int {
         loaded = true
@@ -26,10 +33,13 @@ object MallPriceDatabase {
             val timestamp = fields.getOrNull(1)?.toLongOrNull()?.coerceAtMost(now) ?: continue
             val price = fields.getOrNull(2)?.toLongOrNull() ?: continue
             if (id <= 0 || timestamp <= 0 || price !in 1..MALL_MAX) continue
+            // Desktop MallPriceDatabase.updatePricesFromSource skips non-tradeable rows.
+            if (!ItemDatabase.isTradeable(id)) continue
             val old = prices[id]
             if (old == null || timestamp > old.timestampSeconds) {
                 prices[id] = Price(id, price, timestamp)
             }
+            onPriceLoaded?.invoke(id, price, timestamp)
             count++
         }
         return count
@@ -58,6 +68,17 @@ object MallPriceDatabase {
 
     fun getAgeDays(itemId: Int): Double =
         getAgeSeconds(itemId)?.div(86_400.0) ?: Double.POSITIVE_INFINITY
+
+    /** Desktop flush of a stale mallprices.txt row when age > maxAge for `mall_price`. */
+    fun removePrice(itemId: Int) {
+        ensureLoaded()
+        prices.remove(itemId)
+    }
+
+    fun allPrices(): Collection<Price> {
+        ensureLoaded()
+        return prices.values.toList()
+    }
 
     fun save() {
         ensureLoaded()

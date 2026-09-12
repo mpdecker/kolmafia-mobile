@@ -37,6 +37,7 @@ object CafeDailySpecialSync {
             resolved = ItemDatabase.getItemName(itemId).takeIf { it.isNotBlank() } ?: itemName
         }
         preferences?.setString("_dailySpecial", resolved)
+        preferences?.setInt("_dailySpecialItemId", itemId)
         if (price > 0) preferences?.setInt("_dailySpecialPrice", price)
         return resolved
     }
@@ -44,4 +45,8 @@ object CafeDailySpecialSync {
     fun currentSpecialName(preferences: Preferences?): String? =
         preferences?.getString("_dailySpecial", "")?.takeIf { it.isNotBlank() }
             ?: preferences?.getString("dailySpecial", "")?.takeIf { it.isNotBlank() }
+
+    /** Desktop cafe special AdventureResult item id when known. */
+    fun currentSpecialItemId(preferences: Preferences?): Int? =
+        preferences?.getInt("_dailySpecialItemId", 0)?.takeIf { it > 0 }
 }
