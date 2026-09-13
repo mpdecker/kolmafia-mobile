@@ -17,12 +17,6 @@ object CoinmasterPurchaseAccessibility {
     private const val EXPLODING_HACKY_SACK = 2042
     private const val TEQUILA_GRENADE = 2068
     private const val MOLOTOV_COCKTAIL_COCKTAIL = 2400
-    private const val WAR_HIPPY_HEADBAND = 2337
-    private const val WAR_HIPPY_CORDS = 2032
-    private const val WAR_HIPPY_GLASSES = 2033
-    private const val WAR_FRAT_HELMET = 2069
-    private const val WAR_FRAT_PANTS = 2070
-    private const val WAR_FRAT_PIN = 2353
 
     private const val COSMIC_SIX_PACK = 6237
     private const val STAFF_OF_BREAKFAST = 6258
@@ -489,23 +483,9 @@ object CoinmasterPurchaseAccessibility {
         return progress == FINISHED || progress.contains("step")
     }
 
-    private fun dimemasterAccessible(prefs: Preferences?, accessibleCount: (Int) -> Int): Boolean {
-        if (prefs?.getString("warProgress", "unstarted") != "started") return false
-        return hasWarHippyOutfit(accessibleCount)
-    }
+    private fun dimemasterAccessible(prefs: Preferences?, accessibleCount: (Int) -> Int): Boolean =
+        IslandWarShopAccessibility.dimemasterInaccessible(prefs, accessibleCount) == null
 
-    private fun quartersmasterAccessible(prefs: Preferences?, accessibleCount: (Int) -> Int): Boolean {
-        if (prefs?.getString("warProgress", "unstarted") != "started") return false
-        return hasWarFratOutfit(accessibleCount)
-    }
-
-    private fun hasWarHippyOutfit(accessibleCount: (Int) -> Int): Boolean =
-        accessibleCount(WAR_HIPPY_HEADBAND) > 0 &&
-            accessibleCount(WAR_HIPPY_CORDS) > 0 &&
-            accessibleCount(WAR_HIPPY_GLASSES) > 0
-
-    private fun hasWarFratOutfit(accessibleCount: (Int) -> Int): Boolean =
-        accessibleCount(WAR_FRAT_HELMET) > 0 &&
-            accessibleCount(WAR_FRAT_PANTS) > 0 &&
-            accessibleCount(WAR_FRAT_PIN) > 0
+    private fun quartersmasterAccessible(prefs: Preferences?, accessibleCount: (Int) -> Int): Boolean =
+        IslandWarShopAccessibility.quartersmasterInaccessible(prefs, accessibleCount) == null
 }

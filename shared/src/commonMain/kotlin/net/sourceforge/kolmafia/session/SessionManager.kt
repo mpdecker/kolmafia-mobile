@@ -32,6 +32,8 @@ import net.sourceforge.kolmafia.inventory.JunkListManager
 import net.sourceforge.kolmafia.mood.MoodManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.IslandWarResetSync
+import net.sourceforge.kolmafia.quest.Quest
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.request.CharacterRequest
 import net.sourceforge.kolmafia.request.ClanStashRequest
@@ -193,6 +195,11 @@ open class SessionManager(
                                 skills = skillManager.state.value.skills,
                                 prefs = preferences,
                                 accessibleCount = { id -> aggregatedCounts[id] ?: 0 },
+                                ownsFamiliarId = { id ->
+                                    familiarManager.state.value.ownedFamiliars.any { it.id == id }
+                                },
+                                generatorQuestFinished = QuestDatabase(preferences)
+                                    .isQuestFinished(Quest.GENERATOR),
                                 storageCounts = sources.storage,
                             ),
                         )

@@ -34,9 +34,8 @@ object SpaaaceRequest {
         inventoryCount: (Int) -> Int,
         quests: QuestDatabase?,
     ): String? {
-        val generatorStarted = quests?.isQuestStarted(Quest.GENERATOR) == true
-        val generatorFinished = quests?.isQuestFinished(Quest.GENERATOR) == true
-        if (!generatorStarted && !generatorFinished) {
+        // Desktop SpaaaceRequest.accessible — generator must be finished.
+        if (quests?.isQuestFinished(Quest.GENERATOR) != true) {
             return "You need to repair the Elves' Shield Generator to go there."
         }
         if (immediatelyAccessible(activeEffectNames, inventoryCount) ||

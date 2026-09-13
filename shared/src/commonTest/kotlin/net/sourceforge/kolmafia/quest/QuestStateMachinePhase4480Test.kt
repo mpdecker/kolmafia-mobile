@@ -12,7 +12,7 @@ class QuestStateMachinePhase4480Test {
 
     @Test
     fun revision_phase4480() {
-        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
     }
 
     @Test

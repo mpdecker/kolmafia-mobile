@@ -34,7 +34,8 @@ class CoinmasterPurchaseProbeTest {
                 9501,
                 state,
                 prefs,
-            ) { if (it == 9502) 5 else 0 },
+                accessibleCount = { if (it == 9502) 5 else 0 },
+            ),
         )
     }
 
@@ -55,7 +56,8 @@ class CoinmasterPurchaseProbeTest {
                 9503,
                 state,
                 prefs,
-            ) { if (it == 9504) 20 else 0 },
+                accessibleCount = { if (it == 9504) 20 else 0 },
+            ),
         )
         assertTrue(
             CoinmasterDatabase.containsBuyItem(
@@ -63,7 +65,8 @@ class CoinmasterPurchaseProbeTest {
                 validate = true,
                 state = state,
                 prefs = prefs,
-            ) { if (it == 9504) 20 else 0 },
+                accessibleCount = { if (it == 9504) 20 else 0 },
+            ),
         )
     }
 
@@ -84,7 +87,8 @@ class CoinmasterPurchaseProbeTest {
                 validate = true,
                 state = state,
                 prefs = prefs,
-            ) { 99 },
+                accessibleCount = { 99 },
+            ),
         )
     }
 

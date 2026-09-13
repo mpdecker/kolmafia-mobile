@@ -1,10 +1,16 @@
 package net.sourceforge.kolmafia.request
 
+import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
+import net.sourceforge.kolmafia.shop.CoinmasterVisitInventory
+import net.sourceforge.kolmafia.shop.ItemStack
+import net.sourceforge.kolmafia.shop.ShopRow
 
 /**
  * Phases 5096–5110 — thin HTTP residual registerRequest hubs (Behavioral Deepen XX).
+ * LII Track B deepens [TravelingTraderRequest.parseResponse].
  */
 
 object BURTRequest {
@@ -15,14 +21,26 @@ object BURTRequest {
         return true
     }
 
-    fun parseResponse(url: String, html: String, preferences: Preferences?) {
-        if (!url.contains("whichitem=5683")) return
+    fun parseResponse(
+        url: String,
+        html: String,
+        preferences: Preferences?,
+        inventory: InventoryManager? = null,
+    ) {
+        if (!url.contains("whichitem=5683") &&
+            !url.contains("whichshop=burt", ignoreCase = true)
+        ) {
+            return
+        }
         val prefs = preferences ?: return
         if (html.contains("You acquire", ignoreCase = true) ||
             html.contains("BURT", ignoreCase = true)
         ) {
             prefs.setBoolean("_burtUsed", true)
         }
+        Regex("""You have ([\d,]+)\s+BURT""", RegexOption.IGNORE_CASE)
+            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { MiscShopTokenResponseParse.syncInventoryCount(inventory, MiscShopTokenResponseParse.BURT, it) }
     }
 }
 
@@ -118,6 +136,21 @@ object AltarOfBonesRequest {
 }
 
 object TravelingTraderRequest {
+    const val SHOP_KEY = CoinmasterVisitInventory.TRADER
+
+    private val ACQUIRE_PATTERN = Regex(
+        """The traveling trader is looking to acquire.*?descitem\((\d+)\).*?<b>([^<]*)</b>""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+    private val INVENTORY_PATTERN = Regex(
+        """\(You have <b>([\d,]*|none)</b> on you\.\)""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val ITEM_PATTERN = Regex(
+        """name=whichitem value=(\d+).*?>.*?descitem.*?(\d+).*?<b>([^<]*)</b></a></td><td>(\d+)""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+
     fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
         if (!url.contains("traveler.php", ignoreCase = true)) return false
         sessionLogger?.appendRawLine("Visiting Traveling Trader")
@@ -127,9 +160,49 @@ object TravelingTraderRequest {
     fun parseResponse(url: String, html: String, preferences: Preferences?) {
         if (!url.contains("traveler.php", ignoreCase = true)) return
         val prefs = preferences ?: return
-        Regex("""([\d,]+)\s+twinkly\s+wad""", RegexOption.IGNORE_CASE)
-            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
-            ?.let { prefs.setInt("availableTwinklyWads", it) }
+
+        val acquire = ACQUIRE_PATTERN.find(html)
+        if (acquire != null) {
+            val descId = acquire.groupValues[1]
+            val plural = acquire.groupValues[2].trim()
+            prefs.setString("travelingTraderDescId", descId)
+            prefs.setString("travelingTraderToken", plural)
+            INVENTORY_PATTERN.find(html)?.groupValues?.getOrNull(1)?.let { raw ->
+                val count = when {
+                    raw.equals("none", ignoreCase = true) -> 0
+                    raw.equals("one", ignoreCase = true) -> 1
+                    else -> raw.replace(",", "").toIntOrNull() ?: 0
+                }
+                prefs.setInt("travelingTraderHave", count)
+                if (plural.contains("twinkly", ignoreCase = true)) {
+                    prefs.setInt("availableTwinklyWads", count)
+                }
+            }
+        } else {
+            // Legacy twinkly-wad balance line when acquire block is absent.
+            Regex("""([\d,]+)\s+twinkly\s+wad""", RegexOption.IGNORE_CASE)
+                .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+                ?.let { prefs.setInt("availableTwinklyWads", it) }
+        }
+
+        val rows = mutableListOf<ShopRow>()
+        ITEM_PATTERN.findAll(html).forEach { match ->
+            val itemId = match.groupValues[1].toIntOrNull() ?: return@forEach
+            val desc = match.groupValues[2]
+            val name = match.groupValues[3].trim()
+            val price = match.groupValues[4].toIntOrNull() ?: return@forEach
+            ItemDatabase.registerItem(itemId, name, desc)
+            rows.add(
+                ShopRow(
+                    rowId = itemId,
+                    item = ItemStack(itemId = itemId, count = 1),
+                    price = price,
+                ),
+            )
+        }
+        if (rows.isNotEmpty()) {
+            CoinmasterVisitInventory.replaceBuyRows(SHOP_KEY, rows)
+        }
     }
 }
 
@@ -143,6 +216,9 @@ object CrimboCartelRequest {
         sessionLogger?.appendRawLine("Visiting Crimbo Cartel")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean =
+        CrimboHubResponseParse.parseResponse(url, html, preferences)
 }
 
 object BigBrotherRequest {

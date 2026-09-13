@@ -14,6 +14,9 @@ object Crimbo11Request {
         sessionLogger?.appendRawLine("Visiting Crimbo 2011")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean =
+        CrimboHubResponseParse.parseResponse(url, html, preferences)
 }
 
 object Crimbo14Request {
@@ -27,6 +30,9 @@ object Crimbo14Request {
         sessionLogger?.appendRawLine("Visiting Crimbo 2014 shop")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean =
+        CrimboHubResponseParse.parseResponse(url, html, preferences)
 }
 
 object Crimbo16Request {
@@ -39,6 +45,9 @@ object Crimbo16Request {
         sessionLogger?.appendRawLine("Visiting Crimbo 2016 shop")
         return true
     }
+
+    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean =
+        CrimboHubResponseParse.parseResponse(url, html, preferences)
 }
 
 object Crimbo17Request {

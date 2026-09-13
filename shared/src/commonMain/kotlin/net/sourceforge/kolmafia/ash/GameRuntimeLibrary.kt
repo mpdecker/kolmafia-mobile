@@ -442,6 +442,7 @@ import net.sourceforge.kolmafia.request.TerminalExtrudeRequestHub
 import net.sourceforge.kolmafia.request.SpacegateEquipmentRequestHub
 import net.sourceforge.kolmafia.request.ChefStaffRequestHub
 import net.sourceforge.kolmafia.request.BURTRequest
+import net.sourceforge.kolmafia.request.CRIMBCOGiftShopRequest
 import net.sourceforge.kolmafia.request.FreeSnackRequest
 import net.sourceforge.kolmafia.request.GameShoppeRequest
 import net.sourceforge.kolmafia.request.ShadowForgeRequest
@@ -810,7 +811,7 @@ class GameRuntimeLibrary(
 
         const val VERSION = "1.0.0-mobile"
         /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
-        const val REVISION = "phase6910"
+        const val REVISION = "phase7150"
 
         /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
         fun revisionNumber(): Int =
@@ -4214,6 +4215,7 @@ class GameRuntimeLibrary(
                 preferences = preferences,
                 inventory = inventoryManager,
                 character = character,
+                gameDatabase = gameDatabase,
             )
             preferences?.let { prefs ->
                 val state = visitState
@@ -4226,7 +4228,7 @@ class GameRuntimeLibrary(
             CrimboHubResponseParse.parseResponse(url, html, preferences)
             CraftThinHubResponseParse.parseResponse(url, html, preferences)
             LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
-            MiscShopTokenResponseParse.parseResponse(url, html, preferences)
+            MiscShopTokenResponseParse.parseResponse(url, html, preferences, inventoryManager)
         }
         if (url != null && (
                 url.contains("crimbo", ignoreCase = true) ||
@@ -4278,10 +4280,16 @@ class GameRuntimeLibrary(
                     url.contains("whichshop=brogurt", ignoreCase = true) ||
                     url.contains("whichshop=landfillstore", ignoreCase = true) ||
                     url.contains("whichshop=walmart", ignoreCase = true) ||
-                    url.contains("whichshop=glaciest", ignoreCase = true)
+                    url.contains("whichshop=glaciest", ignoreCase = true) ||
+                    url.contains("whichshop=bacon", ignoreCase = true) ||
+                    url.contains("whichshop=glover", ignoreCase = true) ||
+                    url.contains("whichshop=cindy", ignoreCase = true) ||
+                    url.contains("whichshop=boutique", ignoreCase = true) ||
+                    url.contains("whichshop=blackmarket", ignoreCase = true) ||
+                    url.contains("whichshop=si_shop", ignoreCase = true)
             )
         ) {
-            MiscShopTokenResponseParse.parseResponse(url, html, preferences)
+            MiscShopTokenResponseParse.parseResponse(url, html, preferences, inventoryManager)
         }
         if (url != null && url.contains("gamestore.php", ignoreCase = true)) {
             GameShoppeRequest.parseResponse(url, html, preferences)
@@ -4299,7 +4307,10 @@ class GameRuntimeLibrary(
             XliiHttpResidualParse.parseResponse(url, html, preferences, inventoryManager, character)
         }
         if (url != null && url.contains("whichitem=5683")) {
-            BURTRequest.parseResponse(url, html, preferences)
+            BURTRequest.parseResponse(url, html, preferences, inventoryManager)
+        }
+        if (url != null && url.contains("crimbo10.php", ignoreCase = true)) {
+            CRIMBCOGiftShopRequest.parseResponse(url, html, preferences, inventoryManager)
         }
         if (url != null && url.contains("bone_altar.php", ignoreCase = true)) {
             AltarOfBonesRequest.parseResponse(url, html, preferences)
@@ -7462,6 +7473,18 @@ class GameRuntimeLibrary(
         registerPhase6851(scope)
         registerPhase6871(scope)
         registerPhase6891(scope)
+        registerPhase6911(scope)
+        registerPhase6931(scope)
+        registerPhase6951(scope)
+        registerPhase6971(scope)
+        registerPhase6991(scope)
+        registerPhase7011(scope)
+        registerPhase7031(scope)
+        registerPhase7051(scope)
+        registerPhase7071(scope)
+        registerPhase7091(scope)
+        registerPhase7111(scope)
+        registerPhase7131(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->

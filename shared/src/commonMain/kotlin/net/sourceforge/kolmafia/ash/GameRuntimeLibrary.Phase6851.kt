@@ -8,7 +8,7 @@ package net.sourceforge.kolmafia.ash
  *   Sea sandpenny / Topiary nugglet
  * - CoinmasterAccessibility wiring
  *
- * Parent L wrap bumps REVISION to phase6910.
+ * Parent L wrap bumps REVISION to phase6910 (later megas advance tip).
  */
 internal fun GameRuntimeLibrary.registerPhase6851(scope: AshScope) {
     // Behavioral patches live in SpecialtyShopAccessibility / CoinmasterAccessibility.

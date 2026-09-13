@@ -24,15 +24,20 @@ internal fun GameRuntimeLibrary.registerAshP138Batch(scope: AshScope) {
     regFn(scope, "is_coinmaster_item", AshType.BOOLEAN, listOf("id" to AshType.INT, "validate" to AshType.BOOLEAN)) { _, args ->
         val id = args[0].toLong().toInt()
         val validate = args[1].toBoolean()
+        val access = craftCoinmasterAccessContext()
         AshValue.of(
             CoinmasterDatabase.containsBuyItem(
                 id,
                 validate = validate,
                 state = craftCharacterState(),
                 prefs = preferences,
-                accessibleCount = { itemId -> craftAccessibleCount(itemId) },
+                accessibleCount = access.accessibleCount,
                 hasSkill = { skillId -> craftSkills().any { it.id == skillId } },
-                hasEffect = { effectId -> hasActiveEffect(effectId) },
+                hasEffect = access.hasEffect,
+                ownsFamiliar = access.ownsFamiliar,
+                adventureUnderwater = access.adventureUnderwater,
+                underwaterFamiliar = access.underwaterFamiliar,
+                generatorQuestFinished = access.generatorQuestFinished,
             ),
         )
     }
@@ -45,15 +50,20 @@ internal fun GameRuntimeLibrary.registerAshP138Batch(scope: AshScope) {
     ) { _, args ->
         val id = itemId(args[0]) ?: return@regFn AshValue.FALSE
         val validate = args[1].toBoolean()
+        val access = craftCoinmasterAccessContext()
         AshValue.of(
             CoinmasterDatabase.containsBuyItem(
                 id,
                 validate = validate,
                 state = craftCharacterState(),
                 prefs = preferences,
-                accessibleCount = { itemId -> craftAccessibleCount(itemId) },
+                accessibleCount = access.accessibleCount,
                 hasSkill = { skillId -> craftSkills().any { it.id == skillId } },
-                hasEffect = { effectId -> hasActiveEffect(effectId) },
+                hasEffect = access.hasEffect,
+                ownsFamiliar = access.ownsFamiliar,
+                adventureUnderwater = access.adventureUnderwater,
+                underwaterFamiliar = access.underwaterFamiliar,
+                generatorQuestFinished = access.generatorQuestFinished,
             ),
         )
     }

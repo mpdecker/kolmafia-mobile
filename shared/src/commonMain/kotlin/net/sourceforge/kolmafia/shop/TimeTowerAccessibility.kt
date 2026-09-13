@@ -7,6 +7,7 @@ object TimeTowerAccessibility {
 
     private val INACCESSIBLE_MESSAGES = mapOf(
         "twitch_alliedhq" to "You can't get to the Allied HQ",
+        "twitch_jousting" to "You can't get to the Renaissance Gift Shop",
         "shakeshop" to "You can't get to Ye Newe Souvenir Shoppe",
         "shoeshop" to "You can't get to the Shoe Repair Shop",
         "twitchsoup" to "You can't get to the Primordial Soup Kitchen",

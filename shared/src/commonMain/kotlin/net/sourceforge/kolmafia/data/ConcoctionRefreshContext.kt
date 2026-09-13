@@ -75,9 +75,24 @@ data class ConcoctionRefreshContext(
             accessibleCount: (Int) -> Int,
             hasSkill: (Int) -> Boolean = { false },
             hasEffect: (Int) -> Boolean = { false },
+            ownsFamiliar: (Int) -> Boolean = { false },
+            adventureUnderwater: Boolean = false,
+            underwaterFamiliar: Boolean = false,
+            generatorQuestFinished: Boolean = false,
         ): Int {
             val (master, row) = CoinmasterDatabase.findBuyRowForItem(itemId) ?: return 0
-            if (!CoinmasterAccessibility.isAccessible(master, state, prefs, accessibleCount, hasEffect)) {
+            if (!CoinmasterAccessibility.isAccessible(
+                    master,
+                    state,
+                    prefs,
+                    accessibleCount = accessibleCount,
+                    hasEffect = hasEffect,
+                    ownsFamiliar = ownsFamiliar,
+                    adventureUnderwater = adventureUnderwater,
+                    underwaterFamiliar = underwaterFamiliar,
+                    generatorQuestFinished = generatorQuestFinished,
+                )
+            ) {
                 return 0
             }
             if (!CoinmasterPurchaseAccessibility.canPurchaseItem(
@@ -104,6 +119,8 @@ data class ConcoctionRefreshContext(
             accessibleCount: (Int) -> Int = { id -> aggregatedCounts[id] ?: 0 },
             familiarUsable: (Int) -> Boolean = { false },
             ownedFamiliar: (String) -> Boolean = { false },
+            ownsFamiliarId: (Int) -> Boolean = { false },
+            generatorQuestFinished: Boolean = false,
             storageCounts: Map<Int, Int> = emptyMap(),
         ): ConcoctionRefreshContext {
             val hasSkill = { id: Int -> skills.any { it.id == id } }
@@ -157,6 +174,8 @@ data class ConcoctionRefreshContext(
                         accessibleCount,
                         hasSkill,
                         hasEffect,
+                        ownsFamiliar = ownsFamiliarId,
+                        generatorQuestFinished = generatorQuestFinished,
                     )
                 },
                 storageCountById = { id -> storageCounts[id] ?: 0 },

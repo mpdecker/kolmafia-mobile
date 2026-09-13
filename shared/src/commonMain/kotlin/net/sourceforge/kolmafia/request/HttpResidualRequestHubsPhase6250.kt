@@ -98,6 +98,11 @@ object CrimboHubResponseParse {
                     ?.let { prefs.setInt("availableCrymbocurrency", it) }
                 true
             }
+            // Desktop KringleRequest (crimbo19toys) — shop-row multi-cost; claim visit.
+            url.contains("whichshop=crimbo19toys", ignoreCase = true) -> {
+                prefs.setBoolean("_crimbo19ToysVisited", true)
+                true
+            }
             url.contains("whichshop=crimbo18", ignoreCase = true) ||
                 url.contains("whichshop=crimbo19", ignoreCase = true) ||
                 url.contains("whichshop=crimbo20cafe", ignoreCase = true) ||

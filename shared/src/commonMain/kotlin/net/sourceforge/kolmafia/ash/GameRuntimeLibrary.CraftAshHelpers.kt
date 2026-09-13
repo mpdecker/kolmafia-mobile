@@ -40,6 +40,23 @@ internal fun GameRuntimeLibrary.craftFamiliarUsable(familiarId: Int): Boolean {
 internal fun GameRuntimeLibrary.hasActiveEffect(effectId: Int): Boolean =
     effectManager?.state?.value?.effects?.any { it.id == effectId } == true
 
+internal fun GameRuntimeLibrary.craftOwnsFamiliar(familiarId: Int): Boolean =
+    familiarManager?.state?.value?.ownedFamiliars?.any { it.id == familiarId } == true
+
+internal fun GameRuntimeLibrary.craftGeneratorQuestFinished(): Boolean =
+    questDatabase?.isQuestFinished(net.sourceforge.kolmafia.quest.Quest.GENERATOR) == true
+
+/** Shared validate context for coinmaster ASH / probe paths (HTTP Residual LIII). */
+internal fun GameRuntimeLibrary.craftCoinmasterAccessContext(
+    accessibleCount: (Int) -> Int = { itemId -> craftAccessibleCount(itemId) },
+): net.sourceforge.kolmafia.shop.CoinmasterAccessContext =
+    net.sourceforge.kolmafia.shop.CoinmasterAccessContext(
+        accessibleCount = accessibleCount,
+        hasEffect = { effectId -> hasActiveEffect(effectId) },
+        ownsFamiliar = { familiarId -> craftOwnsFamiliar(familiarId) },
+        generatorQuestFinished = craftGeneratorQuestFinished(),
+    )
+
 internal fun GameRuntimeLibrary.npcFamiliarUsable(familiarId: Int): Boolean {
     val race = when (familiarId) {
         206 -> "Trick-or-Treating Tot"
