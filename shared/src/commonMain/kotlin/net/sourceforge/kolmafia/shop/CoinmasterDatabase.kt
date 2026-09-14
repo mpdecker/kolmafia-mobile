@@ -185,11 +185,26 @@ object CoinmasterDatabase {
         hasSkill: (Int) -> Boolean = { false },
         hasEffect: (Int) -> Boolean = { false },
         accessibleCount: (Int) -> Int = { 0 },
+        ownsFamiliar: (Int) -> Boolean = { false },
+        adventureUnderwater: Boolean = false,
+        underwaterFamiliar: Boolean = false,
+        generatorQuestFinished: Boolean = false,
     ): Boolean {
         if (!validate) return findBuyRowForSkill(skillId) != null
         if (hasSkill(skillId)) return false
         val (master, row) = findBuyRowForSkill(skillId) ?: return false
-        if (!CoinmasterAccessibility.isAccessible(master, state, prefs, accessibleCount, hasEffect)) {
+        if (!CoinmasterAccessibility.isAccessible(
+                master,
+                state,
+                prefs,
+                accessibleCount = accessibleCount,
+                hasEffect = hasEffect,
+                ownsFamiliar = ownsFamiliar,
+                adventureUnderwater = adventureUnderwater,
+                underwaterFamiliar = underwaterFamiliar,
+                generatorQuestFinished = generatorQuestFinished,
+            )
+        ) {
             return false
         }
         if (!CoinmasterPurchaseAccessibility.visitInventorySkillAvailable(master, skillId)) {
@@ -207,6 +222,10 @@ object CoinmasterDatabase {
         hasSkill: (Int) -> Boolean = { false },
         hasEffect: (Int) -> Boolean = { false },
         accessibleCount: (Int) -> Int = { 0 },
+        ownsFamiliar: (Int) -> Boolean = { false },
+        adventureUnderwater: Boolean = false,
+        underwaterFamiliar: Boolean = false,
+        generatorQuestFinished: Boolean = false,
     ): Boolean {
         if (!validate) return findBuyRowForItem(itemId) != null
         return CoinmasterPurchaseProbe.canPurchaseIgnoringMeat(
@@ -216,6 +235,10 @@ object CoinmasterDatabase {
             hasSkill,
             hasEffect,
             accessibleCount,
+            ownsFamiliar = ownsFamiliar,
+            adventureUnderwater = adventureUnderwater,
+            underwaterFamiliar = underwaterFamiliar,
+            generatorQuestFinished = generatorQuestFinished,
         )
     }
 
@@ -460,6 +483,49 @@ object CoinmasterDatabase {
             sellUrl = "bigisland.php?place=camp&whichcamp=2",
             buyAction = "getgear",
             sellAction = "turnin",
+        ),
+        // LI Track B — legacy nickname + buyUrl so hasShopEndpoint / ASH nicknames resolve.
+        "A. W. O. L. Quartermaster" to SpecialOverride(
+            nickname = "awol",
+            buyUrl = "inv_use.php?whichitem=5116&ajax=1",
+        ),
+        "Big Brother" to SpecialOverride(
+            nickname = "bigbrother",
+            buyUrl = "monkeycastle.php",
+        ),
+        "Altar of Bones" to SpecialOverride(
+            nickname = "bonealtar",
+            aliases = listOf("altar", "bones"),
+            buyUrl = "bone_altar.php",
+        ),
+        "Skeleton of Crimbo Past" to SpecialOverride(
+            nickname = "socp",
+            aliases = listOf("crimbopast", "skeleton"),
+            buyUrl = "choice.php?whichchoice=1567",
+        ),
+        // LII Track A — Spaaace desktop nicknames alongside shops.txt elvishp* ids.
+        "Isotope Smithery" to SpecialOverride(
+            nickname = "isotopesmithery",
+            aliases = listOf("elvishp1"),
+            shopId = "elvishp1",
+        ),
+        "Dollhawker's Emporium" to SpecialOverride(
+            nickname = "dollhawker",
+            aliases = listOf("elvishp2"),
+            shopId = "elvishp2",
+        ),
+        "Lunar Lunch-o-Mat" to SpecialOverride(
+            nickname = "lunarlunch",
+            aliases = listOf("elvishp3"),
+            shopId = "elvishp3",
+        ),
+        // LII Track B — Traveling Trader nickname + buyUrl for hasShopEndpoint.
+        "Traveling Trader" to SpecialOverride(
+            nickname = "trader",
+            aliases = listOf("traveler", "travellingtrader", "travelingtrader"),
+            buyUrl = "traveler.php",
+            buyAction = "For Gnomeregan!",
+            useItemField = true,
         ),
         "Bounty Hunter Hunter" to SpecialOverride(
             nickname = "hunter",

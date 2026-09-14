@@ -28,7 +28,7 @@ class GameRuntimeLibraryPhase6770Test {
 
     @Test
     fun revision_still_phase6850_until_parent_wrap() {
-        assertEquals("phase6910", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
     }
 
     @Test

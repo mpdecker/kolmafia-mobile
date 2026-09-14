@@ -59,10 +59,35 @@ object BoutiqueRequest {
         CindyRequestHub.registerRequest(url, sessionLogger)
 }
 
-/** Desktop [CRIMBCOGiftShopRequest] → Phase 5290 CrimboCartel legacy hub. */
+/** Desktop [CRIMBCOGiftShopRequest] → Phase 5290 CrimboCartel legacy hub + LIV scrip sync. */
 object CRIMBCOGiftShopRequest {
-    fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean =
-        CrimboCartelLegacyRequestHub.registerRequest(url, sessionLogger)
+    fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
+        if (CrimboCartelLegacyRequestHub.registerRequest(url, sessionLogger)) return true
+        if (!url.contains("crimbo10.php", ignoreCase = true)) return false
+        sessionLogger?.appendRawLine("Visiting CRIMBCO Gift Shop")
+        return true
+    }
+
+    fun parseResponse(
+        url: String,
+        html: String,
+        preferences: Preferences?,
+        inventory: InventoryManager? = null,
+    ): Boolean {
+        if (!url.contains("crimbo10.php", ignoreCase = true)) return false
+        Regex(
+            """You have\s*<b>([\d,]+)</b>\s*CRIMBCO scrip""",
+            RegexOption.IGNORE_CASE,
+        ).find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let {
+                MiscShopTokenResponseParse.syncInventoryCount(
+                    inventory,
+                    MiscShopTokenResponseParse.CRIMBCO_SCRIP,
+                    it,
+                )
+            }
+        return true
+    }
 }
 
 /**

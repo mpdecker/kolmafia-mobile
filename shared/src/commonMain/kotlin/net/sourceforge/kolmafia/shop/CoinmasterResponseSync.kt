@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.shop
 
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 
@@ -17,6 +18,7 @@ object CoinmasterResponseSync {
         preferences: Preferences?,
         inventory: InventoryManager?,
         character: KoLCharacter?,
+        gameDatabase: GameDatabase? = null,
     ): Boolean {
         if (!url.contains("shop.php", ignoreCase = true)) return false
         val shopId = ShopInventorySync.extractShopId(url) ?: return false
@@ -37,9 +39,9 @@ object CoinmasterResponseSync {
                 if (master.hasShopRowInventory()) {
                     val row = findBuyRow(master, url) ?: return true
                     val count = extractCount(url).coerceAtLeast(1)
-                    completePurchaseShopRow(master, row, count, preferences, inventory)
+                    completePurchaseShopRow(master, row, count, preferences, inventory, gameDatabase)
                 } else {
-                    completePurchaseLegacy(master, url, preferences, inventory)
+                    completePurchaseLegacy(master, url, preferences, inventory, gameDatabase)
                 }
             }
             isSellAction(action, master) -> {
@@ -95,15 +97,34 @@ object CoinmasterResponseSync {
         count: Int,
         preferences: Preferences?,
         inventory: InventoryManager?,
+        gameDatabase: GameDatabase? = null,
     ) {
+        val property = master.property
+        val propertyOnly = property != null && master.tokenItemId() == null
+        var propertyUnits = 0
         for (cost in row.costs) {
             val price = cost.count * count
             if (cost.isMeat) continue
-            inventory?.consumeItemLocally(cost.itemId, price)
+            if (cost.itemId > 0) {
+                inventory?.consumeItemLocally(cost.itemId, price)
+            } else if (propertyOnly) {
+                propertyUnits += price
+            }
+        }
+        if (propertyOnly) {
+            if (row.costs.isEmpty()) {
+                propertyUnits = count
+            }
+            if (propertyUnits > 0 && preferences != null && property != null) {
+                preferences.setInt(
+                    property,
+                    (preferences.getInt(property, 0) - propertyUnits).coerceAtLeast(0),
+                )
+            }
         }
         if (!row.item.isSkill) {
             inventory?.gainItemLocally(row.item.itemId, row.item.count * count)
-            CoinmasterPurchasePrefs.applyPurchasedItem(master, row.item.itemId, preferences)
+            CoinmasterPurchasePrefs.applyPurchasedItem(master, row.item.itemId, preferences, gameDatabase)
         }
         markConcoctionRefreshIfPseudoToken(master)
     }
@@ -113,6 +134,7 @@ object CoinmasterResponseSync {
         url: String,
         preferences: Preferences?,
         inventory: InventoryManager?,
+        gameDatabase: GameDatabase? = null,
     ) {
         val row = findBuyRow(master, url) ?: return
         val itemId = row.item.itemId
@@ -123,7 +145,7 @@ object CoinmasterResponseSync {
         deductTokenCost(master, unitPrice * count, preferences, inventory)
         if (!row.item.isSkill) {
             inventory?.gainItemLocally(itemId, count)
-            CoinmasterPurchasePrefs.applyPurchasedItem(master, itemId, preferences)
+            CoinmasterPurchasePrefs.applyPurchasedItem(master, itemId, preferences, gameDatabase)
         }
         markConcoctionRefreshIfPseudoToken(master)
     }

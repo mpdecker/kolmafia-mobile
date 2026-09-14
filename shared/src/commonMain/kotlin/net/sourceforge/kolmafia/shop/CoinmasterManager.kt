@@ -10,12 +10,16 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
+import net.sourceforge.kolmafia.effect.EffectManager
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.IslandWarCampSync
 import net.sourceforge.kolmafia.quest.IslandWarVisitLogSync
 import net.sourceforge.kolmafia.quest.IslandWarVisitSync
+import net.sourceforge.kolmafia.quest.Quest
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.session.SessionLogger
 
 open class CoinmasterManager(
@@ -26,6 +30,9 @@ open class CoinmasterManager(
     private val character: KoLCharacter? = null,
     private val preferences: Preferences? = null,
     private val sessionLogger: SessionLogger? = null,
+    private val familiarManager: FamiliarManager? = null,
+    private val effectManager: EffectManager? = null,
+    private val questDatabase: QuestDatabase? = null,
 ) {
     open fun resolveMaster(value: String): CoinmasterData? =
         CoinmasterRegistry.findByNickname(value)
@@ -146,14 +153,30 @@ open class CoinmasterManager(
     open fun isAccessible(master: CoinmasterData): Boolean {
         if (!master.isAccessible()) return false
         val char = character?.state?.value ?: return true
-        return CoinmasterAccessibility.isAccessible(master, char, preferences)
+        return CoinmasterAccessibility.isAccessible(
+            master,
+            char,
+            preferences,
+            accessibleCount = { inventoryCount(it) },
+            hasEffect = { hasEffect(it) },
+            ownsFamiliar = { ownsFamiliar(it) },
+            generatorQuestFinished = questDatabase?.isQuestFinished(Quest.GENERATOR) == true,
+        )
     }
 
     open fun inaccessibleReason(master: CoinmasterData): String {
         if (!master.isAccessible()) return "Shop not available"
         val char = character?.state?.value
         if (char != null) {
-            CoinmasterAccessibility.inaccessibleReason(master, char, preferences)?.let { return it }
+            CoinmasterAccessibility.inaccessibleReason(
+                master,
+                char,
+                preferences,
+                accessibleCount = { inventoryCount(it) },
+                hasEffect = { hasEffect(it) },
+                ownsFamiliar = { ownsFamiliar(it) },
+                generatorQuestFinished = questDatabase?.isQuestFinished(Quest.GENERATOR) == true,
+            )?.let { return it }
         }
         return ""
     }
@@ -196,4 +219,10 @@ open class CoinmasterManager(
 
     private fun inventoryCount(itemId: Int): Int =
         inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
+
+    private fun ownsFamiliar(familiarId: Int): Boolean =
+        familiarManager?.state?.value?.ownedFamiliars?.any { it.id == familiarId } == true
+
+    private fun hasEffect(effectId: Int): Boolean =
+        effectManager?.state?.value?.effects?.any { it.id == effectId } == true
 }

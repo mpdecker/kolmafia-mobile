@@ -21,11 +21,24 @@ object CoinmasterAccessibility {
         prefs: Preferences? = null,
         accessibleCount: (Int) -> Int = { 0 },
         hasEffect: (Int) -> Boolean = { false },
+        ownsFamiliar: (Int) -> Boolean = { false },
+        adventureUnderwater: Boolean = false,
+        underwaterFamiliar: Boolean = false,
+        generatorQuestFinished: Boolean = false,
     ): String? {
         if (!master.hasShopEndpoint()) return "Shop not available"
         for (nick in master.allNicknames) {
-            ruleFor(nick.lowercase(), prefs, accessibleCount, hasEffect, char.limitMode)?.invoke(char)
-                ?.let { return it }
+            ruleFor(
+                nick.lowercase(),
+                prefs,
+                accessibleCount,
+                hasEffect,
+                char.limitMode,
+                ownsFamiliar,
+                adventureUnderwater,
+                underwaterFamiliar,
+                generatorQuestFinished,
+            )?.invoke(char)?.let { return it }
         }
         return null
     }
@@ -36,7 +49,21 @@ object CoinmasterAccessibility {
         prefs: Preferences? = null,
         accessibleCount: (Int) -> Int = { 0 },
         hasEffect: (Int) -> Boolean = { false },
-    ): Boolean = inaccessibleReason(master, char, prefs, accessibleCount, hasEffect) == null
+        ownsFamiliar: (Int) -> Boolean = { false },
+        adventureUnderwater: Boolean = false,
+        underwaterFamiliar: Boolean = false,
+        generatorQuestFinished: Boolean = false,
+    ): Boolean = inaccessibleReason(
+        master,
+        char,
+        prefs,
+        accessibleCount,
+        hasEffect,
+        ownsFamiliar,
+        adventureUnderwater,
+        underwaterFamiliar,
+        generatorQuestFinished,
+    ) == null
 
     private fun ruleFor(
         nickname: String,
@@ -44,9 +71,18 @@ object CoinmasterAccessibility {
         accessibleCount: (Int) -> Int,
         hasEffect: (Int) -> Boolean,
         limitMode: String,
+        ownsFamiliar: (Int) -> Boolean,
+        adventureUnderwater: Boolean,
+        underwaterFamiliar: Boolean,
+        generatorQuestFinished: Boolean,
     ): ((CharacterState) -> String?)? = when (nickname) {
-        "dimemaster", "dmt" ->
-            { cs -> if (!cs.kingLiberated) "King Ralph must be freed first" else null }
+        // Phase 6911–6930 — Island War camps (HTTP Residual LI Track A).
+        "dimemaster", "dmt" -> { _ ->
+            IslandWarShopAccessibility.dimemasterInaccessible(prefs, accessibleCount)
+        }
+        "quartersmaster" -> { _ ->
+            IslandWarShopAccessibility.quartersmasterInaccessible(prefs, accessibleCount)
+        }
         "shore" -> { cs ->
             when {
                 cs.level < 4 -> "Requires level 4"
@@ -289,6 +325,41 @@ object CoinmasterAccessibility {
         }
         "gameshoppe", "gamestore" -> { cs ->
             LegacyCoinmasterAccessibility.gameShoppeInaccessible(cs)
+        }
+        // Phase 6931–6950 — residual legacy shops (HTTP Residual LI Track B).
+        "awol", "awolquartermaster" -> { _ ->
+            ResidualLegacyShopAccessibility.awolInaccessible(accessibleCount)
+        }
+        "bigbrother" -> { _ ->
+            ResidualLegacyShopAccessibility.bigBrotherInaccessible(
+                prefs,
+                accessibleCount,
+                adventureUnderwater = adventureUnderwater,
+                underwaterFamiliar = underwaterFamiliar,
+            )
+        }
+        "dino", "dinostaur" -> { cs ->
+            ResidualLegacyShopAccessibility.dinostaurInaccessible(cs)
+        }
+        "crimbo17" -> { _ ->
+            ResidualLegacyShopAccessibility.crimbo17Inaccessible(accessibleCount)
+        }
+        "socp", "crimbopast", "skeleton", "skeletonofcrimbopast" -> { _ ->
+            ResidualLegacyShopAccessibility.skeletonOfCrimboPastInaccessible(ownsFamiliar)
+        }
+        "altar", "bonealtar", "bones", "altarofbones" -> { _ ->
+            ResidualLegacyShopAccessibility.altarOfBonesInaccessible()
+        }
+        // Phase 6971–6990 — Spaaace isotope shops (HTTP Residual LII Track A).
+        "elvishp1", "isotopesmithery",
+        "elvishp2", "dollhawker",
+        "elvishp3", "lunarlunch",
+        -> { _ ->
+            SpaaaceShopAccessibility.inaccessible(
+                generatorFinished = generatorQuestFinished,
+                accessibleCount = accessibleCount,
+                hasEffect = hasEffect,
+            )
         }
         "damachine", "vendingmachine" -> { cs ->
             if (cs.isKingdomOfExploathing) {

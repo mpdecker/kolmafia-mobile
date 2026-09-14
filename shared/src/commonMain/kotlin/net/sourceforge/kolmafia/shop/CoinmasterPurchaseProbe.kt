@@ -13,10 +13,25 @@ object CoinmasterPurchaseProbe {
         hasSkill: (Int) -> Boolean = { false },
         hasEffect: (Int) -> Boolean = { false },
         accessibleCount: (Int) -> Int = { 0 },
+        ownsFamiliar: (Int) -> Boolean = { false },
+        adventureUnderwater: Boolean = false,
+        underwaterFamiliar: Boolean = false,
+        generatorQuestFinished: Boolean = false,
     ): Boolean {
         if (prefs?.getBoolean("autoSatisfyWithCoinmasters", false) != true) return false
         val (master, row) = CoinmasterDatabase.findBuyRowForItem(itemId) ?: return false
-        if (!CoinmasterAccessibility.isAccessible(master, state, prefs, accessibleCount, hasEffect)) {
+        if (!CoinmasterAccessibility.isAccessible(
+                master,
+                state,
+                prefs,
+                accessibleCount = accessibleCount,
+                hasEffect = hasEffect,
+                ownsFamiliar = ownsFamiliar,
+                adventureUnderwater = adventureUnderwater,
+                underwaterFamiliar = underwaterFamiliar,
+                generatorQuestFinished = generatorQuestFinished,
+            )
+        ) {
             return false
         }
         if (!CoinmasterPurchaseAccessibility.canPurchaseItem(

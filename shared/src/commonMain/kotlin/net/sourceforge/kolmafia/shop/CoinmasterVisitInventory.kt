@@ -7,8 +7,9 @@ object CoinmasterVisitInventory {
     const val SWAGGER = "swagger"
     const val FLOWER_TRADEIN = "flowertradein"
     const val CRIMBO25_SAMMY = "crimbo25_sammy"
+    const val TRADER = "trader"
 
-    private val dynamicShops = setOf(CONMERCH, SWAGGER, FLOWER_TRADEIN, CRIMBO25_SAMMY)
+    private val dynamicShops = setOf(CONMERCH, SWAGGER, FLOWER_TRADEIN, CRIMBO25_SAMMY, TRADER)
     private val visitRows = mutableMapOf<String, List<ShopRow>>()
     private val visitSellRows = mutableMapOf<String, List<ShopRow>>()
 
