@@ -40,7 +40,7 @@ class GameRuntimeLibraryHttpResidualCliTest {
 
     @Test
     fun revisionIsPhase4010() {
-        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7210", GameRuntimeLibrary.REVISION)
     }
 
     @Test

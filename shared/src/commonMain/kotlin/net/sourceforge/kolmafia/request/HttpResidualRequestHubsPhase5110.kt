@@ -126,12 +126,24 @@ object AltarOfBonesRequest {
         return true
     }
 
-    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+    fun parseResponse(
+        url: String,
+        html: String,
+        preferences: Preferences?,
+        inventory: InventoryManager? = null,
+    ) {
         if (!url.contains("bone_altar.php", ignoreCase = true)) return
         val prefs = preferences ?: return
         Regex("""([\d,]+)\s+bone\s+chips?""", RegexOption.IGNORE_CASE)
             .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
-            ?.let { prefs.setInt("availableBoneChips", it) }
+            ?.let { count ->
+                prefs.setInt("availableBoneChips", count)
+                MiscShopTokenResponseParse.syncInventoryCount(
+                    inventory,
+                    MiscShopTokenResponseParse.BONE_CHIPS,
+                    count,
+                )
+            }
     }
 }
 
@@ -256,6 +268,11 @@ object FudgeWandRequest {
 }
 
 object SkeletonOfCrimboPastRequest {
+    private val KNUCKLEBONE_PATTERN = Regex(
+        """(?:You've.*?got|You.*? have) (?:<b>)?([\d,]+)(?:</b>)? knucklebones?\.""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+
     fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
         if (url.contains("talktosocp=1", ignoreCase = true)) {
             sessionLogger?.appendRawLine("Talking to Skeleton of Crimbo Past")
@@ -268,6 +285,29 @@ object SkeletonOfCrimboPastRequest {
             return true
         }
         return false
+    }
+
+    fun parseResponse(
+        url: String,
+        html: String,
+        preferences: Preferences?,
+        inventory: InventoryManager? = null,
+    ) {
+        if (url.contains("option=5", ignoreCase = true)) return
+        val isSocp = url.contains("talktosocp=1", ignoreCase = true) ||
+            (url.contains("choice.php", ignoreCase = true) &&
+                url.contains("whichchoice=1567", ignoreCase = true))
+        if (!isSocp) return
+        val prefs = preferences ?: return
+        KNUCKLEBONE_PATTERN.find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
+            ?.let { count ->
+                prefs.setInt("availableKnucklebones", count)
+                MiscShopTokenResponseParse.syncInventoryCount(
+                    inventory,
+                    MiscShopTokenResponseParse.KNUCKLEBONE,
+                    count,
+                )
+            }
     }
 }
 

@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.request
 
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.shop.InterestingCoinShopSync
@@ -175,12 +176,14 @@ object NuggletCraftingRequestHub {
         return true
     }
 
-    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+    fun parseResponse(
+        url: String,
+        html: String,
+        preferences: Preferences?,
+        inventory: InventoryManager? = null,
+    ) {
         if (!url.contains("whichshop=topiary", ignoreCase = true)) return
-        val prefs = preferences ?: return
-        Regex("""([\d,]+)\s+nugglet""", RegexOption.IGNORE_CASE)
-            .find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
-            ?.let { prefs.setInt("availableNugglets", it) }
+        MiscShopTokenResponseParse.parseResponse(url, html, preferences, inventory)
     }
 }
 

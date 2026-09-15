@@ -16,7 +16,7 @@ class GameRuntimeLibraryPhase4750Test {
 
     @Test
     fun revision_phase4870() {
-        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7210", GameRuntimeLibrary.REVISION)
         assertEquals("6850", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
     }
 
@@ -35,7 +35,7 @@ class GameRuntimeLibraryPhase4750Test {
         ChoiceCombatAshState.currentRound = 2
         try {
             UseSkillSync.lastUpdate = ""
-            assertEquals("phase7150", GameRuntimeLibrary.REVISION)
+            assertEquals("phase7210", GameRuntimeLibrary.REVISION)
         } finally {
             ChoiceCombatAshState.currentRound = 0
         }

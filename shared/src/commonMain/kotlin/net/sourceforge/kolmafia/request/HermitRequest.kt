@@ -8,6 +8,7 @@ import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
@@ -28,6 +29,49 @@ open class HermitRequest(private val client: HttpClient) {
             WORTHLESS_KNICK_KNACK_ID,
         )
         private val CLOVER_STOCK_PATTERN = Regex("""(\d+)\s+left in stock for today""")
+        private val TRADABLE_ITEMS_PATTERN =
+            Regex("""You have ([\d,]+) tradable items""")
+        private val QUANTITY_URL_PATTERN = Regex("""[?&]quantity=(\d+)""", RegexOption.IGNORE_CASE)
+        private val CLOVER_ACQUIRE_PATTERN = Regex(
+            """You acquire an item:\s*<b>([\d,]+)\s+eleven-leaf clover""",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** Desktop [HermitRequest.parseHermitTrade] / [parseHermitStock] visit HTML sync. */
+        fun parseResponse(
+            url: String,
+            html: String,
+            preferences: Preferences?,
+            @Suppress("UNUSED_PARAMETER") inventory: InventoryManager? = null,
+        ) {
+            if (!url.contains("hermit.php", ignoreCase = true)) return
+            val prefs = preferences ?: return
+
+            TRADABLE_ITEMS_PATTERN.find(html)?.groupValues?.getOrNull(1)
+                ?.replace(",", "")
+                ?.toIntOrNull()
+                ?.let { prefs.setInt("hermitTradableItems", it) }
+
+            val cloverStock = CLOVER_STOCK_PATTERN.find(html)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            prefs.setInt("hermitCloverCount", cloverStock)
+
+            if (html.contains("You acquire", ignoreCase = true)) {
+                val fromUrl = if (url.contains("whichitem=$ELEVEN_LEAF_CLOVER_ID", ignoreCase = true)) {
+                    QUANTITY_URL_PATTERN.find(url)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+                } else {
+                    0
+                }
+                val fromHtml = CLOVER_ACQUIRE_PATTERN.find(html)?.groupValues?.getOrNull(1)
+                    ?.replace(",", "")
+                    ?.toIntOrNull()
+                    ?: 0
+                val acquired = maxOf(fromUrl, fromHtml)
+                if (acquired > 0) {
+                    prefs.increment("_cloversPurchased", acquired)
+                }
+            }
+
+        }
 
         /** Desktop [HermitRequest.getAvailableWorthlessItemCount]. */
         suspend fun availableWorthlessItemCount(
@@ -52,6 +96,9 @@ open class HermitRequest(private val client: HttpClient) {
         ): Int = WORTHLESS_COMPONENT_IDS.sumOf { id ->
             (inventory[id] ?: 0) + (closet[id] ?: 0) + (storage[id] ?: 0)
         }
+
+        fun parseCloverCount(html: String): Int =
+            CLOVER_STOCK_PATTERN.find(html)?.groupValues?.get(1)?.toIntOrNull() ?: 0
     }
 
     open suspend fun trade(itemId: Int, quantity: Int): Result<String> = try {
@@ -89,6 +136,5 @@ open class HermitRequest(private val client: HttpClient) {
         }
     }
 
-    fun parseCloverCount(html: String): Int =
-        CLOVER_STOCK_PATTERN.find(html)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+    fun parseCloverCount(html: String): Int = Companion.parseCloverCount(html)
 }

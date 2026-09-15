@@ -16,7 +16,7 @@ class GameRuntimeLibraryPhase6070Test {
     @Test
     fun revision_phase6070() {
         // Superseded by XXXVIII; current runtime revision is phase6310.
-        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7210", GameRuntimeLibrary.REVISION)
     }
 
     @Test

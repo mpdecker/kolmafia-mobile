@@ -15,6 +15,9 @@ object NpcShopSync {
     private val PIRATE_EPHEMERA_PATTERN =
         Regex("pirate (?:brochure|pamphlet|tract)", RegexOption.IGNORE_CASE)
 
+    private val BLOOD_MAYO_PATTERN =
+        Regex("""blood mayonnaise concentration: (\d+) mayograms""")
+
     fun needsSync(storeKey: String): Boolean =
         when (storeKey.lowercase()) {
             "wildfire", "bartlebys", "hippy", "fwshop", "mayoclinic", "hiddentavern" -> true
@@ -94,6 +97,9 @@ object NpcShopSync {
     private fun syncMayoclinic(html: String, url: String?, prefs: Preferences) {
         if (!html.contains("Mayo", ignoreCase = true)) return
         if (url?.contains("ajax=1", ignoreCase = true) == true) return
+        BLOOD_MAYO_PATTERN.find(html)?.groupValues?.getOrNull(1)?.let {
+            prefs.setString("mayoLevel", it)
+        }
         if (url?.contains("buyitem", ignoreCase = true) != true) {
             when {
                 html.contains("miracle whip", ignoreCase = true) -> {
