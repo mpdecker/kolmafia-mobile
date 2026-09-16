@@ -15,20 +15,25 @@ object RichardRequest {
             .find(url)?.groupValues?.get(1)?.toIntOrNull() ?: 0
     }
 
-    fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
+    fun gymType(url: String): String? {
         if (!url.contains("clan_hobopolis.php", ignoreCase = true) ||
             !url.contains("place=3") ||
             !url.contains("preaction=spendturns")
         ) {
-            return false
+            return null
         }
-        val gym = when {
+        return when {
             url.contains("whichservice=1") -> "Help Richard make bandages (Mysticality)"
-            url.contains("whichservice=2") -> "Help Richard make drinks (Moxie)"
-            url.contains("whichservice=3") -> "Help Richard make sandwiches (Muscle)"
-            else -> "Help Richard"
+            url.contains("whichservice=2") -> "Help Richard make grenades (Moxie)"
+            url.contains("whichservice=3") -> "Help Richard make shakes (Muscle)"
+            else -> null
         }
-        sessionLogger?.appendRawLine(gym)
+    }
+
+    fun registerRequest(url: String, sessionLogger: SessionLogger? = null, adventureCount: Int = 0): Boolean {
+        val gym = gymType(url) ?: return false
+        val turns = getAdventuresUsed(url)
+        sessionLogger?.appendRawLine("[$adventureCount] $gym ($turns turns)")
         return true
     }
 }

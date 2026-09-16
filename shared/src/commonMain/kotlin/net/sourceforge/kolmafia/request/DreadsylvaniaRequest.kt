@@ -1,7 +1,9 @@
 package net.sourceforge.kolmafia.request
 
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.ResultProcessor
 import net.sourceforge.kolmafia.session.SessionLogger
 
 /**
@@ -75,7 +77,12 @@ object DreadsylvaniaRequest {
 
     // ── response parsing ────────────────────────────────────────────────────
 
-    fun parseResponse(url: String, html: String, preferences: Preferences?) {
+    fun parseResponse(
+        url: String,
+        html: String,
+        preferences: Preferences?,
+        inventory: InventoryManager? = null,
+    ) {
         if (preferences == null) return
         if (!url.contains("clan_dreadsylvania.php", ignoreCase = true)) return
 
@@ -96,9 +103,9 @@ object DreadsylvaniaRequest {
 
         if (action.equals("feedbooze", ignoreCase = true)) {
             val (itemId, count) = getBooze(url) ?: return
-            // Desktop uses ResultProcessor.processItem to consume; we track via pref
             preferences.setInt("_dreadLastBooze", itemId)
             preferences.setInt("_dreadLastBoozeQty", count)
+            ResultProcessor.processItem(itemId, -count, preferences, inventory = inventory)
         }
     }
 

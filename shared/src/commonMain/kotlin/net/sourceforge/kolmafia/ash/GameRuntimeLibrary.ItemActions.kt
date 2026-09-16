@@ -32,7 +32,15 @@ internal suspend fun GameRuntimeLibrary.familiarFeedItem(
         ConcoctionConsumptionType.GLUTTONOUS_GHOST,
         ConcoctionConsumptionType.SPIRIT_HOBO,
         ConcoctionConsumptionType.SLIMELING,
-        -> use.binge(itemId, quantity).isSuccess
+        -> {
+            val ok = use.binge(itemId, quantity).isSuccess
+            if (ok && type == ConcoctionConsumptionType.SLIMELING) {
+                net.sourceforge.kolmafia.session.SlimeStackManager.recordFeed(
+                    itemId, quantity, preferences,
+                )
+            }
+            ok
+        }
         else -> false
     }
 }

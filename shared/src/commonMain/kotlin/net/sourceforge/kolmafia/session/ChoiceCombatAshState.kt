@@ -23,6 +23,21 @@ object ChoiceCombatAshState {
     /** Optional combat filter override from [run_combat] (Macrofier parity — live). */
     var combatFilterOverride: String? = null
 
+    /** Desktop [ChoiceManager.PostChoiceAction] — ASCEND defers [ValhallaManager.postAscension]. */
+    enum class PostChoiceAction { NONE, INITIALIZE, ASCEND }
+
+    var postChoiceAction: PostChoiceAction = PostChoiceAction.NONE
+
+    fun ascendAfterChoice() {
+        postChoiceAction = PostChoiceAction.ASCEND
+    }
+
+    fun consumePostChoiceAction(): PostChoiceAction {
+        val action = postChoiceAction
+        postChoiceAction = PostChoiceAction.NONE
+        return action
+    }
+
     fun reset() {
         currentRound = 0
         handlingChoice = false
@@ -36,6 +51,7 @@ object ChoiceCombatAshState {
         lastFightResponseText = ""
         lastFormFields.clear()
         combatFilterOverride = null
+        postChoiceAction = PostChoiceAction.NONE
         AvailableCombatSkills.clear()
         FightRamTracker.reset()
     }

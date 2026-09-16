@@ -10,6 +10,8 @@ import net.sourceforge.kolmafia.session.GrimstoneManager
 import net.sourceforge.kolmafia.session.HaciendaManager
 import net.sourceforge.kolmafia.session.ChibiBuddyManager
 import net.sourceforge.kolmafia.session.RabbitHoleManager
+import net.sourceforge.kolmafia.session.HobopolisManager
+import net.sourceforge.kolmafia.session.SlimeTubeManager
 import net.sourceforge.kolmafia.session.WumpusManager
 
 /** Quest step bumps from choice adventure response text. */
@@ -1557,6 +1559,25 @@ object QuestChoiceRules {
                     choiceUrl = choiceUrl,
                     sessionLog = sessionLog,
                 ) || advanced
+            }
+            197, 198, 199, 200, 201, 202, 203, 204, 205, 518 -> {
+                advanced = HobopolisManager.postChoice(
+                    choiceId = choiceId,
+                    decision = decision,
+                    html = responseText,
+                    accessibleCount = { id ->
+                        inventoryManager?.state?.value?.items?.get(id)?.quantity ?: 0
+                    },
+                    consumeItem = { id, qty -> inventoryManager?.consumeItemLocally(id, qty) },
+                    hasEquipped = hasItemEquipped,
+                    requireSewerTestItems = preferences?.getBoolean(
+                        HobopolisManager.REQUIRE_SEWER_TEST_ITEMS, false,
+                    ) == true,
+                    sessionLog = sessionLog,
+                ) || advanced
+            }
+            SlimeTubeManager.SHOWDOWN_CHOICE -> {
+                advanced = SlimeTubeManager.postChoice(choiceId, decision, sessionLog) || advanced
             }
         }
         return advanced

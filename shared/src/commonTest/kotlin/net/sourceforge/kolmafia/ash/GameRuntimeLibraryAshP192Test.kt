@@ -23,6 +23,7 @@ import net.sourceforge.kolmafia.inventory.ItemType
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterVisitInventory
+import net.sourceforge.kolmafia.shop.InventoryTokenShopAccessibility
 import net.sourceforge.kolmafia.shop.ShopInventorySync
 import net.sourceforge.kolmafia.shop.ShopRow
 import net.sourceforge.kolmafia.shop.ShopRowDatabase
@@ -108,6 +109,12 @@ class GameRuntimeLibraryAshP192Test {
                             100,
                             ItemType.OTHER,
                         ),
+                        InventoryTokenShopAccessibility.FDKOL_COMMENDATION to InventoryItem(
+                            InventoryTokenShopAccessibility.FDKOL_COMMENDATION,
+                            "FDKOL commendation",
+                            100,
+                            ItemType.OTHER,
+                        ),
                     ),
                 ),
             )
@@ -146,6 +153,19 @@ class GameRuntimeLibraryAshP192Test {
                 id = FDKOL_COMMENDATION,
                 name = "FDKOL commendation",
                 descId = "d$FDKOL_COMMENDATION",
+                image = "img",
+                primaryUse = ItemPrimaryUse.USABLE,
+                secondaryUses = emptySet(),
+                access = setOf('t'),
+                autosellPrice = 1,
+                plural = null,
+            ),
+        )
+        ItemDatabase.registerForTest(
+            ItemData(
+                id = InventoryTokenShopAccessibility.FDKOL_COMMENDATION,
+                name = "FDKOL commendation",
+                descId = "d${InventoryTokenShopAccessibility.FDKOL_COMMENDATION}",
                 image = "img",
                 primaryUse = ItemPrimaryUse.USABLE,
                 secondaryUses = emptySet(),

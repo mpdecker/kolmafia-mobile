@@ -193,7 +193,7 @@ class GameRuntimeLibraryPhase6550Test {
             "true",
             outputLib(GameRuntimeLibrary(), "print(choice_follows_fight());").trim(),
         )
-        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
     }
 
     private fun prefs(): Preferences = Preferences(MapSettings())

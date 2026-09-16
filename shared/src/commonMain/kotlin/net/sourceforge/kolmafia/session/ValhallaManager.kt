@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.session
 
+import net.sourceforge.kolmafia.adventure.choice.ItemPool
 import net.sourceforge.kolmafia.banish.BanishManager
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterClass
@@ -7,21 +8,33 @@ import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.CharpaneValhallaSync
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.character.ZodiacSign
+import net.sourceforge.kolmafia.data.AdventureQueueDatabase
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConsumableDatabase
 import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.IslandWarResetSync
+import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.track.TrackManager
+import kotlin.math.min
 
 /**
- * Desktop ValhallaManager headless port (Phases 3306–3320).
- * Orchestrates pre/post ascension housekeeping without Swing UI.
+ * Desktop ValhallaManager headless port (Phases 3306–3320, residual 7451–7510).
+ * Orchestrates pre/post ascension housekeeping without Swing UI or a full HTTP storm.
  */
 object ValhallaManager {
 
-    private val USABLE_ITEM_NAMES = listOf(
-        "gates scroll", "fisherman's sack", "boneragon chest",
+    val USABLE_ITEM_IDS = intArrayOf(
+        ItemPool.GATES_SCROLL,
+        ItemPool.FISHERMANS_SACK,
+        ItemPool.BONERDAGON_CHEST,
+    )
+
+    val FREEPULL_ITEM_IDS = intArrayOf(
+        ItemPool.VIP_LOUNGE_KEY,
+        ItemPool.CURSED_KEG,
+        ItemPool.CURSED_MICROWAVE,
     )
 
     private val AUTOSELL_ITEM_NAMES = listOf(
@@ -38,27 +51,36 @@ object ValhallaManager {
         "autopsy tweezers", "gnomish ear", "gnomish lung", "gnomish elbow", "gnomish knee", "gnomish foot",
     )
 
-    private val FREEPULL_ITEM_NAMES = listOf("VIP key", "cursed keg", "cursed microwave")
-
     data class AscensionDeps(
         val preferences: Preferences?,
         val character: KoLCharacter?,
         val inventoryCount: (Int) -> Int = { 0 },
-        val useItem: suspend (Int, Int) -> Unit = { _, _ -> },
-        val autosell: suspend (List<Pair<Int, Int>>) -> Unit = {},
-        val harvestGarden: suspend () -> Unit = {},
-        val harvestMushrooms: suspend () -> Unit = {},
-        val executeScript: suspend (String) -> Unit = {},
-        val pullFromStorage: suspend (Int, Int) -> Unit = { _, _ -> },
-        val visitCafeMenu: suspend (String) -> Unit = {},
-        val resetCafeMenu: suspend (String) -> Unit = {},
+        val useItem: (Int, Int) -> Unit = { _, _ -> },
+        val autosell: (List<Pair<Int, Int>>) -> Unit = {},
+        val harvestGarden: () -> Unit = {},
+        val harvestMushrooms: () -> Unit = {},
+        val executeScript: (String) -> Unit = {},
+        val pullFromStorage: (Int, Int) -> Unit = { _, _ -> },
+        val visitCafeMenu: (String) -> Unit = {},
+        val resetCafeMenu: (String) -> Unit = {},
         val sessionLog: (String) -> Unit = {},
+        val visitPyro: () -> Unit = {},
+        val visitCouncil: () -> Unit = {},
+        val visitPlace: (String) -> Unit = {},
+        val updateInventory: () -> Unit = {},
+        val visitLounge: () -> Unit = {},
+        val visitLoungeFloor2: () -> Unit = {},
+        val banishManager: BanishManager? = null,
+        val questDatabase: QuestDatabase? = null,
+        val adventureSpentReset: () -> Unit = {},
     )
 
     /** Desktop ValhallaManager.preAscension — quest item cleanup + user script. */
-    suspend fun preAscension(deps: AscensionDeps) {
-        for (name in USABLE_ITEM_NAMES) {
-            val itemId = ItemDatabase.getByName(name)?.id ?: continue
+    fun preAscension(deps: AscensionDeps) {
+        if (deps.inventoryCount(ItemPool.GUNPOWDER) > 0) {
+            deps.visitPyro()
+        }
+        for (itemId in USABLE_ITEM_IDS) {
             val count = deps.inventoryCount(itemId)
             if (count > 0) deps.useItem(itemId, count)
         }
@@ -70,14 +92,22 @@ object ValhallaManager {
         if (autosell.isNotEmpty()) deps.autosell(autosell)
         deps.harvestGarden()
         deps.harvestMushrooms()
-        val leftArm = deps.inventoryCount(118)
-        val rightArm = deps.inventoryCount(119)
-        val armBox = deps.inventoryCount(120)
+        val leftArm = deps.inventoryCount(ItemPool.LEFT_BEAR_ARM)
+        val rightArm = deps.inventoryCount(ItemPool.RIGHT_BEAR_ARM)
+        val armBox = deps.inventoryCount(ItemPool.BOX_OF_BEAR_ARM)
         if (leftArm > 0 && rightArm > 0 && armBox <= 0) {
-            deps.useItem(118, 1)
+            deps.useItem(ItemPool.LEFT_BEAR_ARM, 1)
         }
         val script = deps.preferences?.getString("preAscensionScript", "").orEmpty()
         if (script.isNotBlank()) deps.executeScript(script)
+    }
+
+    /**
+     * Desktop GenericRequest: `ascend.php` + `action=ascend` sets lastBreakfast=0
+     * so the first afterlife visit runs [onAscension].
+     */
+    fun noteGashJump(preferences: Preferences?) {
+        preferences?.setInt("lastBreakfast", 0)
     }
 
     /** Desktop ValhallaManager.onAscension — character/pref/counter reset. */
@@ -85,6 +115,8 @@ object ValhallaManager {
         character: KoLCharacter?,
         preferences: Preferences?,
         banishManager: BanishManager? = null,
+        questDatabase: QuestDatabase? = null,
+        adventureSpentReset: () -> Unit = {},
     ) {
         character?.reset()
         preferences?.let { prefs ->
@@ -92,14 +124,20 @@ object ValhallaManager {
             prefs.setInt("ascensionsToday", prefs.getInt("ascensionsToday", 0) + 1)
             prefs.setInt("lastBreakfast", -1)
             prefs.setInt("currentRun", 0)
-            resetPerAscensionCounters(prefs, banishManager)
+            prefs.setInt("lastGuildStoreOpen", -1)
+            resetPerAscensionCounters(
+                prefs,
+                banishManager,
+                questDatabase,
+                adventureSpentReset,
+            )
             BadMoonManager.validateBadMoon(prefs, prefs.getInt("knownAscensions", 0))
         }
         CharpaneValhallaSync.reset()
     }
 
     /** Desktop ValhallaManager.postAscension — refresh + user script + free pulls. */
-    suspend fun postAscension(deps: AscensionDeps) {
+    fun postAscension(deps: AscensionDeps) {
         CharpaneValhallaSync.reset()
         resetMoonsignCafes(deps)
         ConcoctionDatabase.markRefreshNeeded()
@@ -110,26 +148,55 @@ object ValhallaManager {
             setFloat("mpAutoRecovery", -0.05f)
         }
         logNewAscension(deps)
+        startPathWindows(deps)
         val script = deps.preferences?.getString("postAscensionScript", "").orEmpty()
         if (script.isNotBlank()) deps.executeScript(script)
         pullFreeItems(deps)
+        if (deps.preferences?.getBoolean("autoQuest", false) == true) {
+            deps.useItem(ItemPool.SPOOKYRAVEN_TELEGRAM, 1)
+        }
+        deps.visitLounge()
+        deps.visitLoungeFloor2()
     }
 
-    fun resetPerAscensionCounters(preferences: Preferences, banishManager: BanishManager? = null) {
+    /**
+     * Desktop GenericRequest afterlife redirect: choice.php defers via
+     * [ChoiceCombatAshState.ascendAfterChoice]; otherwise [postAscension] runs now.
+     */
+    fun handleAfterlifeRedirect(redirectLocation: String?, deps: AscensionDeps) {
+        val redirect = redirectLocation.orEmpty()
+        if (redirect.startsWith("choice.php") || redirect.contains("choice.php")) {
+            ChoiceCombatAshState.ascendAfterChoice()
+        } else {
+            postAscension(deps)
+        }
+    }
+
+    fun resetPerAscensionCounters(
+        preferences: Preferences,
+        banishManager: BanishManager? = null,
+        questDatabase: QuestDatabase? = null,
+        adventureSpentReset: () -> Unit = {},
+    ) {
         DefaultsDatabase.resetOnAscensionPrefs(preferences)
         TrackManager.resetAscension(preferences)
-        banishManager?.resetRollover()
+        banishManager?.resetAscension()
+        questDatabase?.resetQuests()
+        IslandWarResetSync.resetIsland(preferences)
+        BugbearManager.resetStatus(preferences)
+        TurnCounter.clearCounters(preferences)
+        AdventureQueueDatabase.resetQueue()
+        adventureSpentReset()
     }
 
-    private suspend fun pullFreeItems(deps: AscensionDeps) {
-        for (name in FREEPULL_ITEM_NAMES) {
-            val itemId = ItemDatabase.getByName(name)?.id ?: continue
+    private fun pullFreeItems(deps: AscensionDeps) {
+        for (itemId in FREEPULL_ITEM_IDS) {
             if (deps.inventoryCount(itemId) > 0) continue
             deps.pullFromStorage(itemId, 1)
         }
     }
 
-    private suspend fun resetMoonsignCafes(deps: AscensionDeps) {
+    private fun resetMoonsignCafes(deps: AscensionDeps) {
         val state = deps.character?.state?.value ?: return
         val inBadMoon = BadMoonManager.inBadMoon(state)
         if (inBadMoon) {
@@ -137,23 +204,60 @@ object ValhallaManager {
         } else {
             deps.resetCafeMenu("hellkitchen")
         }
-        if (!inBadMoon && state.canEat && canadiaAvailable(state)) {
+        if (!inBadMoon && state.ascensionPath.canEat && canadiaAvailable(state)) {
             deps.visitCafeMenu("chezsnootee")
-        } else if (!state.canEat || !canadiaAvailable(state)) {
+        } else if (!state.ascensionPath.canEat || !canadiaAvailable(state)) {
             deps.resetCafeMenu("chezsnootee")
         }
-        if (!inBadMoon && state.canDrink && gnomadsAvailable(state)) {
+        if (!inBadMoon && state.ascensionPath.canDrink && gnomadsAvailable(state)) {
             deps.visitCafeMenu("microbrewery")
-        } else if (!state.canDrink || !gnomadsAvailable(state)) {
+        } else if (!state.ascensionPath.canDrink || !gnomadsAvailable(state)) {
             deps.resetCafeMenu("microbrewery")
         }
     }
 
-    private fun canadiaAvailable(state: CharacterState): Boolean =
-        state.ascensionPath != AscensionPath.BEES_HATE_YOU
+    /** Desktop [KoLCharacter.canadiaAvailable] — Canadia moonsigns, not KoE. */
+    internal fun canadiaAvailable(state: CharacterState): Boolean {
+        if (state.isKingdomOfExploathing) return false
+        val sign = ZodiacSign.find(state.zodiacSign) ?: return false
+        return sign == ZodiacSign.PLATYPUS ||
+            sign == ZodiacSign.OPOSSUM ||
+            sign == ZodiacSign.MARMOT
+    }
 
-    private fun gnomadsAvailable(state: CharacterState): Boolean =
-        state.level >= 12
+    /** Desktop [KoLCharacter.gnomadsAvailable] — Gnomads moonsigns, not KoE. */
+    internal fun gnomadsAvailable(state: CharacterState): Boolean {
+        if (state.isKingdomOfExploathing) return false
+        val sign = ZodiacSign.find(state.zodiacSign) ?: return false
+        return sign == ZodiacSign.WOMBAT ||
+            sign == ZodiacSign.BLENDER ||
+            sign == ZodiacSign.PACKRAT
+    }
+
+    private fun startPathWindows(deps: AscensionDeps) {
+        val prefs = deps.preferences ?: return
+        val state = deps.character?.state?.value ?: return
+        val run = prefs.getInt("currentRun", 0)
+        when (state.ascensionPath) {
+            AscensionPath.HEAVY_RAINS -> {
+                TurnCounter.startCounting(prefs, run, 8, "Rain Monster window begin loc=*", "lparen.gif")
+                TurnCounter.startCounting(prefs, run, 10, "Rain Monster window end loc=*", "rparen.gif")
+            }
+            AscensionPath.AVATAR_OF_WEST_OF_LOATHING -> {
+                TurnCounter.startCounting(prefs, run, 5, "WoL Monster window begin loc=*", "lparen.gif")
+                TurnCounter.startCounting(prefs, run, 10, "WoL Monster window end loc=*", "rparen.gif")
+            }
+            AscensionPath.THE_SOURCE -> {
+                prefs.setInt("sourceEnlightenment", min(prefs.getInt("sourcePoints", 0), 11))
+            }
+            AscensionPath.KINGDOM_OF_EXPLOATHING -> {
+                deps.visitCouncil()
+                deps.visitPlace("manor1")
+                deps.updateInventory()
+            }
+            else -> Unit
+        }
+    }
 
     fun logNewAscension(deps: AscensionDeps) {
         val state = deps.character?.state?.value ?: return
@@ -162,13 +266,14 @@ object ValhallaManager {
         val hardcore = state.isHardcore
         val path = state.ascensionPath.apiName
         val className = CharacterClass.fromId(state.characterClass).displayName
-        val sign = ZodiacSign.find(state.zodiacSign)?.name ?: state.zodiacSign
+        val sign = ZodiacSign.find(state.zodiacSign)?.signName ?: state.zodiacSign
+        val pathLabel = if (path == "None") "No-Path" else path
         deps.sessionLog("")
         deps.sessionLog("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
         deps.sessionLog("	   Beginning New Ascension	     ")
         deps.sessionLog("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
         deps.sessionLog("Ascension #$ascNum:")
-        deps.sessionLog("${if (hardcore) "Hardcore" else "Softcore"} ${if (path == "None") "No-Path" else path} $className")
+        deps.sessionLog("${if (hardcore) "Hardcore" else "Softcore"} $pathLabel $className")
         deps.sessionLog(sign)
         deps.sessionLog("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
         deps.sessionLog("")

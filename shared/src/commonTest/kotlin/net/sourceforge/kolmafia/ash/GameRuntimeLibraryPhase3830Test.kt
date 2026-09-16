@@ -15,15 +15,16 @@ class GameRuntimeLibraryPhase3830Test {
 
     @Test
     fun revision_phase3830() {
-        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
     }
 
     @Test
     fun availableChoiceOptions_spoilersUseCatalog() {
-        ChoiceCombatAshState.lastChoiceResponseText = """
+        val html = """
             <form><input type="hidden" name="whichchoice" value="4">
             <input type="hidden" name="option" value="2">Order poultry</form>
         """.trimIndent()
+        ChoiceCombatAshState.noteChoiceVisit(4, html)
         val lib = GameRuntimeLibrary()
         val out = outputLib(lib, "print(available_choice_options(true)[2]);")
         assertTrue(out.contains("poultrygeist"), out)

@@ -33,11 +33,11 @@ class GameRuntimeLibraryPhase6591Test {
 
     @Test
     fun get_revision_returnsIntPhaseDigits() {
-        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
-        assertEquals(6730, GameRuntimeLibrary.revisionNumber())
-        assertEquals("6850", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
+        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
+        assertEquals(7510, GameRuntimeLibrary.revisionNumber())
+        assertEquals("7510", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
         assertEquals(
-            "6850",
+            "7510",
             outputLib(GameRuntimeLibrary(), "int r = get_revision(); print(r);"),
         )
     }

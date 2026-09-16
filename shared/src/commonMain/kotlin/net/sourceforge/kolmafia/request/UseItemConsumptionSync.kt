@@ -191,6 +191,15 @@ object UseItemConsumptionSync {
 
         inventory?.consumeItemLocally(itemId, count)
         applyEatPrefs(itemId, count, preferences)
+        EatFoodRequest.handleFoodHelper(
+            itemName = itemName,
+            count = count,
+            responseText = responseText,
+            preferences = preferences,
+            inventory = inventory,
+            character = character,
+            adjustFullness = false,
+        )
 
         if (!responseText.contains(" Fullness")) {
             var fullnessUsed = ConsumableDatabase.getFullnessByName(itemName) * count
@@ -225,6 +234,7 @@ object UseItemConsumptionSync {
 
         inventory?.consumeItemLocally(itemId, count)
         applyDrinkPrefs(itemId, preferences)
+        DrinkBoozeRequest.parseDrinkHelpers(responseText, preferences)
 
         if (!responseText.contains(" Drunkenness") && !responseText.contains(" Inebriety")) {
             val inebrietyUsed = ConsumableDatabase.getInebrietyByName(itemName) * count
@@ -436,10 +446,6 @@ object UseItemConsumptionSync {
             PIRATE_FORK -> prefs.setBoolean("_pirateForkUsed", true)
         }
         prefs.setString("mayoInMouth", "")
-        val munchies = prefs.getInt("munchiesPillsUsed", 0)
-        if (munchies > 0) {
-            prefs.setInt("munchiesPillsUsed", (munchies - count).coerceAtLeast(0))
-        }
     }
 
     private fun applyDrinkPrefs(itemId: Int, preferences: Preferences?) {

@@ -8,6 +8,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
  * LIII: bacon / G / boutique / blackmarket / SI.
  * LIV Track A: Volcoino / Ka / Driplet / yeti / shore scrip / IoTM / Batfellow / LTT /
  * plumber / Kruegerand / dino / vending / Beach Bucks fan-in / arcade ticket inventory.
+ * LV Track A: topiary / Chroner / Rubee / FDKOL / FunFunds inventory fan-in.
  */
 object MiscShopTokenResponseParse {
 
@@ -39,7 +40,14 @@ object MiscShopTokenResponseParse {
     const val BURT = 5683
     const val CRIMBCO_SCRIP = 4854
     const val REPLICA_MR_ACCESSORY = 11189
-
+    const val TOPIARY_NUGGLET = 7968
+    const val CHRONER = 7567
+    const val LUNAR_ISOTOPE = 5134
+    const val RUBEE = 9838
+    const val FDKOL_COMMENDATION = 5707
+    const val FUN_FUNDS = 8205
+    const val BONE_CHIPS = 4743
+    const val KNUCKLEBONE = 12051
     private val ARCADE_TICKET = Regex(
         """You currently have ([\d,]+) Game Grid(?: redemption)? tickets?""",
         RegexOption.IGNORE_CASE,
@@ -48,11 +56,11 @@ object MiscShopTokenResponseParse {
         """You have ([\d,]+) free snack voucher""",
         RegexOption.IGNORE_CASE,
     )
-    private val FDKOL = Regex(
+    private val FDKOL_PAT = Regex(
         """<td>([\d,]+) FDKOL commendation""",
         RegexOption.IGNORE_CASE,
     )
-    private val RUBEE = Regex(
+    private val RUBEE_PAT = Regex(
         """<td>([\d,]+) Rubees?(?:&trade;|™)?""",
         RegexOption.IGNORE_CASE,
     )
@@ -60,7 +68,7 @@ object MiscShopTokenResponseParse {
         """<td>([\d,]+) Beach Bucks?""",
         RegexOption.IGNORE_CASE,
     )
-    private val FUN_FUNDS = Regex(
+    private val FUN_FUNDS_PAT = Regex(
         """<td>([\d,]+) FunFunds""",
         RegexOption.IGNORE_CASE,
     )
@@ -202,6 +210,20 @@ object MiscShopTokenResponseParse {
             Regex("""<td>([\d,]+)\s+Replica Mr\.?\s*Accessor""", RegexOption.IGNORE_CASE),
             REPLICA_MR_ACCESSORY,
         ),
+        InvRule(
+            listOf("topiary"),
+            Regex("""<td>([\d,]+)\s+topiary nugglet""", RegexOption.IGNORE_CASE),
+            TOPIARY_NUGGLET,
+            pref = "availableNugglets",
+        ),
+        InvRule(
+            listOf(
+                "applestore", "caveshop", "conmerch", "nina", "shakeshop", "shoeshop",
+                "twitchsoup", "twitch_alliedhq", "twitch_jousting",
+            ),
+            Regex("""([\d,]+)\s+Chroner""", RegexOption.IGNORE_CASE),
+            CHRONER,
+        ),
     )
 
     fun parseResponse(
@@ -242,17 +264,23 @@ object MiscShopTokenResponseParse {
             url.contains("whichshop=fdkol", ignoreCase = true) ||
                 (url.contains("inv_use.php", ignoreCase = true) &&
                     url.contains("whichitem=5707", ignoreCase = true)) -> {
-                parseIntPref(html, prefs, "availableFDKOLCommendations", FDKOL)
+                parseIntPrefWithInv(
+                    html, prefs, inventory, "availableFDKOLCommendations", FDKOL_PAT, FDKOL_COMMENDATION,
+                )
                 prefs.setBoolean("_fdkolVisited", true)
                 true
             }
             url.contains("whichshop=fantasyrealm", ignoreCase = true) -> {
-                parseIntPref(html, prefs, "availableRubees", RUBEE)
+                parseIntPrefWithInv(
+                    html, prefs, inventory, "availableRubees", RUBEE_PAT, RUBEE,
+                )
                 true
             }
             url.contains("whichshop=landfillstore", ignoreCase = true) ||
                 url.contains("whichshop=dinseystore", ignoreCase = true) -> {
-                parseIntPref(html, prefs, "availableFunFunds", FUN_FUNDS)
+                parseIntPrefWithInv(
+                    html, prefs, inventory, "availableFunFunds", FUN_FUNDS_PAT, FUN_FUNDS,
+                )
                 true
             }
             url.contains("whichshop=walmart", ignoreCase = true) ||
@@ -303,6 +331,20 @@ object MiscShopTokenResponseParse {
     private fun parseIntPref(html: String, prefs: Preferences, key: String, pattern: Regex) {
         pattern.find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()
             ?.let { prefs.setInt(key, it) }
+    }
+
+    private fun parseIntPrefWithInv(
+        html: String,
+        prefs: Preferences,
+        inventory: InventoryManager?,
+        key: String,
+        pattern: Regex,
+        itemId: Int,
+    ) {
+        pattern.find(html)?.groupValues?.getOrNull(1)?.replace(",", "")?.toIntOrNull()?.let {
+            prefs.setInt(key, it)
+            syncInventoryCount(inventory, itemId, it)
+        }
     }
 
     internal fun syncInventoryCount(inventory: InventoryManager?, itemId: Int, count: Int) {

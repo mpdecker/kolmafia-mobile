@@ -17,12 +17,15 @@ object ItemDatabase {
     private val byDescId = mutableMapOf<String, ItemData>()
     private val noobSkillIdByItemId = mutableMapOf<Int, Int>()
     private val itemIdsByNoobSkillId = mutableMapOf<Int, MutableList<Int>>()
+    private val bundledIds = mutableSetOf<Int>()
     private var loaded = false
 
     suspend fun load() {
         if (loaded) return
         val text = Res.readBytes("files/data/items.txt").decodeToString()
         parse(text)
+        bundledIds.clear()
+        bundledIds.addAll(byId.keys)
         loaded = true
     }
 
@@ -59,6 +62,10 @@ object ItemDatabase {
 
     /** Desktop ItemDatabase.maxItemId — highest bundled item id, or 0 if empty. */
     fun maxItemId(): Int = byId.keys.maxOrNull() ?: 0
+
+    fun allIds(): Set<Int> = byId.keys
+
+    fun isRegisteredLive(itemId: Int): Boolean = itemId !in bundledIds && getById(itemId) != null
 
     fun isTradeable(itemId: Int): Boolean = getById(itemId)?.isTradeable ?: false
 
@@ -280,6 +287,7 @@ object ItemDatabase {
         byDescId.clear()
         noobSkillIdByItemId.clear()
         itemIdsByNoobSkillId.clear()
+        bundledIds.clear()
         loaded = false
     }
 

@@ -1,10 +1,38 @@
 package net.sourceforge.kolmafia.request
 
+import net.sourceforge.kolmafia.inventory.InventoryManager
+import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
+import net.sourceforge.kolmafia.shop.TimeTowerSync
 
 /**
  * Phases 5276–5290 — thin HTTP residual registerRequest hubs (Behavioral Deepen XXIII).
+ * LV Track C: Chroner coin-shop visit parse (TimeTower + token inv via [MiscShopTokenResponseParse]).
+ *
+ * Siblings `nina` / `shakeshop` / `shoeshop` have no register-only hubs here; `shop.php` already
+ * runs [MiscShopTokenResponseParse] and coinmaster [ChronerShopSync.applyVisitShop] for all
+ * [TimeTowerSync.CHRONER_SHOP_IDS].
  */
+
+private val WHICH_SHOP = Regex("""whichshop=([^&]+)""", RegexOption.IGNORE_CASE)
+
+private fun parseChronerRegisterHubResponse(
+    url: String?,
+    html: String,
+    preferences: Preferences?,
+    inventory: InventoryManager?,
+    shopIds: Set<String>,
+): Boolean {
+    if (url.isNullOrBlank() || preferences == null) return false
+    if (!url.contains("shop.php", ignoreCase = true)) return false
+    val shopId = WHICH_SHOP.find(url)?.groupValues?.getOrNull(1)?.lowercase() ?: return false
+    if (shopId !in shopIds) return false
+    if (shopId in TimeTowerSync.CHRONER_SHOP_IDS) {
+        TimeTowerSync.syncFromChronerShopHtml(html, preferences)
+    }
+    MiscShopTokenResponseParse.parseResponse(url, html, preferences, inventory)
+    return true
+}
 
 object TicketCounterRequestHub {
     fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
@@ -92,6 +120,13 @@ object AppleStoreRequestHub {
         sessionLogger?.appendRawLine("Visiting Apple Store")
         return true
     }
+
+    fun parseResponse(
+        url: String?,
+        html: String,
+        preferences: Preferences?,
+        inventory: InventoryManager? = null,
+    ): Boolean = parseChronerRegisterHubResponse(url, html, preferences, inventory, setOf("applestore"))
 }
 
 object BrogurtRequestHub {
@@ -156,6 +191,13 @@ object NeandermallRequestHub {
         sessionLogger?.appendRawLine("Visiting Neandermall")
         return true
     }
+
+    fun parseResponse(
+        url: String?,
+        html: String,
+        preferences: Preferences?,
+        inventory: InventoryManager? = null,
+    ): Boolean = parseChronerRegisterHubResponse(url, html, preferences, inventory, setOf("caveshop"))
 }
 
 object CrimboCartelLegacyRequestHub {

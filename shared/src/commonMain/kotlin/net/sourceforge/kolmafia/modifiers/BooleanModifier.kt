@@ -40,7 +40,17 @@ enum class BooleanModifier(val tag: String) {
     NEGATIVE_STATUS_RESIST("Negative Status Resist"),
     WEAKENS_MONSTER_ON_CRITICAL_HIT("Weakens Monster on Critical Hit");
 
+    fun isEnchantment(): Boolean = this in ENCHANTMENTS
+
     companion object {
+        private val ENCHANTMENTS = setOf(
+            ADVENTURE_RANDOMLY,
+            NEVER_FUMBLE,
+            WEAKENS,
+            NEGATIVE_STATUS_RESIST,
+            WEAKENS_MONSTER_ON_CRITICAL_HIT,
+        )
+
         private val byTagLower: Map<String, BooleanModifier> =
             entries.associateBy { it.tag.lowercase() }
 

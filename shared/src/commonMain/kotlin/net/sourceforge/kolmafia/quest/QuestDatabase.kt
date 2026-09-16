@@ -97,6 +97,23 @@ class QuestDatabase(private val preferences: Preferences) {
         setProgress(quest, next)
     }
 
+    /**
+     * Desktop [QuestDatabase.resetQuests] — Spring Beach Break (`questESl*`) stays;
+     * finished Conspiracy Island (`questESp*`) stays; everything else → unstarted.
+     */
+    fun resetQuests(): Int {
+        var reset = 0
+        for (quest in Quest.entries) {
+            val key = quest.prefKey
+            if (key.startsWith("questESl")) continue
+            if (key.startsWith("questESp") && isFinished(key)) continue
+            if (progressFor(key) == UNSTARTED) continue
+            setProgressByPrefKey(key, UNSTARTED)
+            reset++
+        }
+        return reset
+    }
+
     /** Desktop QuestDatabase.setQuestIfBetter — advance quest progress without regressing. */
     fun setQuestIfBetter(quest: Quest, step: String) =
         setQuestIfBetterByPrefKey(quest.prefKey, step)

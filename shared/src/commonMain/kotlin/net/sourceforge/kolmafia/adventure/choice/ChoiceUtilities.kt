@@ -79,9 +79,9 @@ object ChoiceUtilities {
                 }
             }
         }
-        val choiceId = extractChoiceId(html)
-            ?: ChoiceCombatAshState.lastChoice.takeIf { it > 0 }
-            ?: return base
+        // Desktop parseChoicesWithSpoilers: only while handling a choice, using lastChoice.
+        if (!ChoiceCombatAshState.handlingChoice) return base
+        val choiceId = ChoiceCombatAshState.lastChoice.takeIf { it > 0 } ?: return base
         val spoilers = ChoiceAdventures.choiceSpoilers(choiceId, html) ?: return base
         for ((decision, text) in base.toList()) {
             val option = ChoiceAdventures.findOption(spoilers.options, decision) ?: continue

@@ -160,7 +160,7 @@ class GameRuntimeLibraryPhase4470Test {
     @Test
     fun revisionIsPhase4470() {
         val lib = GameRuntimeLibrary()
-        assertEquals("6850", outputLib(lib, "print(get_revision());"))
-        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
+        assertEquals("7510", outputLib(lib, "print(get_revision());"))
+        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
     }
 }

@@ -27,7 +27,10 @@ enum class StringModifier(val tag: String, val multiple: Boolean = false) {
     LAST_AVAILABLE_DATE("Last Available"),
     CONDITIONAL_SKILL_EQUIPPED("Conditional Skill (Equipped)", multiple = true),
     CONDITIONAL_SKILL_INVENTORY("Conditional Skill (Inventory)", multiple = true),
-    LANTERN_ELEMENT("Lantern Element", multiple = true);
+    LANTERN_ELEMENT("Lantern Element", multiple = true),
+    DISPLAY_NAME("Display Name");
+
+    fun isEnchantment(): Boolean = this == ROLLOVER_EFFECT
 
     companion object {
         private val byTagLower: Map<String, StringModifier> =

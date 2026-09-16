@@ -1,6 +1,7 @@
 package net.sourceforge.kolmafia.data
 
 import net.sourceforge.kolmafia.character.CharacterClass
+import net.sourceforge.kolmafia.character.ZodiacSign
 import net.sourceforge.kolmafia.modifiers.DoubleModifier
 import net.sourceforge.kolmafia.modifiers.ModifierParser
 import net.sourceforge.kolmafia.modifiers.StringModifier
@@ -338,6 +339,53 @@ object TCRSDatabase {
         tcrsMap[itemId] = entry
     }
 
+    fun removeDerivedEntry(itemId: Int) {
+        tcrsMap.remove(itemId)
+    }
+
     fun deriveEntry(itemId: Int, html: String): TcrsEntry =
         TCRSDeriver.deriveFromHtml(itemId, html)
+
+    fun deriveItem(className: String, signName: String, itemId: Int): TcrsEntry? {
+        val cls = CharacterClass.entries.firstOrNull { it.displayName.equals(className, ignoreCase = true) }
+            ?: return null
+        val sign = ZodiacSign.find(signName) ?: return null
+        return TCRSDerive.deriveItem(cls, sign, itemId)
+    }
+
+    fun derive(className: String, signName: String): Boolean {
+        if (!validate(className, signName)) return false
+        val cls = CharacterClass.entries.firstOrNull { it.displayName.equals(className, ignoreCase = true) }
+            ?: return false
+        val sign = ZodiacSign.find(signName) ?: return false
+        val classSign = "$className/$signName"
+        if (currentClassSign != classSign) reset()
+        for (id in ItemDatabase.allIds().sorted()) {
+            TCRSDerive.deriveItem(cls, sign, id)?.let { tcrsMap[id] = it }
+        }
+        tcrsBoozeMap.clear()
+        for (id in CafeDatabase.cafeBoozeIds().sorted()) {
+            TCRSDerive.deriveCafe(cls, sign, id, false)?.let { tcrsBoozeMap[id] = it }
+        }
+        tcrsFoodMap.clear()
+        for (id in CafeDatabase.cafeFoodIds().sorted()) {
+            TCRSDerive.deriveCafe(cls, sign, id, true)?.let { tcrsFoodMap[id] = it }
+        }
+        currentClassSign = classSign
+        return true
+    }
+
+    fun deriveAndSaveItem(className: String, signName: String, itemId: Int): TcrsEntry? {
+        val entry = deriveItem(className, signName, itemId) ?: return null
+        putDerivedEntry(itemId, entry)
+        return entry
+    }
+
+    fun update(className: String, signName: String): Int {
+        if (!validate(className, signName)) return 0
+        return TCRSDerive.updateMissing { TCRSDeriver.deriveFromCache(it) }
+    }
+
+    fun cafeBoozeCount(): Int = tcrsBoozeMap.size
+    fun cafeFoodCount(): Int = tcrsFoodMap.size
 }

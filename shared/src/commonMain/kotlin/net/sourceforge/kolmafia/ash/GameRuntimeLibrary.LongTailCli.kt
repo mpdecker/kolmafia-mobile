@@ -2912,7 +2912,7 @@ internal fun GameRuntimeLibrary.runHelpCli(parameters: String, rt: AshRuntimeCon
         rt.print(name)
     }
     if (leftover.isEmpty() || leftover.equals("help", ignoreCase = true) || isNonGoalHelpTopic(leftover)) {
-        rt.print("GUI/Relay, JavaScript, full TCRS dumps, and desktop scripting are not available in KoLmafia Mobile.")
+        rt.print("GUI/Relay, JavaScript, and desktop scripting are not available in KoLmafia Mobile.")
     }
 }
 
@@ -2921,7 +2921,6 @@ private fun isNonGoalHelpTopic(leftover: String): Boolean {
     return needle.contains("relay") ||
         needle.contains("javascript") ||
         needle == "js" ||
-        needle.contains("tcrs") ||
         needle.contains("script") ||
         needle.contains("gui")
 }

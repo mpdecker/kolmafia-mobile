@@ -53,6 +53,7 @@ class ChoiceAdventuresCatalogMegaTest {
             <form><input type="hidden" name="option" value="2">Order the poultrygeist</form>
             <form><input type="hidden" name="option" value="3">Walk away</form>
         """.trimIndent()
+        ChoiceCombatAshState.noteChoiceVisit(4, html)
         val parsed = ChoiceUtilities.parseChoicesWithSpoilers(html)
         assertTrue(parsed[2]!!.contains("poultrygeist"), parsed.toString())
         assertTrue(parsed[3]!!.contains("skip adventure"), parsed.toString())

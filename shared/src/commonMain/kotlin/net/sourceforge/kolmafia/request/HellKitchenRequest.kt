@@ -36,7 +36,7 @@ open class HellKitchenRequest(
         larpCount: Int,
     ): Result<Unit> {
         preflight(entry, type, state, prefs, larpCount).onFailure { return Result.failure(it) }
-        return cafeRequest.consume(entry.cafeId, entry.whichItem).map { }
+        return cafeRequest.consume(entry.cafeId, entry.whichItem, prefs).map { }
     }
 
     companion object {

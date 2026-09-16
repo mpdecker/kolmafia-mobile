@@ -153,11 +153,34 @@ object HugglerSnackBarRequestHub {
 }
 
 object TownGiftShopRequestHub {
+    private val WHICHITEM_PATTERN = Regex("""[?&]whichitem=(\d+)""", RegexOption.IGNORE_CASE)
+    private val HOWMANY_PATTERN = Regex("""[?&]howmany=(\d+)""", RegexOption.IGNORE_CASE)
+    private const val SHOP_NAME = "The Town Gift Shop"
+
     fun registerRequest(url: String, sessionLogger: SessionLogger? = null): Boolean {
         if (!url.contains("town_giftshop.php", ignoreCase = true) &&
             !url.contains("whichshop=town_giftshop", ignoreCase = true)
         ) {
             return false
+        }
+        if (url.contains("town_giftshop.php", ignoreCase = true) &&
+            url.contains("action=buy", ignoreCase = true)
+        ) {
+            val itemId = WHICHITEM_PATTERN.find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            if (itemId != null) {
+                val quantity = HOWMANY_PATTERN.find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                    ?: 1
+                val itemName = net.sourceforge.kolmafia.data.ItemDatabase.getItemName(itemId)
+                    .ifBlank { itemId.toString() }
+                val price = net.sourceforge.kolmafia.data.NpcStoreDatabase.itemEntry(itemId)
+                    ?.second
+                    ?.price
+                    ?: net.sourceforge.kolmafia.data.NpcStoreDatabase.npcPrice(itemName)
+                sessionLogger?.appendRawLine(
+                    "buy $quantity $itemName for $price each from $SHOP_NAME",
+                )
+                return true
+            }
         }
         sessionLogger?.appendRawLine("Visiting Gift Shop")
         return true

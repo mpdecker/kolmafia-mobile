@@ -40,7 +40,7 @@ class GameRuntimeLibraryHttpResidualCliTest {
 
     @Test
     fun revisionIsPhase4010() {
-        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -62,8 +62,8 @@ class GameRuntimeLibraryHttpResidualCliTest {
         assertFalse("pizza" in lines, "pizza CLI is not implemented")
         assertTrue(out.contains("GUI/Relay"), out)
         assertTrue(out.contains("JavaScript"), out)
-        assertTrue(out.contains("TCRS dumps"), out)
         assertTrue(out.contains("desktop scripting"), out)
+        assertFalse(out.contains("TCRS dumps"), out)
     }
 
     @Test
@@ -222,7 +222,7 @@ class GameRuntimeLibraryHttpResidualCliTest {
         assertEquals("kgb kgb_button1", logger.recentLines().last())
 
         RequestLogger.registerRequest("campground.php?action=pizza", logger, preferences)
-        assertEquals("pizza", logger.recentLines().last())
+        assertEquals("Cooking pizza in the pizza cube", logger.recentLines().last())
 
         RequestLogger.registerRequest("ascensionhistory.php?back=self", logger, preferences)
         assertEquals("ascension history", logger.recentLines().last())

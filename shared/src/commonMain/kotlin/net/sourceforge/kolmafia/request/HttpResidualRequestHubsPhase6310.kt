@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.request
 
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
@@ -8,6 +9,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
  * Mirrors desktop [CoinMasterRequest.parseBalance] / ResponseTextParser routes for
  * mrstore.php, monkeycastle.php (Big Brother), Fudge Wand choice 562, Isotope Smithery,
  * AWOL Quartermaster, Dedigitizer visit, Swagger peevpee shop deepen.
+ * LV: lunar isotope inventory fan-in.
  */
 object LegacyCoinmasterResponseParse {
 
@@ -42,7 +44,12 @@ object LegacyCoinmasterResponseParse {
         "nine" to 9, "ten" to 10, "eleven" to 11, "twelve" to 12,
     )
 
-    fun parseResponse(url: String, html: String, preferences: Preferences?): Boolean {
+    fun parseResponse(
+        url: String,
+        html: String,
+        preferences: Preferences?,
+        inventory: InventoryManager? = null,
+    ): Boolean {
         val prefs = preferences ?: return false
         return when {
             url.contains("mrstore.php", ignoreCase = true) -> {
@@ -74,7 +81,15 @@ object LegacyCoinmasterResponseParse {
                 url.contains("whichshop=elvishp1", ignoreCase = true) ||
                 url.contains("whichshop=elvishp2", ignoreCase = true) ||
                 url.contains("whichshop=elvishp3", ignoreCase = true) -> {
-                parseIntPref(html, prefs, "availableLunarIsotopes", LUNAR_ISOTOPE)
+                LUNAR_ISOTOPE.find(html)?.groupValues?.getOrNull(1)
+                    ?.replace(",", "")?.toIntOrNull()?.let {
+                        prefs.setInt("availableLunarIsotopes", it)
+                        MiscShopTokenResponseParse.syncInventoryCount(
+                            inventory,
+                            MiscShopTokenResponseParse.LUNAR_ISOTOPE,
+                            it,
+                        )
+                    }
                 true
             }
             url.contains("whichshop=awol", ignoreCase = true) ||

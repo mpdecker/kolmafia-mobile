@@ -94,6 +94,13 @@ object TurnCounter {
         }
     }
 
+    /** Desktop [TurnCounter.clearCounters] — drop all relay counters on ascension. */
+    fun clearCounters(preferences: Preferences) {
+        lastWarnedMemory.clear()
+        save(preferences, emptyList())
+        preferences.setString(TEMP_PREF_KEY, "")
+    }
+
     fun startCounting(preferences: Preferences, currentRun: Int, turns: Int, label: String, image: String) {
         if (turns < 0) return
         val entries = load(preferences).toMutableList()

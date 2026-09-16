@@ -73,6 +73,7 @@ open class GameDatabase {
         OceanDatabase.load()
         WereProfessorDatabase.load()
         TCRSAstralDatabase.load()
+        TCRSStringTables.load()
         PocketDatabase.load()
         CultShortsDatabase.load()
 

@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.quest
 
 import com.russhwolf.settings.MapSettings
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.HobopolisManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -141,5 +142,19 @@ class QuestChoiceRulesTest {
         )
         assertEquals(3, prefs.getInt("currentHedgeMazeRoom", 0))
         assertEquals("step4", db.getProgress(Quest.FINAL))
+    }
+
+    @Test
+    fun choice200_decision2_recordsHodgmanWait() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestChoiceRules.apply(200, "Enter The Hoboverlord", db, decision = 2))
+        assertEquals("Hodgman waits for you.", HobopolisManager.consumePendingStop())
+    }
+
+    @Test
+    fun choice326_decision2_recordsMotherSlimeWait() {
+        val db = QuestDatabase(Preferences(MapSettings()))
+        assertTrue(QuestChoiceRules.apply(326, "Showdown", db, decision = 2))
+        assertEquals("Mother Slime waits for you.", HobopolisManager.consumePendingStop())
     }
 }

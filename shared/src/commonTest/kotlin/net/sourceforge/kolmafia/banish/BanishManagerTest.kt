@@ -179,6 +179,18 @@ class BanishManagerTest {
         assertTrue(manager.isBanished("Avatar", currentTurn = 2))
     }
 
+    @Test fun resetAscension_keepsOnlyNeverBanishes() {
+        val manager = BanishManager(prefs())
+        manager.banishMonster("Rollover Foo", Banisher.BEANCANNON, currentTurn = 1)
+        manager.banishMonster("Avatar", Banisher.BANISHING_SHOUT, currentTurn = 1)
+        manager.banishMonster("Ice Baz", Banisher.ICE_HOUSE, currentTurn = 1)
+        val cleared = manager.resetAscension()
+        assertEquals(2, cleared)
+        assertFalse(manager.isBanished("Rollover Foo", currentTurn = 2))
+        assertFalse(manager.isBanished("Avatar", currentTurn = 2))
+        assertTrue(manager.isBanished("Ice Baz", currentTurn = 2))
+    }
+
     @Test fun clearExpiredAndRollover_removesAvatarBanishes() {
         val manager = BanishManager(prefs())
         manager.banishMonster("Foo", Banisher.BANISHING_SHOUT, currentTurn = 1)  // AVATAR

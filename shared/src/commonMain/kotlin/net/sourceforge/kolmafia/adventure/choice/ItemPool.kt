@@ -324,8 +324,27 @@ object ItemPool {
     const val MODEL_TRAIN_SET = 11045
     const val PING_PONG_TABLE = 11059
     const val REPLICA_MINIATURE_CRYSTAL_BALL = 11247
+    const val GNOLLISH_AUTOPLUNGER = 127
+    const val HOBO_CODE_BINDER = 3220
+    const val GATORSKIN_UMBRELLA = 3222
+    const val SEWER_WAD = 3224
+    const val OOZE_O = 3226
+    const val DUMPLINGS = 3228
+    const val OIL_OF_OILINESS = 3230
+    const val SLIME_STACK = 4137
     const val PALM_FROND = 2605
     const val PALM_FROND_FAN = 2606
     const val DIABOLIC_PIZZA_CUBE = 10335
     const val DIABOLIC_PIZZA = 10336
+    const val GATES_SCROLL = 552
+    const val BONERDAGON_CHEST = 678
+    const val FISHERMANS_SACK = 4250
+    const val GUNPOWDER = 2403
+    const val VIP_LOUNGE_KEY = 3947
+    const val CURSED_MICROWAVE = 5663
+    const val CURSED_KEG = 5664
+    const val BOX_OF_BEAR_ARM = 5790
+    const val RIGHT_BEAR_ARM = 5791
+    const val LEFT_BEAR_ARM = 5792
+    const val SPOOKYRAVEN_TELEGRAM = 7304
 }

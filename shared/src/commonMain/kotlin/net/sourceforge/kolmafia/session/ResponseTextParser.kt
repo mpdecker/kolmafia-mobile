@@ -128,7 +128,17 @@ object ResponseTextParser {
             "sendmessage" -> SendMailSync.parseTransfer(u, html, emptyList(), 0, inventory, character)
             "inventory" -> InventoryActionSync.parse(u, html, inventory, character, preferences)
             "place" -> PlaceSync.parseResponse(u, html, preferences, character, inventory)
-            "campground", "cafe", "choice", "guild", "island", "shop" -> {
+            "cafe" -> {
+                net.sourceforge.kolmafia.request.CafeRequest.parseResponse(
+                    u,
+                    html,
+                    preferences,
+                    inventory,
+                    character,
+                )
+                ResultProcessor.processResults(false, html, inventory, character, preferences)
+            }
+            "campground", "choice", "guild", "island", "shop" -> {
                 // These pages frequently contain acquire/loss and auto-create text. Specialized
                 // visit hooks run before this router; this pass only handles generic result text.
                 // Pizza Cube first-handle (typed request or residual dispatcher) owns pizza gains.

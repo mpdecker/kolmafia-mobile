@@ -77,6 +77,37 @@ object ConsumableDatabase {
 
     fun getNotesByName(name: String): String = getConsumableByName(name)?.notes ?: ""
 
+    fun isBeverage(itemId: Int): Boolean {
+        val name = ItemDatabase.getItemName(itemId)
+        if (name.isBlank()) return false
+        return getNotesByName(name).contains("BEVERAGE")
+    }
+
+    fun getQuality(itemId: Int): ConsumableQuality {
+        val name = ItemDatabase.getItemName(itemId)
+        if (name.isBlank()) return ConsumableQuality.NONE
+        return getConsumableByName(name)?.quality ?: ConsumableQuality.NONE
+    }
+
+    fun getBaseAverageAdventures(itemId: Int): Double {
+        val name = ItemDatabase.getItemName(itemId)
+        return getBaseAverageAdventuresByName(name)
+    }
+
+    fun getBaseAverageAdventuresByName(name: String): Double {
+        if (name.isBlank()) return 0.0
+        val consumable = getConsumableByName(name) ?: return 0.0
+        return (consumable.advMin + consumable.advMax) / 2.0
+    }
+
+    fun superEpicQuality(turnsPerFullness: Double): ConsumableQuality = when {
+        turnsPerFullness >= 11 -> ConsumableQuality.SUPER_ULTRA_MEGA_TURBO_EPIC
+        turnsPerFullness >= 9.5 -> ConsumableQuality.SUPER_ULTRA_MEGA_EPIC
+        turnsPerFullness >= 8 -> ConsumableQuality.SUPER_ULTRA_EPIC
+        turnsPerFullness > 6.5 -> ConsumableQuality.SUPER_EPIC
+        else -> ConsumableQuality.EPIC
+    }
+
     fun allFood(): Collection<ConsumableData> = byNameFood.values
     fun allDrinks(): Collection<ConsumableData> = byNameDrink.values
     fun allSpleen(): Collection<ConsumableData> = byNameSpleen.values

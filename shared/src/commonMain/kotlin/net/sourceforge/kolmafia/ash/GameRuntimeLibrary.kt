@@ -811,7 +811,7 @@ class GameRuntimeLibrary(
 
         const val VERSION = "1.0.0-mobile"
         /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
-        const val REVISION = "phase7150"
+        const val REVISION = "phase7510"
 
         /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
         fun revisionNumber(): Int =
@@ -3312,7 +3312,7 @@ class GameRuntimeLibrary(
             WildfireCampRequest.parseResponse(url, html, preferences)
             ArtistRequest.parseResponse(url, html, questDatabase, inventoryManager)
             AltarOfLiteracyRequest.parseResponse(url, html, preferences)
-            DreadsylvaniaRequest.parseResponse(url, html, preferences)
+            DreadsylvaniaRequest.parseResponse(url, html, preferences, inventoryManager)
             PantogramRequest.parseResponse(url, html, preferences, inventoryManager)
             MummeryRequest.parseResponse(
                 url,
@@ -3366,7 +3366,7 @@ class GameRuntimeLibrary(
             StarChartRequestHub.parseResponse(url, html, preferences)
             InterestingCoinRequestHub.registerRequest(url, sessionLogger)
             NuggletCraftingRequestHub.registerRequest(url, sessionLogger)
-            NuggletCraftingRequestHub.parseResponse(url, html, preferences)
+            NuggletCraftingRequestHub.parseResponse(url, html, preferences, inventoryManager)
             SewerRequestHub.registerRequest(url, sessionLogger)
             SewerRequestHub.parseResponse(url, html, preferences)
             ClipArtRequestHub.registerRequest(url, sessionLogger)
@@ -3606,16 +3606,34 @@ class GameRuntimeLibrary(
             ) { sessionLogger?.appendRawLine(it) }
         }
         if (url?.contains("afterlife.php", ignoreCase = true) == true) {
-            AfterLifeRequest.registerRequest(url, sessionLogger)
-            AfterLifeRequest.parseResponse(url, html, preferences, sessionLogger)
+            AfterLifeRequest.registerRequest(url, sessionLogger, preferences)
+            AfterLifeRequest.parseResponse(
+                url,
+                html,
+                preferences,
+                sessionLogger,
+                character,
+                banishManager,
+                questDatabase,
+            ) { adventureSpentTracker?.resetTurns() }
             if (url.contains("confirmascend=1")) {
-                AfterLifeRequest.handleAscensionConfirm(url, character, preferences, banishManager)
+                val redirect = when {
+                    html.contains("whichchoice=", ignoreCase = true) -> "choice.php"
+                    else -> null
+                }
+                AfterLifeRequest.handleReincarnateConfirm(url, redirect, ascensionDepsFromLive())
             }
         }
         if (url?.contains("ascend.php", ignoreCase = true) == true &&
-            url.contains("confirm=1", ignoreCase = true)
+            url.contains("action=ascend", ignoreCase = true)
         ) {
-            ValhallaManager.onAscension(character, preferences, banishManager)
+            ValhallaManager.preAscension(ascensionDepsFromLive())
+            ValhallaManager.noteGashJump(preferences)
+        }
+        if (url?.contains("choice.php", ignoreCase = true) == true &&
+            !ChoiceCombatAshState.handlingChoice
+        ) {
+            consumeAscendAfterChoiceIfNeeded()
         }
         if (url?.startsWith("spaaace.php") == true) {
             SpaaaceRequest.registerRequest(url, sessionLogger)
@@ -4227,8 +4245,10 @@ class GameRuntimeLibrary(
             ShadowForgeRequest.parseResponse(url, html, preferences)
             CrimboHubResponseParse.parseResponse(url, html, preferences)
             CraftThinHubResponseParse.parseResponse(url, html, preferences)
-            LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+            LegacyCoinmasterResponseParse.parseResponse(url, html, preferences, inventoryManager)
             MiscShopTokenResponseParse.parseResponse(url, html, preferences, inventoryManager)
+            AppleStoreRequestHub.parseResponse(url, html, preferences, inventoryManager)
+            NeandermallRequestHub.parseResponse(url, html, preferences, inventoryManager)
         }
         if (url != null && (
                 url.contains("crimbo", ignoreCase = true) ||
@@ -4268,7 +4288,7 @@ class GameRuntimeLibrary(
                     url.contains("friars.php", ignoreCase = true)
             )
         ) {
-            LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+            LegacyCoinmasterResponseParse.parseResponse(url, html, preferences, inventoryManager)
         }
         if (url != null && (
                 url.contains("whichshop=arcade", ignoreCase = true) ||
@@ -4313,7 +4333,21 @@ class GameRuntimeLibrary(
             CRIMBCOGiftShopRequest.parseResponse(url, html, preferences, inventoryManager)
         }
         if (url != null && url.contains("bone_altar.php", ignoreCase = true)) {
-            AltarOfBonesRequest.parseResponse(url, html, preferences)
+            AltarOfBonesRequest.parseResponse(url, html, preferences, inventoryManager)
+        }
+        if (url != null && url.contains("hermit.php", ignoreCase = true)) {
+            HermitRequest.parseResponse(url, html, preferences, inventoryManager)
+        }
+        if (url != null && url.contains("cafe.php", ignoreCase = true)) {
+            CafeRequest.parseResponse(url, html, preferences, inventoryManager, character)
+        }
+        if (url != null && (
+                url.contains("talktosocp=1", ignoreCase = true) ||
+                    (url.contains("choice.php", ignoreCase = true) &&
+                        url.contains("whichchoice=1567", ignoreCase = true))
+                )
+        ) {
+            SkeletonOfCrimboPastRequest.parseResponse(url, html, preferences, inventoryManager)
         }
         if (url != null && url.contains("traveler.php", ignoreCase = true)) {
             TravelingTraderRequest.parseResponse(url, html, preferences)
@@ -4331,7 +4365,7 @@ class GameRuntimeLibrary(
                 preferences?.let {
                     SwaggerShopSync.applyVisitShop(html, url, it, sessionLogger, character?.state?.value)
                 }
-                LegacyCoinmasterResponseParse.parseResponse(url, html, preferences)
+                LegacyCoinmasterResponseParse.parseResponse(url, html, preferences, inventoryManager)
             }
         }
         if (url != null && url.contains("showplayer.php", ignoreCase = true)) {
@@ -5597,6 +5631,9 @@ class GameRuntimeLibrary(
             val choice = Regex("""whichchoice=(\d+)""", RegexOption.IGNORE_CASE)
                 .find(url)?.groupValues?.get(1).orEmpty()
             SpadingManager.processChoiceVisit(choice, html, preferences, sessionLogger)
+            if (!ChoiceCombatAshState.handlingChoice) {
+                consumeAscendAfterChoiceIfNeeded()
+            }
         } else if (url?.contains("fight.php", ignoreCase = true) == true) {
             SpadingManager.processCombatRound(
                 preferences?.getString(Preferences.LAST_MONSTER, "").orEmpty(),
@@ -7485,6 +7522,14 @@ class GameRuntimeLibrary(
         registerPhase7091(scope)
         registerPhase7111(scope)
         registerPhase7131(scope)
+        registerPhase7151(scope)
+        registerPhase7171(scope)
+        registerPhase7191(scope)
+        registerPhase7271(scope)
+        registerPhase7291(scope)
+        registerPhase7311(scope)
+        registerPhase7391(scope)
+        registerPhase7451(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->

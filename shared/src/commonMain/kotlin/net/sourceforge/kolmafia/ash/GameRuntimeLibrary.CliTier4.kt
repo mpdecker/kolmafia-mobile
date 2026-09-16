@@ -76,16 +76,18 @@ internal suspend fun GameRuntimeLibrary.cliTcrs(
         "apply" -> print(manager.apply())
         "reset" -> print(manager.reset())
         "derive" -> print(manager.derive(tokens.getOrNull(1)?.toIntOrNull()))
+        "introspect" -> print(manager.introspect(tokens.getOrNull(1)?.toIntOrNull()))
+        "update" -> print(manager.update())
         "check" -> {
             val itemId = tokens.getOrNull(1)?.toIntOrNull()
             if (itemId == null) print("Usage: tcrs check <item id>")
             else print(manager.check(itemId))
         }
         "help" -> {
-            print("Usage: tcrs [status|load|save|fetch|derive [item id]|check <item id>|apply|reset]")
-            print("Use `tcrs fetch` to download class/sign dumps from the KoLmafia repository.")
+            print("Usage: tcrs [status|load|save|fetch|derive [item id]|introspect [item id]|update|check <item id>|apply|reset]")
+            print("Use `tcrs fetch` to download class/sign dumps or `tcrs derive` to generate them for the current class/sign.")
         }
-        else -> print("Usage: tcrs [status|load|save|fetch|derive [item id]|check <item id>|apply|reset]")
+        else -> print("Usage: tcrs [status|load|save|fetch|derive [item id]|introspect [item id]|update|check <item id>|apply|reset]")
     }
 }
 

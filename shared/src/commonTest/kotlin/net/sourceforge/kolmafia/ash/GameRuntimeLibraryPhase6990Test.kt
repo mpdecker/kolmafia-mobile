@@ -17,7 +17,7 @@ import net.sourceforge.kolmafia.shop.TimeTowerAccessibility
 
 /**
  * Focused HTTP Residual LII Track A–B coverage (phases 6971–7010).
- * Parent wrap bumps REVISION to phase7150.
+ * Parent wrap bumps REVISION to phase7330.
  */
 class GameRuntimeLibraryPhase6990Test {
 
@@ -39,7 +39,7 @@ class GameRuntimeLibraryPhase6990Test {
 
     @Test
     fun revision_isPhase7030() {
-        assertEquals("phase7150", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
     }
 
     @Test

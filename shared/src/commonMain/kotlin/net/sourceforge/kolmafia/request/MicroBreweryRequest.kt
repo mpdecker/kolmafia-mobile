@@ -34,4 +34,24 @@ open class MicroBreweryRequest(
             ?: return Result.failure(IllegalStateException("Unknown Microbrewery item: $name"))
         return hellKitchenRequest.purchaseEntry(entry, type, state, prefs, larpCount)
     }
+
+    companion object {
+        /** Desktop [MicroBreweryRequest.parseResponse] — cafeid=2 visit special + CONSUME shotglass. */
+        fun parseResponse(
+            urlString: String,
+            responseText: String,
+            preferences: Preferences?,
+        ) {
+            if (!urlString.contains("cafe.php", ignoreCase = true) ||
+                !urlString.contains("cafeid=2")
+            ) {
+                return
+            }
+            if (!urlString.contains("action=CONSUME", ignoreCase = true)) {
+                CafeDailySpecialSync.parseResponse(urlString, responseText, preferences)
+                return
+            }
+            DrinkBoozeRequest.parseDrinkHelpers(responseText, preferences)
+        }
+    }
 }

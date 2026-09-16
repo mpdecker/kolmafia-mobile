@@ -27,6 +27,17 @@ class KoLCharacter {
             return minOf(MAX_BASEPOINTS, kotlin.math.sqrt(safe.toDouble()).toInt())
         }
 
+        /** Desktop [KoLCharacter.ensureUpdatedGuyMadeOfBees] — reset count/defeated each ascension. */
+        fun ensureUpdatedGuyMadeOfBees(preferences: Preferences?, ascensions: Int) {
+            val prefs = preferences ?: return
+            val last = prefs.getInt("lastGuyMadeOfBeesReset", -1)
+            if (last < ascensions) {
+                prefs.setInt("lastGuyMadeOfBeesReset", ascensions)
+                prefs.setInt("guyMadeOfBeesCount", 0)
+                prefs.setBoolean("guyMadeOfBeesDefeated", false)
+            }
+        }
+
         /**
          * Clear Phase 5710+ deferred liberateKing refresh flags.
          * Desktop fires inline HTTP for bookshelf/telescope/campground/familiar/clan/hermit/florist;
