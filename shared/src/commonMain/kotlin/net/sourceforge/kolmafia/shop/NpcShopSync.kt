@@ -1,5 +1,8 @@
 package net.sourceforge.kolmafia.shop
 
+import net.sourceforge.kolmafia.campground.CampgroundItemSync
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.ConcoctionMayoQueue
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /** Desktop NPCPurchaseRequest shop pref sync (AshP147+). */
@@ -31,8 +34,12 @@ object NpcShopSync {
         ascensionNumber: Int,
     ) {
         if (prefs == null) return
-        if (url?.contains("ajax=1", ignoreCase = true) == true) return
         val shopId = extractShopOrStoreId(url) ?: return
+        if (shopId.equals("mayoclinic", ignoreCase = true)) {
+            syncFromStoreHtml(shopId, html, prefs, ascensionNumber, url)
+            return
+        }
+        if (url?.contains("ajax=1", ignoreCase = true) == true) return
         syncFromStoreHtml(shopId, html, prefs, ascensionNumber, url)
     }
 
@@ -96,7 +103,15 @@ object NpcShopSync {
 
     private fun syncMayoclinic(html: String, url: String?, prefs: Preferences) {
         if (!html.contains("Mayo", ignoreCase = true)) return
-        if (url?.contains("ajax=1", ignoreCase = true) == true) return
+        val previous = CampgroundItemSync.currentWorkshedItemId(prefs)
+        val refreshConcoctions = previous != ConcoctionMayoQueue.MAYO_CLINIC
+        CampgroundItemSync.setCurrentWorkshedItem(prefs, ConcoctionMayoQueue.MAYO_CLINIC)
+        if (url?.contains("ajax=1", ignoreCase = true) == true) {
+            if (refreshConcoctions) {
+                ConcoctionDatabase.refreshConcoctions()
+            }
+            return
+        }
         BLOOD_MAYO_PATTERN.find(html)?.groupValues?.getOrNull(1)?.let {
             prefs.setString("mayoLevel", it)
         }
@@ -117,6 +132,9 @@ object NpcShopSync {
             }
         }
         prefs.setBoolean("_mayoTankSoaked", !html.contains("Soak in the Mayo Tank"))
+        if (refreshConcoctions) {
+            ConcoctionDatabase.refreshConcoctions()
+        }
     }
 
     fun applyWildfireVisit(html: String, url: String?, prefs: Preferences?) {

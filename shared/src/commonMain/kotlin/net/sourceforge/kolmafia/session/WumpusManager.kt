@@ -1,5 +1,7 @@
 package net.sourceforge.kolmafia.session
 
+import net.sourceforge.kolmafia.adventure.choice.ChoiceOption
+
 /** Shared Hunt the Wumpus graph and deduction engine (choice 360). */
 object WumpusManager {
     const val CHOICE_ID = 360
@@ -175,8 +177,21 @@ object WumpusManager {
         return monsterIsWumpus || killed
     }
 
-    fun dynamicChoiceOptions(): List<String> =
-        current?.exits?.map { warningStrings[it?.hazards ?: WARN_ALL] }.orEmpty().let { it + it }
+    /** Desktop [WumpusManager.dynamicChoiceOptions] — 3 empty slots, or 6 (exit + listen). */
+    fun dynamicChoiceOptions(): List<ChoiceOption?> {
+        val cur = current
+        if (cur == null) {
+            return listOf(ChoiceOption(""), ChoiceOption(""), null)
+        }
+        val results = MutableList<ChoiceOption?>(6) { null }
+        for (i in 0..2) {
+            val room = cur.exits[i] ?: continue
+            val warning = ChoiceOption(warningStrings[room.hazards])
+            results[i] = warning
+            results[i + 3] = warning
+        }
+        return results
+    }
 
     private fun knownSafe(room: Room, visited: Boolean) {
         room.bat = 9; room.pit = 9; room.wumpus = 9

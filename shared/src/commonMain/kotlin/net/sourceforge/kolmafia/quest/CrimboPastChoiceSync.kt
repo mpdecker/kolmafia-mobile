@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.quest
 
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.request.SkeletonOfCrimboPastRequest
 
 /**
  * Desktop [SkeletonOfCrimboPastRequest.visit] for choice 1567 —
@@ -33,6 +34,7 @@ object CrimboPastChoiceSync {
             preferences.setInt("_crimboPastDailySpecialItem", itemId)
             preferences.setInt("_crimboPastDailySpecialPrice", price)
         }
+        SkeletonOfCrimboPastRequest.applySpecial(preferences)
         return true
     }
 }

@@ -300,6 +300,10 @@ object DynamicChoiceSpoilers {
         return null
     }
 
+    /** Desktop [ChoiceAdventures.dynamicChoiceOptions] — live spoiler option array. */
+    fun dynamicChoiceOptions(choice: Int): List<ChoiceOption?> =
+        choiceSpoilers(choice)?.options.orEmpty()
+
     private fun chatterboxingSpoilers(): ChoiceAdventures.Spoilers {
         val trinks = itemCount(VALUABLE_TRINKET)
         val banish = if (trinks == 0) {
@@ -376,13 +380,11 @@ object DynamicChoiceSpoilers {
     }
 
     private fun wumpusSpoilers(): ChoiceAdventures.Spoilers {
-        val warnings = WumpusManager.dynamicChoiceOptions()
-        val options = if (warnings.isEmpty()) {
-            listOf(ChoiceOption(""), ChoiceOption(""))
-        } else {
-            warnings.map { ChoiceOption(it) }
-        }
-        return ChoiceAdventures.Spoilers(360, "The Jungles of Ancient Loathing", options)
+        return ChoiceAdventures.Spoilers(
+            360,
+            "The Jungles of Ancient Loathing",
+            WumpusManager.dynamicChoiceOptions(),
+        )
     }
 
     private fun rabbitHoleSpoilers(): ChoiceAdventures.Spoilers {
@@ -398,7 +400,7 @@ object DynamicChoiceSpoilers {
             ChoiceOption("Disco Bandit/Turtle Tamer item, or fight croqueteer"),
             ChoiceOption("you have $count/5 of the items needed for an ittah bittah hookah"),
             ChoiceOption("get a chess cookie"),
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(442, "Rabbit Hole", options)
     }
@@ -413,8 +415,8 @@ object DynamicChoiceSpoilers {
         val options = listOf(
             ChoiceOption("mysticality substats"),
             if (gainNostril) ChoiceOption("gain the Nostril of the Serpent")
-            else ChoiceOption("skip adventure"),
-            if (templeAdvs) ChoiceOption("skip adventure")
+            else ChoiceAdventures.SKIP_ADVENTURE,
+            if (templeAdvs) ChoiceAdventures.SKIP_ADVENTURE
             else ChoiceOption("gain 3 adventures"),
         )
         return ChoiceAdventures.Spoilers(579, "Such Great Heights", options)
@@ -954,7 +956,7 @@ object DynamicChoiceSpoilers {
         val rock = itemCount(INEXPLICABLY_GLOWING_ROCK) >= 1
         val options = listOf(
             ChoiceOption("You ${if (rock) "" else "DON'T "} have an inexplicably glowing rock"),
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(5, "Heart of Very, Very Dark Darkness", options)
     }
@@ -964,7 +966,7 @@ object DynamicChoiceSpoilers {
         val glove = hasEquipped(SPOOKY_GLOVE)
         val options = listOf(
             ChoiceOption("spooky glove ${if (glove) "" else "NOT "}equipped"),
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(7, "How Depressing", options)
     }
@@ -979,10 +981,12 @@ object DynamicChoiceSpoilers {
             ChoiceOption(
                 if (isMoxie()) "3 drunk and stats (varies by class)"
                 else "shot of rotgut (varies by class)",
+                itemNames = listOf("shot of rotgut"),
             ),
             ChoiceOption(
                 if (isMuscle()) "3 drunk and stats (varies by class)"
                 else "shot of rotgut (varies by class)",
+                itemNames = listOf("shot of rotgut"),
             ),
             ChoiceOption("always 3 drunk & stats"),
             ChoiceOption("always shot of rotgut"),
@@ -1042,7 +1046,7 @@ object DynamicChoiceSpoilers {
         val binder = hasEquipped(HOBO_CODE_BINDER)
         val options = listOf(
             ChoiceOption("$nickels nickels, ${if (binder) "" else "NO "} hobo code binder equipped"),
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(272, "Marketplace Entrance", options)
     }
@@ -1053,7 +1057,7 @@ object DynamicChoiceSpoilers {
         val slime = itemCount(GREEN_SLIME)
         val options = listOf(
             ChoiceOption("$seeds seed packets, $slime globs of green slime"),
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(298, "In the Shade", options)
     }
@@ -1063,7 +1067,7 @@ object DynamicChoiceSpoilers {
         val summons = 3 - (preferences?.getInt("tempuraSummons", 0) ?: 0)
         val options = listOf(
             ChoiceOption("$summons summons left today"),
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(304, "A Vent Horizon", options)
     }
@@ -1073,7 +1077,7 @@ object DynamicChoiceSpoilers {
         val globes = itemCount(MERKIN_PRESSUREGLOBE)
         val options = listOf(
             ChoiceOption("$globes Mer-kin pressureglobes"),
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(305, "There is Sauce at the Bottom of the Ocean", options)
     }
@@ -1083,7 +1087,7 @@ object DynamicChoiceSpoilers {
         val seaodes = 3 - (preferences?.getInt("seaodesFound", 0) ?: 0)
         val options = listOf(
             ChoiceOption("$seaodes more seodes available today"),
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(309, "Barback", options)
     }
@@ -1135,8 +1139,8 @@ object DynamicChoiceSpoilers {
             else -> "knob jelly donut"
         }
         val options = listOf(
-            ChoiceOption(item),
-            ChoiceOption("skip adventure"),
+            ChoiceOption(item, itemNames = listOf(item)),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(522, "Welcome to the Footlocker", options)
     }
@@ -1187,7 +1191,7 @@ object DynamicChoiceSpoilers {
         val options = listOf(
             ChoiceOption("gain a glowing fungus ($fungus)"),
             if (prefs?.getBoolean("_templeHiddenPower", false) == true) {
-                ChoiceOption("skip adventure")
+                ChoiceAdventures.SKIP_ADVENTURE
             } else {
                 ChoiceOption("5 advs of +15 mus/mys/mox")
             },
@@ -1374,7 +1378,7 @@ object DynamicChoiceSpoilers {
             ChoiceOption(opt2),
             ChoiceOption("$cursedOption, then pick again"),
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(780, "Action Elevator", options)
     }
@@ -1387,7 +1391,7 @@ object DynamicChoiceSpoilers {
             ChoiceOption("Get Blessing of Bulbazinalli"),
             null,
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(781, "Earthbound and Down", options)
     }
@@ -1400,7 +1404,7 @@ object DynamicChoiceSpoilers {
             ChoiceOption("Get Blessing of Squirtlcthulli"),
             null,
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(783, "Water You Dune", options)
     }
@@ -1413,7 +1417,7 @@ object DynamicChoiceSpoilers {
             null,
             null,
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(784, "You, M. D.", options)
     }
@@ -1426,7 +1430,7 @@ object DynamicChoiceSpoilers {
             ChoiceOption("Get Blessing of Pikachutlotal"),
             ChoiceOption("Gain 100x level Meat, then pick again"),
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(785, "Air Apparent", options)
     }
@@ -1454,7 +1458,7 @@ object DynamicChoiceSpoilers {
             ChoiceOption("Fight pygmy witch accountant"),
             null,
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(786, "Working Holiday", options)
     }
@@ -1467,7 +1471,7 @@ object DynamicChoiceSpoilers {
             ChoiceOption("Get Blessing of Charcoatl"),
             null,
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(787, "Fire when Ready", options)
     }
@@ -1490,7 +1494,7 @@ object DynamicChoiceSpoilers {
             null,
             null,
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(788, "Life is Like a Cherry of Bowls", options)
     }
@@ -1508,7 +1512,7 @@ object DynamicChoiceSpoilers {
             null,
             null,
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(789, "Where Does The Lone Ranger Take His Garbagester?", options)
     }
@@ -1524,7 +1528,7 @@ object DynamicChoiceSpoilers {
             null,
             null,
             null,
-            ChoiceOption("skip adventure"),
+            ChoiceAdventures.SKIP_ADVENTURE,
         )
         return ChoiceAdventures.Spoilers(791, "Legend of the Temple in the Hidden City", options)
     }
@@ -1802,7 +1806,7 @@ object DynamicChoiceSpoilers {
             }
             else -> return null
         }
-        val options = listOf(option, ChoiceOption("flickering pixel"), ChoiceOption("skip adventure"))
+        val options = listOf(option, ChoiceOption("flickering pixel"), ChoiceAdventures.SKIP_ADVENTURE)
         return ChoiceAdventures.Spoilers(choice, name, options)
     }
 

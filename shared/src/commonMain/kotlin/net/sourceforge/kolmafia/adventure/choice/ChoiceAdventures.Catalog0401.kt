@@ -295,15 +295,43 @@ internal fun ChoiceAdventures.registerCatalog401() {
         )
         registerAdventure(
             535, "Spaaace", "Deep Inside Ronald",
-            emptyList(),
+            listOf(
+                ChoiceOption("E.M.U. rocket thrusters"),
+                ChoiceOption("Spell Transfer Complete"),
+                ChoiceOption("E.M.U. joystick"),
+                ChoiceOption("elven medi-pack & magi-pack"),
+                ChoiceOption("Overstimulated"),
+                ChoiceOption("Simulation Stimulation"),
+            ),
         )
         registerAdventure(
             536, "Spaaace", "Deep Inside Grimace",
-            emptyList(),
+            listOf(
+                ChoiceOption("distention pill"),
+                ChoiceOption("synthetic dog hair pill"),
+                ChoiceOption("Heal Thy Nanoself"),
+                ChoiceOption("E.M.U. harness"),
+                ChoiceOption("elven hardtack & squeeze"),
+                ChoiceOption("E.M.U. Helmet"),
+            ),
         )
         registerAdventure(
             546, "Item-Driven", "Interview With You",
-            emptyList(),
+            listOf(
+                ChoiceOption("Mistified"),
+                ChoiceOption("Bat Attitude"),
+                ChoiceOption("There Wolf"),
+                ChoiceOption("Muscle"),
+                ChoiceOption("Mysticality"),
+                ChoiceOption("Moxie"),
+                ChoiceOption("111 Meat, lose 1-2 hp"),
+                ChoiceOption("Prince of Seaside Town and Sword of the Brouhaha Prince"),
+                ChoiceOption("Prince of Seaside Town and Sceptre of the Torremolinos Prince"),
+                ChoiceOption("Prince of Seaside Town and Medallion of the Ventrilo Prince"),
+                ChoiceOption("Prince of Seaside Town and Chalice of the Malkovich Prince"),
+                ChoiceOption("Pride of the Vampire and Interview With You (a Vampire)"),
+                ChoiceOption("your own black heart"),
+            ),
         )
         registerAdventure(
             548, "Events", "Sorority House Necbromancer",

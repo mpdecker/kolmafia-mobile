@@ -7,6 +7,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class AfterLifeRequestTest {
@@ -47,5 +48,54 @@ class AfterLifeRequestTest {
             prefs,
         )
         assertEquals(4, prefs.getInt("bankedKarma", 0))
+    }
+
+    @Test
+    fun emptyResponse_returnsFalse() {
+        prefs.setInt("lastBreakfast", 0)
+        assertFalse(AfterLifeRequest.parseResponse("afterlife.php", "", prefs))
+        assertEquals(0, prefs.getInt("lastBreakfast", -1))
+        assertFalse(CharpaneValhallaSync.inValhalla)
+    }
+
+    @Test
+    fun firstAfterlifeVisit_runsOnAscensionWhenLastBreakfastSet() {
+        prefs.setInt("lastBreakfast", 0)
+        prefs.setInt("knownAscensions", 4)
+        assertTrue(AfterLifeRequest.parseResponse("afterlife.php", "<html>Valhalla</html>", prefs))
+        assertEquals(-1, prefs.getInt("lastBreakfast", 0))
+        assertEquals(5, prefs.getInt("knownAscensions", 0))
+        assertTrue(CharpaneValhallaSync.inValhalla)
+    }
+
+    @Test
+    fun registerRequest_ascendConfirm_includesSignPathAndKarma() {
+        prefs.setInt("bankedKarma", 77)
+        val url =
+            "afterlife.php?action=ascend&confirmascend=1&asctype=3&gender=2&whichclass=4&whichpath=4&whichsign=2"
+        val logger = net.sourceforge.kolmafia.session.SessionLogger(
+            prefs,
+            net.sourceforge.kolmafia.event.GameEventBus(),
+        )
+        AfterLifeRequest.registerRequest(url, logger, prefs)
+        val lines = logger.recentLines()
+        assertTrue(
+            lines.any {
+                it.contains("Hardcore") &&
+                    it.contains("Female") &&
+                    it.contains("Sauceror") &&
+                    it.contains("Wallaby") &&
+                    it.contains("Bees Hate You") &&
+                    it.contains("77")
+            },
+            lines.joinToString("\n"),
+        )
+    }
+
+    @Test
+    fun reincarnateClassName_desktopKoLIds() {
+        assertEquals("Ed the Undying", AfterLifeRequest.reincarnateClassName(17))
+        assertEquals("Cow Puncher", AfterLifeRequest.reincarnateClassName(18))
+        assertEquals("Grey Goo", AfterLifeRequest.reincarnateClassName(27))
     }
 }

@@ -6,11 +6,14 @@ import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.ConcoctionMayoQueue
 import net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket
+import net.sourceforge.kolmafia.data.ConsumableDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.ConsumptionHelperState
+import net.sourceforge.kolmafia.session.ResultProcessor
 import net.sourceforge.kolmafia.session.SessionLogger
 
 open class EatFoodRequest(
@@ -123,9 +126,123 @@ open class EatFoodRequest(
         return itemId == BLACK_PUDDING || itemId == SMORE
     }
 
-    internal companion object {
+    companion object {
         private const val BLACK_PUDDING = 2338
         private const val SMORE = 5071
+        const val GRAINS_OF_SALT = 6672
+        const val JAR_OF_SWAMP_HONEY = 8226
+        const val DRY_RUB = 7553
+        const val SPECIAL_SEASONING = 9924
+        private val MAYONEX_PATTERN =
+            Regex("""Force of Mayo Be With You</b><br>\(duration: (\d+) Adventure""")
+
+        /**
+         * Desktop [EatItemRequest.handleFoodHelper] — helper inventory/prefs after a successful eat.
+         * [adjustFullness] is false when [UseItemConsumptionSync.parseEat] already applied organs.
+         */
+        fun handleFoodHelper(
+            itemName: String,
+            count: Int,
+            responseText: String,
+            preferences: Preferences?,
+            inventory: InventoryManager? = ResultProcessor.inventoryProvider?.invoke(),
+            character: KoLCharacter? = null,
+            adjustFullness: Boolean = true,
+        ) {
+            val qty = count.coerceAtLeast(1)
+            if (responseText.contains("You chase it with that salt you made")) {
+                val remaining = 3 - (preferences?.getInt("_saltGrainsConsumed", 0) ?: 0)
+                val used = minOf(qty, inventory?.getCount(GRAINS_OF_SALT) ?: qty, remaining.coerceAtLeast(0))
+                if (used > 0) {
+                    ResultProcessor.processItem(GRAINS_OF_SALT, -used, preferences, inventory = inventory)
+                    preferences?.increment("_saltGrainsConsumed", used)
+                }
+            }
+            if (responseText.contains("in swamp honey before you eat it.")) {
+                consumeHelper(JAR_OF_SWAMP_HONEY, qty, inventory, preferences)
+            }
+            if (responseText.contains("a nice dry rubbing before going to work on it")) {
+                consumeHelper(DRY_RUB, qty, inventory, preferences)
+            }
+            if (responseText.contains("packet of your Special Seasoning")) {
+                consumeHelper(SPECIAL_SEASONING, qty, inventory, preferences)
+            }
+            if (responseText.contains("With your sharpened appetite")) {
+                decrementPref(preferences, "whetstonesUsed", qty)
+            }
+            if (responseText.contains("that fatty kiwi flavor")) {
+                decrementPref(preferences, "miniKiwiAiolisUsed", qty)
+            }
+            if (responseText.contains("festive Christmas jelly")) {
+                preferences?.setBoolean("_infiniteJellyUsed", true)
+            }
+            if (responseText.contains("magnesium-flavored belch")) {
+                preferences?.setBoolean("milkOfMagnesiumActive", false)
+            }
+            if (character?.state?.value?.isPastamancer == true) {
+                if (responseText.contains("feel suddenly bloated")) {
+                    preferences?.setInt("carboLoading", 0)
+                }
+                if (responseText.contains("Mmm, this tastes a little bit spicier")) {
+                    preferences?.setBoolean("_legendarySpiceGhostFood", true)
+                }
+            }
+            if (responseText.contains("reminding you to squirt some mayonnaise")) {
+                preferences?.increment("mayoLevel", qty)
+                when {
+                    responseText.contains("feel the Mayonex gurgling") ->
+                        consumeHelper(ConcoctionMayoQueue.MAYONEX, qty, inventory, preferences)
+                    responseText.contains("Mayodiol kicks in") ->
+                        consumeHelper(ConcoctionMayoQueue.MAYODIOL, qty, inventory, preferences)
+                    responseText.contains("Mayostat kicks in") ->
+                        consumeHelper(ConcoctionMayoQueue.MAYOSTAT, qty, inventory, preferences)
+                    responseText.contains("Mayozapine kicks in") ->
+                        consumeHelper(ConcoctionMayoQueue.MAYOZAPINE, qty, inventory, preferences)
+                    responseText.contains("Mayoflex kicks in") ->
+                        consumeHelper(ConcoctionMayoQueue.MAYOFLEX, qty, inventory, preferences)
+                }
+            }
+            if (responseText.contains("feel the Mayonex gurgling")) {
+                MAYONEX_PATTERN.findAll(responseText).forEach { match ->
+                    val extra = match.groupValues[1].toIntOrNull() ?: return@forEach
+                    preferences?.increment("mayoLevel", extra)
+                }
+            }
+            preferences?.setString("mayoInMouth", "")
+            if (adjustFullness && !responseText.contains(" Fullness")) {
+                var fullnessUsed = ConsumableDatabase.getFullnessByName(itemName) * qty
+                if (responseText.contains("Mayodiol kicks in")) {
+                    fullnessUsed = (fullnessUsed - 1).coerceAtLeast(0)
+                }
+                if (fullnessUsed > 0 && character != null) {
+                    val s = character.state.value
+                    character.updateConsumables(
+                        fullness = s.fullness + fullnessUsed,
+                        inebriety = s.inebriety,
+                        spleenUsed = s.spleenUsed,
+                    )
+                }
+            }
+            decrementPref(preferences, "munchiesPillsUsed", qty)
+            decrementPref(preferences, "legendaryNoodlesStomach", qty)
+        }
+
+        private fun consumeHelper(
+            itemId: Int,
+            count: Int,
+            inventory: InventoryManager?,
+            preferences: Preferences?,
+        ) {
+            val used = minOf(count, inventory?.getCount(itemId) ?: count)
+            if (used > 0) {
+                ResultProcessor.processItem(itemId, -used, preferences, inventory = inventory)
+            }
+        }
+
+        private fun decrementPref(preferences: Preferences?, key: String, amount: Int) {
+            val prefs = preferences ?: return
+            prefs.setInt(key, (prefs.getInt(key, 0) - amount).coerceAtLeast(0))
+        }
 
         internal fun isEatAbort(responseText: String): Boolean =
             responseText.contains("too full", ignoreCase = true) ||

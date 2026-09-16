@@ -1,6 +1,8 @@
 package net.sourceforge.kolmafia.campground
 
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.ConcoctionMayoQueue
 import net.sourceforge.kolmafia.preferences.Preferences
 
 /**
@@ -39,6 +41,23 @@ object CampgroundItemSync {
 
     fun hasWorkshedItem(prefs: Preferences?, itemId: Int): Boolean =
         currentWorkshedItemId(prefs) == itemId
+
+    /**
+     * Desktop [CampgroundRequest.setCurrentWorkshedItem] — pref write-back + mayo concoction refresh.
+     */
+    fun setCurrentWorkshedItem(prefs: Preferences?, itemId: Int) {
+        if (prefs == null || itemId <= 0) return
+        val previous = currentWorkshedItemId(prefs)
+        if (previous == itemId) return
+        if (previous >= 0) {
+            prefs.setInt("_previousWorkshedItemId", previous)
+            prefs.setBoolean("_workshedChanged", true)
+        }
+        prefs.setInt(CURRENT_WORKSHED_ITEM_ID_PREF, itemId)
+        if (itemId == ConcoctionMayoQueue.MAYO_CLINIC) {
+            ConcoctionDatabase.refreshConcoctions()
+        }
+    }
 
     fun hasBurningLeaves(prefs: Preferences?): Boolean =
         prefs?.getBoolean(CAMPGROUND_HAS_BURNING_LEAVES_PREF, false) == true

@@ -185,6 +185,21 @@ class BanishManager(
     fun resetEffectBanishes(): Int = removeByResetType(ResetType.EFFECT)
 
     /**
+     * Desktop [BanishManager.resetAscension] — drop every banish except
+     * [ResetType.NEVER] (Ice House).
+     */
+    fun resetAscension(): Int {
+        val before = allEntries().size
+        _state.value = BanishState(
+            monsters = _state.value.monsters.filter { it.banisher.resetType == ResetType.NEVER },
+            phyla = _state.value.phyla.filter { it.banisher.resetType == ResetType.NEVER },
+        )
+        val cleared = before - allEntries().size
+        if (cleared > 0) save()
+        return cleared
+    }
+
+    /**
      * Removes all [ResetType.ROLLOVER], [ResetType.AVATAR], [ResetType.TURN_ROLLOVER],
      * [ResetType.EFFECT], and [ResetType.COSMIC_BOWLING_BALL] banishes, and expired
      * [ResetType.TURNS] banishes. [ResetType.NEVER] banishes (Ice House) are kept.

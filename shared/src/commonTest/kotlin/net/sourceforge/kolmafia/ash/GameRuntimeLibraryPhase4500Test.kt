@@ -33,8 +33,8 @@ class GameRuntimeLibraryPhase4500Test {
 
     @Test
     fun revision_phase4500_batchStillRegistered() {
-        assertEquals("phase7210", GameRuntimeLibrary.REVISION)
-        assertEquals("6850", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
+        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
+        assertEquals("7510", outputLib(GameRuntimeLibrary(), "print(get_revision());"))
         assertTrue(GameRuntimeLibrary.REVISION.contains("phase"))
     }
 

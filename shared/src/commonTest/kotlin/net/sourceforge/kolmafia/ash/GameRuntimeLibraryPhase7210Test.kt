@@ -18,7 +18,7 @@ import net.sourceforge.kolmafia.shop.TimeTowerSync
 
 /**
  * Focused HTTP Residual LV Track C coverage (phases 7191–7210).
- * Parent wrap bumps REVISION to phase7210.
+ * Parent wrap bumps REVISION to phase7330.
  */
 class GameRuntimeLibraryPhase7210Test {
 
@@ -33,7 +33,7 @@ class GameRuntimeLibraryPhase7210Test {
 
     @Test
     fun revision_isPhase7210() {
-        assertEquals("phase7210", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
     }
 
     @Test

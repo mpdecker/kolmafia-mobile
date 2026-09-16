@@ -79,6 +79,14 @@ object BugbearManager {
 
     private val KEYOTRON_PATTERN = Regex("""key-o-tron emits (\d) short""")
 
+    /** Desktop [BugbearManager.resetStatus] — clear mothership biodata on ascension. */
+    fun resetStatus(preferences: Preferences) {
+        for (data in BUGBEAR_DATA) {
+            preferences.setInt(data.status, 0)
+        }
+        preferences.setInt("mothershipProgress", 0)
+    }
+
     fun bugbearToData(monsterName: String): Bugbear? {
         val name = monsterName.trim()
         if (name.isBlank()) return null

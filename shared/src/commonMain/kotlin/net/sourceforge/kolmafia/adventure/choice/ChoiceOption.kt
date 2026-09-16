@@ -12,4 +12,9 @@ data class ChoiceOption(
     fun decision(defaultIndex1Based: Int): Int = if (option == 0) defaultIndex1Based else option
 
     override fun toString(): String = name
+
+    companion object {
+        /** Desktop [ChoiceAdventures.SKIP_ADVENTURE]. */
+        val SKIP_ADVENTURE: ChoiceOption = ChoiceOption("skip adventure")
+    }
 }

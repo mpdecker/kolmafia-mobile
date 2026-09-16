@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.SessionLogger
+import net.sourceforge.kolmafia.shop.CoinmasterDatabase
 import net.sourceforge.kolmafia.shop.CoinmasterVisitInventory
 import net.sourceforge.kolmafia.shop.ItemStack
 import net.sourceforge.kolmafia.shop.ShopRow
@@ -268,6 +269,9 @@ object FudgeWandRequest {
 }
 
 object SkeletonOfCrimboPastRequest {
+    const val SMOKING_POPE = 12052
+    const val SHOP_ID = CoinmasterVisitInventory.SOCP
+
     private val KNUCKLEBONE_PATTERN = Regex(
         """(?:You've.*?got|You.*? have) (?:<b>)?([\d,]+)(?:</b>)? knucklebones?\.""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
@@ -285,6 +289,34 @@ object SkeletonOfCrimboPastRequest {
             return true
         }
         return false
+    }
+
+    /**
+     * Desktop [SkeletonOfCrimboPastRequest.applySpecial] — inject rotating daily special
+     * into the socp visit overlay and drop leftover ids below [SMOKING_POPE].
+     */
+    fun applySpecial(preferences: Preferences?): Boolean {
+        val prefs = preferences ?: return false
+        val itemId = prefs.getInt("_crimboPastDailySpecialItem", 0)
+        val price = prefs.getInt("_crimboPastDailySpecialPrice", 0)
+        if (itemId <= 0 || price <= 0) return false
+        val master = CoinmasterDatabase.findByNickname("socp")
+            ?: CoinmasterDatabase.findByShopId(SHOP_ID)
+        val staticRows = master?.buyItems.orEmpty().filter { row ->
+            !row.item.isSkill && row.item.itemId >= SMOKING_POPE
+        }
+        val existing = CoinmasterVisitInventory.findBuyRow(SHOP_ID, itemId)
+        if (existing != null && (existing.costs.firstOrNull()?.count ?: existing.price) == price) {
+            return true
+        }
+        val special = ShopRow(
+            rowId = 0,
+            item = ItemStack(itemId, 1),
+            costs = listOf(ItemStack(MiscShopTokenResponseParse.KNUCKLEBONE, price)),
+            price = price,
+        )
+        CoinmasterVisitInventory.replaceBuyRows(SHOP_ID, staticRows + special)
+        return true
     }
 
     fun parseResponse(
@@ -308,6 +340,7 @@ object SkeletonOfCrimboPastRequest {
                     count,
                 )
             }
+        applySpecial(prefs)
     }
 }
 

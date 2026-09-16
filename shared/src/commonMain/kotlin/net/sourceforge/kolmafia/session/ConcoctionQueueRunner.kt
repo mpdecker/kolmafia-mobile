@@ -229,7 +229,12 @@ class ConcoctionQueueRunner(
             ConcoctionConsumptionType.SPIRIT_HOBO,
             ConcoctionConsumptionType.SLIMELING,
             -> use.binge(itemId, quantity).fold(
-                onSuccess = { QueueProcessOutcome(Result.success(Unit)) },
+                onSuccess = {
+                    if (type == ConcoctionConsumptionType.SLIMELING) {
+                        SlimeStackManager.recordFeed(itemId, quantity, preferences)
+                    }
+                    QueueProcessOutcome(Result.success(Unit))
+                },
                 onFailure = { QueueProcessOutcome(Result.failure(it), requeueEligible = true) },
             )
             else -> QueueProcessOutcome(Result.success(Unit))

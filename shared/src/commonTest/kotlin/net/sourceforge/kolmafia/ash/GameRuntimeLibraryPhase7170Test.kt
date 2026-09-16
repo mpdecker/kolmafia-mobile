@@ -17,7 +17,7 @@ import net.sourceforge.kolmafia.request.NuggletCraftingRequestHub
 
 /**
  * Focused HTTP Residual LV Track A coverage (phases 7151–7170).
- * Parent wrap bumps REVISION to phase7210.
+ * Parent wrap bumps REVISION to phase7330.
  */
 class GameRuntimeLibraryPhase7170Test {
 

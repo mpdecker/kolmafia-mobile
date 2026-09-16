@@ -115,6 +115,11 @@ object CoinmasterDatabase {
             } else if (swaggerVisited) {
                 CoinmasterVisitInventory.findBuyRow(CoinmasterVisitInventory.SWAGGER, itemId)
                     ?.let { return master to it }
+            } else if (master.nickname.equals("socp", ignoreCase = true) &&
+                CoinmasterVisitInventory.hasVisited(CoinmasterVisitInventory.SOCP)
+            ) {
+                CoinmasterVisitInventory.findBuyRow(CoinmasterVisitInventory.SOCP, itemId)
+                    ?.let { return master to it }
             }
         }
         for (master in masters) {

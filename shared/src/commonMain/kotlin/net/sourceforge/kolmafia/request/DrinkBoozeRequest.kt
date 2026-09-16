@@ -123,8 +123,22 @@ class DrinkBoozeRequest(
         return itemId == ICE_STEIN
     }
 
-    internal companion object {
+    companion object {
         private const val ICE_STEIN = 1618
+
+        /** Desktop [DrinkItemRequest] mime shotglass / flagellate flagon consume side effects. */
+        fun parseDrinkHelpers(responseText: String, preferences: Preferences?) {
+            val prefs = preferences ?: return
+            if (responseText.contains("You pour your drink into your mime army shotglass")) {
+                prefs.setBoolean("_mimeArmyShotglassUsed", true)
+            }
+            if (responseText.contains("You pour your drink into your flagellate flagon.")) {
+                prefs.setInt(
+                    "flagellateFlagonsActive",
+                    (prefs.getInt("flagellateFlagonsActive", 0) - 1).coerceAtLeast(0),
+                )
+            }
+        }
 
         internal fun isDrinkAbort(responseText: String): Boolean =
             responseText.contains("too drunk", ignoreCase = true) ||

@@ -1,5 +1,6 @@
 package net.sourceforge.kolmafia.adventure.prep
 
+import net.sourceforge.kolmafia.adventure.choice.ItemPool
 import net.sourceforge.kolmafia.data.AdventureZone
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.equipment.OutfitManager
@@ -7,6 +8,7 @@ import net.sourceforge.kolmafia.item.RetrieveItemService
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.UseItemRequest
+import net.sourceforge.kolmafia.session.HobopolisManager
 
 /**
  * Desktop [KoLAdventure.prepareForAdventure] high-traffic action clusters
@@ -74,6 +76,19 @@ object AdventurePrepareActions {
         if (locationName.contains("Guano Junction", ignoreCase = true)) {
             val levels = deps.stenchResistanceLevels?.invoke()
             if (levels != null && levels < 1) return false
+        }
+
+        if (locationName.equals(HobopolisManager.SEWER_LOCATION, ignoreCase = true)) {
+            val err = HobopolisManager.sewerPrepError(
+                requireSewerTestItems = ctx.prefBool(HobopolisManager.REQUIRE_SEWER_TEST_ITEMS),
+                hasEquippedUmbrella = ctx.hasEquipped(ItemPool.GATORSKIN_UMBRELLA),
+                hasEquippedBinder = ctx.hasEquipped(ItemPool.HOBO_CODE_BINDER),
+                hasSewerWad = ctx.hasItem(ItemPool.SEWER_WAD),
+                hasOozeO = ctx.hasItem(ItemPool.OOZE_O),
+                hasDumplings = ctx.hasItem(ItemPool.DUMPLINGS),
+                hasOilOfOiliness = ctx.hasItem(ItemPool.OIL_OF_OILINESS, 3),
+            )
+            if (err != null) return false
         }
 
         when {

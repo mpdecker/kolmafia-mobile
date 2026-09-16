@@ -93,20 +93,57 @@ open class TcrsCliManager(
     }
 
     fun derive(itemId: Int?): String {
+        val state = character?.state?.value ?: return "Character state is unavailable."
+        if (!state.inTwoCrazyRandomSummer) {
+            return "You are not in a Two Crazy Random Summer run"
+        }
+        val (className, sign) = identity() ?: return "Current class/sign is not valid for TCRS."
+        if (itemId != null) {
+            val entry = TCRSDatabase.deriveAndSaveItem(className, sign, itemId)
+                ?: return "Could not derive item #$itemId."
+            return formatEntry(itemId, entry)
+        }
+        val ok = TCRSDatabase.derive(className, sign)
+        return if (ok) {
+            "Derived ${TCRSDatabase.entryCount()} items " +
+                "(${TCRSDatabase.cafeBoozeCount()} cafe booze, ${TCRSDatabase.cafeFoodCount()} cafe food)."
+        } else {
+            "Could not derive TCRS data for $className, $sign."
+        }
+    }
+
+    fun introspect(itemId: Int?): String {
+        val state = character?.state?.value ?: return "Character state is unavailable."
+        if (!state.inTwoCrazyRandomSummer) {
+            return "You are not in a Two Crazy Random Summer run"
+        }
         if (identity() == null) return "Current class/sign is not valid for TCRS."
         if (itemId != null) {
             val cached = TCRSDeriver.deriveFromCache(itemId)
             if (cached != null) {
                 TCRSDatabase.putDerivedEntry(itemId, cached)
-                return "Derived item #$itemId: ${formatEntry(itemId, cached)}"
+                return formatEntry(itemId, cached)
             }
-            return "No cached description for item #$itemId; visit desc_item first or use fetched TCRS data."
+            return "No cached description for item #$itemId; visit desc_item first."
         }
-        return if (TCRSDatabase.isLoaded()) {
-            "Derived ${TCRSDatabase.entryCount()} loaded TCRS entries; use `tcrs check <item id>` to inspect one."
-        } else {
-            "No TCRS data loaded; use `tcrs fetch` or `tcrs load` first."
+        var count = 0
+        for (id in net.sourceforge.kolmafia.data.ItemDatabase.allIds().sorted()) {
+            val cached = TCRSDeriver.deriveFromCache(id) ?: continue
+            if (TCRSDatabase.getEntry(id) != null) continue
+            TCRSDatabase.putDerivedEntry(id, cached)
+            count++
         }
+        return "Introspected $count new items from cached descriptions."
+    }
+
+    fun update(): String {
+        val state = character?.state?.value ?: return "Character state is unavailable."
+        if (!state.inTwoCrazyRandomSummer) {
+            return "You are not in a Two Crazy Random Summer run"
+        }
+        val (className, sign) = identity() ?: return "Current class/sign is not valid for TCRS."
+        val count = TCRSDatabase.update(className, sign)
+        return "Updated $count TCRS items."
     }
 
     fun check(itemId: Int): String {

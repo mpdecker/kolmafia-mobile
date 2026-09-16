@@ -20,7 +20,7 @@ import net.sourceforge.kolmafia.shop.ResidualLegacyShopAccessibility
 
 /**
  * Focused HTTP Residual LIII Track A–C coverage (phases 7031–7090).
- * Parent wrap bumps REVISION to phase7210.
+ * Parent wrap bumps REVISION to phase7330.
  */
 class GameRuntimeLibraryPhase7050Test {
 
@@ -35,7 +35,7 @@ class GameRuntimeLibraryPhase7050Test {
 
     @Test
     fun revision_isPhase7090() {
-        assertEquals("phase7210", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
     }
 
     @Test

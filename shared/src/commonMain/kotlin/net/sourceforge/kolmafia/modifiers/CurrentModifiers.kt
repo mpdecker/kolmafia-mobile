@@ -393,6 +393,18 @@ class CurrentModifiers(
             doubles = mapOf(DoubleModifier.MONSTER_LEVEL to mcdLevel.toDouble()),
         )
 
+        // 11b. Slime Tube hatred ML (desktop KoLCharacter.recalculateAdjustments)
+        val location = preferences?.getString("lastAdventure", "").orEmpty()
+        if (location.equals("The Slime Tube", ignoreCase = true)) {
+            val hatred = total.get(DoubleModifier.SLIME_HATES_IT).toInt()
+            if (hatred > 0) {
+                val ml = min(1000.0, 15.0 * hatred * (hatred + 2))
+                total = total + ModifierValues(
+                    doubles = mapOf(DoubleModifier.MONSTER_LEVEL to ml),
+                )
+            }
+        }
+
         // 12. Custom overlay (desktop MaximizerSpeculation.setCustom — noobcore absorb)
         val overlay = customModifierOverlay?.takeIf { it.isNotBlank() }
             ?: greyYouOverlay(state)

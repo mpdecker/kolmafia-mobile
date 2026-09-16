@@ -810,6 +810,13 @@ object ResultProcessor {
                 autoCreate(ItemPool.MCCLUSKY_FILE, prefs, inv, quests)
 
             // ── Track C: IoTM / familiar drop counters ───────────────────────
+            ItemPool.SLIME_STACK ->
+                if (adventureResults) {
+                    SlimeStackManager.recordStackDrop(
+                        prefs,
+                        characterProvider?.invoke()?.state?.value?.familiarId ?: 0,
+                    )
+                }
             ItemPool.AGUA_DE_VIDA ->
                 if (adventureResults) prefs.setInt("_aguaDrops", prefs.getInt("_aguaDrops", 0) + 1)
             ItemPool.DEVILISH_FOLIO ->

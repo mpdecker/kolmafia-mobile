@@ -28,6 +28,26 @@ class PHPRandom(seed: Long) {
         return min + clamped.toInt()
     }
 
+    /**
+     * Desktop [PHPRandom.array] — pick [required] distinct indices from `[0, size)`
+     * without replacement, using the glibc rand stream.
+     */
+    fun array(size: Int, required: Int): IntArray {
+        val n = minOf(required, size)
+        if (n <= 0 || size <= 0) return IntArray(0)
+        val result = IntArray(n)
+        var j = 0
+        var i = 0
+        while (i < size && j < n) {
+            val chance = (n - j) / (size - i).toDouble()
+            if (nextDouble() < chance) {
+                result[j++] = i
+            }
+            i++
+        }
+        return result
+    }
+
     fun setSeed(seed: Long) {
         state.clear()
         state.add(seed.toInt())

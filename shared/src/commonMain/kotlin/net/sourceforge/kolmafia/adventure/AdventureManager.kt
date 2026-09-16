@@ -25,12 +25,14 @@ import net.sourceforge.kolmafia.session.FightStructuralSync
 import net.sourceforge.kolmafia.session.FightDiscoComboSync
 import net.sourceforge.kolmafia.session.FightDomSync
 import net.sourceforge.kolmafia.session.FightFamiliarMessageSync
+import net.sourceforge.kolmafia.session.HobopolisManager
 import net.sourceforge.kolmafia.session.JourneyManager
 import net.sourceforge.kolmafia.session.LeprecondoManager
 import net.sourceforge.kolmafia.session.FightFinalRoundSync
 import net.sourceforge.kolmafia.session.FightIotmSync
 import net.sourceforge.kolmafia.session.FightIotmResidualSync
 import net.sourceforge.kolmafia.session.StillSuitManager
+import net.sourceforge.kolmafia.session.SlimeTubeManager
 import net.sourceforge.kolmafia.session.CrystalBallManager
 import net.sourceforge.kolmafia.adventure.choice.ItemPool
 import net.sourceforge.kolmafia.session.FightMonsterHealthSync
@@ -1753,6 +1755,14 @@ open class AdventureManager(
                 })
             }
             eventBus.emit(GameEvent.ChoiceResolved(currentChoiceId, option))
+            HobopolisManager.consumePendingStop()?.let { wait ->
+                eventBus.emit(
+                    GameEvent.AdventureLoopStopped(
+                        StopReason.AdventureFailure(wait, pending = currentChoiceId != SlimeTubeManager.SHOWDOWN_CHOICE),
+                    ),
+                )
+                return AdventureResult.Choice(currentChoiceId, "Choice Adventure", chosenOption = option)
+            }
             if (goalManager.hasChoiceAdventureGoal()) {
                 goalManager.noteChoiceAdventureCompleted()
                 if (!goalManager.hasChoiceAdventureGoal()) {

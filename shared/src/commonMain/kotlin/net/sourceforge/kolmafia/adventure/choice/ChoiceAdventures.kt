@@ -15,6 +15,9 @@ import net.sourceforge.kolmafia.session.GoalManager
  */
 object ChoiceAdventures {
 
+    /** Desktop [ChoiceAdventures.SKIP_ADVENTURE]. */
+    val SKIP_ADVENTURE: ChoiceOption = ChoiceOption.SKIP_ADVENTURE
+
     data class Spoilers(
         val choice: Int,
         val name: String,
@@ -56,23 +59,50 @@ object ChoiceAdventures {
         html: String = ChoiceCombatAshState.lastChoiceResponseText,
     ): Spoilers? {
         if (choice <= 0) return null
+        // Desktop order: dynamic first, then Violet Fog / Louvre / Monorail.
+        DynamicChoiceSpoilers.choiceSpoilers(choice)?.let { return it }
         VioletFogManager.choiceSpoilers(choice)?.let { return it }
         LouvreManager.choiceSpoilers(choice)?.let { return it }
         MonorailChoiceSync.choiceSpoilers(choice, html)?.let { return it }
-        DynamicChoiceSpoilers.choiceSpoilers(choice)?.let { return it }
+        // Desktop returns null so catalog/solver goals are not appended as spoilers.
+        if (choice == 535 || choice == 536 || choice == 546 || choice == 594) return null
         return adventures[choice]?.spoilers() ?: spoilers[choice]?.spoilers()
     }
 
-    fun findOption(options: List<ChoiceOption?>, decision: Int): ChoiceOption? {
+    /**
+     * Desktop [ChoiceAdventure.getOptions] — empty catalog rows fall through to
+     * [DynamicChoiceSpoilers.dynamicChoiceOptions].
+     */
+    fun optionsFor(choice: Int): List<ChoiceOption>? {
+        val registered = entry(choice)
+        if (registered != null && registered.options.isNotEmpty()) {
+            return registered.options
+        }
+        val dynamic = DynamicChoiceSpoilers.dynamicChoiceOptions(choice)
+            .mapNotNull { it }
+        if (dynamic.isNotEmpty()) return dynamic
+        return registered?.options
+    }
+
+    fun findOption(options: Iterable<ChoiceOption?>, decision: Int): ChoiceOption? {
         options.forEachIndexed { index, opt ->
             if (opt != null && opt.decision(index + 1) == decision) return opt
         }
         return null
     }
 
-    fun choiceSpoiler(choice: Int, decision: Int, options: List<ChoiceOption?>? = choiceSpoilers(choice)?.options): ChoiceOption? {
+    fun choiceSpoiler(choice: Int, decision: Int, options: Iterable<ChoiceOption?>? = choiceSpoilers(choice)?.options): ChoiceOption? {
         if (choice == 105 && decision == 3) {
-            return ChoiceOption("guy made of bees")
+            net.sourceforge.kolmafia.character.KoLCharacter.ensureUpdatedGuyMadeOfBees(
+                DynamicChoiceSpoilers.preferences,
+                DynamicChoiceSpoilers.ascensions(),
+            )
+            val prefs = DynamicChoiceSpoilers.preferences
+            if (prefs?.getBoolean("guyMadeOfBeesDefeated", false) == true) {
+                return ChoiceOption("guy made of bees: defeated")
+            }
+            val count = prefs?.getString("guyMadeOfBeesCount", "0") ?: "0"
+            return ChoiceOption("guy made of bees: called $count times")
         }
         if (choice == 182 && decision == 4) {
             return ChoiceOption("model airship")
@@ -101,7 +131,7 @@ object ChoiceAdventures {
         hasItem: (String) -> Boolean,
     ): Int {
         if (decision == 0) return 0
-        val options = entry(choice)?.options ?: return decision
+        val options = optionsFor(choice) ?: return decision
         if (options.isEmpty()) return decision
         var anyItems = false
         options.forEachIndexed { index, opt ->

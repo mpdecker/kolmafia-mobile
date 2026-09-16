@@ -90,6 +90,7 @@ object FightFamiliarMessageSync {
             goalManager = goalManager,
         )
         changed = applyBellydancer(html, preferences) || changed
+        changed = SlimeStackManager.recordFightLeaps(html, preferences) || changed
         when {
             familiarId == FAMILIAR_GHOST_COMMERCE ||
                 familiarImage.contains("cghost_commerce", ignoreCase = true) ->
