@@ -20,6 +20,7 @@ import net.sourceforge.kolmafia.data.ChezSnooteeDatabase
 import net.sourceforge.kolmafia.data.ConcoctionConsumptionType
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionMayoQueue
+import net.sourceforge.kolmafia.data.ConcoctionRecipeCli
 import net.sourceforge.kolmafia.data.ConsumableType
 import net.sourceforge.kolmafia.data.DefaultsDatabase
 import net.sourceforge.kolmafia.data.EffectDatabase
@@ -141,6 +142,7 @@ internal fun GameRuntimeLibrary.runBanishesCli(rt: AshRuntimeContext) {
 internal fun GameRuntimeLibrary.runRecipeCli(cmd: String, params: String, rt: AshRuntimeContext) {
     val names = params.split(',').map { it.trim() }.filter { it.isNotBlank() }
     if (names.isEmpty()) return
+    val tripleReagent = character?.state?.value?.isSauceror == true
     names.forEachIndexed { index, raw ->
         val prefix = if (names.size > 1) "${index + 1}. " else ""
         val itemId = resolveCliItemName(raw)
@@ -151,16 +153,9 @@ internal fun GameRuntimeLibrary.runRecipeCli(cmd: String, params: String, rt: As
             return@forEachIndexed
         }
         if (cmd.equals("ingredients", ignoreCase = true)) {
-            val parts = concoction.ingredients.joinToString(", ") { ing ->
-                val have = inventoryCountNamed(ing.name)
-                val missing = (ing.quantity - have).coerceAtLeast(0)
-                "${ing.quantity} ${ing.name}" + if (missing > 0) " (need $missing)" else ""
-            }
-            rt.print("$prefix$name: $parts")
+            rt.print(prefix + ConcoctionRecipeCli.formatIngredients(concoction, ::inventoryCountNamed, tripleReagent))
         } else {
-            val type = concoction.craftTypeDescription()
-            val parts = concoction.ingredients.joinToString(" + ") { "${it.quantity} ${it.name}" }
-            rt.print("$prefix$name ($type): $parts")
+            rt.print(prefix + ConcoctionRecipeCli.formatRecipe(concoction, tripleReagent))
         }
     }
 }
@@ -2304,6 +2299,7 @@ internal fun GameRuntimeLibrary.runConditionCli(parameters: String, rt: AshRunti
             rt.print("Conditions list cleared.")
         }
         lower == "list" -> goalManager?.allGoalsAsStrings()?.forEach { rt.print(it) }
+        lower == "check" -> runConditionCheckCli(rt)
         lower.startsWith("add ") -> applyConditions(raw.substring(4).trim(), GoalManager.ConditionMode.ADD, rt)
         lower.startsWith("remove ") -> applyConditions(raw.substring(7).trim(), GoalManager.ConditionMode.REMOVE, rt)
         lower.startsWith("set ") -> applyConditions(raw.substring(4).trim(), GoalManager.ConditionMode.SET, rt)
@@ -2873,32 +2869,32 @@ internal fun GameRuntimeLibrary.runPoolSkillCli(rt: AshRuntimeContext) {
 
 internal val IMPLEMENTED_CLI_COMMANDS = listOf(
     "aa", "abort", "absorb", "absorptions", "accordions", "acquire", "actionbar", "adv", "adventure", "alias", "alliedradio",
-    "ash", "ashq", "ashref", "ashwiki", "ascensionhistory", "attack", "autoattack", "automall", "autosell", "autumnaton", "backupcamera",
-    "badmoon", "bake", "bang", "banishes", "baron", "basement", "beach", "bjornify", "boombox", "bootskin",
+    "aprilband", "asdonmartin", "ash", "ashq", "ashref", "ashwiki", "ascensionhistory", "attack", "autoattack", "automall", "autosell", "autumnaton", "backupcamera",
+    "badmoon", "bake", "ballpit", "bang", "banishes", "baron", "barrelprayer", "basement", "beach", "bjornify", "boombox", "bootskin",
     "bootspur", "bounty", "breakfast", "budget", "buff", "buffbot", "bugbears", "burn", "buy", "cache",
-    "call", "campground", "cardsleeve", "cargo", "cast", "ccs", "cheapest", "cheat", "checkpoint", "chew",
-    "chewqueue", "chibi", "chips", "choice", "choice-goal", "cleanup", "closet", "cmc", "coinmaster", "condition", "condref",
-    "clan", "complete",
-    "council", "counters", "create", "createqueue", "crimbotrain", "csend", "dad", "demons", "devilcandyegg", "display", "donate",
-    "drink", "drinkqueue", "drinksilent", "dusty", "dvorak", "eat", "eatqueue", "eatsilent", "echo", "editmood",
-    "edpiece", "effects", "else", "elseif", "encounters", "enthrone", "equip", "events", "exit", "expensive",
-    "fallguy", "fax", "faxbot", "fecho", "field", "find", "flea", "fleamarket", "flicker", "florist", "fold", "folders", "foresee",
-    "fprint", "garden", "get", "ghostqueue", "gift", "gong", "gooskills", "gourd", "grandpa", "greyyou",
-    "hagnk", "heist", "help", "hermit", "hoboqueue", "holiday", "horsery", "hottub", "if", "ingredients",
-    "inv", "inventory", "jillcandle", "journey", "junk", "kgb", "kmail", "latte", "leaves", "ledcandle", "leprecondo",
-    "location", "locations", "logecho", "logout", "logprint", "lookup", "macro", "mail", "make", "mallbuy",
-    "mallsell", "maximize", "mayam", "mcd", "min", "mind-control", "mix", "modifiers", "modifies", "modref",
-    "monsters", "mood", "moon", "moons", "mummery", "nemesis", "note", "numberology", "ocean", "olfact",
-    "olfaction", "outfit", "overdrink", "panda", "parka", "ping", "pingpong", "play", "ply", "prefref", "print", "profile",
-    "pull", "pulverize", "putty", "pvp", "quark", "quit", "raffle", "recipe", "recover", "refresh",
-    "relog", "relogin", "remedy", "reminisce", "remove", "repeat", "reprice", "rest", "restore", "retrieve",
-    "retrocape", "roboequeue", "saber", "safe", "searchmall", "sell", "send", "servant", "servants", "session",
-    "set", "shrug", "skeeball", "skill", "skills", "slime-stack", "slime-stacks", "slimestack", "slimelingqueue", "smash", "smith", "snapper", "snowsuit",
-    "soak", "spade", "speculate", "spookyraven", "squeeze", "stash", "stash-log", "status", "sticker", "stickers", "storage", "summary", "summon",
-    "sven", "taleofdread", "tavern", "teatree", "terminal", "thralls", "throw", "timein", "timeout", "timespinner",
-    "tcrs", "tinker", "train", "trigger", "try", "umbrella", "unalias", "undercut", "uneffect", "unequip", "untinker",
-    "use", "usequeue", "validate", "verify", "version", "vise", "volcano", "wait", "waitq", "which",
-    "while", "wiki", "witchess", "zap",
+    "call", "camp", "campaway", "campground", "cardsleeve", "cargo", "cast", "ccs", "cheapest", "cheat", "checkpoint", "chew",
+    "chewqueue", "chess", "chibi", "chips", "choice", "choice-goal", "cleanup", "clear", "closet", "cls", "cmc", "coinmaster", "colorecho", "combat",
+    "condition", "condref", "concert", "clan", "complete", "correspondent", "council", "counters", "create", "createqueue",
+    "crimbotree", "crimbotrain", "crossstreams", "csend", "dad", "daycare", "demons", "devilcandyegg", "disable", "display", "donate",
+    "door", "dreadscroll", "drink", "drinkqueue", "drinksilent", "dualwield", "dusty", "dvorak", "eat", "eatqueue", "eatsilent", "echo", "editmood",
+    "edpiece", "effects", "else", "elseif", "enable", "encounters", "enthrone", "equip", "eudora", "events", "exec", "execute", "exit", "expensive",
+    "factory", "fallguy", "familiar", "fax", "faxbot", "fecho", "field", "find", "flea", "fleamarket", "flicker", "florist", "flowers", "fold", "folders", "foresee",
+    "fortune", "fprint", "friars", "gap", "garden", "genie", "get", "ghost", "ghostqueue", "gift", "goal", "goals", "gong", "gooskills", "gourd", "grandpa", "greyyou", "grim",
+    "guild", "guzzlr", "hagnk", "hatter", "heist", "help", "hermit", "hobo", "hoboqueue", "hold", "holiday", "horsery", "hottub", "if", "ingredients",
+    "insults", "inv", "inventory", "jillcandle", "journey", "jukebox", "junk", "kgb", "kitchen", "kmail", "latte", "leaves", "ledcandle", "leaflet", "leprecondo",
+    "load", "loathingidol", "location", "locations", "log", "logecho", "login", "logout", "logprint", "lookup", "lowkey", "macro", "mail", "make", "mallbuy",
+    "mallsell", "maximize", "mayam", "mayominder", "mayosoak", "maze", "mcd", "min", "mind-control", "mix", "modifiers", "modifies", "modref", "mom", "monkeypaw",
+    "monorail", "monsters", "mood", "moon", "moons", "mpitems", "mummery", "nemesis", "neweffect", "note", "numberology", "nuns", "ocean", "olfact",
+    "olfaction", "outfit", "overdrink", "panda", "parka", "pass", "passive", "photobooth", "pillkeeper", "ping", "pingpong", "play", "ply", "pool", "poolskill",
+    "prefref", "print", "profile", "pull", "pulverize", "putty", "pvp", "quark", "quit", "raffle", "recipe", "recover", "refresh",
+    "relog", "relogin", "remedy", "reminisce", "remove", "repeat", "reprice", "reset", "rest", "restaurant", "restore", "retrieve",
+    "retrocape", "robo", "roboequeue", "run", "saber", "safe", "save as mood", "searchmall", "second", "self", "sell", "send", "servant", "servants", "session",
+    "set", "shop", "shower", "shrug", "skeeball", "skeleton", "skill", "skills", "skate", "slimeling", "slime-stack", "slime-stacks", "slimestack", "slimelingqueue", "smash", "smith", "snapper", "snowsuit",
+    "soak", "sofa", "spacegate", "spade", "speculate", "spoon", "spookyraven", "squeeze", "start", "stash", "stash-log", "status", "sticker", "stickers", "storage", "styx", "summary", "summon",
+    "swagger", "sven", "swim", "synthesize", "taleofdread", "tavern", "teatree", "telescope", "terminal", "text", "thralls", "throw", "timein", "timeout", "timespinner",
+    "tcrs", "tinker", "toggle", "tower", "train", "trigger", "try", "umbrella", "unalias", "undercut", "uneffect", "unequip", "untinker", "up", "update",
+    "use", "usequeue", "validate", "verify", "version", "vise", "volcano", "wait", "waitq", "wear", "wereprofessor", "whatif", "which",
+    "while", "wield", "wiki", "witchess", "wumpus", "zap",
 )
 
 internal fun GameRuntimeLibrary.runHelpCli(parameters: String, rt: AshRuntimeContext) {

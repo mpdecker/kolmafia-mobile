@@ -11,7 +11,9 @@ object MallSearchRelayHook {
         passwordHash: String = "",
         playerId: Int = 0,
     ): String {
-        if (preferences?.getBoolean("relayActive", false) != true) return html
+        val active = preferences?.getBoolean("relayActive", false) == true ||
+            net.sourceforge.kolmafia.webui.RelayServer.isRunning()
+        if (!active) return html
         if (!html.contains("mall.php", ignoreCase = true) &&
             !html.contains("graybelow", ignoreCase = true)
         ) {

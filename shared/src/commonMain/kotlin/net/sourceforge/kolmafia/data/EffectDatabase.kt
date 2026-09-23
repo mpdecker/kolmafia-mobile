@@ -250,6 +250,27 @@ object EffectDatabase {
 
     }
 
+    /**
+     * Desktop EffectDatabase.learnEffectId / registerEffect — runtime visit-learned effect.
+     * Returns assigned id (negative for runtime-only when unknown).
+     */
+    fun registerRuntimeEffect(name: String, descId: String): Int {
+        getByDescId(descId)?.let { return it.id }
+        getByName(name)?.let { return it.id }
+        val id = -1 - byDescId.size
+        val effect = EffectData(
+            id = id,
+            name = name,
+            image = "",
+            descId = descId,
+            quality = EffectQuality.NEUTRAL,
+            attributes = emptySet(),
+            actions = null,
+        )
+        putEffect(effect)
+        return id
+    }
+
 
 
     internal fun resetForTest() {

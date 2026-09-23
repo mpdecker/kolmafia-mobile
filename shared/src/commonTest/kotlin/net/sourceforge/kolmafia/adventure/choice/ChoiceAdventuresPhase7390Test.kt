@@ -13,7 +13,7 @@ import net.sourceforge.kolmafia.session.ChoiceCombatAshState
 import net.sourceforge.kolmafia.session.DynamicChoiceSpoilers
 import net.sourceforge.kolmafia.session.WumpusManager
 
-class ChoiceAdventuresphase7510Test {
+class ChoiceAdventuresphase7630Test {
 
     @BeforeTest
     fun setUp() {

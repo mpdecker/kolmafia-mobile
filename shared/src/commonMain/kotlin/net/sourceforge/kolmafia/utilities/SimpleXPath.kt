@@ -9,6 +9,7 @@ import net.sourceforge.kolmafia.ash.ScriptException
  * Phase 6011–6025 (XXXVI): `contains(@attr,'lit')`, numeric position `[n]` /
  * `[last()]`, and mid-path attribute steps `//tag/@attr`.
  * Phase 6481–6490 (XLIII-F): child `/text()` and `following-sibling::` axes.
+ * Phase 7571–7630: `starts-with(@attr,'…')`.
  */
 object SimpleXPath {
 
@@ -211,11 +212,16 @@ object SimpleXPath {
                 }
                 else -> {
                     val contains = CONTAINS_PRED.matchEntire(body)
+                    val startsWith = STARTS_WITH_PRED.matchEntire(body)
                     val exact = EXACT_ATTR_PRED.matchEntire(body)
                     when {
                         contains != null -> attrPredicates += AttrPredicate.Contains(
                             contains.groupValues[1].lowercase(),
                             contains.groupValues[3],
+                        )
+                        startsWith != null -> attrPredicates += AttrPredicate.StartsWith(
+                            startsWith.groupValues[1].lowercase(),
+                            startsWith.groupValues[3],
                         )
                         exact != null -> attrPredicates += AttrPredicate.Exact(
                             exact.groupValues[1].lowercase(),
@@ -238,6 +244,7 @@ object SimpleXPath {
             when (pred) {
                 is AttrPredicate.Exact -> value == pred.value
                 is AttrPredicate.Contains -> value.contains(pred.value)
+                is AttrPredicate.StartsWith -> value.startsWith(pred.value)
             }
         }
     }
@@ -293,6 +300,7 @@ object SimpleXPath {
         abstract val name: String
         data class Exact(override val name: String, val value: String) : AttrPredicate()
         data class Contains(override val name: String, val value: String) : AttrPredicate()
+        data class StartsWith(override val name: String, val value: String) : AttrPredicate()
     }
 
     private sealed class PositionPredicate {
@@ -310,4 +318,6 @@ object SimpleXPath {
         Regex("""^@([A-Za-z_][\w-]*)\s*=\s*(['"])(.*?)\2$""")
     private val CONTAINS_PRED =
         Regex("""^contains\(\s*@([A-Za-z_][\w-]*)\s*,\s*(['"])(.*?)\2\s*\)$""", RegexOption.IGNORE_CASE)
+    private val STARTS_WITH_PRED =
+        Regex("""^starts-with\(\s*@([A-Za-z_][\w-]*)\s*,\s*(['"])(.*?)\2\s*\)$""", RegexOption.IGNORE_CASE)
 }

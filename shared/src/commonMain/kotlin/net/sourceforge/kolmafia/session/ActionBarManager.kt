@@ -21,4 +21,23 @@ object ActionBarManager {
         initialJson = ""
         currentJson = ""
     }
+
+    /**
+     * Desktop [ActionBarManager.updateJSONString] — relay actionbar.php fetch/set.
+     * Returns true when the request was fully handled as a pseudo-response.
+     */
+    fun updateJSONString(request: net.sourceforge.kolmafia.request.RelayRequest): Boolean {
+        val action = request.getFormField("action")
+        if (action != null && action.equals("fetch", ignoreCase = true)) {
+            request.contentType = "application/json; charset=UTF-8"
+            request.pseudoResponse("HTTP/1.1 200 OK", currentJson.ifBlank { "{}" })
+            return true
+        }
+        val bar = request.getFormField("bar")
+        if (bar != null) {
+            currentJson = bar
+        }
+        // Non-fetch: fall through to KoL proxy after caching locally.
+        return false
+    }
 }

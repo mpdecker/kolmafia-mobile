@@ -64,7 +64,8 @@ internal fun GameRuntimeLibrary.registerAshP8Batch(scope: AshScope) {
                 AshType.BOOLEAN -> AshValue.of(if (args[0].toBoolean()) 1.0 else 0.0)
                 AshType.INT -> AshValue.of(args[0].toDouble())
                 AshType.FLOAT -> args[0]
-                else -> AshValue.of(0.0)
+                AshType.BUFFER -> AshValue.of(args[0].toString().toDoubleOrNull() ?: 0.0)
+                else -> AshValue.of(entityToInt(captured, args[0].toString()).toDouble())
             }
         }
     }
@@ -243,7 +244,7 @@ private fun GameRuntimeLibrary.resolveModifierEntry(type: AshType, ref: String):
         AshType.EFFECT -> db.effectModifier(ref)
         AshType.SKILL -> db.skillModifier(ref) ?: ref.toIntOrNull()?.let { db.skillModifier(it) }
         AshType.FAMILIAR -> db.familiarModifier(ref) ?: ref.toIntOrNull()?.let { db.familiarModifier(it) }
-        AshType.LOCATION -> null
+        AshType.LOCATION -> db?.locationModifier(ref)
         AshType.MONSTER -> null
         else -> null
     }

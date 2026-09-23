@@ -36,6 +36,19 @@ object CampgroundItemSync {
         "cmcabinet.gif" to 10815,
     )
 
+    var currentBedItemId: Int = 0
+        private set
+
+    /** Desktop [CampgroundRequest.setCurrentBed]. */
+    fun setCurrentBed(prefs: Preferences?, itemId: Int) {
+        if (itemId <= 0) return
+        if (currentBedItemId > 0 && currentBedItemId != itemId) {
+            CampgroundInventorySync.setItem(prefs, currentBedItemId, 0)
+        }
+        currentBedItemId = itemId
+        CampgroundInventorySync.setItem(prefs, itemId, 1)
+    }
+
     fun currentWorkshedItemId(prefs: Preferences?): Int =
         prefs?.getInt(CURRENT_WORKSHED_ITEM_ID_PREF, -1) ?: -1
 

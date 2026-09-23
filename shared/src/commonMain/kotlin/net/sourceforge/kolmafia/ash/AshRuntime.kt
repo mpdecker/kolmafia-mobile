@@ -14,7 +14,7 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
 
     internal val globalScope = AshScope().also { library.registerAll(it) }
 
-    fun execute(script: List<ParseTreeNode>): AshValue {
+    fun execute(script: List<ParseTreeNode>, executeTopLevel: Boolean = true): AshValue {
         controlFlow = ControlFlow.NORMAL
         returnValue = AshValue.VOID
         output.clear()
@@ -23,6 +23,7 @@ class AshRuntime(private val library: RuntimeLibrary) : AshRuntimeContext {
             is FunctionDefNode -> globalScope.declareFunction(node.function)
             else -> { }
         }
+        if (!executeTopLevel) return AshValue.VOID
         val scope = globalScope.child()
         for (node in script) {
             if (node is FunctionDefNode || node is RecordDefNode) continue

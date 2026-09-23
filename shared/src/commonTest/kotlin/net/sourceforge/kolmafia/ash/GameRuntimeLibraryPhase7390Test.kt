@@ -7,14 +7,14 @@ import net.sourceforge.kolmafia.session.DynamicChoiceSpoilers
 
 /**
  * Dynamic ChoiceAdventures spoilers mega wrap (phases 7331–7390).
- * Parent wrap bumps REVISION to phase7510.
+ * Parent wrap bumps REVISION to phase7390.
  */
-class GameRuntimeLibraryphase7510Test {
+class GameRuntimeLibraryPhase7390Test {
 
     @Test
-    fun revision_isphase7510() {
-        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
-        assertEquals("7510", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
+    fun revision_isPhase7390() {
+        assertEquals("phase7630", GameRuntimeLibrary.REVISION)
+        assertEquals("7630", outputLib(GameRuntimeLibrary(), "print(get_revision());").trim())
     }
 
     @Test

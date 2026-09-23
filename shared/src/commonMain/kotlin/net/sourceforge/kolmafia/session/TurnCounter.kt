@@ -192,6 +192,10 @@ object TurnCounter {
         }
     }
 
+    /** Counters whose absolute turn has been reached or passed. */
+    fun expiredEntries(preferences: Preferences, currentRun: Int): List<Entry> =
+        load(preferences).filter { it.absoluteTurn <= currentRun }
+
     fun turnsRemaining(entry: Entry?, currentRun: Int): Int =
         if (entry == null) -1 else (entry.absoluteTurn - currentRun).coerceAtLeast(0)
 

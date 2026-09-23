@@ -6,6 +6,7 @@ import net.sourceforge.kolmafia.data.ConcoctionData
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ConcoctionIngredient
 import net.sourceforge.kolmafia.data.ConcoctionMeatPasteNeeded
+import net.sourceforge.kolmafia.data.ConcoctionYield
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 
@@ -37,7 +38,7 @@ class CreateItemIngredients(
             }
         }
 
-        val yield = concoction.resultQuantity.coerceAtLeast(1)
+        val yield = ConcoctionYield.getYield(concoction, state?.isSauceror == true)
         val sorted = concoction.ingredients
             .map { ingredient -> ingredient to itemIdFor(ingredient) }
             .filter { (_, itemId) -> itemId != null }

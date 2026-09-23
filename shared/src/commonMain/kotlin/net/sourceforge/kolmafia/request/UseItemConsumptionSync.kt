@@ -6,9 +6,11 @@ import net.sourceforge.kolmafia.data.ConsumableDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.effect.EffectManager
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.session.EquipmentManager
+import net.sourceforge.kolmafia.session.TurnCounter
 
 /**
  * Desktop [UseItemRequest.parseConsumption] hub + Eat/Drink/Spleen delegates
@@ -29,6 +31,14 @@ object UseItemConsumptionSync {
     var lastUpdate: String = ""
         private set
 
+    /**
+     * Set when a desktop `return` kept the item. Skips the post-success
+     * uneffect sweep so a rejected antidote does not clear poison.
+     */
+    @Volatile
+    var suppressEffectRemoval: Boolean = false
+        private set
+
     /** Test / ASH harness hook — desktop UseItemRequest.lastUpdate write-back. */
     fun setLastUpdateForTest(message: String) {
         lastUpdate = message
@@ -36,6 +46,8 @@ object UseItemConsumptionSync {
 
     /** Optional DI for gear-mutation arms (bootskin/folder/sticker/discard). */
     var equipmentManagerProvider: (() -> EquipmentManager?)? = null
+    /** Optional active familiar for protogenetic soup weight. */
+    var familiarManagerProvider: (() -> FamiliarManager?)? = null
     /** Optional active-effect state hook for antidotes, tiny houses, cocoa, and similar removers. */
     var effectManagerProvider: (() -> EffectManager?)? = null
 
@@ -62,7 +74,9 @@ object UseItemConsumptionSync {
         inventory: InventoryManager? = null,
         consumeConfirmed: Boolean = true,
         equipmentManager: EquipmentManager? = equipmentManagerProvider?.invoke(),
+        familiarManager: FamiliarManager? = familiarManagerProvider?.invoke(),
     ): Boolean {
+        suppressEffectRemoval = false
         if (itemId <= 0) return true
         val qty = count.coerceAtLeast(1)
         clearLastItem()
@@ -119,9 +133,10 @@ object UseItemConsumptionSync {
                 parseUse(
                     responseText, itemId, name, qty,
                     preferences, character, inventory, consumeConfirmed,
+                    equipmentManager, familiarManager,
                 )
         }
-        if (success) {
+        if (success && !suppressEffectRemoval) {
             val removed = UneffectRemovableMaps.removableEffectIdsForItem(itemId)
             effectManagerProvider?.invoke()?.removeEffects(removed)
         }
@@ -291,7 +306,48 @@ object UseItemConsumptionSync {
         character: KoLCharacter?,
         inventory: InventoryManager?,
         consumeConfirmed: Boolean,
+        equipmentManager: EquipmentManager?,
+        familiarManager: FamiliarManager?,
     ): Boolean {
+        if (responseText.contains("too full", ignoreCase = true)) {
+            if (itemId == UseItemSideEffectSync.AMINO_ACIDS) {
+                preferences?.setInt("aminoAcidsUsed", 3)
+            }
+            lastUpdate = "Consumption limit reached."
+            return false
+        }
+
+        val side = UseItemSideEffectSync.apply(
+            responseText = responseText,
+            itemId = itemId,
+            count = count,
+            preferences = preferences,
+            character = character,
+            inventory = inventory,
+            equipmentManager = equipmentManager,
+            familiarManager = familiarManager,
+        )
+        when (side.outcome) {
+            UseItemSideEffectSync.Outcome.ABORT -> {
+                lastUpdate = side.message
+                return false
+            }
+            UseItemSideEffectSync.Outcome.KEEP,
+            UseItemSideEffectSync.Outcome.CONSUME,
+            -> {
+                if (side.outcome == UseItemSideEffectSync.Outcome.KEEP) {
+                    suppressEffectRemoval = true
+                } else if (!ItemDatabase.isReusable(itemId)) {
+                    inventory?.consumeItemLocally(itemId, count)
+                }
+                for ((extraId, qty) in side.extraConsumes) {
+                    inventory?.consumeItemLocally(extraId, qty)
+                }
+                return true
+            }
+            UseItemSideEffectSync.Outcome.UNHANDLED -> Unit
+        }
+
         when (itemId) {
             PHOTOCOPIER -> {
                 if (!responseText.contains("you drop your pants and giggle", ignoreCase = true)) {
@@ -327,7 +383,7 @@ object UseItemConsumptionSync {
                 }
                 inventory?.consumeItemLocally(itemId, count)
             }
-            ASTRAL_MUSHROOM, GONG -> {
+            ASTRAL_MUSHROOM -> {
                 if (consumeConfirmed || looksUsed(responseText)) {
                     inventory?.consumeItemLocally(itemId, count)
                 }
@@ -336,6 +392,17 @@ object UseItemConsumptionSync {
                 if (looksUsed(responseText) || responseText.contains("dance card", ignoreCase = true)) {
                     inventory?.consumeItemLocally(itemId, count)
                     preferences?.setInt("_danceCardFightsLeft", 3)
+                    if (preferences != null) {
+                        TurnCounter.stopCounting(preferences, "Dance Card")
+                        val run = character?.state?.value?.turnsPlayed ?: 0
+                        TurnCounter.startCounting(
+                            preferences,
+                            run,
+                            3,
+                            "Dance Card loc=395",
+                            "guildapp.gif",
+                        )
+                    }
                 }
             }
             else -> {

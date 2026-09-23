@@ -50,9 +50,44 @@ class ClanFortuneRequest(
         }
     }
 
+    /** Desktop ClanFortuneRequest(name[, words]) — consult about a clanmate (which=1). */
+    suspend fun consultClanmate(
+        playerName: String,
+        preferences: Preferences,
+        word1: String? = null,
+        word2: String? = null,
+        word3: String? = null,
+    ): Result<String> {
+        if (preferences.getInt(CONSULT_USES_PREF, 0) >= 3) {
+            return Result.failure(
+                IllegalStateException("You already consulted with a clanmate 3 times today."),
+            )
+        }
+        val q1 = word1 ?: preferences.getString(WORD1_PREF, "")
+        val q2 = word2 ?: preferences.getString(WORD2_PREF, "")
+        val q3 = word3 ?: preferences.getString(WORD3_PREF, "")
+        loungeRequest.visitFortuneTeller(preferences).onFailure { return Result.failure(it) }
+        val result = choiceRequest.choose(
+            CHOICE_ID,
+            1,
+            mapOf(
+                "which" to "1",
+                "whichid" to playerName,
+                "q1" to q1,
+                "q2" to q2,
+                "q3" to q3,
+            ),
+        )
+        return result.map { (html, url) ->
+            parseResponse(url, html, preferences)
+            html
+        }
+    }
+
     companion object {
         const val CHOICE_ID = 1278
         const val BUFF_USED_PREF = "_clanFortuneBuffUsed"
+        const val CONSULT_USES_PREF = "_clanFortuneConsultUses"
         const val WORD1_PREF = "clanFortuneWord1"
         const val WORD2_PREF = "clanFortuneWord2"
         const val WORD3_PREF = "clanFortuneWord3"
@@ -80,6 +115,11 @@ class ClanFortuneRequest(
             }
             if (!html.contains("Relationship Fortune Teller")) return
             preferences.setBoolean(BUFF_USED_PREF, !html.contains("resident of Seaside Town"))
+            val uses = Regex("""clanmate (\d) time""", RegexOption.IGNORE_CASE)
+                .find(html)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            if (uses != null) {
+                preferences.setInt(CONSULT_USES_PREF, 3 - uses)
+            }
         }
     }
 }

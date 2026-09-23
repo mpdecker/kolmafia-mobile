@@ -811,7 +811,7 @@ class GameRuntimeLibrary(
 
         const val VERSION = "1.0.0-mobile"
         /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
-        const val REVISION = "phase7510"
+        const val REVISION = "phase8050"
 
         /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
         fun revisionNumber(): Int =
@@ -1667,11 +1667,23 @@ class GameRuntimeLibrary(
             lastCliOutput.clear()
         },
 
-        Regex("^enable\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            preferences?.setBoolean(m.groupValues[1].trim(), true)
+        Regex("^enable(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runEnableDisableCli(enable = true, m.groupValues.getOrNull(1).orEmpty(), rt)
         },
-        Regex("^disable\\s+(\\S+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            preferences?.setBoolean(m.groupValues[1].trim(), false)
+        Regex("^disable(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runEnableDisableCli(enable = false, m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+
+        Regex("^neweffect(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runNewEffectCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+
+        Regex("^update(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runUpdateDataCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+
+        Regex("^login(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runLoginCli(m.groupValues.getOrNull(1).orEmpty(), rt)
         },
 
         Regex("^volcano(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
@@ -1964,8 +1976,8 @@ class GameRuntimeLibrary(
         Regex("^ccs$", RegexOption.IGNORE_CASE) to { _, rt ->
             runCcsStatusCli(rt)
         },
-        Regex("^ccs\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, _ ->
-            assignCombatScript(m.groupValues[1].trim())
+        Regex("^ccs\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
+            runCcsSetCli(m.groupValues[1].trim(), rt)
         },
         Regex("^ccprep$", RegexOption.IGNORE_CASE) to { _, rt ->
             rt.print(preferences?.getString("combatMacro", "") ?: "")
@@ -2349,6 +2361,36 @@ class GameRuntimeLibrary(
 
         Regex("^(?:speculate|whatif)\\s+(.+)$", RegexOption.IGNORE_CASE) to { m, rt ->
             val goal = m.groupValues[1].trim()
+            if (net.sourceforge.kolmafia.session.Speculation.looksLikeSpeculationParams(goal)) {
+                val state = character?.state?.value
+                    ?: net.sourceforge.kolmafia.character.CharacterState()
+                val effects = effectManager?.state?.value?.effects.orEmpty()
+                val passives = skillManager?.state?.value?.skills.orEmpty()
+                    .let { net.sourceforge.kolmafia.maximizer.MaximizerPassiveSkills.resolve(it) }
+                val spec = net.sourceforge.kolmafia.session.Speculation.fromLive(
+                    state, effects, passives, preferences,
+                )
+                val quiet = spec.parse(goal)
+                val speculated = spec.calculate()
+                val baseline = net.sourceforge.kolmafia.modifiers.CurrentModifiers(
+                    state = state,
+                    activeEffects = effects,
+                    passiveSkillNames = passives,
+                    preferences = preferences,
+                )
+                net.sourceforge.kolmafia.data.ModifierDatabase.overrideGenerated(
+                    "_spec",
+                    net.sourceforge.kolmafia.modifiers.ModifierValuesFormatter.format(speculated.values),
+                )
+                if (quiet) return@to
+                val table = net.sourceforge.kolmafia.session.SpeculateHtml.getHTML(speculated, baseline)
+                if (table != null) {
+                    rt.print(table)
+                } else {
+                    rt.print("No modifiers changed.")
+                }
+                return@to
+            }
             val mgr = maximizerManager ?: run {
                 rt.print("Maximizer unavailable")
                 return@to
@@ -2664,16 +2706,61 @@ class GameRuntimeLibrary(
             rt.print((character?.state?.value?.adventuresLeft ?: 0).toString())
         },
 
-        // relay on/off/status — headless stub; scripts check pref only
-        Regex("^relay(?:\\s+(on|off|open|close|status))?$", RegexOption.IGNORE_CASE) to { m, rt ->
-            when (m.groupValues.getOrNull(1)?.lowercase()) {
-                "on", "open" -> preferences?.setBoolean("relayActive", true)
-                "off", "close" -> preferences?.setBoolean("relayActive", false)
-                "status" -> {
-                    val active = preferences?.getBoolean("relayActive", false) == true
-                    rt.print(if (active) "Relay is on." else "Relay is off.")
+        // relay [nobrowser|stop|on|off|open|close|status] — desktop RelayBrowserCommand
+        Regex("^relay(?:\\s+(nobrowser|stop|on|off|open|close|status))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+            val arg = m.groupValues.getOrNull(1)?.lowercase()
+            when (arg) {
+                "stop", "off", "close" -> {
+                    net.sourceforge.kolmafia.webui.RelayLoader.stopRelayServer()
+                    preferences?.setBoolean("relayActive", false)
+                    rt.print("Relay stopped.")
                 }
-                else -> rt.print("Relay is not available in KoLmafia Mobile.")
+                "status" -> {
+                    val running = net.sourceforge.kolmafia.webui.RelayServer.isRunning()
+                    val active = preferences?.getBoolean("relayActive", false) == true || running
+                    if (running) {
+                        rt.print("Relay is on (port ${net.sourceforge.kolmafia.webui.RelayServer.getPort()}).")
+                    } else {
+                        rt.print(if (active) "Relay is on." else "Relay is off.")
+                    }
+                }
+                "nobrowser", "on" -> {
+                    net.sourceforge.kolmafia.webui.RelayServer.library = this@GameRuntimeLibrary
+                    net.sourceforge.kolmafia.webui.RelayServer.preferences = preferences
+                    net.sourceforge.kolmafia.webui.UseLinkSpeculation.library = this@GameRuntimeLibrary
+                    val ok = net.sourceforge.kolmafia.webui.RelayLoader.startRelayServer(this@GameRuntimeLibrary, preferences)
+                    if (ok) {
+                        preferences?.setBoolean("relayActive", true)
+                        rt.print("Relay started on port ${net.sourceforge.kolmafia.webui.RelayServer.getPort()}.")
+                    } else {
+                        rt.print("Failed to start Relay server.")
+                    }
+                }
+                "open" -> {
+                    net.sourceforge.kolmafia.webui.RelayServer.library = this@GameRuntimeLibrary
+                    net.sourceforge.kolmafia.webui.RelayServer.preferences = preferences
+                    net.sourceforge.kolmafia.webui.UseLinkSpeculation.library = this@GameRuntimeLibrary
+                    val url = net.sourceforge.kolmafia.webui.RelayLoader.openRelayBrowser(this@GameRuntimeLibrary, preferences)
+                    if (url != null) {
+                        preferences?.setBoolean("relayActive", true)
+                        rt.print("Relay browser: $url")
+                    } else {
+                        rt.print("Failed to start Relay server.")
+                    }
+                }
+                else -> {
+                    // bare `relay` — start + open (desktop default)
+                    net.sourceforge.kolmafia.webui.RelayServer.library = this@GameRuntimeLibrary
+                    net.sourceforge.kolmafia.webui.RelayServer.preferences = preferences
+                    net.sourceforge.kolmafia.webui.UseLinkSpeculation.library = this@GameRuntimeLibrary
+                    val url = net.sourceforge.kolmafia.webui.RelayLoader.openRelayBrowser(this@GameRuntimeLibrary, preferences)
+                    if (url != null) {
+                        preferences?.setBoolean("relayActive", true)
+                        rt.print("Relay browser: $url")
+                    } else {
+                        rt.print("Failed to start Relay server.")
+                    }
+                }
             }
         },
 
@@ -3000,8 +3087,14 @@ class GameRuntimeLibrary(
                 rt,
             )
         },
-        Regex("^(?:condition|objective|conditions|objectives)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
+        Regex("^(?:condition|objective|conditions|objectives|goals)(?:\\s+(.*))?$", RegexOption.IGNORE_CASE) to { m, rt ->
             runConditionCli(m.groupValues.getOrNull(1).orEmpty(), rt)
+        },
+        Regex("^goal$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runConditionCli("", rt)
+        },
+        Regex("^goals$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runConditionCli("list", rt)
         },
 
         // cleanup / junk — untinker, use boxes, pulverize, autosell junk list
@@ -3125,9 +3218,11 @@ class GameRuntimeLibrary(
             runCreateCli(m.groupValues[1].trim(), rt)
         },
 
-        // logout / exit / quit — clear session state (login/timein/relog deferred)
-        Regex("^(?:logout|exit|quit|timeout)$", RegexOption.IGNORE_CASE) to { _, _ ->
+        Regex("^(?:logout|exit|quit)$", RegexOption.IGNORE_CASE) to { _, _ ->
             sessionManager?.logout()
+        },
+        Regex("^timeout$", RegexOption.IGNORE_CASE) to { _, rt ->
+            runTimeoutCli(rt)
         },
 
         // "buy|mallbuy [from mall] [qty] item [@limit] [, ...]" — NPC or mall purchase
@@ -5360,7 +5455,7 @@ class GameRuntimeLibrary(
     /** Desktop liberateKing path-skill reset: refresh skills when path exit needs it. */
     private fun liberateKingAndMaybeRefreshSkills() {
         character?.liberateKing(preferences)
-        syncDynamicChoiceSpoilers()
+        adventureManager?.runKingLiberatedScript()
         if (preferences?.getBoolean("_liberateKingNeedsSkillRefresh", false) == true) {
             preferences.setBoolean("_liberateKingNeedsSkillRefresh", false)
             kotlinx.coroutines.runBlocking { skillManager?.fetchSkills() }
@@ -6936,6 +7031,11 @@ class GameRuntimeLibrary(
         }
     }
 
+    /** Run a CLI command from Relay `/KoLmafia/submitCommand` etc. */
+    fun runCliCommand(cmd: String) {
+        dispatchCli(cmd, moodCliContext)
+    }
+
     internal fun dispatchCli(cmd: String, rt: AshRuntimeContext) {
         var remaining = cmd.trim()
         if (remaining.isNotEmpty()) {
@@ -6971,6 +7071,10 @@ class GameRuntimeLibrary(
             if (segment.isEmpty()) continue
             val expanded = expandCliAlias(segment)
             val command = expanded.split(Regex("\\s+"), limit = 2).first()
+            if (isCliCommandDisabled(command)) {
+                rt.print("CLI command disabled: ${command.lowercase().removeSuffix("?")}")
+                continue
+            }
             if (CliConditional.isFlowControl(command)) {
                 val continuation = flowContinuation(restAfter)
                 if (continuation == null) {
@@ -7530,6 +7634,8 @@ class GameRuntimeLibrary(
         registerPhase7311(scope)
         registerPhase7391(scope)
         registerPhase7451(scope)
+        registerPhase7511(scope)
+        registerPhase7571(scope)
         registerPhase3770(scope)
 
         regFn(scope, "tower_door", AshType.BOOLEAN, emptyList()) { rt, _ ->

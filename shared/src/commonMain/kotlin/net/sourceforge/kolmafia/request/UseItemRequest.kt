@@ -8,6 +8,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import io.ktor.http.parameters
 import net.sourceforge.kolmafia.event.GameEventBus
+import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -27,6 +28,7 @@ open class UseItemRequest(
     private val questDatabase: QuestDatabase? = null,
     private val character: KoLCharacter? = null,
     private val inventoryManager: InventoryManager? = null,
+    private val familiarManager: FamiliarManager? = null,
 ) {
     /**
      * Uses an item via inv_use.php.
@@ -76,6 +78,7 @@ open class UseItemRequest(
                         preferences = preferences,
                         character = character,
                         inventory = if (questHandled) null else inventoryManager,
+                        familiarManager = familiarManager,
                     )
                 }
                 BetweenBattleInvoker.run(true)
@@ -118,6 +121,7 @@ open class UseItemRequest(
                     preferences = preferences,
                     character = character,
                     inventory = inventoryManager,
+                    familiarManager = familiarManager,
                 )
                 BetweenBattleInvoker.run(true)
                 Result.success(body)

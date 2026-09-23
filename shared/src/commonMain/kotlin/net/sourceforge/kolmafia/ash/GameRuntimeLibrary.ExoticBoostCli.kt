@@ -53,7 +53,7 @@ internal fun GameRuntimeLibrary.cliFortune(parameters: String, print: (String) -
                 )
             }
         }
-        else -> print("Fortune clanmate consult is not supported yet. Use: fortune buff <name> [w1 w2 w3]")
+        else -> runFortuneConsultCli(parameters, print)
     }
 }
 

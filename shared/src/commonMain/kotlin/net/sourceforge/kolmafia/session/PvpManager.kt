@@ -107,6 +107,7 @@ object PvpManager {
         cliExecutor: ((String) -> Unit)? = null,
         print: (String) -> Unit = {},
         inventoryManager: InventoryManager? = null,
+        ashRunner: (() -> Boolean)? = null,
     ) {
         abortReason = null
         noFight = false
@@ -124,7 +125,7 @@ object PvpManager {
         var fightsCompleted = 0
         while (fightsCompleted < totalFights) {
             if (abortReason != null) break
-            if (!runBeforePvpScript(preferences, cliExecutor)) break
+            if (!runBeforePvpScript(preferences, cliExecutor, ashRunner)) break
             print("Attack ${fightsCompleted + 1} of $totalFights")
             val result = PeeVPeeRequest.fight(
                 client = client,
@@ -165,6 +166,7 @@ object PvpManager {
         cliExecutor: ((String) -> Unit)? = null,
         print: (String) -> Unit = {},
         inventoryManager: InventoryManager? = null,
+        ashRunner: (() -> Boolean)? = null,
     ) {
         abortReason = null
         noFight = false
@@ -199,7 +201,7 @@ object PvpManager {
             val targetName = target.playerName
             if (victories.contains(targetName)) continue
             if (targetName.lowercase().startsWith("devster")) continue
-            if (!runBeforePvpScript(preferences, cliExecutor)) break
+            if (!runBeforePvpScript(preferences, cliExecutor, ashRunner)) break
             val realMission = if (canInteract && !target.canInteract) "flowers" else mission
             print("Attacking $targetName...")
             val result = PeeVPeeRequest.fight(
@@ -235,9 +237,11 @@ object PvpManager {
     internal fun runBeforePvpScript(
         preferences: Preferences?,
         cliExecutor: ((String) -> Unit)?,
+        ashRunner: (() -> Boolean)? = null,
     ): Boolean {
         val script = preferences?.getString("beforePVPScript", "")?.trim().orEmpty()
         if (script.isEmpty()) return true
+        if (ashRunner?.invoke() == true) return abortReason == null
         cliExecutor?.invoke(script)
         return abortReason == null
     }

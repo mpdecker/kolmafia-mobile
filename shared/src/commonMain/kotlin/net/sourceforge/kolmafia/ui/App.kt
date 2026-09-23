@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
@@ -33,6 +34,7 @@ import net.sourceforge.kolmafia.ui.inventory.InventoryScreen
 import net.sourceforge.kolmafia.ui.login.LoginScreen
 import net.sourceforge.kolmafia.ui.login.LoginViewModel
 import net.sourceforge.kolmafia.ui.mall.MallScreen
+import net.sourceforge.kolmafia.ui.relay.RelayBrowserScreen
 import net.sourceforge.kolmafia.ui.scripts.ScriptConsoleScreen
 import net.sourceforge.kolmafia.ui.scripts.ScriptEditorScreen
 import net.sourceforge.kolmafia.ui.scripts.ScriptsScreen
@@ -129,6 +131,13 @@ fun App() {
                         icon = { Icon(Icons.Default.ShoppingCart, "Mall") },
                         label = { Text("Mall") }
                     )
+                    // 9 Relay Browser
+                    NavigationBarItem(
+                        selected = selectedTab == 9,
+                        onClick = { selectedTab = 9 },
+                        icon = { Icon(Icons.Default.Language, "Relay") },
+                        label = { Text("Relay") }
+                    )
                 }
             }
         ) { _ ->
@@ -156,6 +165,7 @@ fun App() {
                 6 -> ChatScreen()
                 7 -> ShopScreen()
                 8 -> MallScreen()
+                9 -> RelayBrowserScreen()
             }
         }
     }
