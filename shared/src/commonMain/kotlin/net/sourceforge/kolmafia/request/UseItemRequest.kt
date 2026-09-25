@@ -17,6 +17,7 @@ import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.quest.QuestItemUsedSync
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.session.DreadScrollManager
+import net.sourceforge.kolmafia.session.RequestLogger
 import net.sourceforge.kolmafia.session.SessionLogger
 import net.sourceforge.kolmafia.recovery.BetweenBattleInvoker
 
@@ -42,6 +43,11 @@ open class UseItemRequest(
             }))
         }
         return try {
+            val url = buildString {
+                append("inv_use.php?which=3&whichitem=$itemId&ajax=1")
+                if (quantity > 1) append("&quantity=$quantity")
+            }
+            UseItemRequestState.remember(url, quantity, preferences, inventoryManager)
             val response = client.get("$KOL_BASE_URL/inv_use.php") {
                 parameter("which", 3)
                 parameter("whichitem", itemId)
@@ -81,6 +87,7 @@ open class UseItemRequest(
                         familiarManager = familiarManager,
                     )
                 }
+                UseItemRequestState.refreshFollowUps(client, preferences)
                 BetweenBattleInvoker.run(true)
                 Result.success(body)
             } else {
@@ -95,6 +102,12 @@ open class UseItemRequest(
     open suspend fun multiUse(itemId: Int, quantity: Int): Result<String> {
         if (quantity <= 0) return Result.success("")
         return try {
+            UseItemRequestState.remember(
+                "multiuse.php?action=useitem&whichitem=$itemId&quantity=$quantity",
+                quantity,
+                preferences,
+                inventoryManager,
+            )
             val response = client.submitForm(
                 url = "$KOL_BASE_URL/multiuse.php",
                 formParameters = parameters {
@@ -123,6 +136,7 @@ open class UseItemRequest(
                     inventory = inventoryManager,
                     familiarManager = familiarManager,
                 )
+                UseItemRequestState.refreshFollowUps(client, preferences)
                 BetweenBattleInvoker.run(true)
                 Result.success(body)
             } else {
@@ -136,12 +150,33 @@ open class UseItemRequest(
     /** Desktop UseItemRequest GLUTTONOUS_GHOST / SPIRIT_HOBO / SLIMELING binge via familiarbinger.php. */
     open suspend fun binge(itemId: Int, quantity: Int): Result<String> {
         return try {
+            RequestLogger.registerRequest(
+                "familiarbinger.php?whichitem=$itemId&action=binge&qty=$quantity",
+                sessionLogger,
+                preferences,
+            )
             val response = client.get("$KOL_BASE_URL/familiarbinger.php") {
                 parameter("whichitem", itemId)
                 parameter("action", "binge")
                 parameter("qty", quantity)
             }
-            parseFamiliarFeedResponse(response.status.isSuccess(), response.bodyAsText())
+            if (!response.status.isSuccess()) {
+                return Result.failure(Exception("HTTP ${response.status.value}"))
+            }
+            val body = response.bodyAsText()
+            val accepted = UseItemBingeSync.parse(
+                url = "familiarbinger.php?whichitem=$itemId&action=binge&qty=$quantity",
+                responseText = body,
+                character = character,
+                familiarManager = familiarManager,
+                inventory = inventoryManager,
+                preferences = preferences,
+            )
+            if (!accepted) {
+                Result.failure(IllegalStateException("Your current familiar can't use that."))
+            } else {
+                Result.success(body)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -150,12 +185,33 @@ open class UseItemRequest(
     /** Desktop UseItemRequest STOCKING_MIMIC candy feed via familiarbinger.php. */
     open suspend fun feedCandy(itemId: Int, quantity: Int): Result<String> {
         return try {
+            RequestLogger.registerRequest(
+                "familiarbinger.php?whichitem=$itemId&action=candy&qty=$quantity",
+                sessionLogger,
+                preferences,
+            )
             val response = client.get("$KOL_BASE_URL/familiarbinger.php") {
                 parameter("whichitem", itemId)
                 parameter("action", "candy")
                 parameter("qty", quantity)
             }
-            parseFamiliarFeedResponse(response.status.isSuccess(), response.bodyAsText())
+            if (!response.status.isSuccess()) {
+                return Result.failure(Exception("HTTP ${response.status.value}"))
+            }
+            val body = response.bodyAsText()
+            val accepted = UseItemBingeSync.parse(
+                url = "familiarbinger.php?whichitem=$itemId&action=candy&qty=$quantity",
+                responseText = body,
+                character = character,
+                familiarManager = familiarManager,
+                inventory = inventoryManager,
+                preferences = preferences,
+            )
+            if (!accepted) {
+                Result.failure(IllegalStateException("Your current familiar can't use that."))
+            } else {
+                Result.success(body)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -173,7 +229,13 @@ open class UseItemRequest(
                 return Result.failure(Exception("HTTP ${response.status.value}"))
             }
             val body = response.bodyAsText()
-            if (body.contains("can't drink that", ignoreCase = true)) {
+            val accepted = UseItemRobortenderSync.parse(
+                url = "inventory.php?action=robooze&whichitem=$itemId",
+                responseText = body,
+                inventory = inventoryManager,
+                preferences = preferences,
+            )
+            if (!accepted) {
                 Result.failure(IllegalStateException("Your Robortender can't drink that."))
             } else {
                 Result.success(body)
@@ -183,15 +245,4 @@ open class UseItemRequest(
         }
     }
 
-    private fun parseFamiliarFeedResponse(httpSuccess: Boolean, body: String): Result<String> {
-        if (!httpSuccess) {
-            return Result.failure(Exception("HTTP request failed"))
-        }
-        if (body.contains("don't currently have", ignoreCase = true) ||
-            body.contains("not currently using", ignoreCase = true)
-        ) {
-            return Result.failure(IllegalStateException("Your current familiar can't use that."))
-        }
-        return Result.success(body)
-    }
 }

@@ -77,6 +77,7 @@ object UseItemConsumptionSync {
         familiarManager: FamiliarManager? = familiarManagerProvider?.invoke(),
     ): Boolean {
         suppressEffectRemoval = false
+        UseItemRequestState.clearFollowUps()
         if (itemId <= 0) return true
         val qty = count.coerceAtLeast(1)
         clearLastItem()

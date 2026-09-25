@@ -73,6 +73,17 @@ object ConcoctionDatabase {
 
     fun getByResult(name: String): ConcoctionData? = _byResult[name.lowercase()]
 
+    /**
+     * Desktop [net.sourceforge.kolmafia.persistence.ConcoctionDatabase.meatStackCreation]:
+     * the result item is crafted from a meat stack.
+     */
+    fun usesMeatStackIngredient(itemId: Int): Boolean {
+        val resultName = ItemDatabase.getItemName(itemId)
+        if (resultName.isBlank()) return false
+        val concoction = getByResult(resultName) ?: return false
+        return concoction.ingredients.any { it.name.equals("meat stack", ignoreCase = true) }
+    }
+
     /** Desktop [net.sourceforge.kolmafia.persistence.ConcoctionDatabase.getYield]. */
     fun getYield(name: String, tripleReagent: Boolean = lastRefreshContext.characterState?.isSauceror == true): Int {
         val concoction = getByResult(name) ?: return 1

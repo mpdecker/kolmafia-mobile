@@ -3,6 +3,8 @@ package net.sourceforge.kolmafia.request
 import net.sourceforge.kolmafia.campground.CampgroundInventorySync
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.character.ZodiacSign
+import net.sourceforge.kolmafia.data.TCRSDatabase
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.ModifierDatabase
@@ -229,6 +231,26 @@ object UseItemSideEffectTail2 {
             if (has("You twist the spoon around") || has("You can't figure out the angle")) {
                 prefBool("moonTuned")
             }
+            val sign = UseItemRequestState.signFromLastUrl()?.let { ZodiacSign.find(it) }
+            if (sign != null && !sign.isBadMoon) {
+                val previous = ZodiacSign.find(character?.state?.value?.zodiacSign ?: "")
+                val zoneChanged = previous == null ||
+                    previous.isMuscle != sign.isMuscle ||
+                    previous.isMysticality != sign.isMysticality ||
+                    previous.isMoxie != sign.isMoxie
+                character?.setZodiacSign(sign.signName)
+                if (zoneChanged) {
+                    preferences?.resetToDefault("_dailySpecial")
+                    preferences?.resetToDefault("_dailySpecialPrice")
+                }
+                val state = character?.state?.value
+                val prefs = preferences
+                if (state != null && prefs != null && state.inTwoCrazyRandomSummer) {
+                    TCRSDatabase.loadFromPreferences(state.className, sign.signName, prefs)
+                    TCRSDatabase.resetModifiers(prefs, state.level)
+                    TCRSDatabase.applyModifiers(state.level)
+                }
+            }
             keep()
         }
 
@@ -424,6 +446,9 @@ object UseItemSideEffectTail2 {
             }
             CampgroundItemSync.setCurrentWorkshedItem(preferences, itemId)
             CampgroundInventorySync.setItem(preferences, itemId, 1)
+            if (itemId == CampgroundItemSync.ASDON_MARTIN_ID) {
+                UseItemRequestState.markWorkshedRefresh()
+            }
             consume()
         }
 

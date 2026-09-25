@@ -14,6 +14,7 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.session.TurnCounter
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -22,8 +23,8 @@ import kotlin.test.assertTrue
 class UseItemSideEffectSyncTest {
 
     @Test
-    fun revision_isPhase8050() {
-        assertEquals("phase8050", GameRuntimeLibrary.REVISION)
+    fun revision_isPhase8410() {
+        assertEquals("phase8410", GameRuntimeLibrary.REVISION)
     }
 
     @Test
@@ -643,6 +644,116 @@ class UseItemSideEffectSyncTest {
         assertTrue(ok)
         assertTrue(prefs.getBoolean("moonTuned", false))
         assertTrue(UseItemConsumptionSync.suppressEffectRemoval)
+    }
+
+    @Test
+    fun screwdriver_unscrewsTheRememberedItem() {
+        val prefs = Preferences(MapSettings())
+        val inventory = inventory()
+        inventory.gainItemLocally(100, 3)
+        UseItemRequestState.remember(
+            "inv_use.php?whichitem=4926&action=screw&dowhichitem=100&untinkerall=on",
+            preferences = prefs,
+            inventory = inventory,
+        )
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = "You jam your screwdriver into the seam.",
+            itemId = 4926,
+            count = 1,
+            preferences = prefs,
+            inventory = inventory,
+        )
+        assertTrue(ok)
+        assertEquals(0, inventory.getCount(100))
+        assertTrue(UseItemConsumptionSync.lastUpdate.contains("Successfully unscrewed"))
+        assertTrue(UseItemConsumptionSync.suppressEffectRemoval)
+    }
+
+    @Test
+    fun jackingMap_consumesTheRememberedFruit() {
+        val inventory = inventory()
+        inventory.gainItemLocally(223, 1)
+        UseItemRequestState.remember("inv_use.php?whichitem=4560&action=addfruit&whichfruit=223")
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = "The fruit disappears into the tube.",
+            itemId = 4560,
+            count = 1,
+            inventory = inventory,
+        )
+        assertTrue(ok)
+        assertEquals(0, inventory.getCount(223))
+        assertTrue(UseItemConsumptionSync.suppressEffectRemoval)
+    }
+
+    @Test
+    fun moonSpoon_setsSignAndResetsDailySpecialWhenTheZoneChanges() {
+        val prefs = Preferences(MapSettings())
+        prefs.setString("_dailySpecial", "knob goblin")
+        val character = KoLCharacter()
+        character.setZodiacSign("Mongoose")
+        UseItemRequestState.remember("inv_use.php?whichitem=10254&whichsign=2&doit=96")
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = "You twist the spoon around until the moon looks right.",
+            itemId = 10254,
+            count = 1,
+            preferences = prefs,
+            character = character,
+        )
+        assertTrue(ok)
+        assertEquals("Wallaby", character.state.value.zodiacSign)
+        assertEquals("", prefs.getString("_dailySpecial", "unset"))
+        assertTrue(prefs.getBoolean("moonTuned", false))
+    }
+
+    @Test
+    fun register_marksExpressCardWhenTheUseUrlIsRemembered() {
+        val prefs = Preferences(MapSettings())
+        UseItemRequestState.remember("inv_use.php?whichitem=1687", preferences = prefs)
+        assertTrue(prefs.getBoolean("expressCardUsed", false))
+    }
+
+    @Test
+    fun claymore_refreshesIslandKillCounts() = runBlocking {
+        val prefs = Preferences(MapSettings())
+        val engine = MockEngine { request ->
+            val body = if (request.url.toString().contains("bigisland")) {
+                "bfleft1 bfright2"
+            } else {
+                "You bury the claymore in the clay"
+            }
+            respond(body, HttpStatusCode.OK)
+        }
+        val request = UseItemRequest(
+            HttpClient(engine),
+            preferences = prefs,
+            inventoryManager = inventory(),
+        )
+        val result = request.use(6669, 1)
+        assertTrue(result.isSuccess)
+        assertEquals("started", prefs.getString("warProgress", ""))
+        assertEquals(3, prefs.getInt("fratboysDefeated", 0))
+        assertEquals(9, prefs.getInt("hippiesDefeated", 0))
+    }
+
+    @Test
+    fun asdonMartin_refreshesWorkshedFuel() = runBlocking {
+        val prefs = Preferences(MapSettings())
+        val engine = MockEngine { request ->
+            val body = if (request.url.toString().contains("campground")) {
+                "asdongarage.gif fuel gauge reads 1,250 litres"
+            } else {
+                "You install the Asdon Martin."
+            }
+            respond(body, HttpStatusCode.OK)
+        }
+        val request = UseItemRequest(
+            HttpClient(engine),
+            preferences = prefs,
+            inventoryManager = inventory(),
+        )
+        val result = request.use(9508, 1)
+        assertTrue(result.isSuccess)
+        assertEquals(1250, prefs.getInt("asdonMartinFuel", 0))
     }
 
     private fun inventory(): InventoryManager =

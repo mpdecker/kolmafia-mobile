@@ -287,7 +287,11 @@ import net.sourceforge.kolmafia.request.PizzaCubeRequest
 import net.sourceforge.kolmafia.request.FleaMarketRequest
 import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.request.AscensionHistoryRequest
+import net.sourceforge.kolmafia.request.UseItemAbsorbSync
+import net.sourceforge.kolmafia.request.UseItemBingeSync
+import net.sourceforge.kolmafia.request.UseItemRobortenderSync
 import net.sourceforge.kolmafia.request.UseItemConsumptionSync
+import net.sourceforge.kolmafia.request.UseItemRequestState
 import net.sourceforge.kolmafia.adventure.choice.ChoiceUtilities
 import net.sourceforge.kolmafia.session.BreakfastManager
 import net.sourceforge.kolmafia.session.GoalManager
@@ -811,7 +815,7 @@ class GameRuntimeLibrary(
 
         const val VERSION = "1.0.0-mobile"
         /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
-        const val REVISION = "phase8050"
+        const val REVISION = "phase8410"
 
         /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
         fun revisionNumber(): Int =
@@ -3265,6 +3269,13 @@ class GameRuntimeLibrary(
         }
     }
 
+    private fun refreshUseFollowUps() {
+        val client = httpClient ?: return
+        kotlinx.coroutines.runBlocking {
+            UseItemRequestState.refreshFollowUps(client, preferences)
+        }
+    }
+
     internal fun processVisitResponseHooks(html: String, url: String? = null) {
         syncDynamicChoiceSpoilers()
         val normalizedUrl = url.orEmpty()
@@ -4158,6 +4169,39 @@ class GameRuntimeLibrary(
         ) {
             LocketManager.parseMonsters(html, preferences)
         }
+        if (url != null && url.contains("inventory.php", ignoreCase = true) &&
+            url.contains("absorb=", ignoreCase = true)
+        ) {
+            UseItemAbsorbSync.apply(
+                url = url,
+                responseText = html,
+                character = character,
+                inventory = inventoryManager,
+                preferences = preferences,
+                sessionLogger = sessionLogger,
+            )
+        }
+        if (url != null && UseItemBingeSync.bingedItem(url) != null) {
+            UseItemBingeSync.parse(
+                url = url,
+                responseText = html,
+                character = character,
+                familiarManager = familiarManager,
+                inventory = inventoryManager,
+                preferences = preferences,
+            )
+        }
+        if (url != null &&
+            url.contains("inventory.php", ignoreCase = true) &&
+            url.contains("action=robooze", ignoreCase = true)
+        ) {
+            UseItemRobortenderSync.parse(
+                url = url,
+                responseText = html,
+                inventory = inventoryManager,
+                preferences = preferences,
+            )
+        }
         if (url != null && (
             url.contains("inv_equip.php", ignoreCase = true) ||
                 (url.contains("inventory.php", ignoreCase = true) &&
@@ -4178,6 +4222,7 @@ class GameRuntimeLibrary(
                     count = qty,
                 )
                 UseItemConsumptionSync.rememberLastItem(itemId, qty)
+                UseItemRequestState.remember(url, qty, preferences, inventoryManager)
                 UseItemConsumptionSync.parseConsumption(
                     responseText = html,
                     itemId = itemId,
@@ -4186,6 +4231,7 @@ class GameRuntimeLibrary(
                     character = character,
                     inventory = if (questHandled) null else inventoryManager,
                 )
+                refreshUseFollowUps()
                 preferences?.let { prefs ->
                     when (itemId) {
                         DwarfFactoryRequest.SMALL_LAMINATED_CARD,
@@ -5718,6 +5764,37 @@ class GameRuntimeLibrary(
             familiarManager?.state?.value?.ownedFamiliars
                 ?.firstOrNull { it.id == famId }
                 ?.let { fam -> "${fam.name}, the ${fam.race}" }
+        }
+        RequestLogger.familiarId = { character?.state?.value?.familiarId ?: 0 }
+        RequestLogger.familiarRace = {
+            familiarManager?.state?.value?.activeFamiliar?.race?.takeIf { it.isNotBlank() }
+                ?: ""
+        }
+        RequestLogger.equippedItemId = { slot ->
+            val equipmentSlot = when (slot) {
+                "hat" -> EquipmentSlot.HAT
+                "offhand" -> EquipmentSlot.OFFHAND
+                "shirt" -> EquipmentSlot.SHIRT
+                "familiarequip", "familiar" -> EquipmentSlot.FAMILIAR
+                else -> null
+            }
+            equipmentSlot?.let { equipmentManager?.getEquipmentId(it) } ?: -1
+        }
+        RequestLogger.applyEquippedItem = { slot, itemId, discardPrevious ->
+            val equipmentSlot = when (slot) {
+                "hat" -> EquipmentSlot.HAT
+                "offhand" -> EquipmentSlot.OFFHAND
+                "shirt" -> EquipmentSlot.SHIRT
+                "familiarequip", "familiar" -> EquipmentSlot.FAMILIAR
+                else -> null
+            }
+            if (equipmentSlot != null) {
+                if (discardPrevious) {
+                    equipmentManager?.discardEquipment(itemId)
+                } else {
+                    equipmentManager?.setEquipment(equipmentSlot, itemId)
+                }
+            }
         }
     }
 

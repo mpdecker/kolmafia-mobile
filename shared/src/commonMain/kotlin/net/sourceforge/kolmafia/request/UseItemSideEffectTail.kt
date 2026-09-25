@@ -15,8 +15,8 @@ import net.sourceforge.kolmafia.session.DreadScrollManager
 
 /**
  * Desktop [UseItemRequest.parseConsumption] remainder after the 7871–7930 slice
- * (Phases 7931–7990). Stops before fantasy-realm maps; island kill-count HTTP
- * and legion `lastUntinker` / jacking `lastFruit` stay local-only.
+ * (Phases 7931–7990). Legion unscrew, jacking fruit, and the island kill-count
+ * follow-up come from [UseItemRequestState].
  */
 object UseItemSideEffectTail {
 
@@ -183,7 +183,7 @@ object UseItemSideEffectTail {
                     ConcoctionDatabase.markRefreshNeeded()
                     consume()
                 }
-                itemId == JACKING_MAP -> keep()
+                itemId == JACKING_MAP -> jackingMap()
                 itemId == 8674 -> { prefBool("coldAirportAlways"); if (has("name gets added to the registry")) consume() else keep() }
                 itemId == 8675 -> if (has("already have access to that place")) keep() else { prefBool("_coldAirportToday"); consume() }
                 itemId == 8134 -> { prefBool("lovebugsUnlocked"); if (has("have been permanently unlocked")) consume() else keep() }
@@ -203,8 +203,14 @@ object UseItemSideEffectTail {
                 itemId == 6741 -> { prefBool("_eternalCarBatteryUsed"); keep() }
                 itemId == 5881 -> keep()
                 itemId == 6854 -> desert()
-                itemId == 6669 -> if (has("You bury the claymore in the clay")) consume() else keep()
-                itemId == 9164 -> if (has("hippies and frat orcs")) consume() else keep()
+                itemId == 6669 -> if (has("You bury the claymore in the clay")) {
+                    UseItemRequestState.markIslandRefresh()
+                    consume()
+                } else keep()
+                itemId == 9164 -> if (has("hippies and frat orcs")) {
+                    UseItemRequestState.markIslandRefresh()
+                    consume()
+                } else keep()
                 itemId in LINTS -> if (has("very improbable thing happens")) { LINTS.forEach { take(it) }; keep() } else keep()
                 itemId in BEDDING -> if (has("spirit bed")) { BEDDING.forEach { take(it) }; keep() } else keep()
                 itemId == 6900 -> { prefBool("_pastaAdditive"); keep() }
@@ -290,7 +296,24 @@ object UseItemSideEffectTail {
         }
 
         private fun legion() {
+            if (itemId == SCREWDRIVER && has("You jam your screwdriver")) {
+                val (id, qty) = UseItemRequestState.takeUntinker()
+                if (id > 0) {
+                    take(id, qty)
+                    note("Successfully unscrewed $id")
+                }
+                keep()
+                return
+            }
             if (has("latches and clasps")) take(itemId)
+            keep()
+        }
+
+        private fun jackingMap() {
+            if (has("into the tube")) {
+                val fruit = UseItemRequestState.takeFruit()
+                if (fruit > 0) take(fruit)
+            }
             keep()
         }
 
