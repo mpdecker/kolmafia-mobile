@@ -299,6 +299,12 @@ open class AdventureManager(
         _fightFollowsChoice = fightFollowsChoice
     }
 
+    /** Desktop [net.sourceforge.kolmafia.request.FightRequest.checkForMultiFight]. */
+    fun noteMultiFight(inMultiFight: Boolean) {
+        _inMultiFight = inMultiFight
+        ChoiceCombatAshState.inMultiFight = inMultiFight
+    }
+
     internal fun testSetChoiceResolution(inChoiceResolution: Boolean) {
         _inChoiceResolution = inChoiceResolution
     }

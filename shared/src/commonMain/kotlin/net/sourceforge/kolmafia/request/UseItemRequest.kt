@@ -15,7 +15,10 @@ import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.quest.ProtonicGhostSync
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.quest.QuestItemUsedSync
+import net.sourceforge.kolmafia.adventure.AdventureSession
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.character.KoLCharacter
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.session.DreadScrollManager
 import net.sourceforge.kolmafia.session.RequestLogger
 import net.sourceforge.kolmafia.session.SessionLogger
@@ -43,6 +46,19 @@ open class UseItemRequest(
             }))
         }
         return try {
+            val weaponId = character?.state?.value?.equipment[EquipmentSlot.WEAPON]
+                ?.let { ItemDatabase.getByName(it)?.id } ?: -1
+            val turns = UseItemAdventuresUsed.forItem(
+                itemId = itemId,
+                count = quantity,
+                preferences = preferences,
+                ownsItem = { id -> (inventoryManager?.getCount(id) ?: 0) > 0 },
+                equippedWeaponId = weaponId,
+            )
+            if (turns > 0) {
+                AdventureSession.setNextAdventure("None", preferences)
+                BetweenBattleInvoker.run(true)
+            }
             val url = buildString {
                 append("inv_use.php?which=3&whichitem=$itemId&ajax=1")
                 if (quantity > 1) append("&quantity=$quantity")
@@ -57,6 +73,7 @@ open class UseItemRequest(
             if (response.status.isSuccess()) {
                 val body = response.bodyAsText()
                 UseItemConsumptionSync.rememberLastItem(itemId, quantity)
+                UseItemGiftPackageSync.parse(body, itemId, sessionLogger)
                 if (itemId == DreadScrollManager.KNUCKLEBONE_ID) {
                     DreadScrollManager.handleKnucklebone(body, preferences, sessionLogger)
                 } else if (itemId == DreadScrollManager.DREADSCROLL_ID) {

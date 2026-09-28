@@ -289,6 +289,10 @@ import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.request.AscensionHistoryRequest
 import net.sourceforge.kolmafia.request.UseItemAbsorbSync
 import net.sourceforge.kolmafia.request.UseItemBingeSync
+import net.sourceforge.kolmafia.request.UseItemAprilPlaySync
+import net.sourceforge.kolmafia.request.UseItemDiarySync
+import net.sourceforge.kolmafia.request.UseItemEvHelmetSync
+import net.sourceforge.kolmafia.request.UseItemGiftPackageSync
 import net.sourceforge.kolmafia.request.UseItemRobortenderSync
 import net.sourceforge.kolmafia.request.UseItemConsumptionSync
 import net.sourceforge.kolmafia.request.UseItemRequestState
@@ -815,7 +819,7 @@ class GameRuntimeLibrary(
 
         const val VERSION = "1.0.0-mobile"
         /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
-        const val REVISION = "phase8410"
+        const val REVISION = "phase9250"
 
         /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
         fun revisionNumber(): Int =
@@ -4119,6 +4123,14 @@ class GameRuntimeLibrary(
         if (url != null && url.contains("trophy.php", ignoreCase = true)) {
             TrophyHutRequest.parseResponse(url, html, character, sessionLogger)
         }
+        if (url != null && url.contains("diary.php", ignoreCase = true)) {
+            UseItemDiarySync.handle(
+                html,
+                questDatabase,
+                preferences,
+                character?.state?.value?.ascensionNumber ?: 0,
+            )
+        }
         if (url != null &&
             url.contains("inv_use.php", ignoreCase = true) &&
             url.contains("whichitem=${DreadScrollManager.DREADSCROLL_ID}")
@@ -4202,6 +4214,27 @@ class GameRuntimeLibrary(
                 preferences = preferences,
             )
         }
+        if (url != null &&
+            url.contains("inventory.php", ignoreCase = true) &&
+            url.contains("action=aprilplay", ignoreCase = true)
+        ) {
+            UseItemAprilPlaySync.parse(
+                url = url,
+                responseText = html,
+                preferences = preferences,
+                inventory = inventoryManager,
+                equipment = equipmentManager,
+                character = character,
+                familiarManager = familiarManager,
+                sessionLogger = sessionLogger,
+                questDatabase = questDatabase,
+                markMultiFight = { multi ->
+                    val manager = adventureManager
+                    if (manager != null) manager.noteMultiFight(multi)
+                    else ChoiceCombatAshState.inMultiFight = multi
+                },
+            )
+        }
         if (url != null && (
             url.contains("inv_equip.php", ignoreCase = true) ||
                 (url.contains("inventory.php", ignoreCase = true) &&
@@ -4222,6 +4255,13 @@ class GameRuntimeLibrary(
                     count = qty,
                 )
                 UseItemConsumptionSync.rememberLastItem(itemId, qty)
+                UseItemGiftPackageSync.parse(html, itemId, sessionLogger)
+                UseItemEvHelmetSync.parse(
+                    url,
+                    html,
+                    preferences,
+                    character?.state?.value?.ascensionNumber ?: 0,
+                )
                 UseItemRequestState.remember(url, qty, preferences, inventoryManager)
                 UseItemConsumptionSync.parseConsumption(
                     responseText = html,

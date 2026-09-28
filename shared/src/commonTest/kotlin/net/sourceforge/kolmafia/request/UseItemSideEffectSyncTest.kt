@@ -23,8 +23,8 @@ import kotlin.test.assertTrue
 class UseItemSideEffectSyncTest {
 
     @Test
-    fun revision_isPhase8410() {
-        assertEquals("phase8410", GameRuntimeLibrary.REVISION)
+    fun revision_isPhase9250() {
+        assertEquals("phase9250", GameRuntimeLibrary.REVISION)
     }
 
     @Test

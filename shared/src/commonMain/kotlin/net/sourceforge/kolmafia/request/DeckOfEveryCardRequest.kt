@@ -41,10 +41,13 @@ class DeckOfEveryCardRequest(
                 ),
             )
         }
+        if (getAdventuresUsed(card) > 0) {
+            net.sourceforge.kolmafia.adventure.AdventureSession.setNextAdventure("None", preferences)
+            net.sourceforge.kolmafia.recovery.BetweenBattleInvoker.run(true)
+        }
         val useHtml = useDeck(deckId, cheat = card != null).getOrElse { return Result.failure(it) }
         val useError = parseUseErrors(useHtml, preferences)
         if (useError != null) return Result.failure(IllegalStateException(useError))
-        net.sourceforge.kolmafia.recovery.BetweenBattleInvoker.run(true)
 
         return if (card == null) {
             choiceRequest.choose(RANDOM_CHOICE, 1).map { (html, _) ->
@@ -106,6 +109,29 @@ class DeckOfEveryCardRequest(
         const val SEEN_PREF = "_deckCardsSeen"
         const val RANDOM_CHOICE = 1085
         const val CHEAT_CHOICE = 1086
+
+        private val URL_CARD = Regex("""which=(\d+)""")
+
+        /** Cards that lead to a fight. Desktop `monsterCards`. */
+        val MONSTER_CARD_IDS: Set<Int> = setOf(
+            46, 45, 44, 15, 11, 26, 19, 16, 13, 17, 28, 29, 10, 20, 24, 14, 12, 30, 21, 27, 23, 22, 18, 9, 25,
+        )
+
+        /** Every registered card id. An unknown `which=` is a null card. */
+        val KNOWN_CARD_IDS: Set<Int> = MONSTER_CARD_IDS + setOf(
+            1, 2, 3, 4, 5, 6, 7, 8, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 47, 48, 49, 50, 51,
+            52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+        )
+
+        /** Desktop [DeckOfEveryCardRequest.getAdventuresUsed]: a missing or unknown card might be a fight. */
+        fun getAdventuresUsed(url: String): Int {
+            val id = URL_CARD.find(url)?.groupValues?.get(1)?.toIntOrNull()
+            if (id == null || id !in KNOWN_CARD_IDS) return 1
+            return if (id in MONSTER_CARD_IDS) 1 else 0
+        }
+
+        fun getAdventuresUsed(card: EveryCard?): Int =
+            if (card == null || card.id in MONSTER_CARD_IDS) 1 else 0
 
         private val CHEAT_SELECT_PATTERN =
             Regex("""<select name="which".*?</select>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
