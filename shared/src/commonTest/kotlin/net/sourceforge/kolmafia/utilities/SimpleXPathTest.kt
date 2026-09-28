@@ -113,4 +113,11 @@ class SimpleXPathTest {
             SimpleXPath.evaluate(html, "//b/following-sibling::*[1]/text()").map { it.trim() },
         )
     }
+
+    @Test
+    fun startsWithPredicate_matchesPrefix() {
+        val html = """<div><img src="/images/itemimages/seal.gif"><img src="/other/skip.gif"></div>"""
+        val results = SimpleXPath.evaluate(html, "//img[starts-with(@src,'/images/')]/@src")
+        assertEquals(listOf("/images/itemimages/seal.gif"), results)
+    }
 }

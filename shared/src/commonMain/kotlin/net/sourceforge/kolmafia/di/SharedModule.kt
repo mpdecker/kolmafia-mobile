@@ -302,6 +302,7 @@ val sharedModule = module {
             questDatabase = get(),
             character = get(),
             inventoryManager = get(),
+            familiarManager = get(),
         )
     }
     single {
@@ -862,6 +863,9 @@ val sharedModule = module {
             character = get(),
             gameDatabase = get(),
             retrieveItemService = get(),
+            inventory = get(),
+            preferences = get(),
+            sessionLogger = get(),
         )
     }
     single {
@@ -1218,6 +1222,7 @@ val sharedModule = module {
             storageRequest       = get(),
             clanStashRequest     = get(),
             displayCaseRequest   = get(),
+            scriptHookRunner     = get(),
         )
     }
     singleOf(::ShopRequest)

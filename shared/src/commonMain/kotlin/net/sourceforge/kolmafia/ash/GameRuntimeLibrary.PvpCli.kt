@@ -199,6 +199,7 @@ internal fun GameRuntimeLibrary.runAshPvpAttack(player: String): Boolean {
             }) },
             print = {},
             inventoryManager = inventoryManager,
+            ashRunner = pvpAshRunner(),
         )
         PvpManager.abortReason == null
     }
@@ -230,6 +231,7 @@ internal fun GameRuntimeLibrary.runAshRankedFam(): Boolean {
             }) },
             print = {},
             inventoryManager = inventoryManager,
+            ashRunner = pvpAshRunner(),
         )
         PvpManager.abortReason == null
     }
@@ -279,6 +281,7 @@ internal fun GameRuntimeLibrary.cliPvp(parameters: String, print: (String) -> Un
                     cliExecutor = { cmd -> dispatchCli(cmd, print.asRuntimeContext()) },
                     print = print,
                     inventoryManager = inventoryManager,
+            ashRunner = pvpAshRunner(),
                 )
             }
         }
@@ -303,6 +306,7 @@ internal fun GameRuntimeLibrary.cliFlowers(print: (String) -> Unit) {
             cliExecutor = { cmd -> dispatchCli(cmd, print.asRuntimeContext()) },
             print = print,
             inventoryManager = inventoryManager,
+            ashRunner = pvpAshRunner(),
         )
     }
 }
@@ -400,11 +404,15 @@ internal fun GameRuntimeLibrary.cliPvpAttack(parameters: String, rt: AshRuntimeC
                     cliExecutor = { cmd -> dispatchCli(cmd, rt) },
                     print = print,
                     inventoryManager = inventoryManager,
+            ashRunner = pvpAshRunner(),
                 )
             }
         }
     }
 }
+
+private fun GameRuntimeLibrary.pvpAshRunner(): () -> Boolean =
+    { adventureManager?.runBeforePvpAshScript() == true }
 
 private fun ((String) -> Unit).asRuntimeContext(): AshRuntimeContext =
     object : AshRuntimeContext {

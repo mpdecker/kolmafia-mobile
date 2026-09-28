@@ -3,6 +3,7 @@ package net.sourceforge.kolmafia.item
 import net.sourceforge.kolmafia.data.ConcoctionBuyables
 import net.sourceforge.kolmafia.data.ConcoctionCreationCost
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.ConcoctionYield
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.data.NpcStoreDatabase
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -26,6 +27,8 @@ object RetrievePricing {
         val prefs: Preferences? = null,
         /** Desktop create gate — false skips priceToMake for that id. */
         val canCreate: (Int) -> Boolean = { true },
+        /** Desktop [KoLCharacter.tripleReagent] — Sauceror SX3 yield. */
+        val tripleReagent: Boolean = false,
     )
 
     /**
@@ -83,7 +86,7 @@ object RetrievePricing {
         val concoction = ConcoctionDatabase.getByResult(name) ?: return UNAVAILABLE
         if (!ctx.canCreate(itemId)) return UNAVAILABLE
         if (concoction.methods.isEmpty()) return UNAVAILABLE
-        val yield = concoction.craftYield.coerceAtLeast(1)
+        val yield = ConcoctionYield.getYield(concoction, ctx.tripleReagent)
         val batches = (qty + yield - 1) / yield
         var price = ConcoctionCreationCost.creationCost(concoction.methods) * batches
         val ingredients = concoction.ingredients

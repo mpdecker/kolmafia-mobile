@@ -72,6 +72,23 @@ object ConcoctionDatabase {
     }
 
     fun getByResult(name: String): ConcoctionData? = _byResult[name.lowercase()]
+
+    /**
+     * Desktop [net.sourceforge.kolmafia.persistence.ConcoctionDatabase.meatStackCreation]:
+     * the result item is crafted from a meat stack.
+     */
+    fun usesMeatStackIngredient(itemId: Int): Boolean {
+        val resultName = ItemDatabase.getItemName(itemId)
+        if (resultName.isBlank()) return false
+        val concoction = getByResult(resultName) ?: return false
+        return concoction.ingredients.any { it.name.equals("meat stack", ignoreCase = true) }
+    }
+
+    /** Desktop [net.sourceforge.kolmafia.persistence.ConcoctionDatabase.getYield]. */
+    fun getYield(name: String, tripleReagent: Boolean = lastRefreshContext.characterState?.isSauceror == true): Int {
+        val concoction = getByResult(name) ?: return 1
+        return ConcoctionYield.getYield(concoction, tripleReagent)
+    }
     fun getByIngredient(name: String): List<ConcoctionData> =
         _byIngredient[name.lowercase()] ?: emptyList()
     fun all(): Collection<ConcoctionData> = _byResult.values
@@ -215,9 +232,11 @@ object ConcoctionDatabase {
         refreshNeeded = false
         rebuildRuntimeState(context)
         resetEffectNames()
-        ConsumableDatabase.setAdventuresNeededContextForLive(
+            ConsumableDatabase.setAdventuresNeededContextForLive(
             ConcoctionAdventuresContext(
                 initialCount = { name -> initialCount(name) },
+                isPermitted = context.isPermitted,
+                tripleReagent = context.characterState?.isSauceror == true,
             ),
         )
         if (recalculateAdventureRange) {
@@ -326,6 +345,7 @@ object ConcoctionDatabase {
             coinmasterAcquirable = context.coinmasterAcquirable,
             availableCountById = context.availableCountById,
             ingredientPriceFor = ConcoctionInterchangeableIngredients::defaultPriceFor,
+            tripleReagent = context.characterState?.isSauceror == true,
         )
         for (key in _byResult.keys.sorted()) {
             val concoction = _byResult[key] ?: continue
@@ -701,9 +721,15 @@ object ConcoctionDatabase {
                 methods = methods,
                 ingredients = ingredients,
                 param = param,
+                craftYield = resultQty.coerceAtLeast(1),
             )
+            // Desktop ConcoctionDatabase: skip CraftingMisc.MANUAL entirely, and do not
+            // overwrite an already-registered non-NOCREATE recipe.
+            if ("MANUAL" in methods) continue
+            val key = resultName.lowercase()
+            if (_byResult.containsKey(key)) continue
 
-            _byResult[resultName.lowercase()] = concoction
+            _byResult[key] = concoction
             for (ingredient in ingredients) {
                 _byIngredient
                     .getOrPut(ingredient.name.lowercase()) { mutableListOf() }

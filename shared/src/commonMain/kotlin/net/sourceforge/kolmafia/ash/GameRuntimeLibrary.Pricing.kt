@@ -164,6 +164,7 @@ internal fun GameRuntimeLibrary.registerPricingQueries(scope: AshScope) {
                     conc?.isCreateSupported() == true
                 }
             },
+            tripleReagent = character?.state?.value?.isSauceror == true,
         )
     }
 

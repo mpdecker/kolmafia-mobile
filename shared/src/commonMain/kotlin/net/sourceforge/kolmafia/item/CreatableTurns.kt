@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.item
 
 import net.sourceforge.kolmafia.data.ConcoctionCreationCost
 import net.sourceforge.kolmafia.data.ConcoctionDatabase
+import net.sourceforge.kolmafia.data.ConcoctionYield
 import net.sourceforge.kolmafia.data.ItemDatabase
 
 /** Desktop Concoction.getAdventuresNeeded with ingredient-tree recursion. */
@@ -12,6 +13,7 @@ object CreatableTurns {
         val isPermitted: (Int) -> Boolean,
         val considerFreeCrafting: Boolean = false,
         val freeCrafting: FreeCraftingTurns.Context = FreeCraftingTurns.Context(),
+        val tripleReagent: Boolean = false,
     )
 
     fun adventuresNeeded(
@@ -52,7 +54,7 @@ object CreatableTurns {
         if (concoction.resultQuantity > 1) return 0
 
         var runningTotal = ConcoctionCreationCost.adventureUsage(concoction.methods) * create
-        val yield = concoction.resultQuantity.coerceAtLeast(1)
+        val yield = ConcoctionYield.getYield(concoction, context.tripleReagent)
         if (yield > 1) {
             runningTotal = (runningTotal + yield - 1) / yield
         }

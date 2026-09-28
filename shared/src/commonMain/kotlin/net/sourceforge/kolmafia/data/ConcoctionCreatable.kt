@@ -14,6 +14,7 @@ data class ConcoctionCreatableContext(
         ItemDatabase.getById(id)?.name?.let { name -> initialCount(name.lowercase()) } ?: 0
     },
     val ingredientPriceFor: (Int) -> Int = ConcoctionInterchangeableIngredients::defaultPriceFor,
+    val tripleReagent: Boolean = false,
 ) {
     fun initialFor(concoction: ConcoctionData): Int = initialCount(concoction.result.lowercase())
 
@@ -187,7 +188,7 @@ fun canMake(
         return alreadyHave
     }
 
-    val yield = concoction.craftYield.coerceAtLeast(1)
+    val yield = ConcoctionYield.getYield(concoction, context.tripleReagent)
     needToMake = (needToMake + yield - 1) / yield
     var minMake = Int.MAX_VALUE
 

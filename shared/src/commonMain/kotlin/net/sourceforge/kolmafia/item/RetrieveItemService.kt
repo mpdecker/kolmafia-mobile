@@ -269,6 +269,7 @@ open class RetrieveItemService(
                 val name = ItemDatabase.getItemName(id)
                 name.isNotBlank() && canCreateItem(id, name)
             },
+            tripleReagent = character?.state?.value?.isSauceror == true,
         )
 
     private suspend fun untinkerBridge(): Int {

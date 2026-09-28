@@ -210,7 +210,7 @@ object ConcoctionQueueReserve {
             return bucket
         }
 
-        val yield = concoction.craftYield.coerceAtLeast(1)
+        val yield = ConcoctionYield.getYield(concoction, context.characterState?.isSauceror == true)
         val craftBatches = (overAmount + yield - 1) / yield
         if (craftBatches <= 0) {
             return bucket

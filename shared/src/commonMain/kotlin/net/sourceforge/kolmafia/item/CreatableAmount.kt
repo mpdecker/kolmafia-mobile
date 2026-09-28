@@ -55,7 +55,7 @@ object CreatableAmount {
             crafts = minOf(crafts, available / ingredient.quantity)
         }
         if (crafts == Int.MAX_VALUE || crafts <= 0) return 0
-        val yield = concoction.resultQuantity.coerceAtLeast(1)
+        val yield = ConcoctionDatabase.getYield(concoction.result)
         return crafts * yield
     }
 }

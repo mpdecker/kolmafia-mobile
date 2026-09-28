@@ -594,6 +594,15 @@ class KoLCharacter {
         )
     }
 
+    /** Desktop [KoLCharacter.incrementAbsorbs] — clamp to the noob absorb limit and write `_noobSkillCount`. */
+    fun incrementAbsorbs(delta: Int, preferences: Preferences? = null) {
+        val current = _state.value
+        val limit = NoobcoreAbsorbs.absorbsLimit(current.level)
+        val next = (current.absorbs + delta).coerceIn(0, limit)
+        _state.value = current.copy(absorbs = next)
+        preferences?.setInt("_noobSkillCount", next)
+    }
+
     fun updatePlumberResources(thunder: Int, rain: Int, lightning: Int,
                                currentPP: Int = _state.value.currentPP,
                                maximumPP: Int = _state.value.maximumPP) {

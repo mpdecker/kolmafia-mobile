@@ -11,7 +11,10 @@ import net.sourceforge.kolmafia.character.NoobcoreAbsorbs
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
+import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.item.RetrieveItemService
+import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.SessionLogger
 
 /** Desktop AbsorbCommand — absorb tradeable/gift items in Gelatinous Noob (Phase 388). */
 open class AbsorbRequest(
@@ -19,6 +22,9 @@ open class AbsorbRequest(
     private val character: KoLCharacter? = null,
     private val gameDatabase: GameDatabase? = null,
     private val retrieveItemService: RetrieveItemService? = null,
+    private val inventory: InventoryManager? = null,
+    private val preferences: Preferences? = null,
+    private val sessionLogger: SessionLogger? = null,
 ) {
     open suspend fun refreshAbsorbs(): Result<Int> = fetchCharpaneAbsorbs()
 
@@ -53,6 +59,14 @@ open class AbsorbRequest(
             if (!response.status.isSuccess()) {
                 return Result.failure(Exception("HTTP ${response.status.value}"))
             }
+            UseItemAbsorbSync.apply(
+                url = "inventory.php?absorb=$itemId",
+                responseText = response.bodyAsText(),
+                character = char,
+                inventory = inventory,
+                preferences = preferences,
+                sessionLogger = sessionLogger,
+            )
         }
 
         fetchCharpaneAbsorbs()

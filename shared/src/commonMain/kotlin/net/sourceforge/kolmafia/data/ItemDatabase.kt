@@ -81,6 +81,10 @@ object ItemDatabase {
     /** Desktop ItemDatabase.isGiftItem — GIFT access flag only (not isGiftable). */
     fun isGiftItem(itemId: Int): Boolean = getById(itemId)?.access?.contains('g') == true
 
+    /** Desktop ItemDatabase.isGiftPackage — secondary use `package`. */
+    fun isGiftPackage(itemId: Int): Boolean =
+        getById(itemId)?.secondaryUses?.any { it.equals("package", ignoreCase = true) } == true
+
     fun isUsable(itemId: Int): Boolean {
         val item = getById(itemId) ?: return false
         return when (item.primaryUse) {

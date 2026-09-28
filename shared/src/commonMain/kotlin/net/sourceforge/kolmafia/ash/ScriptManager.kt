@@ -88,18 +88,38 @@ class ScriptManager(
 
     /** Synchronous run for autoscript hooks — must finish before the adventure loop continues. */
     fun runScriptSync(name: String) {
-        val entry = findScript(name) ?: return
-        try {
-            val out = executeScript(entry)
+        runScriptSync(name, functionName = "main", args = emptyList(), executeTopLevel = true)
+    }
+
+    /**
+     * Desktop [KoLmafiaASH] interpreter.execute(functionName, args, executeTopLevel).
+     * Returns null when the named script is not saved.
+     */
+    fun runScriptSync(
+        name: String,
+        functionName: String,
+        args: List<AshValue> = emptyList(),
+        executeTopLevel: Boolean = functionName.equals("main", ignoreCase = true),
+    ): AshValue? {
+        val entry = findScript(name) ?: return null
+        return try {
+            val runtime = AshRuntime(library)
+            val nodes = AshParser().parse(entry.source)
+            runtime.execute(nodes, executeTopLevel = executeTopLevel)
+            val invoked = runtime.executeUserFunction(functionName, args)
+            val result = invoked ?: runtime.returnValue
             val updatedScripts = _state.value.scripts.map {
                 if (it.name == entry.name) it.copy(lastRunAt = currentTimeMillis()) else it
             }
             persistScripts(updatedScripts)
-            _state.value = _state.value.copy(output = out, error = null)
+            _state.value = _state.value.copy(output = runtime.output.toString(), error = null)
+            result
         } catch (e: ScriptException) {
             _state.value = _state.value.copy(error = e.message)
+            null
         } catch (e: Exception) {
             _state.value = _state.value.copy(error = e.message ?: "Unknown error")
+            null
         }
     }
 

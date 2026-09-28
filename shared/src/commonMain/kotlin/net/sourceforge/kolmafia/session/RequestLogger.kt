@@ -16,6 +16,8 @@ import net.sourceforge.kolmafia.request.MonsterManuelRequest
 import net.sourceforge.kolmafia.request.MushroomRequest
 import net.sourceforge.kolmafia.request.ScrapheapRequest
 import net.sourceforge.kolmafia.request.UneffectRequest
+import net.sourceforge.kolmafia.request.UseItemBingeLog
+import net.sourceforge.kolmafia.request.UseItemRegisterLog
 import net.sourceforge.kolmafia.request.CakeArenaRequest
 import net.sourceforge.kolmafia.request.BountyHunterHunterRequest
 import net.sourceforge.kolmafia.request.BeachCombRequest
@@ -77,6 +79,18 @@ object RequestLogger {
 
     /** DI: combat action actor name for Round N: session-log lines. */
     var fightActorName: () -> String = { "Player" }
+
+    /** DI: current familiar id for punchcard and binge session-log lines. */
+    var familiarId: () -> Int = { 0 }
+
+    /** DI: current familiar race for binge feed lines. */
+    var familiarRace: () -> String = { "" }
+
+    /** DI: equipped item id by slot key (`hat`, `offhand`, `shirt`, `familiarequip`). */
+    var equippedItemId: (String) -> Int = { -1 }
+
+    /** DI: apply a Boris / Jarlsberg / Pete / toggle equipment swap from registerRequest. */
+    var applyEquippedItem: (slot: String, itemId: Int, discardPrevious: Boolean) -> Unit = { _, _, _ -> }
 
     fun updateSessionLog(message: String, sessionLogger: SessionLogger?) {
         val trimmed = message.trim()
@@ -428,7 +442,12 @@ object RequestLogger {
             return true
         }
 
-        if (registerUseItem(urlString, sessionLogger)) {
+        if (registerBinge(urlString, sessionLogger)) {
+            wasLastRequestSimple = false
+            return true
+        }
+
+        if (registerUseItem(urlString, sessionLogger, preferences)) {
             wasLastRequestSimple = false
             return true
         }
@@ -887,7 +906,17 @@ object RequestLogger {
 
     // ── Track B: use / equip / skill / camp / create ─────────────────────────
 
-    private fun registerUseItem(url: String, sessionLogger: SessionLogger?): Boolean {
+    private fun registerBinge(url: String, sessionLogger: SessionLogger?): Boolean {
+        val line = UseItemBingeLog.line(url, familiarId(), familiarRace()) ?: return false
+        updateSessionLog(line, sessionLogger)
+        return true
+    }
+
+    private fun registerUseItem(
+        url: String,
+        sessionLogger: SessionLogger?,
+        preferences: Preferences?,
+    ): Boolean {
         when {
             url.startsWith("inv_eat.php") -> {
                 val id = whichItem(url) ?: return true
@@ -910,9 +939,41 @@ object RequestLogger {
                 if (url.contains("action=closetpull") || url.contains("action=closetpush")) {
                     return registerCloset(url, sessionLogger)
                 }
-                val id = whichItem(url) ?: return false
-                updateSessionLog("use ${itemLabel(id, quantity(url))}", sessionLogger)
-                return true
+                val id = whichItem(url)
+                if (id == null) {
+                    val equipped = UseItemRegisterLog.equipped(url, equippedItemId) { itemNameById(it).orEmpty() }
+                        ?: return false
+                    if (equipped.discardPrevious) {
+                        val previous = equippedItemId(equipped.slot)
+                        if (previous > 0) applyEquippedItem(equipped.slot, previous, true)
+                    }
+                    applyEquippedItem(equipped.slot, equipped.newItemId, false)
+                    updateSessionLog(equipped.text, sessionLogger)
+                    return true
+                }
+                when (
+                    val described = UseItemRegisterLog.describe(
+                        url = url,
+                        itemId = id,
+                        count = quantity(url),
+                        itemName = { itemNameById(it).orEmpty() },
+                        adventureCount = preferences?.getInt("turnsPlayed", 0) ?: 0,
+                        familiarId = familiarId(),
+                    )
+                ) {
+                    UseItemRegisterLog.Outcome.Skip -> return true
+                    UseItemRegisterLog.Outcome.Fallback -> {
+                        updateSessionLog("use ${itemLabel(id, quantity(url))}", sessionLogger)
+                        return true
+                    }
+                    is UseItemRegisterLog.Outcome.Line -> {
+                        if (described.markLocationLogged) {
+                            net.sourceforge.kolmafia.adventure.AdventureSession.locationLogged = true
+                        }
+                        updateSessionLog(described.text, sessionLogger)
+                        return true
+                    }
+                }
             }
         }
         return false

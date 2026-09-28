@@ -241,6 +241,14 @@ open class AdventureManager(
     val fightFollowsChoice: Boolean get() = _fightFollowsChoice
     val inChoiceResolution: Boolean get() = _inChoiceResolution
 
+    /** Desktop [KoLCharacter.liberateKing] `kingLiberatedScript`. */
+    internal fun runKingLiberatedScript() {
+        scriptHookRunner?.onKingLiberated()
+    }
+
+    /** Desktop [PvpManager] ASH `beforePVPScript` when a saved script exists. */
+    internal fun runBeforePvpAshScript(): Boolean = scriptHookRunner?.onBeforePvp() == true
+
     sealed interface ItemStopResult {
         val message: String
 
@@ -289,6 +297,12 @@ open class AdventureManager(
     internal fun testSetCombatFlags(inMultiFight: Boolean, fightFollowsChoice: Boolean) {
         _inMultiFight = inMultiFight
         _fightFollowsChoice = fightFollowsChoice
+    }
+
+    /** Desktop [net.sourceforge.kolmafia.request.FightRequest.checkForMultiFight]. */
+    fun noteMultiFight(inMultiFight: Boolean) {
+        _inMultiFight = inMultiFight
+        ChoiceCombatAshState.inMultiFight = inMultiFight
     }
 
     internal fun testSetChoiceResolution(inChoiceResolution: Boolean) {
@@ -630,7 +644,14 @@ open class AdventureManager(
                         }
                     }
                     checkQuestAdvancement(lastTurnResponseText)
-                    TurnCounter.removeExpired(preferences, character.state.value.currentRun)
+                    val currentRun = character.state.value.currentRun
+                    for (expired in TurnCounter.expiredEntries(preferences, currentRun)) {
+                        scriptHookRunner?.onCounter(
+                            expired.parsedLabel(),
+                            TurnCounter.turnsRemaining(expired, currentRun),
+                        )
+                    }
+                    TurnCounter.removeExpired(preferences, currentRun)
                     QuantumTerrariumRequest.checkCounter(
                         client = characterRequest.client,
                         character = character,
@@ -772,6 +793,7 @@ open class AdventureManager(
                 preferences = preferences,
                 setKingLiberated = {
                     character.liberateKing(preferences)
+                    scriptHookRunner?.onKingLiberated()
                     if (preferences.getBoolean("_liberateKingNeedsSkillRefresh", false)) {
                         preferences.setBoolean("_liberateKingNeedsSkillRefresh", false)
                         kotlinx.coroutines.runBlocking { skills?.fetchSkills() }
@@ -1555,6 +1577,17 @@ open class AdventureManager(
                 val bastilleContext = bastilleSyncContext()
                 BastilleBattalionSync.syncVisit(
                     currentChoiceId, currentResponseText, url = null, preferences, bastilleContext,
+                )
+            }
+            val choiceScriptRan = scriptHookRunner?.onChoiceAdventure(
+                currentChoiceId,
+                currentResponseText,
+            ) == true
+            if (choiceScriptRan && !ChoiceCombatAshState.handlingChoice) {
+                return AdventureResult.Choice(
+                    currentChoiceId,
+                    "Choice Adventure",
+                    chosenOption = lastChosenOption,
                 )
             }
             val ctx = ChoiceContext(

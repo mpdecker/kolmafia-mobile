@@ -9,7 +9,7 @@ class GameRuntimeLibraryCliMegaHelpTest {
 
     @Test
     fun revision_isphase2750() {
-        assertEquals("phase7510", GameRuntimeLibrary.REVISION)
+        assertEquals("phase7630", GameRuntimeLibrary.REVISION)
     }
 
     @Test

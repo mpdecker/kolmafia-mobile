@@ -78,6 +78,7 @@ open class SessionManager(
     private val storageRequest: StorageRequest? = null,
     private val clanStashRequest: ClanStashRequest? = null,
     private val displayCaseRequest: DisplayCaseRequest? = null,
+    private val scriptHookRunner: net.sourceforge.kolmafia.ash.ScriptHookRunner? = null,
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -211,6 +212,7 @@ open class SessionManager(
                             charState = charState,
                             inventoryState = inventoryManager.state.value,
                         )
+                        scriptHookRunner?.onLogin()
 
                         if (charState.inPokefam) {
                             httpClient?.let { client ->

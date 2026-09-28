@@ -621,7 +621,7 @@ class ConcoctionQueueRunnerTest {
         val feedUrls = mutableListOf<String>()
         val client = HttpClient(MockEngine { req ->
             feedUrls += req.url.toString()
-            respond("The robortender drinks.")
+            respond("The robortender enjoys the drink.")
         })
         val runner = ConcoctionQueueRunner(
             clanLoungeRequest = ClanLoungeRequest(client),

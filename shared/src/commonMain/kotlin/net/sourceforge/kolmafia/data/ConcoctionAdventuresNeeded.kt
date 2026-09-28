@@ -9,6 +9,7 @@ data class ConcoctionAdventuresContext(
     val freeSmithingTurns: Int = 0,
     val freeCookingTurns: Int = 0,
     val freeMixingTurns: Int = 0,
+    val tripleReagent: Boolean = false,
 ) {
     fun initialFor(concoction: ConcoctionData): Int = initialCount(concoction.result.lowercase())
 
@@ -45,7 +46,7 @@ fun getAdventuresNeeded(
     visiting.add(key)
 
     var runningTotal = ConcoctionAdventureUsage.adventureUsageForConcoction(concoction) * create
-    val yield = concoction.craftYield
+    val yield = ConcoctionYield.getYield(concoction, context.tripleReagent)
     if (yield > 1) {
         runningTotal = (runningTotal + yield - 1) / yield
     }

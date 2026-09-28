@@ -1,14 +1,24 @@
 package net.sourceforge.kolmafia.request
 
 import kotlin.math.min
+import net.sourceforge.kolmafia.campground.CampgroundItemSync
+import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterState
+import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.ConsumableDatabase
 import net.sourceforge.kolmafia.data.DailyLimitDatabase
 import net.sourceforge.kolmafia.data.DailyLimitKind
+import net.sourceforge.kolmafia.data.HolidayCalendar
+import net.sourceforge.kolmafia.data.HolidayNames
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
+import net.sourceforge.kolmafia.data.ModifierDatabase
+import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.data.RestoreDatabase
+import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.modifiers.ExpressionContext
+import net.sourceforge.kolmafia.modifiers.StringModifier
 import net.sourceforge.kolmafia.preferences.Preferences
 
 data class ItemUseLimitsContext(
@@ -21,6 +31,12 @@ data class ItemUseLimitsContext(
     val canWalkAwayFromChoice: Boolean = true,
     val canUsePotions: Boolean = true,
     val accessibleCount: (Int) -> Int = { 0 },
+    /** Null uses the live KoL holiday string. Tests pass an explicit holiday. */
+    val holiday: String? = null,
+    /** Null uses the live September–November check. Tests pass an explicit season. */
+    val autumn: Boolean? = null,
+    /** Effect names currently on the character. Empty means none are active. */
+    val activeEffectNames: Set<String> = emptySet(),
 )
 
 /** Desktop UseItemRequest maximumUses early guards (fight/choice/limit-mode/path/item cases). */
@@ -74,10 +90,93 @@ private fun earlyMaximumUses(itemId: Int, ctx: ItemUseLimitsContext): Int? {
         return 0
     }
 
+    if (itemId in CLASS_BOOKS) {
+        val bookClass = itemToClass(itemId)
+        return if (bookClass != null && bookClass == ctx.character.className) {
+            Int.MAX_VALUE
+        } else {
+            0
+        }
+    }
+
     return null
 }
 
-fun maximumUses(itemId: Int, itemName: String, ctx: ItemUseLimitsContext): Int {
+/** Desktop UseItemRequest.itemToClass — item `Class:` modifier, or null when unset. */
+fun itemToClass(itemId: Int): String? {
+    val name = ItemDatabase.getItemName(itemId)
+    if (name.isBlank()) return null
+    return ModifierDatabase.getStringModifier(name, StringModifier.CLASS).ifBlank { null }
+}
+
+private const val RESOLUTION_ADVENTUROUS = 5471
+private const val DARK_CHOCOLATE_HEART = 5498
+private const val CSA_FIRE_STARTING_KIT = 5739
+private const val RIGHT_BEAR_ARM = 5791
+private const val LEFT_BEAR_ARM = 5792
+private const val SUSHI_ROLLING_MAT = 3581
+private const val ETERNAL_CAR_BATTERY = 6741
+private const val FOLDER_01 = 6618
+private const val FOLDER_23 = 6640
+private const val PASTA_ADDITIVE = 6900
+private const val CHRONER = 7567
+private const val CHRONER_CROSS = 7723
+private const val GAUDY_KEY = 4874
+private const val PIRATE_FLEDGES = 3033
+private const val SWASHBUCKLING_GETUP = 9
+private const val BITTYCAR_MEATCAR = 5926
+private const val BITTYCAR_HOTCAR = 5927
+private const val BITTYCAR_SOULCAR = 6046
+private const val STILL_BEATING_SPLEEN = 8086
+private const val MAYO_CLINIC = 8260
+private const val MAYONEX = 8261
+private const val MAYOFLEX = 8265
+private const val WRIST_BOY = 9102
+private const val HOLORECORD_SHRIEKING_WEASEL = 9109
+private const val HOLORECORD_DRUNK_UNCLES = 9115
+private const val SCHOOL_OF_HARD_KNOCKS_DIPLOMA = 9123
+private const val PUNCHING_MIRROR = 11451
+private const val SPARKLER = 2679
+private const val SNAKE = 2680
+private const val M282 = 2681
+private const val VICTOR_SPOILS = 9489
+private const val GREEN_ROCKET = 9827
+private const val CRYSTALLIZED_PUMPKIN_SPICE = 11738
+private const val TINY_BOTTLE_OF_ABSINTHE = 2655
+private const val ELEVEN_LEAF_CLOVER = 10881
+
+private fun currentHoliday(ctx: ItemUseLimitsContext): String =
+    ctx.holiday ?: HolidayNames.getHoliday()
+
+private fun inAutumn(ctx: ItemUseLimitsContext): Boolean =
+    ctx.autumn ?: HolidayCalendar.isAutumn()
+
+private fun bittycarUses(ctx: ItemUseLimitsContext, model: String): Int {
+    val active = ctx.preferences?.getString("_bittycar") ?: ""
+    return if (active == model) 0 else 1
+}
+
+private fun wearingItem(ctx: ItemUseLimitsContext, itemId: Int): Boolean {
+    val name = ItemDatabase.getItemName(itemId)
+    if (name.isBlank()) return false
+    return ctx.character.equipment.values.any { it.equals(name, ignoreCase = true) }
+}
+
+private val CLASS_BOOKS = setOf(
+    4406, 5354, // The Art of Slapfighting
+    4407, 5355, // Uncle Romulus
+    4408, 5356, // A Beginner's Guide to Charming Snakes
+    4409, 5357, // Zu Mannkäse Dienen
+    4410, 5358, // Dynamite Superman Jones
+    4411, 5359, // Inigo's Incantation of Inspiration
+)
+
+fun maximumUses(
+    itemId: Int,
+    itemName: String,
+    ctx: ItemUseLimitsContext,
+    consumptionType: ItemPrimaryUse = ItemPrimaryUse.NONE,
+): Int {
     earlyMaximumUses(itemId, ctx)?.let { return it }
 
     val fullness = ConsumableDatabase.getFullnessByName(itemName)
@@ -92,6 +191,76 @@ fun maximumUses(itemId: Int, itemName: String, ctx: ItemUseLimitsContext): Int {
     }
     if (spleenHit > 0) {
         return spleenMaximumUses(itemId, itemName, spleenHit, ctx)
+    }
+
+    when (itemId) {
+        DARK_CHOCOLATE_HEART -> {
+            if (restorationCap(itemId, itemName, ctx) == 0L) return 0
+            DailyLimitDatabase.getEntry(itemId, DailyLimitKind.USE)?.let { entry ->
+                return DailyLimitDatabase.getUsesRemaining(entry, ctx.preferences)
+            }
+        }
+        RESOLUTION_ADVENTUROUS -> {
+            if ((ctx.preferences?.getInt("_resolutionAdv", 0) ?: 0) == 10) return 0
+        }
+        CSA_FIRE_STARTING_KIT -> {
+            val choice = ctx.preferences?.getInt("choiceAdventure595", 0) ?: 0
+            if (!ctx.character.hippyStoneBroken && choice == 1) return 0
+        }
+        LEFT_BEAR_ARM -> return ctx.accessibleCount(RIGHT_BEAR_ARM)
+        SUSHI_ROLLING_MAT ->
+            return if (ctx.preferences?.getBoolean("hasSushiMat", false) == true) 0 else 1
+        ETERNAL_CAR_BATTERY -> {
+            if (restorationCap(itemId, itemName, ctx) == 0L) return 0
+            DailyLimitDatabase.getEntry(itemId, DailyLimitKind.USE)?.let { entry ->
+                return DailyLimitDatabase.getUsesRemaining(entry, ctx.preferences)
+            }
+        }
+        in FOLDER_01..FOLDER_23 -> {
+            val slots = EquipmentSlot.folderSlotsFor(ctx.character.inKoLHS)
+            val open = slots.any { ctx.character.equippedItem(it) == null }
+            return if (open) 1 else 0
+        }
+        PASTA_ADDITIVE -> {
+            if (!ctx.character.isPastamancer) return 0
+            if (ctx.preferences?.getBoolean("_pastaAdditive", false) == true) return 0
+        }
+        CHRONER_CROSS -> {
+            if (ctx.accessibleCount(CHRONER) == 0) return 0
+        }
+        GAUDY_KEY -> {
+            val wearingFledges = wearingItem(ctx, PIRATE_FLEDGES)
+            val pieces = OutfitDatabase.getById(SWASHBUCKLING_GETUP)?.equipment
+            val wearingOutfit = pieces != null &&
+                OutfitManager.isWearingPieces(pieces, ctx.character.equipment)
+            if (!wearingFledges && !wearingOutfit) return 0
+        }
+        BITTYCAR_HOTCAR -> return bittycarUses(ctx, "hotcar")
+        BITTYCAR_MEATCAR -> return bittycarUses(ctx, "meatcar")
+        BITTYCAR_SOULCAR -> return bittycarUses(ctx, "soulcar")
+        STILL_BEATING_SPLEEN -> {
+            val last = ctx.preferences?.getInt("lastStillBeatingSpleen") ?: -1
+            return if (last == ctx.character.ascensionNumber) 0 else 1
+        }
+        in MAYONEX..MAYOFLEX -> {
+            if (!CampgroundItemSync.hasWorkshedItem(ctx.preferences, MAYO_CLINIC)) return 0
+            val inMouth = ctx.preferences?.getString("mayoInMouth") ?: ""
+            return if (inMouth.isEmpty()) 1 else 0
+        }
+        in HOLORECORD_SHRIEKING_WEASEL..HOLORECORD_DRUNK_UNCLES ->
+            return if (ctx.accessibleCount(WRIST_BOY) > 0) Int.MAX_VALUE else 0
+        SCHOOL_OF_HARD_KNOCKS_DIPLOMA, PUNCHING_MIRROR -> {
+            if (!ctx.character.hippyStoneBroken) return 0
+        }
+        VICTOR_SPOILS -> {
+            if (ctx.character.ascensionPath != AscensionPath.LICENSE_TO_ADVENTURE) return 0
+        }
+        M282, SNAKE, SPARKLER, GREEN_ROCKET -> {
+            if (!currentHoliday(ctx).contains("Dependence Day")) return 0
+        }
+        CRYSTALLIZED_PUMPKIN_SPICE -> {
+            if (!inAutumn(ctx)) return 0
+        }
     }
 
     if (!ItemDatabase.isPotion(itemId) && RestoreDatabase.isRestoreItem(itemId)) {
@@ -117,7 +286,44 @@ fun maximumUses(itemId: Int, itemName: String, ctx: ItemUseLimitsContext): Int {
         return DailyLimitDatabase.getUsesRemaining(entry, ctx.preferences)
     }
 
+    if (CampgroundItemSync.isWorkshedItem(itemId)) {
+        return if (ctx.preferences?.getBoolean("_workshedItemUsed", false) == true) 0 else 1
+    }
+
+    slotMaximumUses(consumptionType, ctx)?.let { return it }
+    unstackableEffectUses(itemId, ctx)?.let { return it }
+
     return Int.MAX_VALUE
+}
+
+/**
+ * Desktop `UseItemRequest.maximumUses` consumption-type switch.
+ * `$item[dailyusesleft]` passes [ItemPrimaryUse.NONE] and skips these caps.
+ */
+private fun slotMaximumUses(consumptionType: ItemPrimaryUse, ctx: ItemUseLimitsContext): Int? =
+    when (consumptionType) {
+        ItemPrimaryUse.GROW -> if (ctx.character.isAxecore) 0 else 1
+        ItemPrimaryUse.WEAPON,
+        ItemPrimaryUse.FAMILIAR,
+        ItemPrimaryUse.HAT,
+        ItemPrimaryUse.PANTS,
+        ItemPrimaryUse.CONTAINER,
+        ItemPrimaryUse.SHIRT,
+        ItemPrimaryUse.OFFHAND,
+        -> 1
+        ItemPrimaryUse.ACCESSORY -> 3
+        else -> null
+    }
+
+/** Desktop `LIMITED_USES`: absinthe and the eleven-leaf clover do not stack. */
+private fun unstackableEffectUses(itemId: Int, ctx: ItemUseLimitsContext): Int? {
+    val effectName = when (itemId) {
+        TINY_BOTTLE_OF_ABSINTHE -> "Absinthe-Minded"
+        ELEVEN_LEAF_CLOVER -> "Lucky!"
+        else -> return null
+    }
+    val active = ctx.activeEffectNames.any { it.equals(effectName, ignoreCase = true) }
+    return if (active) 0 else 1
 }
 
 private fun eatMaximumUses(

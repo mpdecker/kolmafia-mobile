@@ -4,6 +4,7 @@ import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
 import net.sourceforge.kolmafia.request.TransferItemSync
+import net.sourceforge.kolmafia.request.UseItemBrickoSync
 
 /**
  * Selective inventory.php action matrix (Phases 2286–2300).
@@ -55,6 +56,9 @@ object InventoryActionSync {
                 true
             }
             action.contains("requestdrop") || action.contains("breakbricko") -> {
+                if (action.contains("breakbricko")) {
+                    UseItemBrickoSync.parse(html, inventory)
+                }
                 ResultProcessor.processResults(false, html, inventory, character, preferences)
                 true
             }
