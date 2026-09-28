@@ -819,7 +819,7 @@ class GameRuntimeLibrary(
 
         const val VERSION = "1.0.0-mobile"
         /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
-        const val REVISION = "phase9250"
+        const val REVISION = "phase9490"
 
         /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
         fun revisionNumber(): Int =
@@ -6023,6 +6023,10 @@ class GameRuntimeLibrary(
             accessibleCount = { itemId ->
                 inventoryManager?.state?.value?.items?.get(itemId)?.quantity ?: 0
             },
+            activeEffectNames = effectManager?.state?.value?.effects
+                ?.map { it.name }
+                ?.toSet()
+                .orEmpty(),
         )
     }
 

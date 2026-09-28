@@ -13,6 +13,7 @@ import net.sourceforge.kolmafia.data.DailyLimitDatabase
 import net.sourceforge.kolmafia.data.DailyLimitKind
 import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.modifiers.ExpressionContext
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -310,6 +311,104 @@ class ItemMaximumUsesTest {
     }
 
     @Test
+    fun diplomaAndMirror_needBrokenHippyStone() {
+        val diploma = ItemDatabase.getByName("School of Hard Knocks Diploma")!!
+        val mirror = ItemDatabase.getByName("punching mirror")!!
+        val prefs = Preferences(MapSettings())
+        val intact = ctx(CharacterState(hippyStoneBroken = false), prefs)
+        assertEquals(0, maximumUses(diploma.id, diploma.name, intact))
+        assertEquals(0, maximumUses(mirror.id, mirror.name, intact))
+        val broken = ctx(CharacterState(hippyStoneBroken = true), prefs)
+        assertEquals(1, maximumUses(diploma.id, diploma.name, broken))
+        assertEquals(1, maximumUses(mirror.id, mirror.name, broken))
+        prefs.setBoolean("_hardKnocksDiplomaUsed", true)
+        prefs.setBoolean("_punchingMirrorUsed", true)
+        assertEquals(0, maximumUses(diploma.id, diploma.name, broken))
+        assertEquals(0, maximumUses(mirror.id, mirror.name, broken))
+    }
+
+    @Test
+    fun victorsSpoils_requiresBond() {
+        val spoils = ItemDatabase.getByName("Victor's Spoils")!!
+        val prefs = Preferences(MapSettings())
+        val other = ctx(CharacterState(), prefs)
+        assertEquals(0, maximumUses(spoils.id, spoils.name, other))
+        val bond = ctx(
+            CharacterState(challengePath = AscensionPath.LICENSE_TO_ADVENTURE.apiName),
+            prefs,
+        )
+        assertEquals(1, maximumUses(spoils.id, spoils.name, bond))
+        prefs.setBoolean("_victorSpoilsUsed", true)
+        assertEquals(0, maximumUses(spoils.id, spoils.name, bond))
+    }
+
+    @Test
+    fun dependenceDayFireworks_needTheHoliday() {
+        val sparkler = ItemDatabase.getByName("sparkler")!!
+        val rocket = ItemDatabase.getByName("green rocket")!!
+        val prefs = Preferences(MapSettings())
+        val ordinary = ctx(CharacterState(), prefs, holiday = "None")
+        assertEquals(0, maximumUses(sparkler.id, sparkler.name, ordinary))
+        val holiday = ctx(CharacterState(), prefs, holiday = "Dependence Day")
+        assertEquals(1, maximumUses(sparkler.id, sparkler.name, holiday))
+        assertEquals(1, maximumUses(rocket.id, rocket.name, holiday))
+        prefs.setBoolean("_fireworkUsed", true)
+        assertEquals(0, maximumUses(rocket.id, rocket.name, holiday))
+    }
+
+    @Test
+    fun pumpkinSpice_needsAutumn() {
+        val spice = ItemDatabase.getByName("crystallized pumpkin spice")!!
+        val winter = ctx(CharacterState(), autumn = false)
+        assertEquals(0, maximumUses(spice.id, spice.name, winter))
+        val fall = ctx(CharacterState(), autumn = true)
+        assertEquals(Int.MAX_VALUE, maximumUses(spice.id, spice.name, fall))
+    }
+
+    @Test
+    fun workshedItem_onceUntilChanged() {
+        val oven = ItemDatabase.getByName("warbear induction oven")!!
+        val letter = ItemDatabase.getByName("TakerSpace letter of Marque")!!
+        val prefs = Preferences(MapSettings())
+        assertEquals(1, maximumUses(oven.id, oven.name, ctx(CharacterState(), prefs)))
+        assertEquals(1, maximumUses(letter.id, letter.name, ctx(CharacterState(), prefs)))
+        prefs.setBoolean("_workshedItemUsed", true)
+        assertEquals(0, maximumUses(oven.id, oven.name, ctx(CharacterState(), prefs)))
+        assertEquals(0, maximumUses(letter.id, letter.name, ctx(CharacterState(), prefs)))
+    }
+
+    @Test
+    fun hatchlingAndEquipment_slotCaps() {
+        val hatchling = ItemDatabase.getByName("leprechaun hatchling")!!
+        val plain = ctx(CharacterState())
+        assertEquals(Int.MAX_VALUE, maximumUses(hatchling.id, hatchling.name, plain))
+        assertEquals(1, maximumUses(hatchling.id, hatchling.name, plain, ItemPrimaryUse.GROW))
+        val boris = ctx(CharacterState(challengePath = "Avatar of Boris"))
+        assertEquals(0, maximumUses(hatchling.id, hatchling.name, boris, ItemPrimaryUse.GROW))
+        assertEquals(1, maximumUses(hatchling.id, hatchling.name, plain, ItemPrimaryUse.WEAPON))
+        assertEquals(1, maximumUses(hatchling.id, hatchling.name, plain, ItemPrimaryUse.FAMILIAR))
+        assertEquals(1, maximumUses(hatchling.id, hatchling.name, plain, ItemPrimaryUse.HAT))
+        assertEquals(1, maximumUses(hatchling.id, hatchling.name, plain, ItemPrimaryUse.PANTS))
+        assertEquals(1, maximumUses(hatchling.id, hatchling.name, plain, ItemPrimaryUse.CONTAINER))
+        assertEquals(1, maximumUses(hatchling.id, hatchling.name, plain, ItemPrimaryUse.SHIRT))
+        assertEquals(1, maximumUses(hatchling.id, hatchling.name, plain, ItemPrimaryUse.OFFHAND))
+        assertEquals(3, maximumUses(hatchling.id, hatchling.name, plain, ItemPrimaryUse.ACCESSORY))
+    }
+
+    @Test
+    fun absintheAndClover_blockedWhileEffectActive() {
+        val absinthe = ItemDatabase.getByName("tiny bottle of absinthe")!!
+        val clover = ItemDatabase.getByName("11-leaf clover")!!
+        val plain = ctx(CharacterState())
+        assertEquals(1, maximumUses(absinthe.id, absinthe.name, plain))
+        assertEquals(1, maximumUses(clover.id, clover.name, plain))
+        val minded = ctx(CharacterState(), activeEffectNames = setOf("Absinthe-Minded"))
+        val lucky = ctx(CharacterState(), activeEffectNames = setOf("Lucky!"))
+        assertEquals(0, maximumUses(absinthe.id, absinthe.name, minded))
+        assertEquals(0, maximumUses(clover.id, clover.name, lucky))
+    }
+
+    @Test
     fun classBook_matchesAscensionClass() {
         val slap = ItemDatabase.getByName("The Art of Slapfighting")!!
         val used = ItemDatabase.getByName("Uncle Romulus (used)")!!
@@ -365,6 +464,9 @@ class ItemMaximumUsesTest {
         inMultiFight: Boolean = false,
         choiceFollowsFight: Boolean = false,
         accessibleCount: (Int) -> Int = { 0 },
+        holiday: String? = null,
+        autumn: Boolean? = null,
+        activeEffectNames: Set<String> = emptySet(),
     ) = ItemUseLimitsContext(
         character = character,
         preferences = preferences,
@@ -377,5 +479,8 @@ class ItemMaximumUsesTest {
         inMultiFight = inMultiFight,
         choiceFollowsFight = choiceFollowsFight,
         accessibleCount = accessibleCount,
+        holiday = holiday,
+        autumn = autumn,
+        activeEffectNames = activeEffectNames,
     )
 }

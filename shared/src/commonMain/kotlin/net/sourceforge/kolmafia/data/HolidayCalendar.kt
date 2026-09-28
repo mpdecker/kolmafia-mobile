@@ -25,6 +25,13 @@ object HolidayCalendar {
         return dayOfWeek(year, month, day) == 1
     }
 
+    /** Desktop HolidayDatabase.isAutumn — September, October, or November. */
+    fun isAutumn(dateYmd: String = currentDateString()): Boolean {
+        if (dateYmd.length != 8) return false
+        val month = dateYmd.substring(4, 6).toIntOrNull() ?: return false
+        return month in 9..11
+    }
+
     private fun realLifeHoliday(year: Int, month: Int, day: Int): String? {
         // Primary real-life holidays (also shown alongside game calendar).
         when {

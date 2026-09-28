@@ -2,12 +2,16 @@ package net.sourceforge.kolmafia.request
 
 import kotlin.math.min
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
+import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
 import net.sourceforge.kolmafia.data.ConsumableDatabase
 import net.sourceforge.kolmafia.data.DailyLimitDatabase
 import net.sourceforge.kolmafia.data.DailyLimitKind
+import net.sourceforge.kolmafia.data.HolidayCalendar
+import net.sourceforge.kolmafia.data.HolidayNames
 import net.sourceforge.kolmafia.data.ItemDatabase
+import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.data.RestoreDatabase
@@ -27,6 +31,12 @@ data class ItemUseLimitsContext(
     val canWalkAwayFromChoice: Boolean = true,
     val canUsePotions: Boolean = true,
     val accessibleCount: (Int) -> Int = { 0 },
+    /** Null uses the live KoL holiday string. Tests pass an explicit holiday. */
+    val holiday: String? = null,
+    /** Null uses the live September–November check. Tests pass an explicit season. */
+    val autumn: Boolean? = null,
+    /** Effect names currently on the character. Empty means none are active. */
+    val activeEffectNames: Set<String> = emptySet(),
 )
 
 /** Desktop UseItemRequest maximumUses early guards (fight/choice/limit-mode/path/item cases). */
@@ -124,6 +134,22 @@ private const val MAYOFLEX = 8265
 private const val WRIST_BOY = 9102
 private const val HOLORECORD_SHRIEKING_WEASEL = 9109
 private const val HOLORECORD_DRUNK_UNCLES = 9115
+private const val SCHOOL_OF_HARD_KNOCKS_DIPLOMA = 9123
+private const val PUNCHING_MIRROR = 11451
+private const val SPARKLER = 2679
+private const val SNAKE = 2680
+private const val M282 = 2681
+private const val VICTOR_SPOILS = 9489
+private const val GREEN_ROCKET = 9827
+private const val CRYSTALLIZED_PUMPKIN_SPICE = 11738
+private const val TINY_BOTTLE_OF_ABSINTHE = 2655
+private const val ELEVEN_LEAF_CLOVER = 10881
+
+private fun currentHoliday(ctx: ItemUseLimitsContext): String =
+    ctx.holiday ?: HolidayNames.getHoliday()
+
+private fun inAutumn(ctx: ItemUseLimitsContext): Boolean =
+    ctx.autumn ?: HolidayCalendar.isAutumn()
 
 private fun bittycarUses(ctx: ItemUseLimitsContext, model: String): Int {
     val active = ctx.preferences?.getString("_bittycar") ?: ""
@@ -145,7 +171,12 @@ private val CLASS_BOOKS = setOf(
     4411, 5359, // Inigo's Incantation of Inspiration
 )
 
-fun maximumUses(itemId: Int, itemName: String, ctx: ItemUseLimitsContext): Int {
+fun maximumUses(
+    itemId: Int,
+    itemName: String,
+    ctx: ItemUseLimitsContext,
+    consumptionType: ItemPrimaryUse = ItemPrimaryUse.NONE,
+): Int {
     earlyMaximumUses(itemId, ctx)?.let { return it }
 
     val fullness = ConsumableDatabase.getFullnessByName(itemName)
@@ -218,6 +249,18 @@ fun maximumUses(itemId: Int, itemName: String, ctx: ItemUseLimitsContext): Int {
         }
         in HOLORECORD_SHRIEKING_WEASEL..HOLORECORD_DRUNK_UNCLES ->
             return if (ctx.accessibleCount(WRIST_BOY) > 0) Int.MAX_VALUE else 0
+        SCHOOL_OF_HARD_KNOCKS_DIPLOMA, PUNCHING_MIRROR -> {
+            if (!ctx.character.hippyStoneBroken) return 0
+        }
+        VICTOR_SPOILS -> {
+            if (ctx.character.ascensionPath != AscensionPath.LICENSE_TO_ADVENTURE) return 0
+        }
+        M282, SNAKE, SPARKLER, GREEN_ROCKET -> {
+            if (!currentHoliday(ctx).contains("Dependence Day")) return 0
+        }
+        CRYSTALLIZED_PUMPKIN_SPICE -> {
+            if (!inAutumn(ctx)) return 0
+        }
     }
 
     if (!ItemDatabase.isPotion(itemId) && RestoreDatabase.isRestoreItem(itemId)) {
@@ -243,7 +286,44 @@ fun maximumUses(itemId: Int, itemName: String, ctx: ItemUseLimitsContext): Int {
         return DailyLimitDatabase.getUsesRemaining(entry, ctx.preferences)
     }
 
+    if (CampgroundItemSync.isWorkshedItem(itemId)) {
+        return if (ctx.preferences?.getBoolean("_workshedItemUsed", false) == true) 0 else 1
+    }
+
+    slotMaximumUses(consumptionType, ctx)?.let { return it }
+    unstackableEffectUses(itemId, ctx)?.let { return it }
+
     return Int.MAX_VALUE
+}
+
+/**
+ * Desktop `UseItemRequest.maximumUses` consumption-type switch.
+ * `$item[dailyusesleft]` passes [ItemPrimaryUse.NONE] and skips these caps.
+ */
+private fun slotMaximumUses(consumptionType: ItemPrimaryUse, ctx: ItemUseLimitsContext): Int? =
+    when (consumptionType) {
+        ItemPrimaryUse.GROW -> if (ctx.character.isAxecore) 0 else 1
+        ItemPrimaryUse.WEAPON,
+        ItemPrimaryUse.FAMILIAR,
+        ItemPrimaryUse.HAT,
+        ItemPrimaryUse.PANTS,
+        ItemPrimaryUse.CONTAINER,
+        ItemPrimaryUse.SHIRT,
+        ItemPrimaryUse.OFFHAND,
+        -> 1
+        ItemPrimaryUse.ACCESSORY -> 3
+        else -> null
+    }
+
+/** Desktop `LIMITED_USES`: absinthe and the eleven-leaf clover do not stack. */
+private fun unstackableEffectUses(itemId: Int, ctx: ItemUseLimitsContext): Int? {
+    val effectName = when (itemId) {
+        TINY_BOTTLE_OF_ABSINTHE -> "Absinthe-Minded"
+        ELEVEN_LEAF_CLOVER -> "Lucky!"
+        else -> return null
+    }
+    val active = ctx.activeEffectNames.any { it.equals(effectName, ignoreCase = true) }
+    return if (active) 0 else 1
 }
 
 private fun eatMaximumUses(

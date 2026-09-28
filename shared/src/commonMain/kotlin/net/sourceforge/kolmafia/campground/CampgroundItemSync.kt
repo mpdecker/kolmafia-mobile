@@ -55,6 +55,27 @@ object CampgroundItemSync {
     fun hasWorkshedItem(prefs: Preferences?, itemId: Int): Boolean =
         currentWorkshedItemId(prefs) == itemId
 
+    /** Desktop [CampgroundRequest.isWorkshedItem]. */
+    fun isWorkshedItem(itemId: Int): Boolean = itemId in WORKSHED_ITEM_IDS
+
+    private val WORKSHED_ITEM_IDS = setOf(
+        6964, // jackhammer drill press
+        6965, // auto anvil
+        6966, // induction oven
+        6967, // chemistry lab
+        7036, // high-efficiency still
+        7037, // LP-ROM burner
+        7082, // snow machine
+        7140, // spinning wheel
+        7382, // DNA lab
+        8260, // portable Mayo Clinic
+        9508, // Asdon Martin
+        10335, // diabolic pizza cube
+        10815, // cold medicine cabinet
+        11045, // model train set
+        11687, // TakerSpace letter of Marque
+    )
+
     /**
      * Desktop [CampgroundRequest.setCurrentWorkshedItem] — pref write-back + mayo concoction refresh.
      */
