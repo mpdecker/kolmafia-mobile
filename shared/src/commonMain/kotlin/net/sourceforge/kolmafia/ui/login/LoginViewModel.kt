@@ -18,8 +18,9 @@ data class LoginUiState(
 )
 
 class LoginViewModel(
-    private val sessionManager: SessionManager,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main)
+    private val sessionManager: SessionManager? = null,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
+    private val loginOverride: (suspend (String, String) -> SessionState)? = null,
 ) {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -40,7 +41,11 @@ class LoginViewModel(
         }
         _uiState.value = state.copy(isLoading = true, error = null)
         scope.launch {
-            val result = sessionManager.login(state.username, state.password)
+            val result = when {
+                loginOverride != null -> loginOverride.invoke(state.username, state.password)
+                sessionManager != null -> sessionManager.login(state.username, state.password)
+                else -> SessionState.Error("Login is not configured")
+            }
             _uiState.value = when (result) {
                 SessionState.LoggedIn ->
                     _uiState.value.copy(isLoading = false, isLoggedIn = true)

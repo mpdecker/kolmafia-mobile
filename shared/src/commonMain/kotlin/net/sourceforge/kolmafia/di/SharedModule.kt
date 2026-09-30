@@ -303,6 +303,14 @@ val sharedModule = module {
             character = get(),
             inventoryManager = get(),
             familiarManager = get(),
+            effectManager = get(),
+            manaBurnManager = get(),
+            skillManager = get(),
+            moodManager = get(),
+            gameDatabase = get(),
+            retrieveItemServiceProvider = { get() },
+            adventureManagerProvider = { get() },
+            zapRequestProvider = { get() },
         )
     }
     single {
@@ -468,7 +476,7 @@ val sharedModule = module {
             retrieveItemService = get(),
             gameDatabase = get(),
             character = get(),
-            adventureManager = get(),
+            adventureManagerProvider = { get() },
             goalManager = get(),
             questDatabase = get(),
         )
@@ -510,7 +518,7 @@ val sharedModule = module {
         EquipmentManager(
             character = get(),
             inventoryManager = get(),
-            skillManager = get(),
+            skillManagerProvider = { get() },
         ).also { em ->
             ResultProcessor.equipmentManagerProvider = { em }
             ResultProcessor.hasEquipped = { em.hasEquipped(it) }
@@ -950,14 +958,15 @@ val sharedModule = module {
     }
     singleOf(::RecoveryManager)
     single {
-        val retrieve: RetrieveItemService = get()
         UneffectRequest(
             client = get(),
             effectManager = get(),
             inventoryManager = get(),
             preferences = get(),
             sessionLogger = get(),
-            retrieveItem = { itemId -> retrieve.retrieve(itemId, 1) > 0 },
+            retrieveItem = { itemId ->
+                get<RetrieveItemService>().retrieve(itemId, 1) > 0
+            },
             passwordHash = { get<Preferences>().getString("pwdHash", "") },
         )
     }
@@ -1051,7 +1060,7 @@ val sharedModule = module {
             retrieveItemService = get(),
             useItemRequest   = get(),
             familiarManager  = get(),
-            scriptHookRunner = get(),
+            scriptHookRunnerProvider = { get() },
             combatMacroResolver = { zoneId -> get<GameRuntimeLibrary>().resolveCombatMacro(zoneId) },
             edServantManager = get(),
             adventureSpentTracker = get(),
@@ -1194,7 +1203,13 @@ val sharedModule = module {
             pandamoniumRequest = get(),
         )
     }
-    singleOf(::ScriptManager)
+    single {
+        ScriptManager(
+            libraryProvider = { get() },
+            preferences = get(),
+            eventBus = get(),
+        )
+    }
     singleOf(::ScriptHookRunner)
     single {
         SessionManager(
@@ -1312,7 +1327,7 @@ val sharedModule = module {
             createItemIngredientsProvider = { get() },
             equipmentRequest = get(),
             familiarManager = get(),
-            untinkerRequest = get(),
+            untinkerRequestProvider = { get() },
             mallPriceManager = get(),
         )
     }

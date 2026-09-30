@@ -114,6 +114,7 @@ import net.sourceforge.kolmafia.quest.QuestFightStartedSync
 import net.sourceforge.kolmafia.quest.ThingWithNoNameSync
 import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
 import net.sourceforge.kolmafia.quest.ShadowRiftSync
+import net.sourceforge.kolmafia.request.UseItemRedirect
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.effect.EffectManager
 import net.sourceforge.kolmafia.effect.EffectState
@@ -209,7 +210,7 @@ open class AdventureManager(
     private val retrieveItemService: RetrieveItemService? = null,
     private val useItemRequest: UseItemRequest? = null,
     private val familiarManager: FamiliarManager? = null,
-    private val scriptHookRunner: ScriptHookRunner? = null,
+    private val scriptHookRunnerProvider: () -> ScriptHookRunner? = { null },
     private val combatMacroResolver: ((String) -> String)? = null,
     private val edServantManager: net.sourceforge.kolmafia.servant.EdServantManager? = null,
     private val adventureSpentTracker: AdventureSpentTracker? = null,
@@ -241,13 +242,59 @@ open class AdventureManager(
     val fightFollowsChoice: Boolean get() = _fightFollowsChoice
     val inChoiceResolution: Boolean get() = _inChoiceResolution
 
+    /**
+     * Desktop [GenericRequest] fight/choice automation after a UseItemRequest redirect.
+     * [initialHtml] is the fight or choice page already loaded via redirect follow.
+     */
+    open suspend fun followItemUseRedirect(initialHtml: String): Boolean {
+        when (val kind = UseItemRedirect.classify(initialHtml)) {
+            UseItemRedirect.Kind.Fight -> {
+                lastTurnResponseText = initialHtml
+                ChoiceCombatAshState.noteFightStart(initialHtml)
+                val location = AdventureLocation(id = "0", name = "None", zone = "None")
+                var guard = 0
+                while (guard++ < 40) {
+                    resolveCombat(location) ?: break
+                    if (_inMultiFight || _fightFollowsChoice) continue
+                    if (ChoiceCombatAshState.choiceFollowsFight) {
+                        val choiceHtml = choiceRequest.visit().getOrNull().orEmpty()
+                        val choiceId = ChoiceUtilities.extractChoiceId(choiceHtml) ?: break
+                        resolveChoice(choiceId, choiceHtml)
+                        if (_fightFollowsChoice && _inMultiFight) continue
+                        break
+                    }
+                    if (ChoiceCombatAshState.handlingChoice) {
+                        val choiceId = ChoiceCombatAshState.lastChoice.takeIf { it > 0 }
+                            ?: ChoiceUtilities.extractChoiceId(
+                                ChoiceCombatAshState.lastChoiceResponseText,
+                            )
+                            ?: break
+                        resolveChoice(choiceId, ChoiceCombatAshState.lastChoiceResponseText)
+                        continue
+                    }
+                    break
+                }
+                return true
+            }
+            is UseItemRedirect.Kind.Choice -> {
+                resolveChoice(kind.choiceId, initialHtml)
+                if (_fightFollowsChoice && _inMultiFight) {
+                    val location = AdventureLocation(id = "0", name = "None", zone = "None")
+                    resolveCombat(location)
+                }
+                return true
+            }
+            UseItemRedirect.Kind.None -> return false
+        }
+    }
+
     /** Desktop [KoLCharacter.liberateKing] `kingLiberatedScript`. */
     internal fun runKingLiberatedScript() {
-        scriptHookRunner?.onKingLiberated()
+        scriptHookRunnerProvider()?.onKingLiberated()
     }
 
     /** Desktop [PvpManager] ASH `beforePVPScript` when a saved script exists. */
-    internal fun runBeforePvpAshScript(): Boolean = scriptHookRunner?.onBeforePvp() == true
+    internal fun runBeforePvpAshScript(): Boolean = scriptHookRunnerProvider()?.onBeforePvp() == true
 
     sealed interface ItemStopResult {
         val message: String
@@ -377,7 +424,7 @@ open class AdventureManager(
                     canWalkAway = canWalkAwayFromChoice(),
                 )
             },
-            executeBetweenBattleScript = { scriptHookRunner?.onBetweenBattle() },
+            executeBetweenBattleScript = { scriptHookRunnerProvider()?.onBetweenBattle() },
             executeMood = {
                 moodManager?.executeActiveMood(
                     effectState = effects?.state?.value ?: EffectState(),
@@ -474,7 +521,7 @@ open class AdventureManager(
             )
         }
         eventBus.emit(GameEvent.TurnConsumed(location, result))
-        scriptHookRunner?.onTurnConsumed()
+        scriptHookRunnerProvider()?.onTurnConsumed()
     }
 
     open fun runAdventures(location: AdventureLocation, turns: Int, scope: CoroutineScope): Job =
@@ -646,7 +693,7 @@ open class AdventureManager(
                     checkQuestAdvancement(lastTurnResponseText)
                     val currentRun = character.state.value.currentRun
                     for (expired in TurnCounter.expiredEntries(preferences, currentRun)) {
-                        scriptHookRunner?.onCounter(
+                        scriptHookRunnerProvider()?.onCounter(
                             expired.parsedLabel(),
                             TurnCounter.turnsRemaining(expired, currentRun),
                         )
@@ -793,7 +840,7 @@ open class AdventureManager(
                 preferences = preferences,
                 setKingLiberated = {
                     character.liberateKing(preferences)
-                    scriptHookRunner?.onKingLiberated()
+                    scriptHookRunnerProvider()?.onKingLiberated()
                     if (preferences.getBoolean("_liberateKingNeedsSkillRefresh", false)) {
                         preferences.setBoolean("_liberateKingNeedsSkillRefresh", false)
                         kotlinx.coroutines.runBlocking { skills?.fetchSkills() }
@@ -1579,7 +1626,7 @@ open class AdventureManager(
                     currentChoiceId, currentResponseText, url = null, preferences, bastilleContext,
                 )
             }
-            val choiceScriptRan = scriptHookRunner?.onChoiceAdventure(
+            val choiceScriptRan = scriptHookRunnerProvider()?.onChoiceAdventure(
                 currentChoiceId,
                 currentResponseText,
             ) == true

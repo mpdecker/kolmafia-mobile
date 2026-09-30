@@ -1,0 +1,20 @@
+name: Release gates
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  release-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+      - name: User journey tests
+        run: ./gradlew :shared:jvmTest --tests "*UserJourney*"
+      - name: Unsigned Android release assemble
+        run: ./gradlew :androidApp:assembleRelease

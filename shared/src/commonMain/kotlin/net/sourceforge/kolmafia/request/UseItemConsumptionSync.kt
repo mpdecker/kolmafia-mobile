@@ -118,6 +118,14 @@ object UseItemConsumptionSync {
         val primary = ItemDatabase.getById(itemId)?.primaryUse
 
         val success = when {
+            // Glitch season reward is tagged food+reusable with 0 fullness; its side effects
+            // live on the use path (desktop parseConsumption item switch), not eat.
+            itemId == 10207 ->
+                parseUse(
+                    responseText, itemId, name, qty,
+                    preferences, character, inventory, consumeConfirmed,
+                    equipmentManager, familiarManager,
+                )
             primary == ItemPrimaryUse.FOOD ||
                 primary == ItemPrimaryUse.FOOD_HELPER ||
                 ConsumableDatabase.getFullnessByName(name) > 0 ||

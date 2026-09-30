@@ -37,7 +37,7 @@ object CampgroundItemSync {
     )
 
     var currentBedItemId: Int = 0
-        private set
+        internal set
 
     /** Desktop [CampgroundRequest.setCurrentBed]. */
     fun setCurrentBed(prefs: Preferences?, itemId: Int) {

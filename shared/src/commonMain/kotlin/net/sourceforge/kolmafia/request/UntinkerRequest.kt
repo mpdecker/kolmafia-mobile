@@ -27,7 +27,8 @@ open class UntinkerRequest(
     private val retrieveItemService: RetrieveItemService? = null,
     private val gameDatabase: GameDatabase? = null,
     private val character: KoLCharacter? = null,
-    private val adventureManager: AdventureManager? = null,
+    /** Lazy provider avoids UntinkerRequest ↔ AdventureManager DI cycle via RetrieveItemService. */
+    private val adventureManagerProvider: (() -> AdventureManager?)? = null,
     private val goalManager: GoalManager? = null,
     private val questDatabase: QuestDatabase? = null,
 ) {
@@ -162,7 +163,7 @@ open class UntinkerRequest(
                 return canUntinker()
             }
 
-            val manager = adventureManager
+            val manager = adventureManagerProvider?.invoke()
             val goals = goalManager
             if (manager == null || goals == null) {
                 return false
