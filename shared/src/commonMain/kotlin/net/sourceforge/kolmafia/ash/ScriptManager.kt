@@ -13,13 +13,22 @@ import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.preferences.Preferences
 
 class ScriptManager(
-    private val library: GameRuntimeLibrary,
+    private val libraryProvider: () -> GameRuntimeLibrary,
     private val preferences: Preferences,
     private val eventBus: GameEventBus
 ) {
+    /** Eager-library constructor for unit tests that already hold a [GameRuntimeLibrary]. */
+    constructor(
+        library: GameRuntimeLibrary,
+        preferences: Preferences,
+        eventBus: GameEventBus,
+    ) : this({ library }, preferences, eventBus)
+
     companion object {
         const val SCRIPTS_PREF_KEY = "ashScripts"
     }
+
+    private val library: GameRuntimeLibrary get() = libraryProvider()
 
     private val _state = MutableStateFlow(ScriptState())
     val state: StateFlow<ScriptState> = _state.asStateFlow()

@@ -183,6 +183,12 @@ data class CharacterState(
         get() = ascensionPath == AscensionPath.AVATAR_OF_SNEAKY_PETE
     val isJarlsberg: Boolean
         get() = ascensionPath == AscensionPath.AVATAR_OF_JARLSBERG
+    val isGreyGoo: Boolean
+        get() = ascensionPath == AscensionPath.GREY_YOU
+    /** Desktop [KoLCharacter.isVampyre] — Dark Gyffte path. */
+    val isVampyre: Boolean
+        get() = ascensionPath == AscensionPath.DARK_GYFFTE ||
+            ascensionPath == AscensionPath.VAMPYRE
     val inNoobcore: Boolean
         get() = ascensionPath == AscensionPath.GELATINOUS_NOOB
     val inDinocore: Boolean

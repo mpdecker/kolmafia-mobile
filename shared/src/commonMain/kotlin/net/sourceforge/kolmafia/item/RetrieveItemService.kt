@@ -64,7 +64,8 @@ open class RetrieveItemService(
     private val createItemIngredientsProvider: (() -> CreateItemIngredients)? = null,
     private val equipmentRequest: EquipmentRequest? = null,
     private val familiarManager: FamiliarManager? = null,
-    private val untinkerRequest: UntinkerRequest? = null,
+    /** Lazy provider avoids RetrieveItemService ↔ UntinkerRequest DI cycle (Untinker holds RetrieveItemService). */
+    private val untinkerRequestProvider: (() -> UntinkerRequest?)? = null,
     private val buyScriptRunner: ((String, List<String>) -> Boolean)? = null,
     private val mallPriceManager: net.sourceforge.kolmafia.mall.MallPriceManager? = null,
 ) {
@@ -274,7 +275,7 @@ open class RetrieveItemService(
 
     private suspend fun untinkerBridge(): Int {
         val before = inventoryCount(BRIDGE)
-        val untinker = untinkerRequest ?: return 0
+        val untinker = untinkerRequestProvider?.invoke() ?: return 0
         untinker.untinker(ABRIDGED_DICTIONARY, 1)
         inventoryManager?.fetchInventory()
         return (inventoryCount(BRIDGE) - before).coerceAtLeast(0)

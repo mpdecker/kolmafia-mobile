@@ -5,10 +5,12 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ConcoctionMayoQueue
 import net.sourceforge.kolmafia.data.ConcoctionOrganAmounts.QueueBucket
 import net.sourceforge.kolmafia.data.ConsumableDatabase
+import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
@@ -22,6 +24,7 @@ open class EatFoodRequest(
     private val character: KoLCharacter? = null,
     private val inventoryManager: InventoryManager? = null,
     private val sessionLogger: SessionLogger? = null,
+    private val retrieveItem: (suspend (Int, Int) -> Int)? = null,
 ) {
     open suspend fun eat(itemId: Int, quantity: Int = 1): Result<String> =
         consumeFood(itemId, quantity).fold(
@@ -45,6 +48,9 @@ open class EatFoodRequest(
             return Result.success(ConsumptionRequestOutcome.Completed(0))
         }
 
+        val itemName = ItemDatabase.getItemName(itemId).ifEmpty { "item $itemId" }
+        autostockMayoMinder(itemId, itemName, quantity)
+
         val iterations = iterationCount(itemId, quantity)
         var totalConsumed = 0
 
@@ -52,6 +58,15 @@ open class EatFoodRequest(
             ConsumptionHelperState.beginIteration(QueueBucket.FOOD, iteration)
             val iterQty = if (iterations > 1) 1 else quantity
             val utensil = ConsumptionHelperState.utensilForEat()
+
+            if (utensil != null) {
+                val elementalAbort = ElementalHelper.prepareForUtensil(utensil)
+                if (elementalAbort.isNotEmpty()) {
+                    return Result.success(
+                        ConsumptionRequestOutcome.Aborted(totalConsumed, elementalAbort),
+                    )
+                }
+            }
 
             val httpResult = performEat(itemId, iterQty, utensil)
             httpResult.exceptionOrNull()?.let { return Result.failure(it) }
@@ -96,6 +111,36 @@ open class EatFoodRequest(
         return Result.success(Unit)
     }
 
+    private suspend fun autostockMayoMinder(itemId: Int, itemName: String, count: Int) {
+        val prefs = preferences ?: return
+        val retrieve = retrieveItem ?: return
+        if (ConcoctionMayoQueue.isMayo(itemId)) return
+        val minderSetting = prefs.getString("mayoMinderSetting", "")
+        if (minderSetting.isEmpty()) return
+        if (!prefs.getBoolean("autoFillMayoMinder", false)) return
+        if (!CampgroundItemSync.hasWorkshedItem(prefs, ConcoctionMayoQueue.MAYO_CLINIC)) return
+
+        val fullness = ConsumableDatabase.getFullnessByName(itemName)
+        if (fullness == 0) return
+        if (minderSetting.equals("Mayostat", ignoreCase = true) && fullness == 1) return
+        if (minderSetting.equals("Mayodiol", ignoreCase = true)) {
+            val state = character?.state?.value
+            if (state != null && state.inebrietyLimit == state.inebriety) return
+        }
+        if (minderSetting.equals("Mayoflex", ignoreCase = true) &&
+            ConsumableDatabase.getAverageAdventures(itemName) == 0.0
+        ) {
+            return
+        }
+
+        val mayoId = mayoIdForSetting(minderSetting) ?: return
+        val mayoCount = if (prefs.getString("mayoInMouth", "").isEmpty()) 0 else 1
+        val need = count - mayoCount
+        if (need > 0) {
+            retrieve(mayoId, need)
+        }
+    }
+
     private suspend fun performEat(itemId: Int, quantity: Int, utensilId: Int?): Result<String> {
         return try {
             val response = client.get("$KOL_BASE_URL/inv_eat.php") {
@@ -118,6 +163,11 @@ open class EatFoodRequest(
     private fun iterationCount(itemId: Int, quantity: Int): Int {
         if (quantity <= 1) return 1
         if (singleConsume(itemId)) return quantity
+        // Desktop sequentialConsume: avatar pies eat one-at-a-time when inventory is short
+        if (sequentialConsume(itemId)) {
+            val have = inventoryManager?.getCount(itemId) ?: 0
+            if (have < quantity) return quantity
+        }
         return 1
     }
 
@@ -129,12 +179,29 @@ open class EatFoodRequest(
     companion object {
         private const val BLACK_PUDDING = 2338
         private const val SMORE = 5071
+        const val BORIS_PIE = 513
+        const val JARLSBERG_PIE = 514
+        const val SNEAKY_PETE_PIE = 515
         const val GRAINS_OF_SALT = 6672
         const val JAR_OF_SWAMP_HONEY = 8226
         const val DRY_RUB = 7553
         const val SPECIAL_SEASONING = 9924
         private val MAYONEX_PATTERN =
             Regex("""Force of Mayo Be With You</b><br>\(duration: (\d+) Adventure""")
+
+        fun sequentialConsume(itemId: Int): Boolean = when (itemId) {
+            BORIS_PIE, JARLSBERG_PIE, SNEAKY_PETE_PIE -> true
+            else -> false
+        }
+
+        fun mayoIdForSetting(setting: String): Int? = when (setting.lowercase()) {
+            "mayonex" -> ConcoctionMayoQueue.MAYONEX
+            "mayodiol" -> ConcoctionMayoQueue.MAYODIOL
+            "mayostat" -> ConcoctionMayoQueue.MAYOSTAT
+            "mayozapine" -> ConcoctionMayoQueue.MAYOZAPINE
+            "mayoflex" -> ConcoctionMayoQueue.MAYOFLEX
+            else -> null
+        }
 
         /**
          * Desktop [EatItemRequest.handleFoodHelper] — helper inventory/prefs after a successful eat.

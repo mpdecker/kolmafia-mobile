@@ -34,6 +34,7 @@ fun CharacterScreen(character: KoLCharacter) {
     val effectManager: EffectManager = koinInject()
     val effectState by effectManager.state.collectAsState()
     var showEffects by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -131,10 +132,28 @@ fun CharacterScreen(character: KoLCharacter) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClickLabel = "Open about") { showAbout = true }
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("About", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("→", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary)
+        }
     }
 
     if (showEffects) {
         EffectsScreen(effectManager = effectManager, onDismiss = { showEffects = false })
+    }
+    if (showAbout) {
+        AboutSheet(onDismiss = { showAbout = false })
     }
 }
 

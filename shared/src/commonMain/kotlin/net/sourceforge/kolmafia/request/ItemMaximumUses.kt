@@ -326,6 +326,11 @@ private fun unstackableEffectUses(itemId: Int, ctx: ItemUseLimitsContext): Int? 
     return if (active) 0 else 1
 }
 
+private const val STEEL_STOMACH = 2742
+private const val MAGICAL_SAUSAGE = 10060
+private const val GHOST_PEPPER = 6468
+private const val SPAGHETTI_BREAKFAST = 6616
+
 private fun eatMaximumUses(
     itemId: Int,
     itemName: String,
@@ -333,6 +338,45 @@ private fun eatMaximumUses(
     ctx: ItemUseLimitsContext,
 ): Int {
     if (LimitModeGates.limitEating(ctx.character.limitMode)) return 0
+
+    // Desktop EatItemRequest.maximumUses path gates (Grey Goo before organ canEat)
+    if (ctx.character.isGreyGoo) return 1
+
+    if (ctx.character.isJarlsberg && !JarlsbergianItems.isJarlsbergian(itemId)) {
+        return 0
+    }
+
+    val notes = ConsumableDatabase.getNotesByName(itemName)
+    if (ctx.character.inZombiecore &&
+        itemId != STEEL_STOMACH &&
+        !notes.startsWith("Zombie Slayer")
+    ) {
+        return 0
+    }
+
+    if (ctx.character.inNuclearAutumn && fullness > 1) {
+        return 0
+    }
+
+    if (ctx.character.isVampyre) {
+        if (itemId != MAGICAL_SAUSAGE && !notes.startsWith("Vampyre")) {
+            return 0
+        }
+    } else if (notes.startsWith("Vampyre")) {
+        return 0
+    }
+
+    when (itemId) {
+        GHOST_PEPPER -> {
+            if ((ctx.preferences?.getInt("ghostPepperTurnsLeft", 0) ?: 0) > 0) return 0
+            return 1
+        }
+        SPAGHETTI_BREAKFAST -> {
+            if (ctx.character.fullnessLimit == 0) return 0
+            if (ctx.character.fullness > 0) return 0
+        }
+    }
+
     if (!ctx.character.canEat) return 0
 
     DailyLimitDatabase.getEntry(itemId, DailyLimitKind.EAT)?.let { entry ->

@@ -24,8 +24,10 @@ import net.sourceforge.kolmafia.skill.SkillManager
 class EquipmentManager(
     private val character: KoLCharacter,
     private val inventoryManager: InventoryManager? = null,
-    private val skillManager: SkillManager? = null,
+    private val skillManagerProvider: () -> SkillManager? = { null },
 ) {
+    private val skillManager: SkillManager? get() = skillManagerProvider()
+
     fun getEquipment(slot: EquipmentSlot): String =
         character.state.value.equipment[slot].orEmpty()
 

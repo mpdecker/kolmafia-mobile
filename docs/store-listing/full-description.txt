@@ -1,0 +1,11 @@
+KoLmafia Mobile is an unofficial fan client for the free browser game Kingdom of Loathing.
+
+• Log in over HTTPS to play on your phone or tablet
+• Adventure, inventory, skills, familiars, chat, shop, and mall
+• Run ASH scripts with an on-device editor and console
+• Relay browser for KoL pages inside the app
+• Open source under the GNU General Public License
+
+This App is not affiliated with or endorsed by Asymmetric Publications or Kingdom of Loathing.
+Source: https://github.com/mpdecker/kolmafia-mobile
+Privacy: https://mpdecker.github.io/kolmafia-mobile/privacy-policy.html

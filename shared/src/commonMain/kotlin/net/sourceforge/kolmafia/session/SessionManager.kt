@@ -82,7 +82,7 @@ open class SessionManager(
 ) {
     private val appScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    suspend fun login(username: String, password: String): SessionState {
+    open suspend fun login(username: String, password: String): SessionState {
         return when (val loginResult = loginRequest.login(username, password)) {
             is LoginResult.Success -> {
                 ClanManager.clearCache(newCharacter = true)

@@ -2,12 +2,25 @@ package net.sourceforge.kolmafia.adventure
 
 import io.ktor.client.*
 import io.ktor.client.request.forms.*
+import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.request
 import io.ktor.http.*
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 
 class ChoiceRequest(private val client: HttpClient) {
+    /** Desktop bare `choice.php` GET after `choiceFollowsFight`. */
+    suspend fun visit(): Result<String> = try {
+        val response = client.get("$KOL_BASE_URL/choice.php")
+        if (response.status.isSuccess()) {
+            Result.success(response.bodyAsText())
+        } else {
+            Result.failure(Exception("HTTP ${response.status.value}"))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
     suspend fun choose(
         choiceId: Int,
         option: Int,

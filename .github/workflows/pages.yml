@@ -1,0 +1,55 @@
+name: Deploy privacy policy Pages
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "docs/privacy-policy.html"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare site
+        run: |
+          mkdir -p site
+          cp docs/privacy-policy.html site/privacy-policy.html
+          cat > site/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <title>KoLmafia Mobile</title>
+            <meta http-equiv="refresh" content="0;url=privacy-policy.html" />
+          </head>
+          <body>
+            <p><a href="privacy-policy.html">KoLmafia Mobile Privacy Policy</a></p>
+          </body>
+          </html>
+          EOF
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

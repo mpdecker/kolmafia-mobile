@@ -50,6 +50,15 @@ class DrinkBoozeRequest(
             val iterQty = if (iterations > 1) 1 else quantity
             val utensil = ConsumptionHelperState.utensilForDrink()
 
+            if (utensil != null) {
+                val elementalAbort = ElementalHelper.prepareForUtensil(utensil)
+                if (elementalAbort.isNotEmpty()) {
+                    return Result.success(
+                        ConsumptionRequestOutcome.Aborted(totalConsumed, elementalAbort),
+                    )
+                }
+            }
+
             val httpResult = performDrink(itemId, iterQty, utensil)
             httpResult.exceptionOrNull()?.let { return Result.failure(it) }
 
