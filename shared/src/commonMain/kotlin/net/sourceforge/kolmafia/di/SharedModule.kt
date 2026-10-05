@@ -57,11 +57,15 @@ import net.sourceforge.kolmafia.data.GameDatabase
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.request.QuestLogRequest
 import net.sourceforge.kolmafia.session.GoalManager
+import net.sourceforge.kolmafia.ash.CombatAdjustment
 import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
 import net.sourceforge.kolmafia.ash.ScriptHookRunner
 import net.sourceforge.kolmafia.ash.ScriptManager
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.effect.EffectManager
+import net.sourceforge.kolmafia.modifiers.CurrentModifiers
+import net.sourceforge.kolmafia.request.CheckChoiceRedirection
+import net.sourceforge.kolmafia.request.ElementalHelper
 import net.sourceforge.kolmafia.event.GameEventBus
 import net.sourceforge.kolmafia.familiar.FamiliarManager
 import net.sourceforge.kolmafia.familiar.FamiliarRequest
@@ -410,6 +414,7 @@ val sharedModule = module {
             character = get(),
             inventoryManager = get(),
             sessionLogger = get(),
+            retrieveItem = { itemId, qty -> get<RetrieveItemService>().retrieve(itemId, qty) },
         )
     }
     single {
@@ -968,7 +973,43 @@ val sharedModule = module {
                 get<RetrieveItemService>().retrieve(itemId, 1) > 0
             },
             passwordHash = { get<Preferences>().getString("pwdHash", "") },
-        )
+        ).also { uneffectRequest ->
+            ElementalHelper.hasEffect = { name ->
+                val effects = get<EffectManager>().state.value.effects
+                effects.any {
+                    it.name.equals(name, ignoreCase = true) ||
+                        it.name.equals(
+                            name.replace("form", " Form", ignoreCase = true),
+                            ignoreCase = true,
+                        )
+                }
+            }
+            ElementalHelper.uneffect = { effectId ->
+                uneffectRequest.remove(effectId).isSuccess
+            }
+            ElementalHelper.currentHp = { get<KoLCharacter>().state.value.currentHp }
+            ElementalHelper.elementalResistancePercent = { element ->
+                val char = get<KoLCharacter>().state.value
+                val mods = CurrentModifiers(
+                    state = char,
+                    activeEffects = get<EffectManager>().state.value.effects,
+                    preferences = get(),
+                )
+                CombatAdjustment.elementalResistancePercent(mods, element, char)
+            }
+            ElementalHelper.recoverHpTo = { target ->
+                val char = get<KoLCharacter>()
+                val inv = get<InventoryManager>()
+                val skills = get<SkillManager>()
+                get<RecoveryManager>().recoverHpToMax(
+                    char.state.value,
+                    inv.state.value,
+                    skills.state.value,
+                    target,
+                )
+                char.state.value.currentHp > target - 1
+            }
+        }
     }
     single { MoodManager(skillManager = get(), preferences = get(), uneffectRequest = get()) }
     singleOf(::ManaBurnManager)
@@ -977,7 +1018,11 @@ val sharedModule = module {
     singleOf(::DreadKissesTracker)
     singleOf(::IntergnatDemonNameSync)
     singleOf(::YegDemonNameSync)
-    single { CargoPocketSync(get(), get()) }
+    single {
+        CargoPocketSync(get(), get()).also { sync ->
+            CheckChoiceRedirection.registerPocketFight = { url -> sync.registerPocketFight(url) }
+        }
+    }
     single {
         CargoCultManager(
             preferences = get(),

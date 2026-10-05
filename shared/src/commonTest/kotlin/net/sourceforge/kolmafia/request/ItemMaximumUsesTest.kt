@@ -458,6 +458,46 @@ class ItemMaximumUsesTest {
         assertEquals(0, DailyLimitDatabase.getUsesRemaining(entry, prefs))
     }
 
+    @Test
+    fun eat_greyGoo_returnsOne() {
+        val ctx = ctx(
+            CharacterState(
+                fullness = 0,
+                fullnessLimit = 0,
+                challengePath = AscensionPath.GREY_YOU.apiName,
+            ),
+        )
+        assertEquals(1, maximumUses(471, "hot wing", ctx))
+    }
+
+    @Test
+    fun eat_jarlsberg_refusesNonJarlsbergian() {
+        val ctx = ctx(
+            CharacterState(
+                fullness = 0,
+                fullnessLimit = 15,
+                challengePath = AscensionPath.AVATAR_OF_JARLSBERG.apiName,
+            ),
+        )
+        // hot wing is not a Cosmic Kitchen buyable
+        assertEquals(0, maximumUses(471, "hot wing", ctx))
+    }
+
+    @Test
+    fun eat_nuclearAutumn_refusesFullnessAboveOne() {
+        val item = ItemDatabase.getByName("hell ramen") ?: ItemDatabase.getByName("hot wing")!!
+        val fullness = net.sourceforge.kolmafia.data.ConsumableDatabase.getFullnessByName(item.name)
+        if (fullness <= 1) return
+        val ctx = ctx(
+            CharacterState(
+                fullness = 0,
+                fullnessLimit = 15,
+                challengePath = AscensionPath.NUCLEAR_AUTUMN.apiName,
+            ),
+        )
+        assertEquals(0, maximumUses(item.id, item.name, ctx))
+    }
+
     private fun ctx(
         character: CharacterState,
         preferences: Preferences? = null,

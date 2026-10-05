@@ -1,9 +1,33 @@
 # Store listing pack — KoLmafia Mobile
 
-*Updated 2026-09-29 at runtime revision `phase10030`.*
+*Updated 2026-10-04 at runtime revision `phase10090`.*
 
 Copy suitable for Play Console / App Store Connect and for hosting a public privacy-policy URL.
 This is not an uploaded listing.
+
+## Paste-ready listing copy
+
+Ready-to-paste files (prefer these over retyping):
+
+| Field | File |
+| ----- | ---- |
+| Title | [`store-listing/title.txt`](store-listing/title.txt) |
+| Short description (≤80 chars) | [`store-listing/short-description.txt`](store-listing/short-description.txt) |
+| Full description | [`store-listing/full-description.txt`](store-listing/full-description.txt) |
+
+### App Store subtitle (≤30 chars)
+
+```
+Unofficial KoL client
+```
+
+### Keywords (App Store, comma-separated)
+
+```
+kol,kingdom of loathing,mafia,ash,rpg,browser game,relay
+```
+
+---
 
 ## Draft privacy policy
 
@@ -38,7 +62,7 @@ Kingdom of Loathing and this App are intended for players who meet that game’s
 
 ### Contact / source
 
-Source code and issue tracking: the project repository for KoLmafia Mobile.  
+Source code and issue tracking: https://github.com/mpdecker/kolmafia-mobile  
 Game operator privacy practices: refer to Kingdom of Loathing / Asymmetric Publications.
 
 ---
@@ -49,7 +73,7 @@ Host this section at a stable HTTPS URL and paste that URL into Play Console and
 
 `https://mpdecker.github.io/kolmafia-mobile/privacy-policy.html`
 
-[`AppAbout.PRIVACY_POLICY_URL`](../shared/src/commonMain/kotlin/net/sourceforge/kolmafia/ui/AppAbout.kt) is already set to that URL.
+[`AppAbout.PRIVACY_POLICY_URL`](../shared/src/commonMain/kotlin/net/sourceforge/kolmafia/ui/AppAbout.kt) is already set to that URL. Source offer: [`AppAbout.SOURCE_URL`](../shared/src/commonMain/kotlin/net/sourceforge/kolmafia/ui/AppAbout.kt).
 
 ## Play Data safety — answer sheet
 
@@ -64,10 +88,22 @@ Host this section at a stable HTTPS URL and paste that URL into Play Console and
 | Committed to Play Families? | No |
 | Advertising ID used? | No |
 | Independent security review? | No (disclose honestly) |
+| Is data processed ephemerally? | Credentials used only to establish a KoL session |
+| Data deletion in-app? | Clear app storage / uninstall (no cloud account with the App publisher) |
 
 ## Content rating — questionnaire notes
 
-Expect an **Everyone** or mild teen rating depending on Kingdom of Loathing content (cartoon violence, mild language, simulated gambling-style game mechanics in places). Answer questionnaires based on **KoL game content the client can display**, not on ads (none). No user-to-user offline meetings facilitated by the App beyond KoL’s own chat.
+| Topic | Guidance |
+| ----- | -------- |
+| Violence | Cartoon / fantasy combat as shown by Kingdom of Loathing |
+| Language | Mild language possible in KoL content and chat |
+| Controlled substances | KoL may depict fantasy alcohol/consumables; no real-world drug sales |
+| Gambling | Simulated in-game currency and chance mechanics exist in KoL; no real-money gambling by the App |
+| User interaction | In-game chat via KoL; no App-facilitated offline meetings |
+| Ads / IAP | None in the App at this revision |
+| Expected rating | Everyone or mild Teen depending on questionnaire answers about KoL content |
+
+Answer questionnaires based on **KoL game content the client can display**, not on ads (none).
 
 ## GPL source-offer blurb (listing / about)
 
@@ -75,9 +111,24 @@ Expect an **Everyone** or mild teen rating depending on Kingdom of Loathing cont
 
 Include a link to the repository LICENSE and source tree in the store “About” / “Privacy policy” area as required by distribution policy.
 
-## Screenshot checklist
+`https://github.com/mpdecker/kolmafia-mobile`
 
-Capture on a current phone size (and tablet if listing tablet support):
+## Screenshot pack
+
+Phone slots need **2–8** images (JPEG or 24-bit PNG, no alpha; recommended **1080×1920** portrait).
+
+In-repo **placeholders** (replace with real device captures before production):
+
+| # | File | Caption (optional overlay / Console note) |
+| - | ---- | ----------------------------------------- |
+| 1 | [`screenshots/01-login.png`](store-assets/screenshots/01-login.png) | Login — username / password |
+| 2 | [`screenshots/02-character.png`](store-assets/screenshots/02-character.png) | Character — stats and About |
+| 3 | [`screenshots/03-adventure.png`](store-assets/screenshots/03-adventure.png) | Adventure — zone browse |
+| 4 | [`screenshots/04-inventory.png`](store-assets/screenshots/04-inventory.png) | Inventory — use / equip |
+| 5 | [`screenshots/05-scripts.png`](store-assets/screenshots/05-scripts.png) | Scripts — list / New Script |
+| 6 | [`screenshots/06-drawer.png`](store-assets/screenshots/06-drawer.png) | Navigation drawer |
+
+**Capture order on device** (recommended production set):
 
 1. Login screen (`KoLmafia Mobile` title)
 2. Character / stats after login
@@ -89,6 +140,13 @@ Capture on a current phone size (and tablet if listing tablet support):
 
 Compose destinations under the logged-in drawer: Character, Adventure, Inventory, Skills, Scripts, Familiars, Chat, Shop, Mall, Relay.
 
+### How to replace placeholders
+
+1. Capture on a phone/emulator at ~1080×1920 (or keep the in-repo placeholders for internal listing drafts).
+2. Export PNG without transparency; overwrite files under `docs/store-assets/screenshots/`.
+3. Upload to Play Console → Main store listing → Phone screenshots (and tablet slots if you support them).
+
+
 Replace the placeholder launcher / App Store 1024×1024 icon before production publish if you prefer a production design (Android adaptive + iOS `AppIcon` currently use a temporary green triangle glyph). In-repo assets:
 
 | Asset | Path | Use |
@@ -96,8 +154,9 @@ Replace the placeholder launcher / App Store 1024×1024 icon before production p
 | Play high-res icon 512×512 | [`docs/store-assets/play-icon-512.png`](store-assets/play-icon-512.png) | Play Console high-res icon |
 | Play feature graphic 1024×500 | [`docs/store-assets/play-feature-graphic-1024x500.png`](store-assets/play-feature-graphic-1024x500.png) | Play Console feature graphic |
 | App Store / marketing 1024×1024 | [`docs/store-assets/app-icon-1024.png`](store-assets/app-icon-1024.png) | Copy into Xcode AppIcon / App Store Connect |
+| Phone screenshots (placeholders) | [`docs/store-assets/screenshots/`](store-assets/screenshots/) | Play phone slot until device captures land |
 
-All three share the same green-triangle family.
+All icons share the same green-triangle family.
 
 ## Bundle identifiers
 

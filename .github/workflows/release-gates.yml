@@ -18,3 +18,5 @@ jobs:
         run: ./gradlew :shared:jvmTest --tests "*UserJourney*"
       - name: Unsigned Android release assemble
         run: ./gradlew :androidApp:assembleRelease
+      - name: Unsigned Android release bundle
+        run: ./gradlew :androidApp:bundleRelease

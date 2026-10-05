@@ -79,4 +79,55 @@ class CheckItemRedirectionTest {
         assertFalse(result.handled)
         assertFalse(result.consumed)
     }
+
+    @Test
+    fun sealFigurine_consumesBlubberCandles() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(CheckItemRedirection.WRETCHED_SEAL, 1)
+        inv.gainItemLocally(CheckItemRedirection.SEAL_BLUBBER_CANDLE, 3)
+        val result = CheckItemRedirection.apply(
+            CheckItemRedirection.WRETCHED_SEAL,
+            prefs,
+            inv,
+        )
+        assertTrue(result.handled)
+        assertTrue(result.consumed)
+        assertEquals(0, inv.getCount(CheckItemRedirection.WRETCHED_SEAL))
+        assertEquals(2, inv.getCount(CheckItemRedirection.SEAL_BLUBBER_CANDLE))
+        assertEquals(1, prefs.getInt("_sealsSummoned", 0))
+    }
+
+    @Test
+    fun fossilizedBatSkull_consumesWings() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(CheckItemRedirection.FOSSILIZED_BAT_SKULL, 1)
+        inv.gainItemLocally(CheckItemRedirection.FOSSILIZED_WING, 2)
+        val result = CheckItemRedirection.apply(
+            CheckItemRedirection.FOSSILIZED_BAT_SKULL,
+            prefs,
+            inv,
+        )
+        assertTrue(result.handled)
+        assertTrue(result.consumed)
+        assertEquals(0, inv.getCount(CheckItemRedirection.FOSSILIZED_WING))
+        assertEquals("Fossilized Bat Skull", CheckItemRedirection.itemMonster)
+    }
+
+    @Test
+    fun genieBottle_earlyReturn_noConsume() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(CheckItemRedirection.GENIE_BOTTLE, 1)
+        val result = CheckItemRedirection.apply(
+            CheckItemRedirection.GENIE_BOTTLE,
+            prefs,
+            inv,
+        )
+        assertTrue(result.handled)
+        assertFalse(result.consumed)
+        assertEquals(1, inv.getCount(CheckItemRedirection.GENIE_BOTTLE))
+        assertEquals(null, CheckItemRedirection.itemMonster)
+    }
 }

@@ -257,13 +257,37 @@ class UserJourneyTest {
         onNodeWithText("About").performClick()
         waitForIdle()
         onNodeWithText("KoLmafia Mobile").assertIsDisplayed()
-        onNodeWithText("Revision phase10030", substring = true).assertIsDisplayed()
+        onNodeWithText("Revision phase10150", substring = true).assertIsDisplayed()
         onNodeWithText("mpdecker.github.io/kolmafia-mobile/privacy-policy.html", substring = true)
             .assertIsDisplayed()
+        onNodeWithText("github.com/mpdecker/kolmafia-mobile", substring = true).assertIsDisplayed()
         onNodeWithText("Close").performClick()
         waitForIdle()
         onNodeWithText("JourneyTester").assertIsDisplayed()
         onNodeWithText("Stats").assertIsDisplayed()
+    }
+
+    @Test
+    fun drawer_listsAllTenDestinations() = runComposeUiTest {
+        setContent { App(loginOverride = loginBehavior) }
+        performLogin()
+        onNodeWithContentDescription("Open navigation").performClick()
+        waitForIdle()
+        listOf(
+            "Character",
+            "Adventure",
+            "Inventory",
+            "Skills",
+            "Scripts",
+            "Familiars",
+            "Chat",
+            "Shop",
+            "Mall",
+            "Relay",
+        ).forEach { label ->
+            // Drawer items expose contentDescription; top bar also shows the selected label as text.
+            onNodeWithContentDescription(label).assertIsDisplayed()
+        }
     }
 
     @Test

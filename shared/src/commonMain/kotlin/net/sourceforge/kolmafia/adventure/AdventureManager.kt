@@ -114,6 +114,7 @@ import net.sourceforge.kolmafia.quest.QuestFightStartedSync
 import net.sourceforge.kolmafia.quest.ThingWithNoNameSync
 import net.sourceforge.kolmafia.quest.MonsterConsequenceSync
 import net.sourceforge.kolmafia.quest.ShadowRiftSync
+import net.sourceforge.kolmafia.request.StopForCounters
 import net.sourceforge.kolmafia.request.UseItemRedirect
 import net.sourceforge.kolmafia.request.UseItemRequest
 import net.sourceforge.kolmafia.effect.EffectManager
@@ -791,6 +792,23 @@ open class AdventureManager(
     private suspend fun doOneTurn(location: AdventureLocation): AdventureResult? {
         EncounterManager.registerAdventure(location.name)
         EncounterManager.clearPendingAutoStop()
+        val counterStop = StopForCounters.check(
+            preferences = preferences,
+            currentRun = character.state.value.currentRun,
+            turnsUsed = 1,
+            adventureId = location.id.toString(),
+            onCounter = { label, remain ->
+                scriptHookRunnerProvider()?.onCounter(label, remain) == true
+            },
+        )
+        if (counterStop.shouldStop) {
+            eventBus.emit(
+                GameEvent.AdventureLoopStopped(
+                    StopReason.MacroError(counterStop.message),
+                ),
+            )
+            return null
+        }
         val requestUrl = adventureRequest.buildRequestUrl(location)
         val towerAction = SorceressLairSync.action(requestUrl)
         if (towerAction == "ns_10_sorcfight") {

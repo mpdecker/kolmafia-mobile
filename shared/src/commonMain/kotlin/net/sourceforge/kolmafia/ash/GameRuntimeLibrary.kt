@@ -287,6 +287,8 @@ import net.sourceforge.kolmafia.request.PizzaCubeRequest
 import net.sourceforge.kolmafia.request.FleaMarketRequest
 import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.request.AscensionHistoryRequest
+import net.sourceforge.kolmafia.request.CheckChoiceRedirection
+import net.sourceforge.kolmafia.request.CheckSkillRedirection
 import net.sourceforge.kolmafia.request.UseItemAbsorbSync
 import net.sourceforge.kolmafia.request.UseItemBingeSync
 import net.sourceforge.kolmafia.request.UseItemAprilPlaySync
@@ -819,7 +821,7 @@ class GameRuntimeLibrary(
 
         const val VERSION = "1.0.0-mobile"
         /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
-        const val REVISION = "phase10030"
+        const val REVISION = "phase10150"
 
         /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
         fun revisionNumber(): Int =
@@ -3289,6 +3291,26 @@ class GameRuntimeLibrary(
             ?.groupValues
             ?.getOrNull(1)
             ?.toIntOrNull()
+        // Desktop GenericRequest checkChoiceRedirection / checkSkillRedirection when
+        // choice.php or runskillz.php land in a fight (or the fight body follows).
+        val fightHtml = html.contains("You're fighting", ignoreCase = true) ||
+            html.contains("fight.php", ignoreCase = true) ||
+            normalizedUrl.contains("fight.php", ignoreCase = true)
+        if (fightHtml) {
+            if (normalizedUrl.contains("choice.php", ignoreCase = true) ||
+                ChoiceCombatAshState.fightFollowsChoice ||
+                ChoiceCombatAshState.handlingChoice
+            ) {
+                CheckChoiceRedirection.apply(
+                    location = normalizedUrl.ifBlank { "choice.php" },
+                    preferences = preferences,
+                    choiceId = choiceId ?: ChoiceCombatAshState.lastChoice,
+                )
+            }
+            if (normalizedUrl.contains("runskillz.php", ignoreCase = true)) {
+                CheckSkillRedirection.apply(normalizedUrl, preferences)
+            }
+        }
         processVisitResponseHooksForPath(normalizedUrl, html, choiceId)
 
         if (normalizedUrl.contains("mall.php", ignoreCase = true) &&
