@@ -4,8 +4,7 @@ import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
 
 /**
  * In-app About copy and store-facing links.
- * Privacy HTML is published by [.github/workflows/pages.yml] after Pages is enabled
- * (Settings → Pages → Source: GitHub Actions).
+ * Privacy HTML is published by [.github/workflows/pages.yml] (Pages `build_type=workflow` live).
  */
 object AppAbout {
     const val APP_NAME = "KoLmafia Mobile"

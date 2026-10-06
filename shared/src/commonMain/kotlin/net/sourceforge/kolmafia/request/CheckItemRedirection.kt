@@ -21,7 +21,7 @@ object CheckItemRedirection {
     const val DOLPHIN_WHISTLE = 3997
     const val DURABLE_DOLPHIN_WHISTLE = 11972
     const val SHAKING_CAMERA = 4170
-    const val SHAKING_CRAPPY_CAMERA = 6581
+    const val SHAKING_CRAPPY_CAMERA = 7176
     const val PHOTOCOPIED_MONSTER = 4873
     const val RAIN_DOH_BOX = 5563
     const val RAIN_DOH_MONSTER = 5564
@@ -65,6 +65,32 @@ object CheckItemRedirection {
     const val MAP_TO_A_CANDY_RICH_BLOCK = 11337
     const val MINIATURE_EMBERING_HULK = 11644
     const val CARONCH_MAP = 2950
+    const val FRATHOUSE_BLUEPRINTS = 2951
+    const val CURSED_PIECE_OF_THIRTEEN = 3034
+    const val RONALD_SHELTER_MAP = 5171
+    const val GRIMACE_SHELTER_MAP = 5172
+    const val D10 = 5288
+    const val SHAKING_SKULL = 6412
+    const val TONIC_DJINN = 6421
+    const val ABYSSAL_BATTLE_PLANS = 6782
+    const val SUSPICIOUS_ADDRESS = 6855
+    const val CHEF_BOY_BUSINESS_CARD = 6898
+    const val XIBLAXIAN_HOLOTRAINING_SIMCODE = 7739
+    const val XIBLAXIAN_POLITICAL_PRISONER = 7742
+    const val CHATEAU_WATERCOLOR = 8033
+    const val DECK_OF_EVERY_CARD = 8382
+    const val GIFT_CARD = 8392
+    const val BARREL_MAP = 8599
+    const val VYKEA_INSTRUCTIONS = 8730
+    const val TIME_SPINNER = 9104
+    const val TIME_RESIDUE = 9116
+    const val BASTILLE_LOANER_VOUCHER = 9938
+    const val GLITCH_ITEM = 10207
+    const val SIZZLING_DESK_BELL = 10617
+    const val FROST_RIMED_DESK_BELL = 10618
+    const val UNCANNY_DESK_BELL = 10619
+    const val NASTY_DESK_BELL = 10620
+    const val GREASY_DESK_BELL = 10621
 
     private val BRICKO_FIGHTERS = setOf(
         4474, 4475, 4476, 4477, 4478, 4479, 4480, 4481, 4482, 4483, 4484,
@@ -75,6 +101,14 @@ object CheckItemRedirection {
     )
 
     private val GENIE_ITEMS = setOf(GENIE_BOTTLE, POCKET_WISH, REPLICA_GENIE_BOTTLE)
+
+    private val DESK_BELLS = setOf(
+        SIZZLING_DESK_BELL,
+        FROST_RIMED_DESK_BELL,
+        UNCANNY_DESK_BELL,
+        NASTY_DESK_BELL,
+        GREASY_DESK_BELL,
+    )
 
     data class Result(
         val handled: Boolean,
@@ -109,6 +143,7 @@ object CheckItemRedirection {
         preferences: Preferences?,
         inventory: InventoryManager?,
         count: Int = 1,
+        urlString: String = "",
     ): Result {
         itemMonster = null
         if (itemId <= 0) return Result(handled = false)
@@ -287,6 +322,92 @@ object CheckItemRedirection {
             }
             CARONCH_MAP -> {
                 name = "Cap'm Caronch's Map"
+            }
+            FRATHOUSE_BLUEPRINTS -> {
+                name = "Orcish Frat House blueprints"
+            }
+            CURSED_PIECE_OF_THIRTEEN -> {
+                name = "Cursed Piece of Thirteen"
+            }
+            RONALD_SHELTER_MAP, GRIMACE_SHELTER_MAP -> {
+                name = ItemDatabase.getItemName(itemId).ifEmpty {
+                    if (itemId == RONALD_SHELTER_MAP) "map to Ronaldus" else "map to Grimacetown"
+                }
+                consumed = true
+            }
+            XIBLAXIAN_HOLOTRAINING_SIMCODE -> {
+                name = "Xiblaxian holo-training simcode"
+                consumed = true
+            }
+            XIBLAXIAN_POLITICAL_PRISONER -> {
+                name = "Xiblaxian encrypted political prisoner"
+                consumed = true
+            }
+            D10 -> {
+                // Desktop: only a single D10 generates a monster; inv_use does not
+                // redirect, so the item is consumed elsewhere via Javascript.
+                if (count != 1) return Result(handled = false)
+                name = "d10"
+                consumed = false
+            }
+            SHAKING_SKULL -> {
+                name = "shaking skull"
+                consumed = true
+            }
+            ABYSSAL_BATTLE_PLANS -> {
+                name = "abyssal battle plans"
+            }
+            SUSPICIOUS_ADDRESS -> {
+                name = "a suspicious address"
+            }
+            CHEF_BOY_BUSINESS_CARD -> {
+                name = "Chef Boy, R&D's business card"
+            }
+            CHATEAU_WATERCOLOR -> {
+                name = "Chateau Painting"
+                consumed = false
+                preferences?.setBoolean("_chateauMonsterFought", true)
+                ignoreSpecial = true
+            }
+            DECK_OF_EVERY_CARD -> {
+                name = "Deck of Every Card"
+            }
+            GIFT_CARD -> {
+                name = "gift card"
+                consumed = true
+            }
+            BARREL_MAP -> {
+                name = "map to the Biggest Barrel"
+                consumed = true
+            }
+            VYKEA_INSTRUCTIONS -> {
+                name = "VYKEA instructions"
+            }
+            TONIC_DJINN -> {
+                name = "tonic djinn"
+            }
+            TIME_RESIDUE -> {
+                name = "time residue"
+                consumed = true
+            }
+            TIME_SPINNER -> {
+                name = "Time-Spinner"
+            }
+            GLITCH_ITEM -> {
+                // Desktop only fight-labels the glitch when eaten via inv_eat.php.
+                if (!urlString.contains("inv_eat.php", ignoreCase = true)) {
+                    return Result(handled = false)
+                }
+                name = "[glitch season reward name]"
+            }
+            in DESK_BELLS, BASTILLE_LOANER_VOUCHER -> {
+                name = ItemDatabase.getItemName(itemId).ifEmpty {
+                    when (itemId) {
+                        BASTILLE_LOANER_VOUCHER -> "Bastille Battalion loaner voucher"
+                        else -> "desk bell"
+                    }
+                }
+                consumed = true
             }
             CLARIFIED_BUTTER -> {
                 name = "Dish of Clarified Butter"

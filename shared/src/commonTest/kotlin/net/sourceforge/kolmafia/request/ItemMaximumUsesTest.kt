@@ -4,6 +4,7 @@ import com.russhwolf.settings.MapSettings
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterClass
@@ -39,7 +40,8 @@ class ItemMaximumUsesTest {
         val ctx = ctx(
             CharacterState(inebriety = 2, inebrietyLimit = 14),
         )
-        assertEquals(4, maximumUses(item.id, item.name, ctx))
+        // Desktop DrinkItemRequest: floor(12/3)=4 then allowOverDrink +1 → 5
+        assertEquals(5, maximumUses(item.id, item.name, ctx))
     }
 
     @Test
@@ -498,6 +500,200 @@ class ItemMaximumUsesTest {
         assertEquals(0, maximumUses(item.id, item.name, ctx))
     }
 
+    @Test
+    fun drink_greyGoo_returnsOne() {
+        val item = ItemDatabase.getByName("martini")!!
+        val ctx = ctx(
+            CharacterState(
+                inebriety = 0,
+                inebrietyLimit = 0,
+                challengePath = AscensionPath.GREY_YOU.apiName,
+            ),
+        )
+        assertEquals(1, maximumUses(item.id, item.name, ctx))
+    }
+
+    @Test
+    fun drink_jarlsberg_refusesNonJarlsbergian() {
+        val ctx = ctx(
+            CharacterState(
+                inebriety = 0,
+                inebrietyLimit = 14,
+                challengePath = AscensionPath.AVATAR_OF_JARLSBERG.apiName,
+            ),
+        )
+        assertEquals(0, maximumUses(ItemDatabase.getByName("martini")!!.id, "martini", ctx))
+    }
+
+    @Test
+    fun drink_nuclearAutumn_refusesInebrietyAboveOne() {
+        val item = ItemDatabase.getByName("martini")!!
+        val inebriety = net.sourceforge.kolmafia.data.ConsumableDatabase.getInebrietyByName(item.name)
+        if (inebriety <= 1) return
+        val ctx = ctx(
+            CharacterState(
+                inebriety = 0,
+                inebrietyLimit = 14,
+                challengePath = AscensionPath.NUCLEAR_AUTUMN.apiName,
+            ),
+        )
+        assertEquals(0, maximumUses(item.id, item.name, ctx))
+    }
+
+    @Test
+    fun drink_bondcore_requiresMartiniImage() {
+        val martini = ItemDatabase.getByName("martini")!!
+        val other = ItemDatabase.getByName("bottle of gin") ?: ItemDatabase.getByName("sake")!!
+        val ctx = ctx(
+            CharacterState(
+                inebriety = 0,
+                inebrietyLimit = 2,
+                challengePath = AscensionPath.LICENSE_TO_ADVENTURE.apiName,
+            ),
+        )
+        assertTrue(maximumUses(martini.id, martini.name, ctx) > 0)
+        val otherInebriety = net.sourceforge.kolmafia.data.ConsumableDatabase.getInebrietyByName(other.name)
+        if (otherInebriety > 0 && ItemDatabase.getImage(other.id) != "martini.gif") {
+            assertEquals(0, maximumUses(other.id, other.name, ctx))
+        }
+    }
+
+    @Test
+    fun drink_getsYouDrunk_blockedWhileActive() {
+        val item = ItemDatabase.getByName("gets-you-drunk") ?: return
+        val prefs = Preferences(MapSettings())
+        prefs.setInt("getsYouDrunkTurnsLeft", 2)
+        assertEquals(0, maximumUses(item.id, item.name, ctx(CharacterState(inebriety = 0, inebrietyLimit = 14), prefs)))
+        prefs.setInt("getsYouDrunkTurnsLeft", 0)
+        assertEquals(1, maximumUses(item.id, item.name, ctx(CharacterState(inebriety = 0, inebrietyLimit = 14), prefs)))
+    }
+
+    @Test
+    fun drink_mimeShotglass_addsOneSizeOneDrink() {
+        val item = ItemDatabase.getByName("bottle of gin") ?: ItemDatabase.getByName("sake")!!
+        val inebriety = net.sourceforge.kolmafia.data.ConsumableDatabase.getInebrietyByName(item.name)
+        if (inebriety != 1) return
+        val prefs = Preferences(MapSettings())
+        val without = ctx(
+            CharacterState(inebriety = 14, inebrietyLimit = 14),
+            prefs,
+            accessibleCount = { 0 },
+        )
+        // At capacity with overdrink → 1; shotglass adds another size-1 drink before overdrink
+        val withGlass = ctx(
+            CharacterState(inebriety = 14, inebrietyLimit = 14),
+            prefs,
+            accessibleCount = { id -> if (id == 9676) 1 else 0 },
+        )
+        assertEquals(1, maximumUses(item.id, item.name, without))
+        assertEquals(2, maximumUses(item.id, item.name, withGlass))
+    }
+
+    @Test
+    fun drink_iceStein_clampsToSixPacks() {
+        val stein = ItemDatabase.getByName("ice stein")!!
+        val ctx = ctx(
+            CharacterState(inebriety = 0, inebrietyLimit = 14),
+            accessibleCount = { id -> if (id == 138) 2 else 0 },
+        )
+        assertEquals(2, maximumUses(stein.id, stein.name, ctx))
+    }
+
+    @Test
+    fun drink_speakeasy_needsVipKey() {
+        val drink = ItemDatabase.getByName("Lucky Lindy")!!
+        val none = ctx(
+            CharacterState(inebriety = 0, inebrietyLimit = 14),
+            accessibleCount = { 0 },
+        )
+        assertEquals(0, maximumUses(drink.id, drink.name, none))
+        val keyed = ctx(
+            CharacterState(inebriety = 0, inebrietyLimit = 14),
+            accessibleCount = { id -> if (id == 3947) 1 else 0 },
+        )
+        assertTrue(maximumUses(drink.id, drink.name, keyed) > 0)
+    }
+
+    @Test
+    fun spleen_greyGoo_returnsOne() {
+        val item = ItemDatabase.getByName("soft green echo eyedrop antidote")
+            ?: ItemDatabase.getByName("turkey blaster")!!
+        val ctx = ctx(
+            CharacterState(
+                spleenUsed = 0,
+                spleenLimit = 0,
+                challengePath = AscensionPath.GREY_YOU.apiName,
+            ),
+        )
+        val spleen = net.sourceforge.kolmafia.data.ConsumableDatabase.getSpleenByName(item.name)
+        if (spleen <= 0) return
+        assertEquals(1, maximumUses(item.id, item.name, ctx))
+    }
+
+    @Test
+    fun spleen_nuclearAutumn_refusesHitAboveOne() {
+        val item = ItemDatabase.getByName("turkey blaster")!!
+        val hit = net.sourceforge.kolmafia.data.ConsumableDatabase.getSpleenByName(item.name)
+        if (hit <= 1) return
+        val ctx = ctx(
+            CharacterState(
+                spleenUsed = 0,
+                spleenLimit = 15,
+                challengePath = AscensionPath.NUCLEAR_AUTUMN.apiName,
+            ),
+        )
+        assertEquals(0, maximumUses(item.id, item.name, ctx))
+    }
+
+    @Test
+    fun cursedChest_usesMatchingKeyCount() {
+        // ornate cursed chest = 3017, ornate cursed key = 3014
+        val none = ctx(CharacterState(), accessibleCount = { 0 })
+        assertEquals(0, maximumUses(3017, "ornate cursed chest", none))
+        val keys = ctx(CharacterState(), accessibleCount = { id -> if (id == 3014) 3 else 0 })
+        assertEquals(3, maximumUses(3017, "ornate cursed chest", keys))
+    }
+
+    @Test
+    fun marbles_capAtHalfInventory() {
+        val holding = ctx(CharacterState(), accessibleCount = { id -> if (id == 4095) 6 else 0 })
+        assertEquals(3, maximumUses(4095, "green peawhee marble", holding))
+        assertEquals(0, maximumUses(4104, "black catseye marble", holding))
+    }
+
+    @Test
+    fun fieldGar_blocksMondayAndActiveEffect() {
+        val open = ctx(CharacterState(), monday = false)
+        assertEquals(1, maximumUses(5257, "potion of Field Gar", open))
+        val monday = ctx(CharacterState(), monday = true)
+        assertEquals(0, maximumUses(5257, "potion of Field Gar", monday))
+        val garish = ctx(CharacterState(), monday = false, activeEffectNames = setOf("Gar-ish"))
+        assertEquals(0, maximumUses(5257, "potion of Field Gar", garish))
+    }
+
+    @Test
+    fun tinyHouse_allowsOneWhenBeatenUpAndFull() {
+        val beaten = ctx(
+            CharacterState(currentHp = 100, maxHp = 100, currentMp = 50, maxMp = 50),
+            activeEffectNames = setOf("Beaten Up"),
+        )
+        assertEquals(1, maximumUses(592, "tiny house", beaten))
+    }
+
+    @Test
+    fun medicinalHerbs_capAtOneWhenRestorationNeeded() {
+        val hurt = ctx(CharacterState(currentHp = 10, maxHp = 100, currentMp = 10, maxMp = 50))
+        assertEquals(1, maximumUses(1274, "medicinal herbs", hurt))
+    }
+
+    @Test
+    fun ledClockAndTipi_campgroundCapOne() {
+        assertEquals(1, maximumUses(6072, "LED clock", ctx(CharacterState())))
+        assertEquals(1, maximumUses(6120, "bonsai tree", ctx(CharacterState())))
+        assertEquals(1, maximumUses(11600, "mini-kiwi tipi", ctx(CharacterState())))
+        assertEquals(1, maximumUses(69, "newbiesport tent", ctx(CharacterState())))
+    }
+
     private fun ctx(
         character: CharacterState,
         preferences: Preferences? = null,
@@ -506,6 +702,7 @@ class ItemMaximumUsesTest {
         accessibleCount: (Int) -> Int = { 0 },
         holiday: String? = null,
         autumn: Boolean? = null,
+        monday: Boolean? = null,
         activeEffectNames: Set<String> = emptySet(),
     ) = ItemUseLimitsContext(
         character = character,
@@ -521,6 +718,7 @@ class ItemMaximumUsesTest {
         accessibleCount = accessibleCount,
         holiday = holiday,
         autumn = autumn,
+        monday = monday,
         activeEffectNames = activeEffectNames,
     )
 }

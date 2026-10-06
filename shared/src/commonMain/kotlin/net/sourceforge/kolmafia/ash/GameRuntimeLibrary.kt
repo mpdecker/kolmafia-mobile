@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.adventure.AdventureLocation
@@ -288,7 +289,11 @@ import net.sourceforge.kolmafia.request.FleaMarketRequest
 import net.sourceforge.kolmafia.request.FleaMarketSellRequest
 import net.sourceforge.kolmafia.request.AscensionHistoryRequest
 import net.sourceforge.kolmafia.request.CheckChoiceRedirection
+import net.sourceforge.kolmafia.request.CheckOtherRedirection
 import net.sourceforge.kolmafia.request.CheckSkillRedirection
+import net.sourceforge.kolmafia.request.ConsumeAutomation
+import net.sourceforge.kolmafia.request.ParseResultsResidual
+import net.sourceforge.kolmafia.request.PrepareForURL
 import net.sourceforge.kolmafia.request.UseItemAbsorbSync
 import net.sourceforge.kolmafia.request.UseItemBingeSync
 import net.sourceforge.kolmafia.request.UseItemAprilPlaySync
@@ -785,6 +790,75 @@ class GameRuntimeLibrary(
             CombatAdjustment.manaCostModifier(buildCurrentModifiers(), combat = false)
         }
         manaBurnManager?.gameDatabase = gameDatabase
+        wireConsumeAndVisitPreflight()
+    }
+
+    private fun wireConsumeAndVisitPreflight() {
+        UseItemConsumptionSync.skillManagerProvider = { skillManager }
+        UseItemConsumptionSync.sessionLogProvider = { sessionLogger }
+        ConsumeAutomation.retrieveItem = { itemId, qty ->
+            retrieveItemService?.retrieve(itemId, qty) ?: 0
+        }
+        ConsumeAutomation.useItem = { itemId ->
+            useItemRequest?.use(itemId, 1)?.isSuccess == true
+        }
+        ConsumeAutomation.equipItem = { itemId, slot ->
+            equipmentRequest?.equipItem(itemId, slot)?.isSuccess == true
+        }
+        ConsumeAutomation.hasSkill = { skillId ->
+            skillManager?.state?.value?.skills?.any { it.id == skillId } == true ||
+                (preferences?.getInt("skillLevel$skillId", 0) ?: 0) > 0
+        }
+        ConsumeAutomation.hasGarish = {
+            effectManager?.state?.value?.effects?.any { it.id == ConsumeAutomation.GARISH_EFFECT_ID } == true
+        }
+        ConsumeAutomation.odeTurns = {
+            effectManager?.state?.value?.effects
+                ?.firstOrNull { it.name.contains("Ode to Booze", ignoreCase = true) }
+                ?.duration ?: 0
+        }
+        ConsumeAutomation.currentMp = { character?.state?.value?.currentMp?.toLong() ?: 0L }
+        ConsumeAutomation.canInteract = {
+            character?.state?.value?.let { !it.isHardcore && it.roninLeft <= 0 } ?: true
+        }
+        ConsumeAutomation.castOde = castOde@{ skillId ->
+            val client = httpClient ?: return@castOde false
+            try {
+                val response = client.submitForm(
+                    url = "$KOL_BASE_URL/skills.php",
+                    formParameters = Parameters.build {
+                        append("action", "Skillz")
+                        append("whichskill", skillId.toString())
+                        append("quantity", "1")
+                        append("ajax", "1")
+                    },
+                )
+                response.status.isSuccess()
+            } catch (_: Exception) {
+                false
+            }
+        }
+        PrepareForURL.retrieveItem = { itemId, qty ->
+            retrieveItemService?.retrieve(itemId, qty) ?: 0
+        }
+        PrepareForURL.useItem = { itemId ->
+            useItemRequest?.use(itemId, 1)?.isSuccess == true
+        }
+        PrepareForURL.equipItem = { itemId, slot ->
+            equipmentRequest?.equipItem(itemId, slot)?.isSuccess == true
+        }
+        PrepareForURL.unequipSlot = { slot ->
+            equipmentRequest?.unequipSlot(slot)?.isSuccess == true
+        }
+        PrepareForURL.hasEquipped = { itemId -> equipmentManager?.hasEquipped(itemId) == true }
+        PrepareForURL.getEquipmentId = { slot -> equipmentManager?.getEquipmentId(slot) ?: -1 }
+        PrepareForURL.weaponHands = { itemId ->
+            net.sourceforge.kolmafia.data.EquipmentDatabase.getHands(itemId)
+        }
+        PrepareForURL.inZombiecore = { character?.state?.value?.inZombiecore == true }
+        PrepareForURL.mournComedy = { action ->
+            pandamoniumRequest?.comedy(action)?.getOrNull()
+        }
     }
 
     internal suspend fun refreshClosetCacheAfter(result: Result<*>?) {
@@ -821,7 +895,7 @@ class GameRuntimeLibrary(
 
         const val VERSION = "1.0.0-mobile"
         /** Mobile phase marker string; ASH [get_revision] returns [revisionNumber] (desktop INT). */
-        const val REVISION = "phase10150"
+        const val REVISION = "phase10510"
 
         /** Desktop [StaticEntity.getRevision] numeric parity — digits from [REVISION]. */
         fun revisionNumber(): Int =
@@ -3310,7 +3384,20 @@ class GameRuntimeLibrary(
             if (normalizedUrl.contains("runskillz.php", ignoreCase = true)) {
                 CheckSkillRedirection.apply(normalizedUrl, preferences)
             }
+            CheckOtherRedirection.apply(
+                location = normalizedUrl,
+                preferences = preferences,
+                sessionLogger = sessionLogger,
+            )
         }
+        ParseResultsResidual.apply(
+            urlString = normalizedUrl,
+            responseText = html,
+            preferences = preferences,
+            inventory = inventoryManager,
+            effectManager = effectManager,
+            sessionLogger = sessionLogger,
+        )
         processVisitResponseHooksForPath(normalizedUrl, html, choiceId)
 
         if (normalizedUrl.contains("mall.php", ignoreCase = true) &&
@@ -6923,6 +7010,20 @@ class GameRuntimeLibrary(
         lastVisitPath = "$KOL_BASE_URL/$path"
         kotlinx.coroutines.runBlocking {
             try {
+                val prepared = PrepareForURL.prepare(
+                    location = path,
+                    preferences = preferences,
+                    inventory = inventoryManager,
+                    character = character,
+                    equipmentManager = equipmentManager,
+                )
+                if (!prepared.proceed) {
+                    htmlOut = prepared.responseText
+                    prepared.responseText?.let {
+                        processVisitResponseHooks(it, "$KOL_BASE_URL/$path")
+                    }
+                    return@runBlocking
+                }
                 val response = client.get("$KOL_BASE_URL/$path")
                 if (!response.status.isSuccess()) return@runBlocking
                 val html = response.bodyAsText()

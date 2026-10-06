@@ -130,4 +130,150 @@ class CheckItemRedirectionTest {
         assertEquals(1, inv.getCount(CheckItemRedirection.GENIE_BOTTLE))
         assertEquals(null, CheckItemRedirection.itemMonster)
     }
+
+    @Test
+    fun shakingCrappyCamera_usesDesktopId7176() {
+        assertEquals(7176, CheckItemRedirection.SHAKING_CRAPPY_CAMERA)
+        val prefs = Preferences(MapSettings())
+        prefs.setString("crappyCameraMonster", "Knob Goblin Embezzler")
+        val inv = inventory()
+        inv.gainItemLocally(7176, 1)
+        val result = CheckItemRedirection.apply(7176, prefs, inv)
+        assertTrue(result.handled)
+        assertTrue(result.consumed)
+        assertEquals("", prefs.getString("crappyCameraMonster", "x"))
+        assertTrue(prefs.getBoolean("_crappyCameraUsed", false))
+        assertEquals(0, inv.getCount(7176))
+        assertEquals("Shaking crappy camera", CheckItemRedirection.itemMonster)
+    }
+
+    @Test
+    fun mapsAndPlans_cluster() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(CheckItemRedirection.BARREL_MAP, 1)
+        inv.gainItemLocally(CheckItemRedirection.RONALD_SHELTER_MAP, 1)
+
+        val blueprints = CheckItemRedirection.apply(
+            CheckItemRedirection.FRATHOUSE_BLUEPRINTS, prefs, inv,
+        )
+        assertTrue(blueprints.handled)
+        assertFalse(blueprints.consumed)
+        assertEquals("Orcish Frat House blueprints", CheckItemRedirection.itemMonster)
+
+        val barrel = CheckItemRedirection.apply(CheckItemRedirection.BARREL_MAP, prefs, inv)
+        assertTrue(barrel.handled)
+        assertTrue(barrel.consumed)
+        assertEquals(0, inv.getCount(CheckItemRedirection.BARREL_MAP))
+
+        val ronald = CheckItemRedirection.apply(CheckItemRedirection.RONALD_SHELTER_MAP, prefs, inv)
+        assertTrue(ronald.handled)
+        assertTrue(ronald.consumed)
+
+        val abyssal = CheckItemRedirection.apply(
+            CheckItemRedirection.ABYSSAL_BATTLE_PLANS, prefs, inv,
+        )
+        assertTrue(abyssal.handled)
+        assertEquals("abyssal battle plans", CheckItemRedirection.itemMonster)
+
+        val address = CheckItemRedirection.apply(
+            CheckItemRedirection.SUSPICIOUS_ADDRESS, prefs, inv,
+        )
+        assertTrue(address.handled)
+        assertEquals("a suspicious address", CheckItemRedirection.itemMonster)
+    }
+
+    @Test
+    fun iotmToys_cluster() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(CheckItemRedirection.GIFT_CARD, 1)
+        inv.gainItemLocally(CheckItemRedirection.TIME_RESIDUE, 1)
+        inv.gainItemLocally(CheckItemRedirection.BASTILLE_LOANER_VOUCHER, 1)
+
+        val chateau = CheckItemRedirection.apply(
+            CheckItemRedirection.CHATEAU_WATERCOLOR, prefs, inv,
+        )
+        assertTrue(chateau.handled)
+        assertFalse(chateau.consumed)
+        assertTrue(prefs.getBoolean("_chateauMonsterFought", false))
+        assertEquals("Chateau Painting", CheckItemRedirection.itemMonster)
+
+        val gift = CheckItemRedirection.apply(CheckItemRedirection.GIFT_CARD, prefs, inv)
+        assertTrue(gift.handled)
+        assertTrue(gift.consumed)
+
+        val spinner = CheckItemRedirection.apply(CheckItemRedirection.TIME_SPINNER, prefs, inv)
+        assertTrue(spinner.handled)
+        assertEquals("Time-Spinner", CheckItemRedirection.itemMonster)
+
+        val residue = CheckItemRedirection.apply(CheckItemRedirection.TIME_RESIDUE, prefs, inv)
+        assertTrue(residue.handled)
+        assertTrue(residue.consumed)
+
+        val bastille = CheckItemRedirection.apply(
+            CheckItemRedirection.BASTILLE_LOANER_VOUCHER, prefs, inv,
+        )
+        assertTrue(bastille.handled)
+        assertTrue(bastille.consumed)
+
+        val d10Ok = CheckItemRedirection.apply(CheckItemRedirection.D10, prefs, inv, count = 1)
+        assertTrue(d10Ok.handled)
+        assertFalse(d10Ok.consumed)
+        assertEquals("d10", CheckItemRedirection.itemMonster)
+
+        val d10Skip = CheckItemRedirection.apply(CheckItemRedirection.D10, prefs, inv, count = 2)
+        assertFalse(d10Skip.handled)
+    }
+
+    @Test
+    fun glitchItem_requiresInvEat() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        val skipped = CheckItemRedirection.apply(
+            CheckItemRedirection.GLITCH_ITEM, prefs, inv, urlString = "inv_use.php",
+        )
+        assertFalse(skipped.handled)
+
+        val eaten = CheckItemRedirection.apply(
+            CheckItemRedirection.GLITCH_ITEM, prefs, inv, urlString = "inv_eat.php",
+        )
+        assertTrue(eaten.handled)
+        assertEquals("[glitch season reward name]", CheckItemRedirection.itemMonster)
+    }
+
+    @Test
+    fun xiblaxianAndDeskBells_consume() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(CheckItemRedirection.XIBLAXIAN_HOLOTRAINING_SIMCODE, 1)
+        inv.gainItemLocally(CheckItemRedirection.SIZZLING_DESK_BELL, 1)
+        inv.gainItemLocally(CheckItemRedirection.GREASY_DESK_BELL, 1)
+
+        val holo = CheckItemRedirection.apply(
+            CheckItemRedirection.XIBLAXIAN_HOLOTRAINING_SIMCODE, prefs, inv,
+        )
+        assertTrue(holo.handled)
+        assertTrue(holo.consumed)
+        assertEquals(0, inv.getCount(CheckItemRedirection.XIBLAXIAN_HOLOTRAINING_SIMCODE))
+
+        val prisoner = CheckItemRedirection.apply(
+            CheckItemRedirection.XIBLAXIAN_POLITICAL_PRISONER, prefs, inv,
+        )
+        assertTrue(prisoner.handled)
+        assertEquals("Xiblaxian encrypted political prisoner", CheckItemRedirection.itemMonster)
+
+        val sizzling = CheckItemRedirection.apply(
+            CheckItemRedirection.SIZZLING_DESK_BELL, prefs, inv,
+        )
+        assertTrue(sizzling.handled)
+        assertTrue(sizzling.consumed)
+        assertEquals(0, inv.getCount(CheckItemRedirection.SIZZLING_DESK_BELL))
+
+        val greasy = CheckItemRedirection.apply(
+            CheckItemRedirection.GREASY_DESK_BELL, prefs, inv,
+        )
+        assertTrue(greasy.handled)
+        assertTrue(greasy.consumed)
+    }
 }

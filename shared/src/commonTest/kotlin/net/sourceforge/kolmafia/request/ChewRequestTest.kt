@@ -73,4 +73,22 @@ class ChewRequestTest {
         val result = ChewRequest(client).chew(itemId = 1, quantity = 1)
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun chew_rupture_failsAfterParse() = runTest {
+        val client = makeClient {
+            respond(
+                content = "<html>Your spleen is about to rupture!</html>",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "text/html"),
+            )
+        }
+        val result = ChewRequest(client).chew(itemId = UseItemConsumptionSync.TURKEY_BLASTER, quantity = 2)
+        assertTrue(result.isFailure)
+        assertTrue(
+            UseItemConsumptionSync.lastUpdate.contains("kablooie", ignoreCase = true) ||
+                result.exceptionOrNull()?.message?.contains("kablooie", ignoreCase = true) == true ||
+                result.exceptionOrNull()?.message?.contains("Chew aborted", ignoreCase = true) == true,
+        )
+    }
 }

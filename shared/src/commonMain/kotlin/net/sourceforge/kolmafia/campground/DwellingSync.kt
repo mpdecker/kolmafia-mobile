@@ -38,6 +38,12 @@ object DwellingSync {
         return if (stored >= 0) stored else BIG_ROCK_ITEM_ID
     }
 
+    /** Desktop [CampgroundRequest.setCurrentDwelling]. */
+    fun setCurrentDwelling(prefs: Preferences?, itemId: Int) {
+        if (prefs == null || itemId <= 0) return
+        prefs.setInt(CURRENT_DWELLING_ITEM_ID_PREF, itemId)
+    }
+
     fun applyFromHtml(html: String, prefs: Preferences?) {
         if (prefs == null) return
         val match = HOUSING_PATTERN.find(html) ?: return

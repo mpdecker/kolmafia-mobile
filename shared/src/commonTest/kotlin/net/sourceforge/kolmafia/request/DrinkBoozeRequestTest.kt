@@ -15,6 +15,8 @@ class DrinkBoozeRequestTest {
     @AfterTest
     fun tearDown() {
         ConsumptionHelperState.resetForTest()
+        ElementalHelper.resetForTest()
+        ConsumeAutomation.resetForTest()
     }
 
     private fun makeClient(handler: MockRequestHandler): HttpClient = HttpClient(MockEngine(handler))
@@ -94,6 +96,8 @@ class DrinkBoozeRequestTest {
     @Test
     fun consumeDrink_sendsUtensilWhenDrinkHelperQueued() = runTest {
         ConsumptionHelperState.queueDrinkHelper(3324, 1)
+        ElementalHelper.currentHp = { 5000 }
+        ElementalHelper.hasEffect = { false }
         val capturedPaths = mutableListOf<String>()
         val client = makeClient { request ->
             capturedPaths += request.url.fullPath

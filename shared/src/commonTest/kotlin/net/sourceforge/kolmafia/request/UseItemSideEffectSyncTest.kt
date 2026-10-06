@@ -6,6 +6,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import net.sourceforge.kolmafia.ash.GameRuntimeLibrary
+import net.sourceforge.kolmafia.campground.CampgroundInventorySync
 import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.event.GameEventBus
@@ -23,8 +24,255 @@ import kotlin.test.assertTrue
 class UseItemSideEffectSyncTest {
 
     @Test
-    fun revision_isPhase10090() {
-        assertEquals("phase10150", GameRuntimeLibrary.REVISION)
+    fun revision_isPhase10330() {
+        assertEquals("phase10510", GameRuntimeLibrary.REVISION)
+    }
+
+    @Test
+    fun sombreroAndSoda_setKeepPrefs() {
+        val prefs = Preferences(MapSettings())
+        UseItemConsumptionSync.parseConsumption(
+            responseText = "You tip your outrageous sombrero.",
+            itemId = UseItemSideEffectSync.OUTRAGEOUS_SOMBRERO,
+            count = 1,
+            preferences = prefs,
+            inventory = inventory(),
+        )
+        assertTrue(prefs.getBoolean("outrageousSombreroUsed", false))
+
+        UseItemConsumptionSync.parseConsumption(
+            responseText = "You drink the neverending soda.",
+            itemId = UseItemSideEffectSync.NEVERENDING_SODA,
+            count = 1,
+            preferences = prefs,
+            inventory = inventory(),
+        )
+        assertTrue(prefs.getBoolean("oscusSodaUsed", false))
+    }
+
+    @Test
+    fun trapezoid_setsPortalEnergy() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(UseItemSideEffectSync.TRAPEZOID, 1)
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = "you put it on the ground at your campsite and it hums",
+            itemId = UseItemSideEffectSync.TRAPEZOID,
+            count = 1,
+            preferences = prefs,
+            inventory = inv,
+        )
+        assertTrue(ok)
+        assertEquals(20, prefs.getInt("currentPortalEnergy", 0))
+        assertEquals(0, inv.getCount(UseItemSideEffectSync.TRAPEZOID))
+    }
+
+    @Test
+    fun refuseGates_keepMassagerAndEvBugs() {
+        val inv = inventory()
+        inv.gainItemLocally(UseItemSideEffectSync.PERSONAL_MASSAGER, 1)
+        inv.gainItemLocally(UseItemSideEffectSync.GRUB, 1)
+        assertTrue(
+            UseItemConsumptionSync.parseConsumption(
+                responseText = "You don't really need a massage right now",
+                itemId = UseItemSideEffectSync.PERSONAL_MASSAGER,
+                count = 1,
+                inventory = inv,
+            ),
+        )
+        assertEquals(1, inv.getCount(UseItemSideEffectSync.PERSONAL_MASSAGER))
+
+        assertTrue(
+            UseItemConsumptionSync.parseConsumption(
+                responseText = "filled with revulsion at the prospect",
+                itemId = UseItemSideEffectSync.GRUB,
+                count = 1,
+                inventory = inv,
+            ),
+        )
+        assertEquals(1, inv.getCount(UseItemSideEffectSync.GRUB))
+    }
+
+    @Test
+    fun honeypot_stopsBeeCounters() {
+        val prefs = Preferences(MapSettings())
+        TurnCounter.startCounting(prefs, 0, 15, "Bee window begin", "bee.gif")
+        TurnCounter.startCounting(prefs, 0, 20, "Bee window end", "bee.gif")
+        val inv = inventory()
+        inv.gainItemLocally(UseItemSideEffectSync.HONEYPOT, 1)
+        assertTrue(
+            UseItemConsumptionSync.parseConsumption(
+                responseText = "You smear yourself with honey.",
+                itemId = UseItemSideEffectSync.HONEYPOT,
+                count = 1,
+                preferences = prefs,
+                inventory = inv,
+            ),
+        )
+        assertFalse(TurnCounter.isCounting(prefs, "Bee window begin", 0))
+        assertFalse(TurnCounter.isCounting(prefs, "Bee window end", 0))
+    }
+
+    @Test
+    fun tipi_setsCurrentDwelling() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(UseItemSideEffectSync.MINI_KIWI_TIPI, 1)
+        assertTrue(
+            UseItemConsumptionSync.parseConsumption(
+                responseText = "You erect the mini-kiwi tipi at your campsite.",
+                itemId = UseItemSideEffectSync.MINI_KIWI_TIPI,
+                count = 1,
+                preferences = prefs,
+                inventory = inv,
+            ),
+        )
+        assertEquals(
+            UseItemSideEffectSync.MINI_KIWI_TIPI,
+            prefs.getInt("_currentDwellingItemId", -1),
+        )
+        assertEquals(0, inv.getCount(UseItemSideEffectSync.MINI_KIWI_TIPI))
+    }
+
+    @Test
+    fun ledClock_installsCampFurniture() {
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(UseItemSideEffectSync.LED_CLOCK, 1)
+        assertTrue(
+            UseItemConsumptionSync.parseConsumption(
+                responseText = "You install the LED clock.",
+                itemId = UseItemSideEffectSync.LED_CLOCK,
+                count = 1,
+                preferences = prefs,
+                inventory = inv,
+            ),
+        )
+        assertEquals(
+            1,
+            CampgroundInventorySync.load(prefs)[UseItemSideEffectSync.LED_CLOCK] ?: 0,
+        )
+    }
+
+    @Test
+    fun cyrptSculpture_marksEvilometerRefresh() = runBlocking {
+        UseItemRequestState.clearFollowUps()
+        val prefs = Preferences(MapSettings())
+        val inv = inventory()
+        inv.gainItemLocally(UseItemSideEffectSync.QUASIRELGIOUS_SCULPTURE, 1)
+        assertTrue(
+            UseItemConsumptionSync.parseConsumption(
+                responseText = "The entire Cyrpt feels safer somehow.",
+                itemId = UseItemSideEffectSync.QUASIRELGIOUS_SCULPTURE,
+                count = 1,
+                preferences = prefs,
+                inventory = inv,
+            ),
+        )
+        val engine = MockEngine {
+            respond(
+                """Total Evil: <b>100</b>""",
+                HttpStatusCode.OK,
+            )
+        }
+        UseItemRequestState.refreshFollowUps(HttpClient(engine), prefs)
+        // Follow-up ran (no throw); sculpture itself was consumed.
+        assertEquals(0, inv.getCount(UseItemSideEffectSync.QUASIRELGIOUS_SCULPTURE))
+    }
+
+    @Test
+    fun cursedChest_consumesMatchingKey() {
+        val inventory = inventory()
+        inventory.gainItemLocally(UseItemSideEffectSync.ORNATE_CURSED_KEY, 1)
+        inventory.gainItemLocally(UseItemSideEffectSync.ORNATE_CURSED_CHEST, 1)
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = "You unlock the ornate cursed chest.",
+            itemId = UseItemSideEffectSync.ORNATE_CURSED_CHEST,
+            count = 1,
+            inventory = inventory,
+        )
+        assertTrue(ok)
+        assertEquals(0, inventory.getCount(UseItemSideEffectSync.ORNATE_CURSED_KEY))
+        assertEquals(0, inventory.getCount(UseItemSideEffectSync.ORNATE_CURSED_CHEST))
+    }
+
+    @Test
+    fun dustySkull_wipesBonesOnSuccess() {
+        val inventory = inventory()
+        inventory.gainItemLocally(UseItemSideEffectSync.DUSTY_ANIMAL_SKULL, 1)
+        inventory.gainItemLocally(1802, 1)
+        inventory.gainItemLocally(1850, 1)
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = """The magic that had previously animated the animals kicks back
+                in, and it stands up shakily and looks at you. "Graaangh?" """,
+            itemId = UseItemSideEffectSync.DUSTY_ANIMAL_SKULL,
+            count = 1,
+            inventory = inventory,
+        )
+        assertTrue(ok)
+        assertEquals(0, inventory.getCount(1802))
+        assertEquals(0, inventory.getCount(1850))
+        assertEquals(0, inventory.getCount(UseItemSideEffectSync.DUSTY_ANIMAL_SKULL))
+    }
+
+    @Test
+    fun generalAssembly_consumesLaserComponents() {
+        val inventory = inventory()
+        inventory.gainItemLocally(UseItemSideEffectSync.GENERAL_ASSEMBLY_MODULE, 1)
+        inventory.gainItemLocally(UseItemSideEffectSync.LASER_CANON, 1)
+        inventory.gainItemLocally(UseItemSideEffectSync.LASER_TARGETING_CHIP, 1)
+        inventory.gainItemLocally(UseItemSideEffectSync.UNOBTAINIUM_STRAPS, 1)
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = "You breathe a heavy sigh of relief as the pseudopods emerge from your inventory, carrying the  laser cannon, laser targeting chip, and the set of Unobtainium straps",
+            itemId = UseItemSideEffectSync.GENERAL_ASSEMBLY_MODULE,
+            count = 1,
+            inventory = inventory,
+        )
+        assertTrue(ok)
+        assertEquals(0, inventory.getCount(UseItemSideEffectSync.LASER_CANON))
+        assertEquals(0, inventory.getCount(UseItemSideEffectSync.LASER_TARGETING_CHIP))
+        assertEquals(0, inventory.getCount(UseItemSideEffectSync.UNOBTAINIUM_STRAPS))
+    }
+
+    @Test
+    fun bangPotion_setsIdentificationPref() {
+        val prefs = Preferences(MapSettings())
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = "You drink the potion and feel like liquid fire.",
+            itemId = 819,
+            count = 1,
+            preferences = prefs,
+        )
+        assertTrue(ok)
+        assertEquals("inebriety", prefs.getString("lastBangPotion819", ""))
+    }
+
+    @Test
+    fun workytimeTea_abortsWhenNotBored() {
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = "You're not quite bored enough to drink that much tea.",
+            itemId = UseItemSideEffectSync.WORKYTIME_TEA,
+            count = 1,
+        )
+        assertFalse(ok)
+        assertEquals(
+            "You're not bored enough to drink that much tea.",
+            UseItemConsumptionSync.lastUpdate,
+        )
+    }
+
+    @Test
+    fun warmSubject_consumesOnlyOneOnIronicShirt() {
+        val inventory = inventory()
+        inventory.gainItemLocally(UseItemSideEffectSync.WARM_SUBJECT, 5)
+        val ok = UseItemConsumptionSync.parseConsumption(
+            responseText = "You go to Warm Subject and browse the shirts for a while. You find one that you wouldn't mind wearing ironically. There seems to be only one in the store, though.",
+            itemId = UseItemSideEffectSync.WARM_SUBJECT,
+            count = 5,
+            inventory = inventory,
+        )
+        assertTrue(ok)
+        assertEquals(4, inventory.getCount(UseItemSideEffectSync.WARM_SUBJECT))
     }
 
     @Test

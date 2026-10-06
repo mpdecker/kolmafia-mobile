@@ -2,6 +2,7 @@ package net.sourceforge.kolmafia.request
 
 import net.sourceforge.kolmafia.campground.CampgroundAvailability
 import net.sourceforge.kolmafia.campground.CampgroundInventorySync
+import net.sourceforge.kolmafia.campground.DwellingSync
 import net.sourceforge.kolmafia.character.KoLCharacter
 import net.sourceforge.kolmafia.data.ItemDatabase
 import net.sourceforge.kolmafia.familiar.FamiliarManager
@@ -10,12 +11,14 @@ import net.sourceforge.kolmafia.data.SkillDefinitionDatabase
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.modifiers.StringModifier
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.quest.ElVibratoSync
 import net.sourceforge.kolmafia.quest.Quest
 import net.sourceforge.kolmafia.quest.QuestDatabase
 import net.sourceforge.kolmafia.session.BugbearManager
 import net.sourceforge.kolmafia.session.CryptManager
 import net.sourceforge.kolmafia.session.EquipmentManager
 import net.sourceforge.kolmafia.session.SkillLearnFromResponse
+import net.sourceforge.kolmafia.session.TurnCounter
 import net.sourceforge.kolmafia.skill.SkillLearner
 import net.sourceforge.kolmafia.skill.SkillManager
 
@@ -226,6 +229,7 @@ object UseItemSideEffectSync {
                 DEPLETED_URANIUM_SEAL -> uraniumSeal()
                 EVIL_EYE -> evilEye()
                 EVILOMETER -> { CryptManager.examineEvilometer(html, preferences); keep() }
+                QUASIRELGIOUS_SCULPTURE, SOLID_GOLD_ROSARY -> cyrptSafer()
                 KEYOTRON -> keyotron()
                 SINISTER_ANCIENT_TABLET -> tablet()
                 in LAMINATED -> laminated()
@@ -239,8 +243,179 @@ object UseItemSideEffectSync {
                 in COSTUMES -> if (contains("You've already got a sexy costume on")) abort("You've already got a sexy costume on.") else consume()
                 BLACK_PAINT -> blackPaint()
                 BURROWGRUB_HIVE -> burrowgrub()
+                TEARS -> { /* Beaten Up removal via UneffectRemovableMaps */ consume() }
+                TELESCOPE -> telescope()
+                WORKYTIME_TEA ->
+                    if (contains("not quite bored enough")) {
+                        abort("You're not bored enough to drink that much tea.")
+                    } else {
+                        consume()
+                    }
+                WARM_SUBJECT -> warmSubject()
+                MINING_OIL, TAINTED_MINING_OIL -> miningOil()
+                DUSTY_ANIMAL_SKULL -> dustySkull()
+                ANCIENT_CURSED_FOOTLOCKER -> cursedChest(SIMPLE_CURSED_KEY)
+                ORNATE_CURSED_CHEST -> cursedChest(ORNATE_CURSED_KEY)
+                GILDED_CURSED_CHEST -> cursedChest(GILDED_CURSED_KEY)
+                STUFFED_CHEST -> cursedChest(STUFFED_KEY)
+                GENERAL_ASSEMBLY_MODULE -> generalAssembly()
+                in BANG_POTIONS -> bangPotion()
+                in SLIME_VIALS -> slimeVial()
+                OUTRAGEOUS_SOMBRERO -> { prefBool("outrageousSombreroUsed"); keep() }
+                NEVERENDING_SODA -> { prefBool("oscusSodaUsed"); keep() }
+                AUGMENTED_DRONE -> augmentedDrone()
+                TRAPEZOID -> trapezoid()
+                PERSONAL_MASSAGER ->
+                    if (contains("don't really need a massage")) keep() else consume()
+                GRUB, MOTH, FIRE_ANT, ICE_ANT, STINKBUG, DEATH_WATCH_BEETLE, LOUSE ->
+                    if (contains("filled with revulsion")) keep() else consume()
+                HONEYPOT -> honeypot()
+                MAID, CLOCKWORK_MAID, MEAT_BUTLER, PORTABLE_HOUSEKEEPING_ROBOT -> maid()
+                SCARECROW, MEAT_GOLEM, BLACK_BLUE_LIGHT, LOUDMOUTH_LARRY, PLASMA_BALL,
+                MEAT_GLOBE, LED_CLOCK, BONSAI_TREE,
+                -> campFurniture()
+                in DWELLINGS -> dwelling()
                 else -> dispatchTail()
             }
+        }
+
+        private fun telescope() {
+            preferences?.setInt("lastTelescopeReset", -1)
+            preferences?.setInt("telescopeUpgrades", preferences.getInt("telescopeUpgrades", 0).coerceAtLeast(1))
+            character?.setCampground(telescopeUpgrades = preferences?.getInt("telescopeUpgrades", 1) ?: 1)
+            consume()
+        }
+
+        private fun warmSubject() {
+            // Desktop multi-use: first ironical shirt consumes only one.
+            if (contains("ironically") && count > 1) {
+                take(itemId, 1)
+                keep()
+            } else {
+                consume()
+            }
+        }
+
+        private fun miningOil() {
+            if (contains("Limiting to 100") && count > 100) {
+                take(itemId, 100)
+                keep()
+            } else {
+                consume()
+            }
+        }
+
+        private fun dustySkull() {
+            if (!contains("Graaangh?")) {
+                abort("You're missing some parts.")
+                return
+            }
+            for (id in 1802 until 1900) take(id)
+            consume()
+        }
+
+        private fun cursedChest(keyId: Int) {
+            if (!has(keyId)) {
+                keep()
+                return
+            }
+            take(keyId)
+            consume()
+        }
+
+        private fun generalAssembly() {
+            if (contains("INSUFFICIENT RESOURCES LOCATED")) {
+                keep()
+                return
+            }
+            when {
+                contains("carrying the  laser cannon") -> {
+                    take(LASER_CANON); take(LASER_TARGETING_CHIP); take(UNOBTAINIUM_STRAPS)
+                    consume()
+                }
+                contains("carrying the  polymorphic fastening apparatus") -> {
+                    take(FASTENING_APPARATUS); take(LEG_ARMOR); take(GLUTEAL_SHIELD)
+                    consume()
+                }
+                contains("carrying the carbonite visor") -> {
+                    take(CARBONITE_VISOR); take(CHIN_STRAP); take(KEVLATEFLOCITE_HELMET)
+                    consume()
+                }
+                else -> consume()
+            }
+        }
+
+        private fun bangPotion() {
+            BangPotionElimination.identifyBangPotion(html, itemId, preferences)
+            if (contains("You decide not to drink it")) keep() else consume()
+        }
+
+        private fun slimeVial() {
+            BangPotionElimination.identifySlimeVial(html, itemId, preferences)
+            consume()
+        }
+
+        private fun maid() {
+            if (contains("You've already got")) {
+                keep()
+                return
+            }
+            val prefs = preferences
+            if (prefs != null) {
+                for (id in MAIDS) CampgroundInventorySync.setItem(prefs, id, 0)
+                CampgroundInventorySync.setItem(prefs, itemId, 1)
+            }
+            consume()
+        }
+
+        private fun campFurniture() {
+            if (contains("You've already got")) {
+                keep()
+                return
+            }
+            preferences?.let { CampgroundInventorySync.setItem(it, itemId, 1) }
+            consume()
+        }
+
+        private fun dwelling() {
+            if (contains("You've already got")) {
+                keep()
+                return
+            }
+            DwellingSync.setCurrentDwelling(preferences, itemId)
+            consume()
+        }
+
+        private fun augmentedDrone() {
+            if (contains("You put an overcharged sphere in the cavity")) {
+                take(OVERCHARGED_POWER_SPHERE)
+            }
+            consume()
+        }
+
+        private fun trapezoid() {
+            if (!contains("you put it on the ground at your campsite")) {
+                keep()
+                return
+            }
+            preferences?.setInt("currentPortalEnergy", 20)
+            preferences?.let { ElVibratoSync.updatePortalTrapezoid(it) }
+            consume()
+        }
+
+        private fun cyrptSafer() {
+            if (contains("entire Cyrpt feels safer")) {
+                UseItemRequestState.markEvilometerRefresh()
+            }
+            consume()
+        }
+
+        private fun honeypot() {
+            preferences?.let {
+                TurnCounter.stopCounting(it, "Bee window begin")
+                TurnCounter.stopCounting(it, "Bee window end")
+            }
+            consume()
         }
 
         private fun dispatchTail() {
@@ -955,6 +1130,98 @@ object UseItemSideEffectSync {
     const val BLACK_PAINT = 2327
     const val BURROWGRUB_HIVE = 3629
     const val AMINO_ACIDS = 4006
+    const val TEARS = 869
+    const val TELESCOPE = 2599
+    const val WORKYTIME_TEA = 4866
+    const val WARM_SUBJECT = 621
+    const val MINING_OIL = 7856
+    const val TAINTED_MINING_OIL = 8017
+    const val DUSTY_ANIMAL_SKULL = 1799
+    const val ANCIENT_CURSED_FOOTLOCKER = 3016
+    const val ORNATE_CURSED_CHEST = 3017
+    const val GILDED_CURSED_CHEST = 3018
+    const val STUFFED_CHEST = 3949
+    const val SIMPLE_CURSED_KEY = 3013
+    const val ORNATE_CURSED_KEY = 3014
+    const val GILDED_CURSED_KEY = 3015
+    const val STUFFED_KEY = 3950
+    const val GENERAL_ASSEMBLY_MODULE = 3075
+    const val LASER_CANON = 3069
+    const val LASER_TARGETING_CHIP = 3076
+    const val UNOBTAINIUM_STRAPS = 3073
+    const val FASTENING_APPARATUS = 3074
+    const val LEG_ARMOR = 3077
+    const val GLUTEAL_SHIELD = 3071
+    const val CARBONITE_VISOR = 3072
+    const val CHIN_STRAP = 3070
+    const val KEVLATEFLOCITE_HELMET = 3078
+    const val MAID = 1000
+    const val CLOCKWORK_MAID = 1113
+    const val MEAT_BUTLER = 11262
+    const val PORTABLE_HOUSEKEEPING_ROBOT = 11377
+    const val SCARECROW = 104
+    const val MEAT_GOLEM = 101
+    const val BLACK_BLUE_LIGHT = 3276
+    const val LOUDMOUTH_LARRY = 3277
+    const val PLASMA_BALL = 3281
+    const val MEAT_GLOBE = 636
+    const val LED_CLOCK = 6072
+    const val BONSAI_TREE = 6120
+    const val OUTRAGEOUS_SOMBRERO = 2548
+    const val NEVERENDING_SODA = 3393
+    const val AUGMENTED_DRONE = 3167
+    const val OVERCHARGED_POWER_SPHERE = 3215
+    const val TRAPEZOID = 3198
+    const val PERSONAL_MASSAGER = 3279
+    const val GRUB = 3356
+    const val MOTH = 3357
+    const val FIRE_ANT = 3358
+    const val ICE_ANT = 3359
+    const val STINKBUG = 3360
+    const val DEATH_WATCH_BEETLE = 3361
+    const val LOUSE = 3362
+    const val HONEYPOT = 5145
+    const val QUASIRELGIOUS_SCULPTURE = 6667
+    const val SOLID_GOLD_ROSARY = 7149
+    const val NEWBIESPORT_TENT = 69
+    const val BARSKIN_TENT = 73
+    const val COTTAGE = 143
+    const val HOUSE = 526
+    const val SANDCASTLE = 3127
+    const val TWIG_HOUSE = 3374
+    const val GINGERBREAD_HOUSE = 4347
+    const val HOBO_FORTRESS = 3416
+    const val BRICKO_PYRAMID = 4485
+    const val GIANT_FARADAY_CAGE = 6668
+    const val SNOW_FORT = 7089
+    const val ELEVENT = 7295
+    const val RESIDENCE_CUBE = 7758
+    const val GIANT_PILGRIM_HAT = 9185
+    const val HOUSE_SIZED_MUSHROOM = 10497
+    const val MINI_KIWI_TIPI = 11600
+
+    private val DWELLINGS = setOf(
+        NEWBIESPORT_TENT,
+        BARSKIN_TENT,
+        COTTAGE,
+        HOUSE,
+        SANDCASTLE,
+        TWIG_HOUSE,
+        GINGERBREAD_HOUSE,
+        HOBO_FORTRESS,
+        BRICKO_PYRAMID,
+        GIANT_FARADAY_CAGE,
+        SNOW_FORT,
+        ELEVENT,
+        RESIDENCE_CUBE,
+        GIANT_PILGRIM_HAT,
+        HOUSE_SIZED_MUSHROOM,
+        MINI_KIWI_TIPI,
+    )
+
+    val MAIDS = setOf(MAID, CLOCKWORK_MAID, MEAT_BUTLER, PORTABLE_HOUSEKEEPING_ROBOT)
+    val BANG_POTIONS = (ItemDatabase.FIRST_BANG_POTION..ItemDatabase.LAST_BANG_POTION).toSet()
+    val SLIME_VIALS = (ItemDatabase.FIRST_SLIME_VIAL until ItemDatabase.LAST_SLIME_VIAL).toSet()
 
     val BRICKO_FIGHTS = setOf(4474, 4475, 4476, 4477, 4478, 4479, 4480, 4481, 4482, 4483, 4484)
     val FOSSIL_SKULLS = setOf(4687, 4688, 4689, 4690, 4704, 4705)

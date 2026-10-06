@@ -19,6 +19,9 @@ class DrinkBoozeRequest(
     private val character: KoLCharacter? = null,
     private val inventoryManager: InventoryManager? = null,
     private val sessionLogger: SessionLogger? = null,
+    private val retrieveItem: (suspend (Int, Int) -> Int)? = null,
+    private val equipmentManager: net.sourceforge.kolmafia.session.EquipmentManager? = null,
+    private val effectManager: net.sourceforge.kolmafia.effect.EffectManager? = null,
 ) {
     suspend fun drink(itemId: Int, quantity: Int = 1): Result<String> =
         consumeDrink(itemId, quantity).fold(
@@ -40,6 +43,33 @@ class DrinkBoozeRequest(
         }
         if (quantity <= 0) {
             return Result.success(ConsumptionRequestOutcome.Completed(0))
+        }
+
+        if (itemId == ICE_STEIN) {
+            val need = quantity
+            val got = retrieveItem?.invoke(ICE_COLD_SIX_PACK, need) ?: 0
+            val have = inventoryManager?.getCount(ICE_COLD_SIX_PACK) ?: got
+            if (have < need && retrieveItem != null) {
+                return Result.success(
+                    ConsumptionRequestOutcome.Aborted(
+                        0,
+                        "Insufficient ice-cold-six-packs available.",
+                    ),
+                )
+            }
+        }
+
+        val autoAbort = ConsumeAutomation.prepareDrink(
+            itemId = itemId,
+            count = quantity,
+            preferences = preferences,
+            character = character,
+            inventory = inventoryManager,
+            equipmentManager = equipmentManager,
+            effectManager = effectManager,
+        )
+        if (autoAbort != null) {
+            return Result.success(ConsumptionRequestOutcome.Aborted(0, autoAbort))
         }
 
         val iterations = iterationCount(itemId, quantity)
@@ -124,6 +154,11 @@ class DrinkBoozeRequest(
     private fun iterationCount(itemId: Int, quantity: Int): Int {
         if (quantity <= 1) return 1
         if (singleConsume(itemId)) return quantity
+        // Desktop sequentialConsume: TPS drinks drink one-at-a-time when inventory is short
+        if (sequentialConsume(itemId)) {
+            val have = inventoryManager?.getCount(itemId) ?: 0
+            if (have < quantity) return quantity
+        }
         return 1
     }
 
@@ -134,6 +169,19 @@ class DrinkBoozeRequest(
 
     companion object {
         private const val ICE_STEIN = 1618
+        private const val ICE_COLD_SIX_PACK = 138
+        const val DIRTY_MARTINI = 948
+        const val GROGTINI = 949
+        const val CHERRY_BOMB = 950
+        const val VESPER = 1023
+        const val BODYSLAM = 1024
+        const val SANGRIA_DEL_DIABLO = 1025
+
+        /** Desktop [DrinkItemRequest.sequentialConsume] — tiny plastic sword drinks. */
+        fun sequentialConsume(itemId: Int): Boolean = when (itemId) {
+            DIRTY_MARTINI, GROGTINI, CHERRY_BOMB, VESPER, BODYSLAM, SANGRIA_DEL_DIABLO -> true
+            else -> false
+        }
 
         /** Desktop [DrinkItemRequest] mime shotglass / flagellate flagon consume side effects. */
         fun parseDrinkHelpers(responseText: String, preferences: Preferences?) {

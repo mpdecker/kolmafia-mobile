@@ -287,7 +287,13 @@ open class UseItemRequest(
                 lastBody = body
                 val redirect = UseItemRedirect.classify(body, response.request.url.toString())
                 if (redirect is UseItemRedirect.Kind.Fight || redirect is UseItemRedirect.Kind.Choice) {
-                    CheckItemRedirection.apply(itemId, preferences, inventoryManager, batch)
+                    CheckItemRedirection.apply(
+                        itemId,
+                        preferences,
+                        inventoryManager,
+                        batch,
+                        urlString = url,
+                    )
                     adventureManagerProvider?.invoke()?.followItemUseRedirect(body)
                     UseItemRequestState.refreshFollowUps(client, preferences)
                     BetweenBattleInvoker.run(true)

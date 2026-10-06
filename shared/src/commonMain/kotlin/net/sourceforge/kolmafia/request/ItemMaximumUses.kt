@@ -5,6 +5,8 @@ import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.character.AscensionPath
 import net.sourceforge.kolmafia.character.CharacterState
 import net.sourceforge.kolmafia.character.EquipmentSlot
+import net.sourceforge.kolmafia.character.ZodiacSign
+import net.sourceforge.kolmafia.data.ConcoctionQueueBudget
 import net.sourceforge.kolmafia.data.ConsumableDatabase
 import net.sourceforge.kolmafia.data.DailyLimitDatabase
 import net.sourceforge.kolmafia.data.DailyLimitKind
@@ -15,6 +17,7 @@ import net.sourceforge.kolmafia.data.ItemPrimaryUse
 import net.sourceforge.kolmafia.data.ModifierDatabase
 import net.sourceforge.kolmafia.data.OutfitDatabase
 import net.sourceforge.kolmafia.data.RestoreDatabase
+import net.sourceforge.kolmafia.data.SpeakeasyDatabase
 import net.sourceforge.kolmafia.equipment.OutfitManager
 import net.sourceforge.kolmafia.inventory.LimitModeGates
 import net.sourceforge.kolmafia.modifiers.ExpressionContext
@@ -35,6 +38,8 @@ data class ItemUseLimitsContext(
     val holiday: String? = null,
     /** Null uses the live September–November check. Tests pass an explicit season. */
     val autumn: Boolean? = null,
+    /** Null uses the live Monday check. Tests pass an explicit weekday. */
+    val monday: Boolean? = null,
     /** Effect names currently on the character. Empty means none are active. */
     val activeEffectNames: Set<String> = emptySet(),
 )
@@ -151,6 +156,9 @@ private fun currentHoliday(ctx: ItemUseLimitsContext): String =
 private fun inAutumn(ctx: ItemUseLimitsContext): Boolean =
     ctx.autumn ?: HolidayCalendar.isAutumn()
 
+private fun isMonday(ctx: ItemUseLimitsContext): Boolean =
+    ctx.monday ?: HolidayCalendar.isMonday()
+
 private fun bittycarUses(ctx: ItemUseLimitsContext, model: String): Int {
     val active = ctx.preferences?.getString("_bittycar") ?: ""
     return if (active == model) 0 else 1
@@ -194,6 +202,25 @@ fun maximumUses(
     }
 
     when (itemId) {
+        TINY_HOUSE, TEARS_ITEM -> {
+            // Desktop: Beaten Up + no HP/MP restore needed → still allow one use.
+            val restoration = restorationCap(itemId, itemName, ctx)
+            if (ctx.activeEffectNames.any { it.equals("Beaten Up", ignoreCase = true) } &&
+                restoration == 0L
+            ) {
+                return 1
+            }
+        }
+        MEDICINAL_HERBS -> {
+            if (restorationCap(itemId, itemName, ctx) > 0L) return 1
+        }
+        FIELD_GAR_POTION -> {
+            if (isMonday(ctx)) return 0
+            if (ctx.activeEffectNames.any { it.equals("Gar-ish", ignoreCase = true) }) return 0
+            return 1
+        }
+        in GREEN_PEAWEE_MARBLE..BLACK_CATSEYE_MARBLE ->
+            return ctx.accessibleCount(itemId) / 2
         DARK_CHOCOLATE_HEART -> {
             if (restorationCap(itemId, itemName, ctx) == 0L) return 0
             DailyLimitDatabase.getEntry(itemId, DailyLimitKind.USE)?.let { entry ->
@@ -242,6 +269,18 @@ fun maximumUses(
             val last = ctx.preferences?.getInt("lastStillBeatingSpleen") ?: -1
             return if (last == ctx.character.ascensionNumber) 0 else 1
         }
+        ANCIENT_CURSED_FOOTLOCKER -> return ctx.accessibleCount(SIMPLE_CURSED_KEY)
+        ORNATE_CURSED_CHEST -> return ctx.accessibleCount(ORNATE_CURSED_KEY)
+        GILDED_CURSED_CHEST -> return ctx.accessibleCount(GILDED_CURSED_KEY)
+        STUFFED_CHEST -> return ctx.accessibleCount(STUFFED_KEY)
+        MAID, CLOCKWORK_MAID, MEAT_BUTLER, PORTABLE_HOUSEKEEPING_ROBOT,
+        SCARECROW, MEAT_GOLEM, MEAT_GLOBE, BLACK_BLUE_LIGHT, LOUDMOUTH_LARRY,
+        PLASMA_BALL, FENG_SHUI, LED_CLOCK, BONSAI_TREE,
+        NEWBIESPORT_TENT, BARSKIN_TENT, COTTAGE, HOUSE, SANDCASTLE, TWIG_HOUSE,
+        GINGERBREAD_HOUSE, HOBO_FORTRESS, BRICKO_PYRAMID, GIANT_FARADAY_CAGE,
+        SNOW_FORT, ELEVENT, RESIDENCE_CUBE, GIANT_PILGRIM_HAT, HOUSE_SIZED_MUSHROOM,
+        MINI_KIWI_TIPI,
+        -> return 1
         in MAYONEX..MAYOFLEX -> {
             if (!CampgroundItemSync.hasWorkshedItem(ctx.preferences, MAYO_CLINIC)) return 0
             val inMouth = ctx.preferences?.getString("mayoInMouth") ?: ""
@@ -327,9 +366,62 @@ private fun unstackableEffectUses(itemId: Int, ctx: ItemUseLimitsContext): Int? 
 }
 
 private const val STEEL_STOMACH = 2742
+private const val STEEL_LIVER = 2743
 private const val MAGICAL_SAUSAGE = 10060
 private const val GHOST_PEPPER = 6468
 private const val SPAGHETTI_BREAKFAST = 6616
+private const val GETS_YOU_DRUNK = 6446
+private const val GREEN_BEER = 1041
+private const val RED_DRUNKI_BEAR = 5482
+private const val GREEN_DRUNKI_BEAR = 5483
+private const val YELLOW_DRUNKI_BEAR = 5484
+private const val MIME_SHOTGLASS = 9676
+private const val VIP_LOUNGE_KEY = 3947
+private const val ICE_STEIN = 1618
+private const val ICE_COLD_SIX_PACK = 138
+private const val ANCIENT_CURSED_FOOTLOCKER = 3016
+private const val ORNATE_CURSED_CHEST = 3017
+private const val GILDED_CURSED_CHEST = 3018
+private const val STUFFED_CHEST = 3949
+private const val SIMPLE_CURSED_KEY = 3013
+private const val ORNATE_CURSED_KEY = 3014
+private const val GILDED_CURSED_KEY = 3015
+private const val STUFFED_KEY = 3950
+private const val MAID = 1000
+private const val CLOCKWORK_MAID = 1113
+private const val MEAT_BUTLER = 11262
+private const val PORTABLE_HOUSEKEEPING_ROBOT = 11377
+private const val SCARECROW = 104
+private const val MEAT_GOLEM = 101
+private const val MEAT_GLOBE = 636
+private const val BLACK_BLUE_LIGHT = 3276
+private const val LOUDMOUTH_LARRY = 3277
+private const val PLASMA_BALL = 3281
+private const val FENG_SHUI = 210
+private const val LED_CLOCK = 6072
+private const val BONSAI_TREE = 6120
+private const val TINY_HOUSE = 592
+private const val TEARS_ITEM = 869
+private const val MEDICINAL_HERBS = 1274
+private const val FIELD_GAR_POTION = 5257
+private const val GREEN_PEAWEE_MARBLE = 4095
+private const val BLACK_CATSEYE_MARBLE = 4104
+private const val NEWBIESPORT_TENT = 69
+private const val BARSKIN_TENT = 73
+private const val COTTAGE = 143
+private const val HOUSE = 526
+private const val SANDCASTLE = 3127
+private const val TWIG_HOUSE = 3374
+private const val GINGERBREAD_HOUSE = 4347
+private const val HOBO_FORTRESS = 3416
+private const val BRICKO_PYRAMID = 4485
+private const val GIANT_FARADAY_CAGE = 6668
+private const val SNOW_FORT = 7089
+private const val ELEVENT = 7295
+private const val RESIDENCE_CUBE = 7758
+private const val GIANT_PILGRIM_HAT = 9185
+private const val HOUSE_SIZED_MUSHROOM = 10497
+private const val MINI_KIWI_TIPI = 11600
 
 private fun eatMaximumUses(
     itemId: Int,
@@ -387,6 +479,7 @@ private fun eatMaximumUses(
     return if (fullness == 0) Int.MAX_VALUE else fullnessLeft / fullness
 }
 
+/** Desktop DrinkItemRequest.maximumUses path/item gates. */
 private fun drinkMaximumUses(
     itemId: Int,
     itemName: String,
@@ -395,10 +488,70 @@ private fun drinkMaximumUses(
     allowOverDrink: Boolean,
 ): Int {
     if (LimitModeGates.limitDrinking(ctx.character.limitMode)) return 0
-    if (!ctx.character.canDrink) return 0
 
-    val inebrietyLeft = ctx.character.inebrietyRemaining
+    if (ctx.character.isGreyGoo) return 1
+
+    if (ctx.character.isJarlsberg &&
+        !JarlsbergianItems.isJarlsbergian(itemId) &&
+        itemId != STEEL_LIVER
+    ) {
+        return 0
+    }
+
+    val notes = ConsumableDatabase.getNotesByName(itemName)
+    if (ctx.character.inKoLHS &&
+        itemId != STEEL_LIVER &&
+        !notes.startsWith("KOLHS")
+    ) {
+        return 0
+    }
+
+    if (ctx.character.inNuclearAutumn &&
+        ConsumableDatabase.getInebrietyByName(itemName) > 1
+    ) {
+        return 0
+    }
+
+    if (ctx.character.ascensionPath == AscensionPath.LICENSE_TO_ADVENTURE &&
+        ItemDatabase.getImage(itemId) != "martini.gif"
+    ) {
+        return 0
+    }
+
+    if (ctx.character.isVampyre) {
+        if (!notes.startsWith("Vampyre")) return 0
+    } else if (notes.startsWith("Vampyre")) {
+        return 0
+    }
+
+    var limit = ctx.character.inebrietyLimit
+    when (itemId) {
+        GETS_YOU_DRUNK -> {
+            if ((ctx.preferences?.getInt("getsYouDrunkTurnsLeft", 0) ?: 0) > 0) return 0
+            return 1
+        }
+        GREEN_BEER -> {
+            if (currentHoliday(ctx).contains("St. Sneaky Pete's Day")) {
+                limit += 10
+            }
+        }
+        RED_DRUNKI_BEAR, GREEN_DRUNKI_BEAR, YELLOW_DRUNKI_BEAR ->
+            return eatMaximumUses(itemId, itemName, fullness = 4, ctx)
+    }
+
+    if (!ctx.character.ascensionPath.canDrink) return 0
+
+    val inebrietyLeft = limit - ctx.character.inebriety
     if (inebrietyLeft < 0) return 0
+
+    var shotglass = 0
+    if (inebriety == 1 &&
+        !ConcoctionQueueBudget.queuedMimeShotglass &&
+        ctx.accessibleCount(MIME_SHOTGLASS) > 0 &&
+        ctx.preferences?.getBoolean("_mimeArmyShotglassUsed", false) != true
+    ) {
+        shotglass = 1
+    }
 
     var maxAvailable = Int.MAX_VALUE
     DailyLimitDatabase.getEntry(itemId, DailyLimitKind.DRINK)?.let { entry ->
@@ -407,13 +560,29 @@ private fun drinkMaximumUses(
         maxAvailable = remaining
     }
 
-    var maxNumber = if (inebriety == 0) Int.MAX_VALUE else inebrietyLeft / inebriety
-    if (allowOverDrink && inebrietyLeft < inebriety && maxNumber != Int.MAX_VALUE) {
+    if (SpeakeasyDatabase.isSpeakeasyDrink(itemId) || SpeakeasyDatabase.isSpeakeasyDrink(itemName)) {
+        if (ZodiacSign.find(ctx.character.zodiacSign)?.isBadMoon == true) return 0
+        if (ctx.accessibleCount(VIP_LOUNGE_KEY) == 0) return 0
+    }
+
+    var overDrink = allowOverDrink
+    if (inebrietyLeft < inebriety) {
+        overDrink = true
+    }
+
+    var maxNumber = if (inebriety == 0) Int.MAX_VALUE else (inebrietyLeft / inebriety) + shotglass
+    if (overDrink && maxNumber != Int.MAX_VALUE) {
         maxNumber++
     }
     if (maxNumber > maxAvailable) {
         maxNumber = maxAvailable
     }
+
+    if (itemId == ICE_STEIN) {
+        val sixpacks = ctx.accessibleCount(ICE_COLD_SIX_PACK)
+        if (maxNumber > sixpacks) return sixpacks
+    }
+
     return maxNumber
 }
 
@@ -424,7 +593,17 @@ private fun spleenMaximumUses(
     ctx: ItemUseLimitsContext,
 ): Int {
     if (LimitModeGates.limitSpleening(ctx.character.limitMode)) return 0
-    if (!ctx.character.canChew) return 0
+
+    // Desktop SpleenItemRequest.maximumUses path gates
+    if (ctx.character.isGreyGoo) return 1
+
+    if (ctx.character.inNuclearAutumn &&
+        ConsumableDatabase.getSpleenByName(itemName) > 1
+    ) {
+        return 0
+    }
+
+    if (!ctx.character.ascensionPath.canChew) return 0
 
     val restorationMaximum = restorationCap(itemId, itemName, ctx)
     val spleenLeft = ctx.character.spleenRemaining

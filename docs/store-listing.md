@@ -1,6 +1,6 @@
 # Store listing pack — KoLmafia Mobile
 
-*Updated 2026-10-04 at runtime revision `phase10090`.*
+*Updated 2026-10-05 at runtime revision `phase10510`.*
 
 Copy suitable for Play Console / App Store Connect and for hosting a public privacy-policy URL.
 This is not an uploaded listing.
@@ -14,18 +14,9 @@ Ready-to-paste files (prefer these over retyping):
 | Title | [`store-listing/title.txt`](store-listing/title.txt) |
 | Short description (≤80 chars) | [`store-listing/short-description.txt`](store-listing/short-description.txt) |
 | Full description | [`store-listing/full-description.txt`](store-listing/full-description.txt) |
-
-### App Store subtitle (≤30 chars)
-
-```
-Unofficial KoL client
-```
-
-### Keywords (App Store, comma-separated)
-
-```
-kol,kingdom of loathing,mafia,ash,rpg,browser game,relay
-```
+| App Store subtitle (≤30 chars) | [`store-listing/subtitle.txt`](store-listing/subtitle.txt) |
+| App Store keywords | [`store-listing/keywords.txt`](store-listing/keywords.txt) |
+| Play Data safety notes | [`store-listing/data-safety-notes.txt`](store-listing/data-safety-notes.txt) |
 
 ---
 
@@ -69,7 +60,7 @@ Game operator privacy practices: refer to Kingdom of Loathing / Asymmetric Publi
 
 Host this section at a stable HTTPS URL and paste that URL into Play Console and App Store Connect.
 
-**Hostable HTML:** [`docs/privacy-policy.html`](privacy-policy.html) is published by [`.github/workflows/pages.yml`](../.github/workflows/pages.yml). Enable **Settings → Pages → Source: GitHub Actions** once. Expected URL:
+**Hostable HTML:** [`docs/privacy-policy.html`](privacy-policy.html) is published by [`.github/workflows/pages.yml`](../.github/workflows/pages.yml). **Live** (HTTP 200 verified 2026-10-05):
 
 `https://mpdecker.github.io/kolmafia-mobile/privacy-policy.html`
 

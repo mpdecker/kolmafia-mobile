@@ -415,6 +415,7 @@ val sharedModule = module {
             inventoryManager = get(),
             sessionLogger = get(),
             retrieveItem = { itemId, qty -> get<RetrieveItemService>().retrieve(itemId, qty) },
+            effectManager = get(),
         )
     }
     single {
@@ -424,6 +425,9 @@ val sharedModule = module {
             character = get(),
             inventoryManager = get(),
             sessionLogger = get(),
+            retrieveItem = { itemId, qty -> get<RetrieveItemService>().retrieve(itemId, qty) },
+            equipmentManager = get(),
+            effectManager = get(),
         )
     }
     single {

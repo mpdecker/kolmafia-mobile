@@ -1,0 +1,9 @@
+Play Console → App content → Data safety (answer sheet):
+
+- Collects user data: Yes — KoL account credentials in transit; optional chat (UGC)
+- Shared with third parties: Kingdom of Loathing only (required for gameplay), not advertisers
+- Encrypted in transit: Yes (HTTPS)
+- Advertising ID: No
+- Play Families: No
+- Data deletion: uninstall / clear app data locally; KoL account via Asymmetric processes
+- See docs/store-listing.md “Play Data safety — answer sheet” for the full table.

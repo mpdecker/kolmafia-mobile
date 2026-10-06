@@ -19,6 +19,21 @@ internal fun GameRuntimeLibrary.registerWebRequests(scope: AshScope) {
         lastVisitPath = fullUrl
         return runBlocking {
             try {
+                val prepared = net.sourceforge.kolmafia.request.PrepareForURL.prepare(
+                    location = url.trimStart('/'),
+                    preferences = preferences,
+                    inventory = inventoryManager,
+                    character = character,
+                    equipmentManager = equipmentManager,
+                )
+                if (!prepared.proceed) {
+                    val body = prepared.responseText.orEmpty()
+                    if (body.isNotBlank()) {
+                        processVisitResponseHooks(body, url = fullUrl)
+                        processVisitQuestHooks(body, url = fullUrl)
+                    }
+                    return@runBlocking body
+                }
                 val response = client.get(fullUrl)
                 val body = response.body<String>()
                 if (body.isNotBlank()) {
@@ -39,6 +54,21 @@ internal fun GameRuntimeLibrary.registerWebRequests(scope: AshScope) {
         ChoiceCombatAshState.setFormFieldsFromPostData(postData)
         return runBlocking {
             try {
+                val prepared = net.sourceforge.kolmafia.request.PrepareForURL.prepare(
+                    location = url.trimStart('/'),
+                    preferences = preferences,
+                    inventory = inventoryManager,
+                    character = character,
+                    equipmentManager = equipmentManager,
+                )
+                if (!prepared.proceed) {
+                    val body = prepared.responseText.orEmpty()
+                    if (body.isNotBlank()) {
+                        processVisitResponseHooks(body, url = fullUrl)
+                        processVisitQuestHooks(body, url = fullUrl)
+                    }
+                    return@runBlocking body
+                }
                 val response = client.submitForm(
                     url = fullUrl,
                     formParameters = Parameters.build {

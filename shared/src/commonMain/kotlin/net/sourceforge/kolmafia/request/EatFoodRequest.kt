@@ -25,6 +25,7 @@ open class EatFoodRequest(
     private val inventoryManager: InventoryManager? = null,
     private val sessionLogger: SessionLogger? = null,
     private val retrieveItem: (suspend (Int, Int) -> Int)? = null,
+    private val effectManager: net.sourceforge.kolmafia.effect.EffectManager? = null,
 ) {
     open suspend fun eat(itemId: Int, quantity: Int = 1): Result<String> =
         consumeFood(itemId, quantity).fold(
@@ -50,6 +51,16 @@ open class EatFoodRequest(
 
         val itemName = ItemDatabase.getItemName(itemId).ifEmpty { "item $itemId" }
         autostockMayoMinder(itemId, itemName, quantity)
+
+        val autoAbort = ConsumeAutomation.prepareEat(
+            itemId = itemId,
+            preferences = preferences,
+            inventory = inventoryManager,
+            effectManager = effectManager,
+        )
+        if (autoAbort != null) {
+            return Result.success(ConsumptionRequestOutcome.Aborted(0, autoAbort))
+        }
 
         val iterations = iterationCount(itemId, quantity)
         var totalConsumed = 0
@@ -311,9 +322,9 @@ open class EatFoodRequest(
             prefs.setInt(key, (prefs.getInt(key, 0) - amount).coerceAtLeast(0))
         }
 
+        /** "too full" is handled in [UseItemConsumptionSync.parseEat] for partial consume math. */
         internal fun isEatAbort(responseText: String): Boolean =
-            responseText.contains("too full", ignoreCase = true) ||
-                responseText.contains("don't feel like eating", ignoreCase = true)
+            responseText.contains("don't feel like eating", ignoreCase = true)
 
         internal fun eatAbortReason(responseText: String): String = when {
             responseText.contains("too full", ignoreCase = true) -> "Consumption limit reached."

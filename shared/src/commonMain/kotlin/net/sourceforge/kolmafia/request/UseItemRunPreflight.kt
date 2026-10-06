@@ -459,5 +459,6 @@ object UseItemRunPreflight {
         7758 to 14, // residence cube
         9185 to 15, // giant pilgrim hat
         10497 to 16, // house-sized mushroom
+        11600 to 17, // mini-kiwi tipi
     )
 }

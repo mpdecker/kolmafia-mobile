@@ -9,6 +9,7 @@ import net.sourceforge.kolmafia.campground.CampgroundItemSync
 import net.sourceforge.kolmafia.http.KOL_BASE_URL
 import net.sourceforge.kolmafia.inventory.InventoryManager
 import net.sourceforge.kolmafia.preferences.Preferences
+import net.sourceforge.kolmafia.session.CryptManager
 
 /**
  * Desktop [UseItemRequest] request-time fields (`lastUrlString`, `lastFruit`,
@@ -34,6 +35,7 @@ object UseItemRequestState {
 
     private var needsIslandRefresh: Boolean = false
     private var needsWorkshedRefresh: Boolean = false
+    private var needsEvilometerRefresh: Boolean = false
 
     fun remember(
         url: String,
@@ -98,6 +100,7 @@ object UseItemRequestState {
     fun clearFollowUps() {
         needsIslandRefresh = false
         needsWorkshedRefresh = false
+        needsEvilometerRefresh = false
     }
 
     fun markIslandRefresh() {
@@ -106,6 +109,11 @@ object UseItemRequestState {
 
     fun markWorkshedRefresh() {
         needsWorkshedRefresh = true
+    }
+
+    /** Desktop queues [UseItemRequest] for EVILOMETER after Cyrpt sculpture/rosary. */
+    fun markEvilometerRefresh() {
+        needsEvilometerRefresh = true
     }
 
     suspend fun refreshFollowUps(client: HttpClient, preferences: Preferences?) {
@@ -127,6 +135,17 @@ object UseItemRequestState {
             }
             if (response.status.isSuccess()) {
                 CampgroundItemSync.syncFromHtml(response.bodyAsText(), prefs)
+            }
+        }
+        if (needsEvilometerRefresh) {
+            needsEvilometerRefresh = false
+            val response = client.get("$KOL_BASE_URL/inv_use.php") {
+                parameter("which", 3)
+                parameter("whichitem", CryptManager.EVILOMETER)
+                parameter("ajax", 1)
+            }
+            if (response.status.isSuccess()) {
+                CryptManager.examineEvilometer(response.bodyAsText(), prefs)
             }
         }
     }

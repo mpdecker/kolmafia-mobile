@@ -52,6 +52,21 @@ class AdventureSpentTracker(private val preferences: Preferences) {
         return turnsByLocation.getOrDefault(locationName, 0)
     }
 
+    /** Desktop AdventureSpentDatabase.setTurns — turkey blaster / similar jump-ahead. */
+    fun setTurns(locationName: String, turns: Int) {
+        ensureLoaded()
+        if (locationName.isBlank()) return
+        val previous = turnsByLocation.getOrDefault(locationName, 0)
+        turnsByLocation[locationName] = turns.coerceAtLeast(0)
+        totalTrackedTurns += turns.coerceAtLeast(0) - previous
+        save()
+    }
+
+    fun addTurns(locationName: String, delta: Int) {
+        if (delta == 0) return
+        setTurns(locationName, getTurns(locationName) + delta)
+    }
+
     fun getTotalTrackedTurns(): Int {
         ensureLoaded()
         return totalTrackedTurns
